@@ -6,8 +6,7 @@ from typing import TYPE_CHECKING, List, Union
 import numpy as np
 
 from srl.base.context import RunContext
-from srl.base.define import RenderModes, SpaceTypes
-from srl.base.exception import UndefinedError
+from srl.base.define import RenderModes
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
@@ -322,25 +321,26 @@ class Rendering(RunCallback):
     ):
         from PIL import Image
 
-        t0 = time.time()
-
-        # --- interval
         if interval <= 0:
             interval = self.render_interval
         if interval <= 0:
             interval = 1000 / 60
 
+        if path[-4:] != ".gif":
+            path += ".gif"
+
+        t0 = time.time()
         images = self.create_images(draw_info)
         image = [Image.fromarray(img_array) for img_array in images]
-
         image[0].save(path, save_all=True, append_images=image[1:], optimize=False, duration=interval, loop=0)
-        logger.info(f"save gif(interval: {interval:.1f}ms, save time {time.time() - t0:.1f}s) {path}")
+        logger.info(f"save gif: interval {interval:.1f}ms, save time {time.time() - t0:.1f}s, {path}")
 
     def save_avi(
         self,
         path: str,
         interval: float = -1,  # ms
         draw_info: bool = True,
+        codec: str = "XVID",
     ):
         import cv2
 
@@ -349,16 +349,33 @@ class Rendering(RunCallback):
         if interval <= 0:
             interval = 1000 / 60
 
+        exts = {
+            "XVID": ".avi",
+            "MJPG": ".avi",
+            "MP4V": ".mov",
+            "H264": ".mp4",
+        }
+        if codec in exts:
+            ext = exts[codec]
+            if path[-4:] != ext:
+                path += ext
+
         images = self.create_images(draw_info)
         images = [cv2.cvtColor(img, cv2.COLOR_BGR2RGB) for img in images]
         capSize = (images[0].shape[1], images[0].shape[0])
         fps = 1000 / interval
 
-        fourcc = cv2.VideoWriter_fourcc(*"XVID")
+        t0 = time.time()
+        fourcc = cv2.VideoWriter_fourcc(*codec)
         writer = cv2.VideoWriter(path, fourcc, fps, capSize)
-        for img in images:
-            writer.write(img)
-        writer.release()
+        try:
+            for img in images:
+                writer.write(img)
+        finally:
+            writer.release()
+        logger.info(
+            f"save animation: codec {codec}, interval {interval:.1f}ms, save time {time.time() - t0:.1f}s, {path}"
+        )
 
     def display(
         self,

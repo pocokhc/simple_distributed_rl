@@ -77,7 +77,7 @@ class EnvRun:
     # ------------------------------------
     def setup(self, context: Optional[RunContext] = None, render_mode: Union[str, RenderModes] = RenderModes.none):
         if context is None:
-            context = RunContext()
+            context = RunContext(self.config, None)
         if render_mode != RenderModes.none:
             context.render_mode = render_mode
 

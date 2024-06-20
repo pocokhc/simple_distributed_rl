@@ -2,22 +2,23 @@ import ctypes
 import logging
 import multiprocessing as mp
 import pickle
+import pprint
 import queue
 import threading
 import time
 import traceback
+from dataclasses import dataclass, field
 from multiprocessing import sharedctypes
-from typing import List, Optional, cast
+from typing import Any, List, cast
 
-import srl
 from srl.base.context import RunContext, RunNameTypes
 from srl.base.define import RLMemoryTypes
 from srl.base.rl.memory import IRLMemoryWorker, RLMemory
 from srl.base.rl.parameter import RLParameter
-from srl.base.run.callback import RunCallback, TrainerCallback
+from srl.base.run import core_play, core_train_only
+from srl.base.run.callback import CallbackType, RunCallback, TrainCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
-from srl.runner.runner import CallbackType, TaskConfig
 
 # from multiprocessing.managers import ValueProxy # ValueProxy[bool] -> ctypes.c_bool
 
@@ -39,6 +40,16 @@ RuntimeError:
     is not going to be frozen to produce an executable.
 
 """
+
+
+@dataclass
+class MpData:
+    context: RunContext
+    callbacks: List[CallbackType] = field(default_factory=list)
+
+    queue_capacity: int = 1000
+    trainer_parameter_send_interval: int = 1  # sec
+    actor_parameter_sync_interval: int = 1  # sec
 
 
 # --------------------
@@ -108,7 +119,7 @@ class _ActorRLMemory(IRLMemoryWorker):
 class _ActorInterrupt(RunCallback):
     def __init__(
         self,
-        remote_board: Optional[ctypes.c_char_p],
+        remote_board: Any,
         parameter: RLParameter,
         end_signal: ctypes.c_bool,
         actor_parameter_sync_interval: int,
@@ -121,10 +132,10 @@ class _ActorInterrupt(RunCallback):
         self.t0 = time.time()
         self.t0_health = time.time()  # [2]
 
-    def on_episodes_begin(self, context: RunContext, state: RunStateActor):
+    def on_episodes_begin(self, context: RunContext, state: RunStateActor, **kwargs):
         state.sync_actor = 0
 
-    def on_step_end(self, context: RunContext, state: RunStateActor) -> bool:
+    def on_step_end(self, context: RunContext, state: RunStateActor, **kwargs) -> bool:
         # [2] 親プロセスの生存確認
         if time.time() - self.t0_health > 5:
             pparent = mp.parent_process()
@@ -149,29 +160,24 @@ class _ActorInterrupt(RunCallback):
 
 
 def _run_actor(
-    task_config: TaskConfig,
+    mp_data: MpData,
     remote_queue: queue.Queue,
     remote_qsize: sharedctypes.Synchronized,
     remote_q_capacity: int,
-    remote_board: Optional[ctypes.c_char_p],
+    remote_board: Any,
     actor_id: int,
-    end_signal: ctypes.c_bool,
+    end_signal: Any,
 ):
     try:
         logger.info(f"[actor{actor_id}] start.")
-        task_config.context.run_name = RunNameTypes.actor
-        task_config.context.actor_id = actor_id
-
-        # --- runner
-        runner = srl.Runner(
-            task_config.env_config,
-            task_config.rl_config,
-            task_config.config,
-            task_config.context,
-        )
+        context = mp_data.context
+        context.run_name = RunNameTypes.actor
+        context.actor_id = actor_id
+        context.set_device()
+        env = context.env_config.make()
 
         # --- parameter
-        parameter = runner.make_parameter(is_load=False)
+        parameter = context.rl_config.make_parameter(env=env, is_load=False)
         params = remote_board.value
         if params is not None:
             parameter.restore(pickle.loads(params), from_cpu=True)
@@ -185,33 +191,40 @@ def _run_actor(
                 remote_q_capacity,
                 end_signal,
                 actor_id,
-                runner.make_memory(is_load=False),
+                context.rl_config.make_memory(env=env, is_load=False),
             ),
         )
 
         # --- callback
-        task_config.callbacks.append(
+        callbacks = [c for c in mp_data.callbacks if issubclass(c.__class__, RunCallback)]
+        callbacks.append(
             _ActorInterrupt(
                 remote_board,
                 parameter,
                 end_signal,
-                task_config.config.actor_parameter_sync_interval,
+                mp_data.actor_parameter_sync_interval,
             )
         )
 
         # --- play
-        runner.context.training = True
-        runner.context.disable_trainer = True
-        runner.context.use_train_thread = False
-        runner.base_run_play(
-            parameter=parameter,
-            memory=memory,
+        context.training = True
+        context.disable_trainer = True
+        context.use_train_thread = False
+        # context.max_episodes = -1
+        # context.max_memory = -1
+        # context.max_steps = -1
+        # context.max_train_count = -1
+        # context.timeout = -1
+        workers, main_worker_idx = context.rl_config.make_workers(context.players, env, parameter, memory)
+        core_play.play(
+            context=context,
+            env=env,
+            workers=workers,
+            main_worker_idx=main_worker_idx,
             trainer=None,
-            workers=None,
-            main_worker_idx=0,
-            callbacks=task_config.callbacks,
-            enable_generator=False,
+            callbacks=cast(List[RunCallback], callbacks),
         )
+
     except MemoryError:
         import gc
 
@@ -268,7 +281,7 @@ def _memory_communicate(
 
 def _parameter_communicate(
     parameter: RLParameter,
-    remote_board: Optional[ctypes.c_char_p],
+    remote_board: Any,
     end_signal: ctypes.c_bool,
     share_dict: dict,
     trainer_parameter_send_interval: int,
@@ -296,7 +309,7 @@ def _parameter_communicate(
         logger.info("[trainer, parameter thread] end")
 
 
-class _TrainerInterrupt(TrainerCallback):
+class _TrainerInterrupt(TrainCallback):
     def __init__(
         self,
         end_signal: ctypes.c_bool,
@@ -310,7 +323,7 @@ class _TrainerInterrupt(TrainerCallback):
         self.parameter_ps = parameter_ps
         self.t0_health = time.time()
 
-    def on_train_after(self, context: RunContext, state: RunStateTrainer) -> bool:
+    def on_train_after(self, context: RunContext, state: RunStateTrainer, **kwargs) -> bool:
         if not state.is_step_trained:
             time.sleep(1)  # warmupなら待機
         if time.time() - self.t0_health > 5:
@@ -325,25 +338,19 @@ class _TrainerInterrupt(TrainerCallback):
 
 
 def _run_trainer(
-    task_config: TaskConfig,
+    mp_data: MpData,
     parameter: RLParameter,
     memory: RLMemory,
     remote_queue: queue.Queue,
     remote_qsize: sharedctypes.Synchronized,
-    remote_board: Optional[Optional[ctypes.c_char_p]],
-    end_signal: ctypes.c_bool,
+    remote_board: Any,
+    end_signal: Any,
 ):
     try:
         logger.info("[trainer] start.")
-        task_config.context.run_name = RunNameTypes.trainer
-
-        # --- runner
-        runner = srl.Runner(
-            task_config.env_config,
-            task_config.rl_config,
-            task_config.config,
-            task_config.context,
-        )
+        context = mp_data.context
+        context.run_name = RunNameTypes.trainer
+        context.set_device()
 
         # --- thread
         share_dict = {
@@ -367,14 +374,15 @@ def _run_trainer(
                 remote_board,
                 end_signal,
                 share_dict,
-                task_config.config.trainer_parameter_send_interval,
+                mp_data.trainer_parameter_send_interval,
             ),
         )
         memory_ps.start()
         parameter_ps.start()
 
-        # --- train
-        task_config.callbacks.append(
+        # --- callback
+        callbacks = [c for c in mp_data.callbacks if issubclass(c.__class__, TrainCallback)]
+        callbacks.append(
             _TrainerInterrupt(
                 end_signal,
                 share_dict,
@@ -382,13 +390,14 @@ def _run_trainer(
                 parameter_ps,
             )
         )
-        runner.context.training = True
-        runner.base_run_play_trainer_only(
-            parameter=parameter,
-            memory=memory,
-            trainer=None,
-            callbacks=task_config.callbacks,
-        )
+
+        # --- train
+        context.training = True
+        context.distributed = True
+        context.train_only = False
+        trainer = context.rl_config.make_trainer(parameter, memory)
+        core_train_only.play_trainer_only(context, trainer, cast(List[TrainCallback], callbacks))
+
         if not end_signal.value:
             end_signal.value = True
             logger.info("[trainer] end_signal=True (trainer end)")
@@ -406,8 +415,25 @@ def _run_trainer(
 __is_set_start_method = False
 
 
-def train(runner: srl.Runner, callbacks: List[CallbackType]):
+def train(
+    mp_data: MpData,
+    parameter: RLParameter,
+    memory: RLMemory,
+    logger_config: bool = False,
+):
     global __is_set_start_method
+    context = mp_data.context
+    context.check_stop_config()
+
+    # --- callbacks ---
+    callbacks = mp_data.callbacks
+    [c.on_start(context) for c in callbacks]
+    # ------------------
+
+    # --- log ---
+    if logger_config:
+        logger.info("--- Context ---" + "\n" + pprint.pformat(context.to_dict()))
+    # ------------
 
     # mp を notebook で実行する場合はrlの定義をpyファイルにする必要あり TODO: それ以外でも動かないような
     # if is_env_notebook() and "__main__" in str(remote_memory_class):
@@ -436,8 +462,6 @@ def train(runner: srl.Runner, callbacks: List[CallbackType]):
             mp.set_start_method("spawn", force=True)
             __is_set_start_method = True
 
-    mp_data = runner.create_task_config(callbacks)
-
     """ note
     - mp.Queue + BaseManager
       - qsizeはmacOSで例外が出る可能性あり(https://docs.python.org/ja/3/library/multiprocessing.html#multiprocessing.Queue)
@@ -453,23 +477,21 @@ def train(runner: srl.Runner, callbacks: List[CallbackType]):
     end_signal = mp.Value(ctypes.c_bool, False)
     with mp.Manager() as manager:
         remote_queue = manager.Queue()
-        remote_board = manager.Value(ctypes.c_char_p, None)
+        remote_board: Any = manager.Value(ctypes.c_char_p, None)
 
         # --- init remote_memory/parameter
-        parameter = runner.make_parameter()
-        memory = runner.make_memory()
         params = parameter.backup(to_cpu=True)
         if params is not None:
             remote_board.set(pickle.dumps(params))
 
         # --- actor ---
         actors_ps_list: List[mp.Process] = []
-        for actor_id in range(runner.context.actor_num):
+        for actor_id in range(context.actor_num):
             params = (
                 mp_data,
                 remote_queue,
                 remote_qsize,
-                mp_data.config.dist_queue_capacity,
+                mp_data.queue_capacity,
                 remote_board,
                 actor_id,
                 end_signal,
@@ -512,3 +534,7 @@ def train(runner: srl.Runner, callbacks: List[CallbackType]):
             else:
                 logger.info(f"[main] actor{i} terminate")
                 w.terminate()
+
+    # --- callbacks ---
+    [c.on_end(context) for c in callbacks]
+    # ------------------

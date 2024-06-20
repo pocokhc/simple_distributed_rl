@@ -1,7 +1,9 @@
 import numpy as np
 
 import srl
+from srl.base.context import RunContext
 from srl.base.run.play import play
+from srl.base.run.play_mp import MpData, train
 from srl.utils import common
 
 # --- env & algorithm load
@@ -17,23 +19,20 @@ def main():
     env = env_config.make()
     parameter = rl_config.make_parameter(env)
     memory = rl_config.make_memory(env)
-    trainer = rl_config.make_trainer(parameter, memory, env)
-    workers = [rl_config.make_worker(env, parameter, memory)]
 
     # --- train
-    context = srl.RunContext(env_config, rl_config)
-    context.max_episodes = 10000
-    context.training = True
-    play(context, env, workers, 0, trainer, logger_config=True)
+    mp_data = MpData(RunContext(env_config, rl_config, max_train_count=10_000))
+    train(mp_data, parameter, memory, logger_config=True)
 
     # --- evaluate
-    context = srl.RunContext(env_config, rl_config)
+    workers = [srl.make_worker(rl_config, env, parameter, memory)]
+    context = RunContext()
     context.max_episodes = 100
     state = play(context, env, workers, 0)
     print(f"Average reward for 100 episodes: {np.mean(state.episode_rewards_list, axis=0)}")
 
     # --- render
-    context = srl.RunContext(env_config, rl_config)
+    context = RunContext()
     context.max_episodes = 1
     context.render_mode = "terminal"
     state = play(context, env, workers, 0)

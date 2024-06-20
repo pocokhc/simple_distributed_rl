@@ -81,7 +81,6 @@ def play_trainer_only(
     callbacks: List[TrainCallback] = [],
 ):
     assert context.training
-    assert context.max_train_count > 0 or context.timeout > 0, "Please specify 'max_train_count' or 'timeout'."
 
     # --- play tf
     if context.enable_tf_device and context.framework == "tensorflow":

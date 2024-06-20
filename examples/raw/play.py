@@ -4,7 +4,6 @@ import numpy as np
 
 import srl
 import srl.rl.random_play
-from srl.base.context import RunContext
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun
@@ -80,49 +79,47 @@ def main():
     rl_config = ql.Config()
 
     # --- make instance
-    env = srl.make_env(env_config)
+    env = env_config.make()
     rl_config.setup(env)
-    parameter = srl.make_parameter(rl_config)
-    memory = srl.make_memory(rl_config)
-    trainer = srl.make_trainer(rl_config, parameter, memory)
+    parameter = rl_config.make_parameter()
+    memory = rl_config.make_memory()
+    trainer = rl_config.make_trainer(parameter, memory)
     workers = [
-        srl.make_worker(rl_config, env, parameter, memory),
-        srl.make_worker_rulebase("random", env),
+        rl_config.make_worker(env, parameter, memory),
+        srl.make_worker("random", env),
     ]
 
     # --- train
-    # set context
-    context = RunContext(training=True)
+    context = srl.RunContext(env_config, rl_config, training=True)
     env.setup(context)
     [w.on_start(context) for w in workers]
-    trainer.train_start(context)
-    # loop
+    trainer.on_start(context)
     for episode in range(10000):
         step, rewards = _run_episode(env, workers, trainer, rendering=False)
         if episode % 1000 == 0:
             print(f"{episode} / 10000 episode, {step} step, {rewards} reward")
+    [w.on_end() for w in workers]
+    trainer.on_end()
 
     # --- evaluate
-    # set context
-    context = RunContext()
+    context = srl.RunContext(env_config, rl_config)
     env.setup(context)
     [w.on_start(context) for w in workers]
-    trainer.train_start(context)
-    # run
+    trainer.on_start(context)
     rewards_list = []
     for episode in range(100):
         _, rewards = _run_episode(env, workers, None, rendering=False)
         rewards_list.append(rewards)
     print(f"Average reward for 100 episodes: {np.mean(rewards_list, axis=0)}")
+    [w.on_end() for w in workers]
+    trainer.on_end()
 
     # --- render
-    # set context
-    context = RunContext(render_mode="terminal")
+    context = srl.RunContext(env_config, rl_config, render_mode="terminal")
     env.setup(context)
     [w.on_start(context) for w in workers]
-    trainer.train_start(context)
-    # run
     _run_episode(env, workers, None, rendering=True)
+    [w.on_end() for w in workers]
 
 
 def play_cpu():
@@ -131,13 +128,13 @@ def play_cpu():
     env_config = srl.EnvConfig("OX")
 
     # make
-    env = srl.make_env(env_config)
-    player = srl.make_worker_rulebase("human", env)
+    env = env_config.make()
+    player = srl.make_worker("human", env)
     cpu = env.make_worker("cpu")
     assert cpu is not None
 
     # set context
-    context = RunContext(render_mode="terminal")
+    context = srl.RunContext(env_config, render_mode="terminal")
     env.setup(context)
     player.on_start(context)
     cpu.on_start(context)
@@ -160,6 +157,10 @@ def play_cpu():
         cpu.on_step()
 
         env.render()
+
+    # end
+    player.on_end()
+    cpu.on_end()
 
 
 if __name__ == "__main__":

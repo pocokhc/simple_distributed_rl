@@ -648,6 +648,47 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             config._is_setup = self._is_setup
         return config
 
+    def make_memory(self, env: Optional[EnvRun] = None, is_load: bool = True):
+        """make_memory(rl_config) と同じ動作"""
+        from srl.base.rl.registration import make_memory
+
+        return make_memory(self, env=env, is_load=is_load)
+
+    def make_parameter(self, env: Optional[EnvRun] = None, is_load: bool = True):
+        """make_parameter(rl_config) と同じ動作"""
+        from srl.base.rl.registration import make_parameter
+
+        return make_parameter(self, env=env, is_load=is_load)
+
+    def make_trainer(self, parameter: "RLParameter", memory: "IRLMemoryTrainer", env: Optional[EnvRun] = None):
+        """make_trainer(rl_config) と同じ動作"""
+        from srl.base.rl.registration import make_trainer
+
+        return make_trainer(self, parameter=parameter, memory=memory, env=env)
+
+    def make_worker(
+        self,
+        env: EnvRun,
+        parameter: Optional["RLParameter"] = None,
+        memory: Optional["IRLMemoryWorker"] = None,
+    ):
+        """make_worker(rl_config) と同じ動作"""
+        from srl.base.rl.registration import make_worker
+
+        return make_worker(self, env=env, parameter=parameter, memory=memory)
+
+    def make_workers(
+        self,
+        players: List[PlayerType],
+        env: EnvRun,
+        parameter: Optional["RLParameter"] = None,
+        memory: Optional["IRLMemoryWorker"] = None,
+    ):
+        """make_workers() と同じ動作"""
+        from srl.base.rl.registration import make_workers
+
+        return make_workers(players, env, rl_config=self, parameter=parameter, memory=memory)
+
 
 @dataclass
 class DummyRLConfig(RLConfig):

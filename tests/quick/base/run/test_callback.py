@@ -39,11 +39,11 @@ def test_callback(mocker: pytest_mock.MockerFixture):
     env_config = srl.EnvConfig("Grid", frameskip=4)
     rl_config = ql.Config()
 
-    env = srl.make_env(env_config)
-    parameter = srl.make_parameter(rl_config, env)
-    memory = srl.make_memory(rl_config, env)
-    trainer = srl.make_trainer(rl_config, parameter, memory)
-    workers, main_worker_idx = srl.make_workers([], env, parameter, memory, rl_config)
+    env = env_config.make()
+    parameter = rl_config.make_parameter(env)
+    memory = rl_config.make_memory(env)
+    trainer = rl_config.make_trainer(parameter, memory)
+    workers, main_worker_idx = rl_config.make_workers([], env, parameter, memory)
     c = mocker.Mock(spec=DummyCallback)
 
     context = RunContext()
@@ -79,10 +79,10 @@ def test_trainer_callback(mocker: pytest_mock.MockerFixture):
     rl_config.memory.warmup_size = 100
     rl_config.batch_size = 1
 
-    env = srl.make_env(env_config)
-    parameter = srl.make_parameter(rl_config, env)
-    memory = srl.make_memory(rl_config, env)
-    workers, main_worker_idx = srl.make_workers([], env, parameter, memory, rl_config)
+    env = env_config.make()
+    parameter = rl_config.make_parameter(env)
+    memory = rl_config.make_memory(env)
+    workers, main_worker_idx = rl_config.make_workers([], env, parameter, memory)
 
     context = RunContext()
     context.training = True
@@ -94,8 +94,8 @@ def test_trainer_callback(mocker: pytest_mock.MockerFixture):
     context = RunContext()
     context.training = True
     context.max_train_count = 10
-    trainer = srl.make_trainer(rl_config, parameter, memory, env=env)
-    c = mocker.Mock(spec=DummyTrainerCallback)
+    trainer = rl_config.make_trainer(parameter, memory, env=env)
+    c = mocker.Mock(spec=DummyTrainCallback)
     play_trainer_only(context, trainer, callbacks=[c])
 
     assert c.on_trainer_start.call_count == 1

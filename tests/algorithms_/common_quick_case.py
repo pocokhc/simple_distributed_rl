@@ -84,7 +84,7 @@ class CommonQuickCase(ABC):
         env_config = srl.EnvConfig("Grid")
         if test_kwargs.get("use_layer_processor", False):
             env_config.kwargs["obs_type"] = "layer"
-        env = srl.make_env(env_config)
+        env = env_config.make()
 
-        parameter = srl.make_parameter(rl_config, env)
+        parameter = rl_config.make_parameter(env)
         parameter.summary()

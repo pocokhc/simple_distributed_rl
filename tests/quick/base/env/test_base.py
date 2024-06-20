@@ -76,7 +76,7 @@ def scope_function():
 
 def test_EnvRun():
     env_config = srl.EnvConfig("base_StubEnv", frameskip=3)
-    env = srl.make_env(env_config)
+    env = env_config.make()
     env_org = cast(StubEnv, env.unwrapped)
 
     with pytest.raises(SRLError):
@@ -102,7 +102,7 @@ def test_EnvRun():
 
 def test_EnvRun_max_steps():
     env_config = srl.EnvConfig("base_StubEnv", max_episode_steps=10)
-    env = srl.make_env(env_config)
+    env = env_config.make()
 
     env.setup(RunContext())
     env.reset()
@@ -119,7 +119,7 @@ def test_EnvRun_max_steps():
 
 def test_EnvRun_timeout():
     env_config = srl.EnvConfig("base_StubEnv", episode_timeout=1)
-    env = srl.make_env(env_config)
+    env = env_config.make()
 
     env.setup(RunContext())
     env.reset()

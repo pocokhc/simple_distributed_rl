@@ -37,7 +37,7 @@ def test_invalid_actions():
     rl_config = DummyRLConfig()
     context = RunContext(env_config, rl_config)
 
-    env = srl.make_env("OX")
+    env = env_config.make()
     worker = WorkerRun(StubWorker(rl_config), env)
 
     context.max_episodes = 10

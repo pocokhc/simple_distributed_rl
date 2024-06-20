@@ -97,8 +97,8 @@ def test_kaggle_connectx():
 
     env = srl.make_env("connectx")
     rl_config.setup(env)
-    parameter = srl.make_parameter(rl_config)
-    remote_memory = srl.make_memory(rl_config)
+    parameter = rl_config.make_parameter()
+    remote_memory = rl_config.make_memory()
     worker = srl.make_worker(rl_config, env, parameter, remote_memory)
 
     def agent(observation, configuration):
@@ -127,8 +127,8 @@ def test_kaggle_connectx_fail():
 
     env = srl.make_env("connectx")
     rl_config.setup(env)
-    parameter = srl.make_parameter(rl_config)
-    remote_memory = srl.make_memory(rl_config)
+    parameter = rl_config.make_parameter()
+    remote_memory = rl_config.make_memory()
     worker = srl.make_worker(rl_config, env, parameter, remote_memory)
 
     def agent(observation, configuration):

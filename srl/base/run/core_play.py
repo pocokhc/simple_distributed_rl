@@ -172,7 +172,7 @@ def _play(
     # --- 3 start
     [w.on_start(context) for w in state.workers]
     if state.trainer is not None:
-        state.trainer.train_start(context)
+        state.trainer.on_start(context)
     state.env.setup(context)
 
     # --- 4 init
@@ -354,7 +354,7 @@ def _play(
         # --- 7 end
         [w.on_end() for w in state.workers]
         if state.trainer is not None:
-            state.trainer.train_end()
+            state.trainer.on_end()
 
         # rewardは学習中は不要
         if not context.training:
@@ -424,7 +424,7 @@ def play_generator(
     # --- 3 start
     [w.on_start(context) for w in state.workers]
     if state.trainer is not None:
-        state.trainer.train_start(context)
+        state.trainer.on_start(context)
     state.env.setup(context)
 
     # --- 4 init
@@ -562,7 +562,7 @@ def play_generator(
     # 7 end
     [w.on_end() for w in state.workers]
     if state.trainer is not None:
-        state.trainer.train_end()
+        state.trainer.on_end()
 
     # rewardは学習中は不要
     if not context.training:

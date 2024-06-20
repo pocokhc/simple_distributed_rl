@@ -52,7 +52,7 @@ class Rendering(RunCallback):
 
         self.mode = RenderModes.from_str(self.mode)
 
-    def on_episodes_begin(self, context: RunContext, state: RunStateActor) -> None:
+    def on_episodes_begin(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         self.render_interval = state.env.set_render_options(
             self.render_interval,
             self.render_scale,
@@ -60,17 +60,17 @@ class Rendering(RunCallback):
             self.font_size,
         )
 
-    def on_step_action_before(self, context: RunContext, state: RunStateActor) -> None:
+    def on_step_action_before(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         self._render_env(context, state)
 
-    def on_step_begin(self, context: RunContext, state: RunStateActor) -> None:
+    def on_step_begin(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         self._render_worker(context, state)
         self._add_image()
 
         if self.step_stop:
             input("Enter to continue:")
 
-    def on_skip_step(self, context: RunContext, state: RunStateActor):
+    def on_skip_step(self, context: RunContext, state: RunStateActor, **kwargs):
         if not self.render_skip_step:
             return
         self._render_env(context, state, True)
@@ -80,7 +80,7 @@ class Rendering(RunCallback):
         self._render_env(context, state)
         self._add_image()
 
-    def on_episodes_end(self, context: RunContext, state: RunStateActor) -> None:
+    def on_episodes_end(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         if self.step_stop:
             input("Enter to continue:")
 

@@ -14,21 +14,21 @@ logger = logging.getLogger(__name__)
 
 
 class _GetRGBCallback(RunCallback):
-    def on_episode_begin(self, context: RunContext, state: RunStateActor):
+    def on_episode_begin(self, context: RunContext, state: RunStateActor, **kwargs):
         self.steps = []
 
-    def on_step_action_before(self, context: RunContext, state: RunStateActor) -> None:
+    def on_step_action_before(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         self._tmp_step_env(context, state)
 
-    def on_step_begin(self, context: RunContext, state: RunStateActor) -> None:
+    def on_step_begin(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         self._tmp_step_worker(context, state)
         self._add_step()
 
-    def on_skip_step(self, context: RunContext, state: RunStateActor) -> None:
+    def on_skip_step(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         self._tmp_step_env(context, state)
         self._add_step(is_skip_step=True)
 
-    def on_episode_end(self, context: RunContext, state: RunStateActor):
+    def on_episode_end(self, context: RunContext, state: RunStateActor, **kwargs):
         self._tmp_step_env(context, state)
         self._tmp_step_worker(context, state)
         self._add_step(is_skip_step=True)

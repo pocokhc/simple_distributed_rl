@@ -8,7 +8,7 @@ import numpy as np
 
 from srl.base.context import RunContext
 from srl.base.rl.parameter import RLParameter
-from srl.base.run.callback import RunCallback, TrainerCallback
+from srl.base.run.callback import RunCallback, TrainCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.callback import RunnerCallback
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
+class PrintProgress(RunCallback, TrainCallback, Evaluate):
     """時間に対して少しずつ長く表示、学習し始めたら長くしていく"""
 
     # mode: str = "simple"
@@ -94,7 +94,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     # -----------------------------------------------------
     # actor
     # -----------------------------------------------------
-    def on_episodes_begin(self, context: RunContext, state: RunStateActor):
+    def on_episodes_begin(self, context: RunContext, state: RunStateActor, **kwargs):
         if context.actor_id >= self.progress_max_actor:
             return
 
@@ -115,12 +115,12 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         self.t0_memory_count = 0
         self.t0_actor_send_q = 0
 
-    def on_episodes_end(self, context: RunContext, state: RunStateActor):
+    def on_episodes_end(self, context: RunContext, state: RunStateActor, **kwargs):
         if context.actor_id >= self.progress_max_actor:
             return
         self._print_actor(context, state)
 
-    def on_step_end(self, context: RunContext, state: RunStateActor):
+    def on_step_end(self, context: RunContext, state: RunStateActor, **kwargs):
         if context.actor_id >= self.progress_max_actor:
             return
         if time.time() - self.progress_t0 > self.progress_timeout:
@@ -128,7 +128,7 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
             self._update_progress()
             self.progress_t0 = time.time()  # last
 
-    def on_episode_end(self, context: RunContext, state: RunStateActor):
+    def on_episode_end(self, context: RunContext, state: RunStateActor, **kwargs):
         if context.actor_id >= self.progress_max_actor:
             return
 
@@ -351,10 +351,10 @@ class PrintProgress(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         self.t0_trainer_recv_q = 0
         self._run_print = False
 
-    def on_trainer_end(self, context: RunContext, state: RunStateTrainer) -> None:
+    def on_trainer_end(self, context: RunContext, state: RunStateTrainer, **kwargs) -> None:
         self._print_trainer(context, state)
 
-    def on_train_after(self, context: RunContext, state: RunStateTrainer) -> bool:
+    def on_train_after(self, context: RunContext, state: RunStateTrainer, **kwargs) -> bool:
         if time.time() - self.progress_t0 > self.progress_timeout:
             self._print_trainer(context, state)
             self._update_progress()

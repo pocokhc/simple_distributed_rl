@@ -696,7 +696,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
 @dataclass
 class DummyRLConfig(RLConfig):
-    name: str = "dummy"
+    name: str = ""
 
     def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.NONE

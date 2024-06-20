@@ -124,12 +124,10 @@ class HistoryOnMemory(RunCallback, TrainCallback, Evaluate):
         d.update(self._read_stats())
 
         # --- eval
-        assert self.runner is not None
-        if self.setup_eval_runner(self.runner):
-            eval_rewards = self.run_eval(state.parameter)
-            if eval_rewards is not None:
-                for i, r in enumerate(eval_rewards):
-                    d[f"eval_reward{i}"] = r
+        eval_rewards = self.run_eval(context.env_config, context.rl_config, state.parameter)
+        if eval_rewards is not None:
+            for i, r in enumerate(eval_rewards):
+                d[f"eval_reward{i}"] = r
 
         self.logs.append(d)
 

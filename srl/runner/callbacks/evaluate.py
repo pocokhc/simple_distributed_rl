@@ -1,13 +1,17 @@
 import logging
 import traceback
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, cast
 
 import numpy as np
 
+from srl.base.context import RunContext, RunNameTypes
 from srl.base.define import PlayerType
+from srl.base.env.config import EnvConfig
+from srl.base.rl.config import RLConfig
 from srl.base.rl.parameter import RLParameter
-from srl.runner.runner import Runner
+from srl.base.run import play
+from srl.base.run.core_play import RunStateActor
 
 logger = logging.getLogger(__name__)
 
@@ -22,28 +26,48 @@ class Evaluate:
     eval_players: List[PlayerType] = field(default_factory=list)
     eval_shuffle_player: bool = False
 
-    _eval_runner: Optional[Runner] = field(init=False, default=None)
+    _context: Optional[RunContext] = field(init=False, default=None)
 
-    def setup_eval_runner(self, runner: Runner) -> bool:
+    def run_eval(self, env_config: EnvConfig, rl_config: RLConfig, parameter: RLParameter) -> Optional[np.ndarray]:
         if not self.enable_eval:
-            return False
-        if self._eval_runner is not None:
-            return True
-        self._eval_runner = runner.create_eval_runner(
-            self.eval_episode,
-            self.eval_timeout,
-            self.eval_max_steps,
-            self.eval_players,
-            self.eval_shuffle_player,
-        )
-        return True
+            return None
+        if self._context is None:
+            context = RunContext()
+            context.players = self.eval_players
+            context.run_name = RunNameTypes.eval
+            # stop
+            context.max_episodes = self.eval_episode
+            context.timeout = self.eval_timeout
+            context.max_steps = self.eval_max_steps
+            context.max_train_count = -1
+            context.max_memory = -1
+            # play config
+            context.shuffle_player = self.eval_shuffle_player
+            context.disable_trainer = True
+            # play info
+            context.distributed = False
+            context.training = False
+            context.rendering = False
+            context.seed = None  # mainと競合するのでNone
+            # thread
+            context.use_train_thread = False
+            self._context = context
 
-    def run_eval(self, parameter: RLParameter) -> Optional[np.ndarray]:
-        if self._eval_runner is None:
+            # --- make instance
+            self._env = env_config.make()
+            self._memory = rl_config.make_memory(is_load=False)
+            self._workers, self._main_worker_idx = rl_config.make_workers(
+                context.players, self._env, parameter, self._memory
+            )
+
+        if self._context is None:
             return None
         try:
-            eval_rewards = self._eval_runner.callback_play_eval(parameter)
-            eval_rewards = np.mean(eval_rewards, axis=0)
+            state = cast(
+                RunStateActor,
+                play.play(self._context, self._env, self._workers, self._main_worker_idx),
+            )
+            eval_rewards = np.mean(state.episode_rewards_list, axis=0)
             return eval_rewards
         except Exception:
             logger.error(traceback.format_exc())

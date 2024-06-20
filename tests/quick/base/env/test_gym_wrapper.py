@@ -394,7 +394,7 @@ def test_wrapper():
 
     wrapper = MyWrapper()
     env_config = srl.EnvConfig("CliffWalking-v0", gym_wrappers=[wrapper], use_gym=True)
-    env = srl.make_env(env_config)
+    env = env_config.make()
     env.setup(RunContext(render_mode="terminal"))
 
     print(env.action_space)

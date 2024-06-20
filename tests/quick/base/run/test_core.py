@@ -140,9 +140,9 @@ def test_play_worker():
         max_steps=2,
         render_mode=RenderModes.terminal,
     )
-    env = srl.make_env(env_config)
-    parameter = srl.make_parameter(rl_config, env)
-    memory = srl.make_memory(rl_config, env)
-    trainer = srl.make_trainer(rl_config, parameter, memory)
-    worker = srl.make_worker(rl_config, env, parameter, memory)
+    env = env_config.make()
+    parameter = rl_config.make_parameter(env)
+    memory = rl_config.make_memory(env)
+    trainer = rl_config.make_trainer(parameter, memory)
+    worker = rl_config.make_worker(env, parameter, memory)
     play(context, env, [worker], 0, trainer)

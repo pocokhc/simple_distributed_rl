@@ -21,7 +21,7 @@ class TestEnv:
             enable_assertion=True,
             **env_config_kwargs,
         )
-        env = srl.make_env(env_config)
+        env = env_config.make()
         assert issubclass(env.__class__, EnvRun), "The way env is created is wrong. (Mainly due to framework side)"
 
         # --- make_worker test

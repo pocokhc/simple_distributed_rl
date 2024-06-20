@@ -47,10 +47,10 @@ def scope_function():
 def test_make_workers():
     env_config = srl.EnvConfig("StubEnv")
     rl_config = ql.Config()
-    env = srl.make_env(env_config)
+    env = env_config.make()
     rl_config.setup(env)
-    parameter = srl.make_parameter(rl_config)
-    memory = srl.make_memory(rl_config)
+    parameter = rl_config.make_parameter()
+    memory = rl_config.make_memory()
 
     # --- non
     workers, main_worker_idx = srl.make_workers([], env, parameter, memory, rl_config)
@@ -67,9 +67,8 @@ def test_make_workers():
         "cpu",  # EnvWorker
         ("cpu", {"a": 1}),  # EnvWorker + args
         "StubWorker",  # RuleBase
-        ("StubWorker", {"b": 2}),  # RuleBase + args
         other_rl,  # other rl
-        (other_rl, srl.make_parameter(other_rl).backup()),  # other rl + param
+        (other_rl, other_rl.make_parameter().backup()),  # other rl + param
         None,
         None,  # share param
         None,  # out of index

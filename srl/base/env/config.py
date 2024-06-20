@@ -30,7 +30,7 @@ class EnvConfig:
     しかし、ユーザが環境のパラメータを変えたい場合、このクラスでパラメータを変更します。
 
     >>> env_config = srl.EnvConfig("Grid")
-    >>> env = srl.make_env(env_config)
+    >>> env = env_config.make()
 
     """
 
@@ -87,8 +87,8 @@ class EnvConfig:
     def __post_init__(self):
         self.override_render_mode: RenderModes = RenderModes.none
 
-    def make_env(self) -> "EnvRun":
-        """環境を生成します。 srl.make_env(env_config) と同じ動作です。"""
+    def make(self) -> "EnvRun":
+        """環境を生成します。 make_env(env_config) と同じ動作です。"""
         from srl.base.env.registration import make
 
         return make(self)

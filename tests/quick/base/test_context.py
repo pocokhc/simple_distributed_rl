@@ -30,7 +30,7 @@ def test_to_dict(framework):
     elif framework == "torch":
         rl_config.set_torch()
 
-    rl_config.setup(srl.make_env(env_config))
+    rl_config.setup(env_config.make())
     c = RunContext()
 
     c.players = [
@@ -38,7 +38,7 @@ def test_to_dict(framework):
         "AAA",
         ("aa", {"bb": "cc"}),
         dqn.Config(),
-        (dqn.Config(), srl.make_parameter(rl_config).backup()),
+        (dqn.Config(), rl_config.make_parameter().backup()),
     ]
     if framework == "tensorflow":
         c.players[3].set_tensorflow()

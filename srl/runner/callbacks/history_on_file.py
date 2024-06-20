@@ -15,10 +15,7 @@ from srl.base.exception import UndefinedError
 from srl.base.run.callback import RunCallback, TrainCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
-from srl.runner.callback import RunnerCallback
 from srl.runner.callbacks.evaluate import Evaluate
-from srl.runner.callbacks.history_viewer import HistoryViewer
-from srl.runner.runner import Runner, RunnerConfig
 from srl.utils.serialize import JsonNumpyEncoder
 
 logger = logging.getLogger(__name__)
@@ -99,7 +96,7 @@ class HistoryOnFileBase:
         fp.write(json.dumps(d, cls=JsonNumpyEncoder) + "\n")
         fp.flush()
 
-    def setup(self, config: RunnerConfig, context: RunContext, env_config, rl_config):
+    def setup(self, context: RunContext):
         import srl
 
         if self.save_dir == "":
@@ -118,10 +115,9 @@ class HistoryOnFileBase:
 
         # --- config
         for fn, dat in [
-            ["env_config.json", env_config.to_dict()],
-            ["rl_config.json", rl_config.to_dict()],
+            ["env_config.json", context.env_config.to_dict()],
+            ["rl_config.json", context.rl_config.to_dict()],
             ["context.json", context.to_dict()],
-            ["config.json", config.to_dict()],
         ]:
             path = os.path.join(self.save_dir, fn)
             with open(path, "w", encoding="utf-8") as f:
@@ -176,26 +172,16 @@ class HistoryOnFile(RunCallback, TrainCallback, Evaluate):
         self._base = HistoryOnFileBase(self.save_dir, self.add_history)
         assert self.interval_mode in ["time", "step"]
 
-    def on_runner_start(self, runner: Runner) -> None:
-        self._base.setup(runner.config, runner.context, runner.env_config, runner.rl_config)
-
-    def on_runner_end(self, runner: Runner) -> None:
-        runner.history_viewer = HistoryViewer()
-        runner.history_viewer.load(self._base.save_dir)
-
-        # 2回目以降は引き継ぐ
-        if runner._history_on_file_kwargs is not None:
-            runner._history_on_file_kwargs["add_history"] = True
+    def on_start(self, context: RunContext, **kwargs) -> None:
+        self._base.setup(context)
 
     # ---------------------------
     # system
     # ---------------------------
-    def _write_system(self):
+    def _write_system(self, context: RunContext):
         if not self._write_system:
             return
-        if self.runner is None:
-            return
-        if not self.runner.config.enable_stats:
+        if not context.enable_stats:
             return
         if not self._base.is_fp("system"):
             return
@@ -205,8 +191,12 @@ class HistoryOnFile(RunCallback, TrainCallback, Evaluate):
             "time": time.time() - self.t0 + self._base.start_time,
         }
 
+        from srl.base.system import psutil_
+        from srl.base.system.pynvml_ import read_nvml
+
         try:
-            memory_percent, cpu_percent = self.runner.read_psutil()
+            memory_percent = psutil_.read_memory()
+            cpu_percent = psutil_.read_cpu()
             if memory_percent != np.NaN:
                 d["system_memory"] = memory_percent
                 d["cpu"] = cpu_percent
@@ -214,7 +204,7 @@ class HistoryOnFile(RunCallback, TrainCallback, Evaluate):
             logger.debug(traceback.format_exc())
 
         try:
-            gpus = self.runner.read_nvml()
+            gpus = read_nvml()
             # device_id, rate.gpu, rate.memory
             for device_id, gpu, memory in gpus:
                 d[f"gpu{device_id}"] = gpu
@@ -248,7 +238,7 @@ class HistoryOnFile(RunCallback, TrainCallback, Evaluate):
     def on_episodes_end(self, context: RunContext, state: RunStateActor, **kwargs):
         if not self._is_immediately_after_writing:
             self._write_actor_log(context, state)
-            self._write_system()
+            self._write_system(context)
         self._base.close()
 
     def on_step_end(self, context: RunContext, state: RunStateActor, **kwargs):
@@ -256,14 +246,14 @@ class HistoryOnFile(RunCallback, TrainCallback, Evaluate):
         if self.interval_mode == "time":
             if time.time() - self.interval0 > self.interval:
                 self._write_actor_log(context, state)
-                self._write_system()
+                self._write_system(context)
                 self._is_immediately_after_writing = True
                 self.interval0 = time.time()  # last
         elif self.interval_mode == "step":
             self.interval0 += 1
             if self.interval0 >= self.interval:
                 self._write_actor_log(context, state)
-                self._write_system()
+                self._write_system(context)
                 self._is_immediately_after_writing = True
                 self.interval0 = 0  # last
         else:
@@ -336,7 +326,7 @@ class HistoryOnFile(RunCallback, TrainCallback, Evaluate):
     def on_trainer_end(self, context: RunContext, state: RunStateTrainer, **kwargs):
         if not self._is_immediately_after_writing:
             self._write_trainer_log(context, state)
-            self._write_system()
+            self._write_system(context)
         self._base.close()
 
     def on_train_after(self, context: RunContext, state: RunStateTrainer, **kwargs) -> bool:
@@ -344,14 +334,14 @@ class HistoryOnFile(RunCallback, TrainCallback, Evaluate):
         if self.interval_mode == "time":
             if time.time() - self.interval0 > self.interval:
                 self._write_trainer_log(context, state)
-                self._write_system()
+                self._write_system(context)
                 self._is_immediately_after_writing = True
                 self.interval0 = time.time()  # last
         elif self.interval_mode == "step":
             self.interval0 += 1
             if self.interval0 >= self.interval:
                 self._write_trainer_log(context, state)
-                self._write_system()
+                self._write_system(context)
                 self._is_immediately_after_writing = True
                 self.interval0 = 0
         else:

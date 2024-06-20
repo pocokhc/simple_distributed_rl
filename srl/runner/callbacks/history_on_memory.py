@@ -10,10 +10,8 @@ from srl.base.exception import UndefinedError
 from srl.base.run.callback import RunCallback, TrainCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
-from srl.runner.callback import RunnerCallback
 from srl.runner.callbacks.evaluate import Evaluate
 from srl.runner.callbacks.history_viewer import HistoryViewer
-from srl.runner.runner import Runner
 
 logger = logging.getLogger(__name__)
 
@@ -23,19 +21,18 @@ class HistoryOnMemory(RunCallback, TrainCallback, Evaluate):
     interval: int = 1
     interval_mode: str = "step"
 
-    def on_runner_end(self, runner: Runner) -> None:
-        runner.history_viewer = HistoryViewer()
-        runner.history_viewer.set_history_on_memory(self, runner)
-
-    def _read_stats(self):
-        assert self.runner is not None
-        if not self.runner.config.enable_stats:
+    def _read_stats(self, context: RunContext):
+        if not context.enable_stats:
             return {}
+
+        from srl.base.system import psutil_
+        from srl.base.system.pynvml_ import read_nvml
 
         d = {}
 
         try:
-            memory_percent, cpu_percent = self.runner.read_psutil()
+            memory_percent = psutil_.read_memory()
+            cpu_percent = psutil_.read_cpu()
             if memory_percent != np.NaN:
                 d["system_memory"] = memory_percent
                 d["cpu"] = cpu_percent
@@ -43,7 +40,7 @@ class HistoryOnMemory(RunCallback, TrainCallback, Evaluate):
             logger.debug(traceback.format_exc())
 
         try:
-            gpus = self.runner.read_nvml()
+            gpus = read_nvml()
             # device_id, rate.gpu, rate.memory
             for device_id, gpu, memory in gpus:
                 d[f"gpu{device_id}"] = gpu
@@ -121,7 +118,7 @@ class HistoryOnMemory(RunCallback, TrainCallback, Evaluate):
                 d[f"trainer_{k}"] = v
 
         # --- system
-        d.update(self._read_stats())
+        d.update(self._read_stats(context))
 
         # --- eval
         eval_rewards = self.run_eval(context.env_config, context.rl_config, state.parameter)
@@ -196,6 +193,6 @@ class HistoryOnMemory(RunCallback, TrainCallback, Evaluate):
             d[f"trainer_{k}"] = v
 
         # --- system
-        d.update(self._read_stats())
+        d.update(self._read_stats(context))
 
         self.logs.append(d)

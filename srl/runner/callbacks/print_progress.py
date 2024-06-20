@@ -11,9 +11,7 @@ from srl.base.rl.parameter import RLParameter
 from srl.base.run.callback import RunCallback, TrainCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
-from srl.runner.callback import RunnerCallback
 from srl.runner.callbacks.evaluate import Evaluate
-from srl.runner.runner import Runner
 from srl.utils.util_str import to_str_env_info, to_str_reward, to_str_time, to_str_trainer_info, to_str_worker_info
 
 logger = logging.getLogger(__name__)
@@ -76,18 +74,18 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
             else:
                 return f"({to_str_reward(eval_rewards[self.progress_worker])}eval)"
 
-    def on_runner_start(self, runner: Runner) -> None:
-        s = f"### env: {runner.env_config.name}, rl: {runner.rl_config.get_name()}"
-        if runner.context.max_episodes > 0:
-            s += f", max episodes: {runner.context.max_episodes}"
-        if runner.context.timeout > 0:
-            s += f", timeout: {to_str_time(runner.context.timeout)}"
-        if runner.context.max_steps > 0:
-            s += f", max steps: {runner.context.max_steps}"
-        if runner.context.max_train_count > 0:
-            s += f", max train: {runner.context.max_train_count}"
-        if runner.context.max_memory > 0:
-            s += f", max memory: {runner.context.max_memory}"
+    def on_start(self, context: RunContext, **kwargs) -> None:
+        s = f"### env: {context.env_config.name}, rl: {context.rl_config.get_name()}"
+        if context.max_episodes > 0:
+            s += f", max episodes: {context.max_episodes}"
+        if context.timeout > 0:
+            s += f", timeout: {to_str_time(context.timeout)}"
+        if context.max_steps > 0:
+            s += f", max steps: {context.max_steps}"
+        if context.max_train_count > 0:
+            s += f", max train: {context.max_train_count}"
+        if context.max_memory > 0:
+            s += f", max memory: {context.max_memory}"
         print(s)
 
     # -----------------------------------------------------
@@ -297,38 +295,40 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
             print("  " + s_info)
         self.progress_history = []
 
-    def _stats_str(self) -> str:
-        if self.runner is None:
-            return ""
-        if not self.runner.config.enable_stats:
+    def _stats_str(self, context: RunContext) -> str:
+        if not context.enable_stats:
             return ""
 
-        # ,CPU100% M100%,GPU0 100% M100%
+        from srl.base.system import psutil_
+        from srl.base.system.pynvml_ import read_nvml
+
         s = " "
-        if self.runner.context.actor_id == 0:
+        if context.actor_id == 0:
             try:
-                memory_percent, cpu_percent = self.runner.read_psutil()
+                memory_percent = psutil_.read_memory()
+                cpu_percent = psutil_.read_cpu()
                 if memory_percent != np.NaN:
                     s += f"[CPU{cpu_percent:3.0f}%,M{memory_percent:2.0f}%]"
             except Exception:
                 logger.debug(traceback.format_exc())
-                s += "[CPU Nan%]"
+                s += "[CPU error]"
 
             try:
-                gpus = self.runner.read_nvml()
+                gpus = read_nvml()
                 # device_id, rate.gpu, rate.memory
                 s += "".join([f"[GPU{g[0]} {g[1]:2.0f}%,M{g[2]:2.0f}%]" for g in gpus])
             except Exception:
                 logger.debug(traceback.format_exc())
-                s += ",GPU Nan%"
+                s += "[GPU error]"
         else:
             try:
-                memory_percent, cpu_percent = self.runner.read_psutil()
+                memory_percent = psutil_.read_memory()
+                cpu_percent = psutil_.read_cpu()
                 if memory_percent != np.NaN:
                     s += f"[CPU{cpu_percent:3.0f}%]"
             except Exception:
                 logger.debug(traceback.format_exc())
-                s += "[CPU Nan%]"
+                s += "[CPU error]"
         return s
 
     # ----------------------------------

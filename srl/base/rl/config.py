@@ -257,12 +257,16 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                 env_obs_space_list.append(env_obs_space)
 
         if self.observation_mode & ObservationModes.RENDER_IMAGE:
+            from srl.base.context import RunContext
+
             env.setup(RunContext(render_mode=RenderModes.rgb_array))
             env.reset()
             rgb_array = env.render_rgb_array()
             env_obs_space_list.append(BoxSpace(rgb_array.shape, 0, 255, np.uint8, SpaceTypes.COLOR))
 
         if self.observation_mode & ObservationModes.RENDER_TERMINAL:
+            from srl.base.context import RunContext
+
             env.setup(RunContext(render_mode=RenderModes.ansi))
             env.reset()
             texts = env.render_ansi()

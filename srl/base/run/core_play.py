@@ -105,21 +105,6 @@ def play(
     trainer: Optional[RLTrainer] = None,
     callbacks: List[RunCallback] = [],
 ):
-    if not context.distributed:
-        assert (
-            context.max_steps > 0
-            or context.max_episodes > 0
-            or context.timeout > 0
-            or context.max_train_count > 0
-            or context.max_memory > 0
-        ), "Please specify 'max_episodes', 'timeout' , 'max_steps' or 'max_train_count' or 'max_memory'."
-        if context.max_memory > 0:
-            memory = workers[main_worker_idx].worker.memory
-            if hasattr(memory, "config"):
-                _m = getattr(memory.config, "memory", None)
-                if _m is not None:
-                    assert context.max_memory <= getattr(_m, "capacity", 0)
-
     # --- check trainer
     if context.disable_trainer:
         trainer = None
@@ -265,7 +250,7 @@ def _play(
                 state.worker_idx = state.worker_indices[state.env.next_player_index]
 
                 # worker reset
-                [w.on_reset(state.worker_indices[i]) for i, w in enumerate(state.workers)]
+                [w.on_reset(state.worker_indices[i], seed=state.episode_seed) for i, w in enumerate(state.workers)]
 
                 # callbacks
                 [c.on_episode_begin(context, state) for c in _calls_on_episode_begin]
@@ -386,14 +371,6 @@ def play_generator(
     callbacks: List[RunCallback] = [],
 ) -> Generator[Tuple[str, RunContext, RunStateActor], None, None]:
     # Generator[YieldType, SendType, ReturnType]
-
-    if not context.distributed:
-        if context.max_memory > 0:
-            memory = workers[main_worker_idx].worker.memory
-            if hasattr(memory, "config"):
-                _m = getattr(memory.config, "memory", None)
-                if _m is not None:
-                    assert context.max_memory <= getattr(_m, "capacity", 0)
 
     # --- check trainer
     if context.disable_trainer:

@@ -205,6 +205,10 @@ class HistoryViewer:
             logger.info(s)
             return
 
+        # --- あるcolumnのみ
+        ylabel_left = [t for t in ylabel_left if t in df.columns]
+        ylabel_right = [t for t in ylabel_right if t in df.columns]
+
         _df = df[[xlabel] + ylabel_left + ylabel_right]
         _df = _df.dropna()
         if len(_df) == 0:

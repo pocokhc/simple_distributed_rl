@@ -234,6 +234,9 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
             self.t0_actor_send_q = state.actor_send_q
             s += f" {state.sync_actor:4d}recv(param)"
 
+        # [system]
+        s += self._stats_str(context)
+
         # [all episode]
         s += f" {state.episode_count:4d}ep"
 
@@ -275,9 +278,6 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
 
             # [eval reward]
             s += self._eval_str(context, state.parameter)
-
-        # [system]
-        s += self._stats_str()
 
         # [info] , 速度優先して一番最新の状態をそのまま表示
         s_info = ""
@@ -416,6 +416,9 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
             self.t0_trainer_recv_q = state.trainer_recv_q
             s += f" {state.sync_trainer:4d}send(param)"
 
+        # [system]
+        s += self._stats_str(context)
+
         # [all train count]
         s += " {:5d}tr".format(train_count)
 
@@ -432,9 +435,6 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
         else:
             # [eval]
             s += self._eval_str(context, state.parameter)
-
-        # [system]
-        s += self._stats_str()
 
         # [info] , 速度優先して一番最新の状態をそのまま表示
         s_info = ""

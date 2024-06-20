@@ -3,7 +3,7 @@ import pickle
 import random
 import time
 import traceback
-from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
+from typing import Any, Callable, List, Optional, Union
 
 import numpy as np
 
@@ -14,9 +14,6 @@ from srl.base.exception import SRLError
 from srl.base.render import Render
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.space import SpaceBase
-
-if TYPE_CHECKING:
-    from srl.base.rl.worker_run import WorkerRun
 
 logger = logging.getLogger(__name__)
 

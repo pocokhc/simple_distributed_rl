@@ -9,7 +9,7 @@ import pytest_timeout  # noqa F401
 import srl
 from srl.algorithms import ql_agent57
 from srl.base.context import RunContext
-from srl.base.run.callback import RunCallback, TrainerCallback
+from srl.base.run.callback import RunCallback, TrainCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.utils import common
@@ -51,11 +51,11 @@ def _run_trainer():
     )
 
 
-class _AssertTrainCallbacks(RunCallback, TrainerCallback):
-    def on_episodes_end(self, context: RunContext, state: RunStateActor) -> None:
+class _AssertTrainCallbacks(RunCallback, TrainCallback):
+    def on_episodes_end(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         assert state.sync_actor > 0
 
-    def on_trainer_end(self, context: RunContext, state: RunStateTrainer) -> None:
+    def on_trainer_end(self, context: RunContext, state: RunStateTrainer, **kwargs) -> None:
         assert state.sync_trainer > 0
 
 

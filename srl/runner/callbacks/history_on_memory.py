@@ -7,7 +7,7 @@ import numpy as np
 
 from srl.base.context import RunContext
 from srl.base.exception import UndefinedError
-from srl.base.run.callback import RunCallback, TrainerCallback
+from srl.base.run.callback import RunCallback, TrainCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.callback import RunnerCallback
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
+class HistoryOnMemory(RunCallback, TrainCallback, Evaluate):
     interval: int = 1
     interval_mode: str = "step"
 
@@ -56,7 +56,7 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     # ---------------------------
     # actor
     # ---------------------------
-    def on_episodes_begin(self, context: RunContext, state: RunStateActor):
+    def on_episodes_begin(self, context: RunContext, state: RunStateActor, **kwargs):
         assert not context.distributed, "Not supported in distributed."
         self.logs = []
         self.t0 = time.time()
@@ -70,11 +70,11 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
 
         self._is_immediately_after_writing = False
 
-    def on_episodes_end(self, context: RunContext, state: RunStateActor):
+    def on_episodes_end(self, context: RunContext, state: RunStateActor, **kwargs):
         if not self._is_immediately_after_writing:
             self._append_infos_for_actor(context, state)
 
-    def on_step_end(self, context: RunContext, state: RunStateActor):
+    def on_step_end(self, context: RunContext, state: RunStateActor, **kwargs):
         self._is_immediately_after_writing = False
         if self.interval_mode == "time":
             if time.time() - self.interval0 > self.interval:
@@ -136,7 +136,7 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     # ---------------------------
     # trainer
     # ---------------------------
-    def on_trainer_start(self, context: RunContext, state: RunStateTrainer):
+    def on_trainer_start(self, context: RunContext, state: RunStateTrainer, **kwargs):
         assert not context.distributed, "Not supported in distributed."
         self.logs = []
         self.t0 = time.time()
@@ -153,11 +153,11 @@ class HistoryOnMemory(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
 
         self._is_immediately_after_writing = False
 
-    def on_trainer_end(self, context: RunContext, state: RunStateTrainer):
+    def on_trainer_end(self, context: RunContext, state: RunStateTrainer, **kwargs):
         if not self._is_immediately_after_writing:
             self._append_infos_for_trainer(context, state)
 
-    def on_train_after(self, context: RunContext, state: RunStateTrainer) -> bool:
+    def on_train_after(self, context: RunContext, state: RunStateTrainer, **kwargs) -> bool:
         self._is_immediately_after_writing = False
         if self.interval_mode == "time":
             if time.time() - self.interval0 > self.interval:

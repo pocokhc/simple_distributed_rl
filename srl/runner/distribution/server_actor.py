@@ -93,11 +93,11 @@ class _ActorInterruptThread(RunCallback):
         self.memory_ps = memory_ps
         self.parameter_ps = parameter_ps
 
-    def on_episodes_begin(self, context: RunContext, state: RunStateActor):
+    def on_episodes_begin(self, context: RunContext, state: RunStateActor, **kwargs):
         state.sync_actor = 0
         self.share_data.sync_count = 0
 
-    def on_step_end(self, context: RunContext, state: RunStateActor) -> bool:
+    def on_step_end(self, context: RunContext, state: RunStateActor, **kwargs) -> bool:
         state.sync_actor = self.share_data.sync_count
         self.share_data.step = state.total_step
         state.actor_send_q = state.memory.length()

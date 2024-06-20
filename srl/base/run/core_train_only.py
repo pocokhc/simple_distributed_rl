@@ -12,7 +12,7 @@ from srl.base.rl.trainer import FLAG_1STEP, RLTrainer
 from srl.utils import common
 from srl.utils.serialize import convert_for_json
 
-from .callback import TrainerCallback
+from .callback import TrainCallback
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ def _train_thread(
 def play_trainer_only(
     context: RunContext,
     trainer: RLTrainer,
-    callbacks: List[TrainerCallback] = [],
+    callbacks: List[TrainCallback] = [],
 ):
     assert context.training
     assert context.max_train_count > 0 or context.timeout > 0, "Please specify 'max_train_count' or 'timeout'."
@@ -97,12 +97,12 @@ def play_trainer_only(
 def _play_trainer_only(
     context: RunContext,
     trainer: RLTrainer,
-    callbacks: List[TrainerCallback],
+    callbacks: List[TrainCallback],
 ):
     state = RunStateTrainer(trainer, trainer.memory, trainer.parameter)
 
     # --- 1 start
-    state.trainer.train_start(context)
+    state.trainer.on_start(context)
 
     # 2 callbacks
     _calls_on_train_before: List[Any] = [c for c in callbacks if hasattr(c, "on_train_before")]
@@ -182,7 +182,7 @@ def _play_trainer_only(
     logger.info(f"loop end({state.end_reason})")
 
     # 4 end
-    state.trainer.train_end()
+    state.trainer.on_end()
 
     # 5 callbacks
     [c.on_trainer_end(context, state) for c in callbacks]

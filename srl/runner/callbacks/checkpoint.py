@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from srl.base.context import RunContext
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.trainer import RLTrainer
-from srl.base.run.callback import RunCallback, TrainerCallback
+from srl.base.run.callback import RunCallback, TrainCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.callback import RunnerCallback
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class Checkpoint(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
+class Checkpoint(RunCallback, TrainCallback, Evaluate):
     save_dir: str = "checkpoints"
     interval: int = 60 * 20  # s
 
@@ -40,7 +40,7 @@ class Checkpoint(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         trains.sort()
         return trains[-1][1]
 
-    def on_runner_start(self, runner: Runner) -> None:
+    def on_start(self, context: RunContext, **kwargs) -> None:
         if not os.path.isdir(self.save_dir):
             os.makedirs(self.save_dir, exist_ok=True)
             logger.info(f"makedirs: {self.save_dir}")
@@ -65,7 +65,7 @@ class Checkpoint(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     # ---------------------------
     # actor
     # ---------------------------
-    def on_episodes_begin(self, context: RunContext, state: RunStateActor):
+    def on_episodes_begin(self, context: RunContext, state: RunStateActor, **kwargs):
         # Trainerがいる場合のみ保存
         if state.trainer is None:
             return
@@ -73,14 +73,14 @@ class Checkpoint(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
         self.interval_t0 = time.time()
         self._save_parameter(state.trainer, state.parameter, is_last=False)
 
-    def on_episode_end(self, context: RunContext, state: RunStateActor):
+    def on_episode_end(self, context: RunContext, state: RunStateActor, **kwargs):
         if state.trainer is None:
             return
         if time.time() - self.interval_t0 > self.interval:
             self._save_parameter(state.trainer, state.parameter, is_last=False)
             self.interval_t0 = time.time()  # last
 
-    def on_episodes_end(self, context: RunContext, state: RunStateActor) -> None:
+    def on_episodes_end(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         if state.trainer is None:
             return
         self._save_parameter(state.trainer, state.parameter, is_last=True)
@@ -88,11 +88,11 @@ class Checkpoint(RunnerCallback, RunCallback, TrainerCallback, Evaluate):
     # ---------------------------
     # trainer
     # ---------------------------
-    def on_trainer_start(self, context: RunContext, state: RunStateTrainer):
+    def on_trainer_start(self, context: RunContext, state: RunStateTrainer, **kwargs):
         self.interval_t0 = time.time()
         self._save_parameter(state.trainer, state.parameter, is_last=False)
 
-    def on_train_before(self, context: RunContext, state: RunStateTrainer):
+    def on_train_before(self, context: RunContext, state: RunStateTrainer, **kwargs):
         if time.time() - self.interval_t0 > self.interval:
             self._save_parameter(state.trainer, state.parameter, is_last=False)
             self.interval_t0 = time.time()  # last

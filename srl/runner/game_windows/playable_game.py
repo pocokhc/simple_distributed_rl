@@ -29,7 +29,7 @@ class _PlayableCallback(RunCallback):
         invalid_actions = [self.env.action_space.encode_to_int(a) for a in self.env.invalid_actions]
         self.valid_actions = [a for a in range(self.action_num) if a not in invalid_actions]
 
-    def on_step_begin(self, context: RunContext, state: RunStateActor) -> None:
+    def on_step_begin(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         state.action = self.env.action_space.decode_from_int(self.action)
 
     def get_env_action(self):

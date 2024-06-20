@@ -7,31 +7,31 @@ import pytest_timeout  # noqa F401
 import srl
 from srl.algorithms import ql, ql_agent57
 from srl.base.context import RunContext
-from srl.base.run.callback import RunCallback, TrainerCallback
+from srl.base.run.callback import RunCallback, TrainCallback
 from srl.base.run.core_play import RunStateActor, play
 from srl.base.run.core_train_only import RunStateTrainer, play_trainer_only
 
 
 class DummyCallback(RunCallback):
-    def on_episode_begin(self, context: RunContext, state: RunStateActor) -> None:
+    def on_episode_begin(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         pass  # do nothing
 
     def on_episode_end(self, context: RunContext, state: RunStateActor) -> None:
         pass  # do nothing
 
-    def on_step_action_before(self, context: RunContext, state: RunStateActor) -> None:
+    def on_step_action_before(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         pass  # do nothing
 
     def on_step_action_after(self, context: RunContext, state: RunStateActor) -> None:
         pass  # do nothing
 
-    def on_step_begin(self, context: RunContext, state: RunStateActor) -> None:
+    def on_step_begin(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         pass  # do nothing
 
     def on_step_end(self, context: RunContext, state: RunStateActor) -> Optional[bool]:
         return False
 
-    def on_skip_step(self, context: RunContext, state: RunStateActor) -> None:
+    def on_skip_step(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         pass  # do nothing
 
 
@@ -64,11 +64,11 @@ def test_callback(mocker: pytest_mock.MockerFixture):
     assert c.on_skip_step.call_count >= 1  # episode終了タイミングで変化する
 
 
-class DummyTrainerCallback(TrainerCallback):
-    def on_train_before(self, context: RunContext, state: RunStateTrainer):
+class DummyTrainCallback(TrainCallback):
+    def on_train_before(self, context: RunContext, state: RunStateTrainer, **kwargs):
         pass
 
-    def on_train_after(self, context: RunContext, state: RunStateTrainer) -> Optional[bool]:
+    def on_train_after(self, context: RunContext, state: RunStateTrainer, **kwargs) -> Optional[bool]:
         return False
 
 

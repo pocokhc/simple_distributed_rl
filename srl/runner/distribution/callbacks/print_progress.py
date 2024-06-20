@@ -5,11 +5,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
-import srl
 from srl.runner.callbacks.evaluate import Evaluate
 from srl.runner.distribution.callback import DistributionCallback
-from srl.runner.distribution.task_manager import TaskManager
-from srl.runner.runner import TaskConfig
+from srl.runner.distribution.task_manager import TaskConfig, TaskManager
 from srl.utils.util_str import to_str_reward, to_str_time
 
 logger = logging.getLogger(__name__)
@@ -34,22 +32,12 @@ class PrintProgress(DistributionCallback, Evaluate):
         return True
 
     def _eval_str(self, task_manager: TaskManager, task_config: TaskConfig) -> str:
-        if self._eval_runner is None:
-            runner = srl.Runner(
-                task_config.env_config,
-                task_config.rl_config,
-                task_config.config,
-                task_config.context,
-            )
-            self.setup_eval_runner(runner)
-        if self._eval_runner is None:
+        parameter = task_manager.create_parameter()
+        if parameter is None:
             return ""
-
-        parameter = self._eval_runner.make_parameter(is_load=False)
-        if not task_manager.read_parameter(parameter):
+        eval_rewards = self.run_eval(task_config.context.env_config, task_config.context.rl_config, parameter)
+        if eval_rewards is None:
             return ""
-
-        eval_rewards = self._eval_runner.callback_play_eval(parameter)
         eval_rewards = np.mean(eval_rewards, axis=0)
         return f"({to_str_reward(eval_rewards[self.eval_worker])}eval)"
 
@@ -132,14 +120,14 @@ class PrintProgress(DistributionCallback, Evaluate):
         else:
             _health_time = (now_utc - task_manager.get_trainer_update_time()).total_seconds()
             s = f" trainer  {trainer_id} {_health_time:4.1f}s:"
-            s += f" {int(diff_train_count/diff_time):5d}tr/s"
+            s += f" {int(diff_train_count / diff_time):5d}tr/s"
 
             # q_recv_count
             q_recv_count = task_manager.get_trainer("q_recv_count")
             q_recv_count = 0 if q_recv_count == "" else int(q_recv_count)
             diff_q_recv_count = q_recv_count - self.t0_trainer_recv_q
             self.t0_trainer_recv_q = q_recv_count
-            s += f",{int(diff_q_recv_count/diff_time):5d}recv/s"
+            s += f",{int(diff_q_recv_count / diff_time):5d}recv/s"
 
             # total
             trainer_train_count = task_manager.get_trainer("train")
@@ -168,14 +156,14 @@ class PrintProgress(DistributionCallback, Evaluate):
                 step = 0 if step == "" else int(step)
                 diff_step = step - self.t0_actor[idx]["step"]
                 self.t0_actor[idx]["step"] = step
-                s += f" {int(diff_step/diff_time):5d}st/s"
+                s += f" {int(diff_step / diff_time):5d}st/s"
 
                 # q_send_count
                 q_send_count = task_manager.get_actor(idx, "q_send_count")
                 q_send_count = 0 if q_send_count == "" else int(q_send_count)
                 diff_q_send_count = q_send_count - self.t0_actor[idx]["q_send_count"]
                 self.t0_actor[idx]["q_send_count"] = q_send_count
-                s += f",{int(diff_q_send_count/diff_time):5d}send/s"
+                s += f",{int(diff_q_send_count / diff_time):5d}send/s"
 
                 # total
                 s += f",{step:8d}st"

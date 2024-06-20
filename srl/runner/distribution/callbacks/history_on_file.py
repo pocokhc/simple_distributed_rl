@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class HistoryOnFile(DistributionCallback, Evaluate):
-    # redisサーバへの情報取得なので、keepalive以上の情報は取得できません
     save_dir: str = ""
     interval: int = 10  # s
     add_history: bool = False
@@ -22,11 +21,9 @@ class HistoryOnFile(DistributionCallback, Evaluate):
         self._base = HistoryOnFileBase(self.save_dir, self.add_history)
 
     def on_start(self, task_manager: TaskManager):
-        task_config = task_manager.get_config()
-        if task_config is not None:
-            self._base.setup(task_config.config, task_config.context, task_config.env_config, task_config.rl_config)
-
-        self.runner = task_manager.create_runner(read_parameter=False)
+        self.task_config = task_manager.get_config()
+        if self.task_config is not None:
+            self._base.setup(self.task_config.context)
 
         self._base.open_fp("client", "client.txt")
         self.interval_t0 = time.time()
@@ -51,11 +48,14 @@ class HistoryOnFile(DistributionCallback, Evaluate):
             "train": task_manager.get_train_count(),
         }
 
-        if self.runner is not None:
-            parameter = self.runner.make_parameter(is_load=False)
-            task_manager.read_parameter(parameter)
-            if self.setup_eval_runner(self.runner):
-                eval_rewards = self.run_eval(parameter)
+        if self.task_config is not None:
+            parameter = task_manager.create_parameter()
+            if parameter is not None:
+                eval_rewards = self.run_eval(
+                    self.task_config.context.env_config,
+                    self.task_config.context.rl_config,
+                    parameter,
+                )
                 if eval_rewards is not None:
                     for i, r in enumerate(eval_rewards):
                         d[f"eval_reward{i}"] = r

@@ -6,24 +6,24 @@ if TYPE_CHECKING:
 
 
 class DistributionCallback(ABC):
-    def on_start(self, task_manager: "TaskManager") -> None:
+    def on_start(self, task_manager: "TaskManager", **kwargs) -> None:
         pass  # do nothing
 
-    def on_polling(self, task_manager: "TaskManager") -> Optional[bool]:
+    def on_end(self, task_manager: "TaskManager", **kwargs) -> None:
+        pass  # do nothing
+
+    def on_polling(self, task_manager: "TaskManager", **kwargs) -> Optional[bool]:
         """If return is True, it will end intermediate stop."""
         return False
 
-    def on_end(self, task_manager: "TaskManager") -> None:
-        pass  # do nothing
-
 
 class ActorServerCallback:
-    def on_polling(self) -> Optional[bool]:
+    def on_polling(self, **kwargs) -> Optional[bool]:
         """If return is True, it will end intermediate stop."""
         return False
 
 
 class TrainerServerCallback:
-    def on_polling(self) -> Optional[bool]:
+    def on_polling(self, **kwargs) -> Optional[bool]:
         """If return is True, it will end intermediate stop."""
         return False

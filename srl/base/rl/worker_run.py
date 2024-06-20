@@ -43,6 +43,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._context = RunContext()
         self._render = Render(worker)
         self._has_start = False
+        self._episode_seed: Optional[int] = None
 
         self._player_index: int = 0
         self._info: dict = {}
@@ -153,6 +154,10 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def total_step(self) -> int:
         return self._total_step
 
+    @property
+    def episode_seed(self) -> Optional[int]:
+        return self._episode_seed
+
     def on_start(self, context: RunContext):
         self._context = context
         self._render.set_render_mode(context.render_mode)
@@ -161,11 +166,16 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._worker.on_start(self, context)
         self._has_start = True
 
-    def on_reset(self, player_index: int) -> None:
+    def on_end(self):
+        self._worker.on_end(self)
+        self._has_start = False
+
+    def on_reset(self, player_index: int, seed: Optional[int] = None) -> None:
         if not self._has_start:
             raise SRLError("Cannot call worker.on_reset() before calling worker.on_start(context)")
 
         self._player_index = player_index
+        self._episode_seed = seed
         self._is_reset = False
 
         if self._config.window_length > 1:
@@ -268,9 +278,6 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def _set_invalid_actions(self):
         self._prev_invalid_actions = self._invalid_actions
         self._invalid_actions = [self.action_encode(a) for a in self._env.get_invalid_actions(self.player_index)]
-
-    def on_end(self):
-        self._worker.on_end(self)
 
     # ------------------------------
     # encode/decode

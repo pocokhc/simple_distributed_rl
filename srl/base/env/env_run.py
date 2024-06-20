@@ -257,6 +257,7 @@ class EnvRun:
             self._info,
             self._t0,
             self._is_direct_step,
+            self._has_start,
             [p.copy() for p in self._processors],
         ]
         data: list = [pickle.dumps(d)]
@@ -278,8 +279,9 @@ class EnvRun:
         self._info = d[8]
         self._t0 = d[9]
         self._is_direct_step = d[10]
+        self._has_start = d[11]
 
-        self._processors = [p.copy() for p in d[11]]
+        self._processors = [p.copy() for p in d[12]]
         self._processors_reset = [c for c in self._processors if hasattr(c, "remap_reset")]
         self._processors_step_action = [c for c in self._processors if hasattr(c, "remap_step_action")]
         self._processors_step = [c for c in self._processors if hasattr(c, "remap_step")]

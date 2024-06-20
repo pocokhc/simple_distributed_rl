@@ -491,22 +491,10 @@ class EnvRun:
     def get_key_bind(self) -> Optional[KeyBindType]:
         return self.env.get_key_bind()
 
-    def make_worker(
-        self,
-        name: str,
-        env_worker_kwargs: dict = {},
-        enable_raise: bool = True,
-    ) -> Optional["WorkerRun"]:
-        env_worker_kwargs = env_worker_kwargs.copy()
-        worker = self.env.make_worker(name, **env_worker_kwargs)
-        if worker is None:
-            if enable_raise:
-                raise ValueError(f"'{name}' worker is not found.")
-            return None
+    def make_worker(self, name: str, worker_kwargs: dict = {}, enable_raise: bool = True):
+        from srl.base.rl.registration import make_env_worker
 
-        from srl.base.rl.worker_run import WorkerRun
-
-        return WorkerRun(worker, self)
+        return make_env_worker(self, name, worker_kwargs, enable_raise)
 
     @property
     def unwrapped(self) -> Any:

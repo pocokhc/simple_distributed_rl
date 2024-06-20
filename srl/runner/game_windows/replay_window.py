@@ -8,7 +8,7 @@ from srl.base.context import RunContext
 from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
 from srl.runner.game_windows.game_window import GameWindow, KeyStatus
-from srl.runner.runner import CallbackType, Runner
+from srl.runner.runner_base import CallbackType, RunnerBase
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ class _GetRGBCallback(RunCallback):
 class RePlayableGame(GameWindow):
     def __init__(
         self,
-        runner: Runner,
+        runner: RunnerBase,
         view_state: bool = True,
         callbacks: List[CallbackType] = [],
         _is_test: bool = False,  # for test
@@ -99,7 +99,7 @@ class RePlayableGame(GameWindow):
             self.episode_data = cache[1]
         else:
             self.runner.context.disable_trainer = True
-            self.runner.base_run_play(
+            self.runner._wrap_base_run(
                 parameter=None,
                 memory=None,
                 trainer=None,
@@ -107,6 +107,7 @@ class RePlayableGame(GameWindow):
                 main_worker_idx=0,
                 callbacks=self.callbacks,
                 enable_generator=False,
+                logger_config=False,
             )
 
             total_rewards = 0

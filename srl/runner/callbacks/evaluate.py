@@ -50,7 +50,7 @@ class Evaluate:
             context.rendering = False
             context.seed = None  # mainと競合するのでNone
             # thread
-            context.use_train_thread = False
+            context.enable_train_thread = False
             self._context = context
 
             # --- make instance

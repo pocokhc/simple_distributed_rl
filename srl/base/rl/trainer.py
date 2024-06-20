@@ -1,5 +1,5 @@
 import logging
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Any, Generic, Optional
 
 from srl.base.context import RunContext
@@ -8,23 +8,13 @@ from srl.base.rl.memory import IRLMemoryTrainer
 
 logger = logging.getLogger(__name__)
 
-FLAG_1STEP = "1STEP"
-
 
 class RLTrainer(ABC, Generic[TConfig, TParameter]):
-    def __init__(
-        self,
-        config: TConfig,
-        parameter: TParameter,
-        memory: IRLMemoryTrainer,
-        distributed: bool = False,
-        train_only: bool = False,
-    ):
+    def __init__(self, config: TConfig, parameter: TParameter, memory: IRLMemoryTrainer):
         self.config = config
         self.parameter = parameter
         self.memory = memory
-        self.__distributed = distributed
-        self.__train_only = train_only
+        self.__context = RunContext()
 
         self.batch_size: int = getattr(self.config, "batch_size", 1)
         self.info: InfoType = {}
@@ -35,51 +25,45 @@ class RLTrainer(ABC, Generic[TConfig, TParameter]):
     def get_train_count(self) -> int:
         return self.train_count
 
-    # --- 3step train
-    def train_setup(self) -> Optional[Any]:
-        # return setup_data
-        return FLAG_1STEP
+    def on_start(self, context: RunContext) -> None:
+        self.__context = context
 
-    @abstractmethod
-    def train(self, setup_data: Any) -> Any:
-        # return run_data
-        raise NotImplementedError()
-
-    def train_teardown(self, run_data: Any) -> None:
+    def on_end(self) -> None:
         pass
 
-    # --- funcs
-    # abstract
-    def train_start(self, context: RunContext) -> None:
-        pass
-
-    # abstract
-    def train_end(self) -> None:
-        pass
-
-    # --- properties
     @property
     def distributed(self) -> bool:
-        return self.__distributed
+        return self.__context.distributed
 
     @property
     def train_only(self) -> bool:
-        return self.__train_only
+        return self.__context.train_only
 
-    # ----------------
-    def core_train(self) -> bool:
-        setup_data = self.train_setup()
-        if setup_data is None:
-            return False
-        _prev_train = self.train_count
-        if setup_data == FLAG_1STEP:
-            run_data = self.train()  # 互換用
-        else:
-            run_data = self.train(setup_data)
-        self.train_teardown(run_data)
-        return self.train_count > _prev_train
+    # --- 1step train
+    def train(self) -> None:
+        raise NotImplementedError()
+
+    # --- 3step train
+    def implement_thread_train(self) -> bool:
+        #: 仮実装なので、これがTrueの場合のみ有効
+        return False
+
+    def thread_train_setup(self) -> Optional[Any]:
+        # return setup_data
+        return None
+
+    def thread_train(self, setup_data: Any) -> Any:
+        # return train_data
+        raise NotImplementedError()
+
+    def thread_train_teardown(self, train_data: Any) -> None:
+        pass
 
 
 class DummyRLTrainer(RLTrainer):
     def train(self) -> None:
         self.train_count += 1
+
+    def thread_train(self, setup_data: Any) -> Any:
+        self.train_count += 1
+        return None

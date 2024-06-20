@@ -52,7 +52,7 @@ class RunContext:
     render_mode: Union[str, RenderModes] = RenderModes.none
 
     # --- thread
-    use_train_thread: bool = False
+    enable_train_thread: bool = False
     thread_queue_capacity: int = 10
 
     # --- mp

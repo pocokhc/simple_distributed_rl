@@ -20,6 +20,12 @@ class Info:
     def __delitem__(self, key):
         del self._data[key]
 
+    def __str__(self) -> str:
+        return str(self._data)
+
+    def to_dict(self):
+        return self._data
+
     def items(self):
         return self._data.items()
 

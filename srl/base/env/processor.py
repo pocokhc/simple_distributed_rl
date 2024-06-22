@@ -29,7 +29,7 @@ class Processor(ABC):
     # def remap_step_action(self, action, env: "EnvRun"):
     #    return action
 
-    # def remap_step(self, state, rewards: List[float], done: Union[bool, DoneTypes], info: InfoType, env: "EnvRun"):
+    # def remap_step(self, state, rewards: List[float], done: Union[bool, DoneTypes], info: dict, env: "EnvRun"):
     #    return state, rewards, done, info
 
     # def remap_step_invalid_actions(self, invalid_actions, env: "EnvRun"):

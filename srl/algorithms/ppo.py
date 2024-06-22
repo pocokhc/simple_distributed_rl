@@ -149,14 +149,6 @@ class Config(
         self.assert_params_memory()
         self.assert_params_framework()
 
-    def get_info_types(self) -> dict:
-        return {
-            "policy_loss": {},
-            "value_loss": {},
-            "entropy_loss": {},
-            "lr": {"data": "last"},
-        }
-
 
 register(
     Config(),
@@ -347,7 +339,6 @@ class Trainer(RLTrainer[Config, Parameter]):
         if self.memory.is_warmup_needed():
             return
         batchs = self.memory.sample()
-        self.info = {}
 
         states = np.asarray([e["state"] for e in batchs])
         advantage = np.asarray([e["discounted_reward"] for e in batchs])[..., np.newaxis]

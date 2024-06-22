@@ -79,7 +79,6 @@ class TestEnv:
         assert (
             0 <= env.next_player_index < player_num
         ), f"next_player_index is out of range. (0 <= {env.next_player_index} < {player_num}) is false."
-        assert isinstance(env.info, dict), "The type of info is not dict."
 
         # --- restore/backup
         if check_restore:
@@ -108,7 +107,6 @@ class TestEnv:
             env.step(action)
             assert env.observation_space.check_val(env.state), f"Checking observation_space failed. state={env.state}"
             assert isinstance(env.done, bool), "The type of done is not bool."
-            assert isinstance(env.info, dict), "The type of info is not dict."
             assert len(env.step_rewards) == player_num, "The number of rewards and players do not match."
             assert env.step_num > 0, "steps not counted.(Mainly due to framework side)"
             if not env.done:

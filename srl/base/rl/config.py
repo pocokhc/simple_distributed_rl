@@ -148,19 +148,6 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     def get_used_backup_restore(self) -> bool:
         return False
 
-    # infoの情報のタイプを指定、出力形式等で使用を想定
-    # 各行の句は省略可能
-    # name : {
-    #   "type": 型を指定(None, int, float, str)
-    #   "data": 以下のデータ形式を指定
-    #   "ave" : 平均値を使用(default)
-    #   "last": 最後のデータを使用
-    #   "min" : 最小値
-    #   "max" : 最大値
-    # }
-    def get_info_types(self) -> dict:
-        return {}  # NotImplemented
-
     # ----------------------------
     # setup
     # ----------------------------

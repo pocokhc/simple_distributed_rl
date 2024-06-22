@@ -8,7 +8,6 @@ from srl.base.define import (
     DoneTypes,
     EnvActionType,
     EnvObservationType,
-    InfoType,
     ObservationModes,
     SpaceTypes,
     TActSpace,
@@ -18,6 +17,7 @@ from srl.base.define import (
 )
 from srl.base.env.env_run import EnvRun
 from srl.base.exception import SRLError
+from srl.base.info import Info
 from srl.base.render import Render
 from srl.base.rl.config import RLConfig
 from srl.base.rl.parameter import RLParameter
@@ -102,7 +102,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return self._player_index
 
     @property
-    def info(self) -> InfoType:
+    def info(self) -> Info:
         return self._worker.info
 
     @property

@@ -9,7 +9,7 @@ from gym import spaces as gym_spaces
 from gym.spaces import flatten, flatten_space
 
 from srl.base import spaces as srl_spaces
-from srl.base.define import DoneTypes, EnvActionType, InfoType, KeyBindType, RenderModes, SpaceTypes
+from srl.base.define import DoneTypes, EnvActionType, KeyBindType, RenderModes, SpaceTypes
 from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.config import EnvConfig
 from srl.utils.common import compare_less_version, is_package_installed
@@ -351,7 +351,7 @@ class GymWrapper(EnvBase):
         state = self.observation_space.sanitize(state)
         return state, info
 
-    def step(self, action: EnvActionType) -> Tuple[np.ndarray, List[float], Union[bool, DoneTypes], InfoType]:
+    def step(self, action: EnvActionType) -> Tuple[np.ndarray, List[float], Union[bool, DoneTypes], dict]:
         if self.use_wrapper_act:
             for w in self.config.gym_wrappers:
                 action = w.action(action, self.env)

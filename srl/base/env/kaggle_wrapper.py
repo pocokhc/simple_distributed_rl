@@ -5,7 +5,7 @@ from typing import Any, List, Tuple, Union, cast
 
 import kaggle_environments
 
-from srl.base.define import EnvActionType, EnvObservationType, InfoType
+from srl.base.define import EnvActionType, EnvObservationType
 from srl.base.env.base import EnvBase
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.algorithms.env_worker import EnvWorker
@@ -78,7 +78,7 @@ class KaggleWrapper(EnvBase):
         _obs.update(obs[self.__player_index]["observation"])
         return _obs
 
-    def step(self, action: EnvActionType) -> Tuple[EnvObservationType, List[float], bool, InfoType]:
+    def step(self, action: EnvActionType) -> Tuple[EnvObservationType, List[float], bool, dict]:
         self.__player_actions[self.__player_index] = action
 
         self.__search_next_player()
@@ -102,7 +102,7 @@ class KaggleWrapper(EnvBase):
             self.__info,
         )
 
-    def direct_step(self, observation, configuration) -> Tuple[bool, EnvObservationType, int, InfoType]:
+    def direct_step(self, observation, configuration) -> Tuple[bool, EnvObservationType, int, dict]:
         return self.encode_obs(observation, configuration)
 
     @property

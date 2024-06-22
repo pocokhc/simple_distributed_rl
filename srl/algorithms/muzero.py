@@ -517,12 +517,10 @@ class Trainer(RLTrainer[Config, Parameter]):
         self.opt_dyn.apply_gradients(zip(grads[2], variables[2]))
 
         self.train_count += 1
-        self.info = {
-            "value_loss": np.mean(value_loss),
-            "policy_loss": np.mean(policy_loss),
-            "reward_loss": np.mean(reward_loss),
-            "loss": loss.numpy(),
-        }
+        self.info["value_loss"] = np.mean(value_loss)
+        self.info["policy_loss"] = np.mean(policy_loss)
+        self.info["reward_loss"] = np.mean(reward_loss)
+        self.info["loss"] = loss.numpy()
 
         # lr_schedule
         if self.lr_sch.update(self.train_count):

@@ -96,14 +96,6 @@ class Config(RLConfig, RLConfigComponentFramework):
         assert self.batch_size <= self.memory_warmup_size
         assert self.temperature >= 0
 
-    def get_info_types(self) -> dict:
-        return {
-            "vae_loss": {},
-            "rc_loss": {},
-            "kl_loss": {},
-            "rnn_loss": {},
-        }
-
 
 register(
     Config(),
@@ -459,13 +451,12 @@ class Trainer(RLTrainer[Config, Parameter]):
         if self.memory.is_warmup_needed():
             return
         batchs = self.memory.sample()
-        self.info = {}
 
         if self.config.train_mode == 1:
-            self.info.update(self._train_vae(batchs))
+            self._train_vae(batchs)
             self.train_count += 1
         elif self.config.train_mode == 2:
-            self.info.update(self._train_rnn(batchs))
+            self._train_rnn(batchs)
             self.train_count += 1
         elif self.config.train_mode == 3:
             params, score = self.memory.c_get()
@@ -518,11 +509,9 @@ class Trainer(RLTrainer[Config, Parameter]):
         if self.lr_sch.update(self.train_count):
             self.optimizer.learning_rate = self.lr_sch.get_rate()
 
-        return {
-            "vae_loss": vae_loss.numpy() - (self.config.kl_tolerance * self.config.z_size),
-            "rc_loss": rc_loss.numpy(),
-            "kl_loss": kl_loss.numpy() - (self.config.kl_tolerance * self.config.z_size),
-        }
+        self.info["vae_loss"] = vae_loss.numpy() - (self.config.kl_tolerance * self.config.z_size)
+        self.info["rc_loss"] = rc_loss.numpy()
+        self.info["kl_loss"] = kl_loss.numpy() - (self.config.kl_tolerance * self.config.z_size)
 
     def _train_rnn(self, batchs):
         states = np.asarray([b["states"] for b in batchs])
@@ -558,7 +547,7 @@ class Trainer(RLTrainer[Config, Parameter]):
         grads = tape.gradient(loss, self.parameter.rnn.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.rnn.trainable_variables))
 
-        return {"rnn_loss": loss.numpy()}
+        self.info["rnn_loss"] = loss.numpy()
 
 
 # ------------------------------------------------------

@@ -37,8 +37,6 @@ RLObservationType = Union[
     List["RLObservationType"],
 ]
 
-# --- info type
-InfoType = Dict[str, Union[float, int, str]]
 
 # --- KyeBind
 # ActionSpace == not Array

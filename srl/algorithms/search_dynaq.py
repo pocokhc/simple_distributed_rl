@@ -369,12 +369,10 @@ class Trainer(RLTrainer[Config, Parameter]):
 
             self.train_count += 1
 
-        self.info = {
-            "size": len(self.parameter.q_ext),
-            "td_error_ext": abs(td_error_ext),
-            "td_error_int": abs(td_error_int),
-            "iteration": self.iteration_num,
-        }
+        self.info["size"] = len(self.parameter.q_ext)
+        self.info["td_error_ext"] = abs(td_error_ext)
+        self.info["td_error_int"] = abs(td_error_int)
+        self.info["iteration"] = self.iteration_num
 
 
 # ------------------------------------------------------

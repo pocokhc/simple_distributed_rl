@@ -318,9 +318,9 @@ class Trainer(RLTrainer[Config, Parameter]):
         batchs = self.memory.sample()
 
         if self.config.enable_overshooting_loss:
-            self.info = self._train_latent_overshooting_loss(batchs)
+            self._train_latent_overshooting_loss(batchs)
         else:
-            self.info = self._train(batchs)
+            self._train(batchs)
 
         self.train_count += 1
 
@@ -423,11 +423,9 @@ class Trainer(RLTrainer[Config, Parameter]):
             self.opt_decode.learning_rate = lr
             self.opt_reward.learning_rate = lr
 
-        return {
-            "img_loss": -image_loss.numpy() / (64 * 64 * 3),
-            "reward_loss": -reward_loss.numpy(),
-            "kl_loss": kl_loss.numpy(),
-        }
+        self.info["img_loss"] = -image_loss.numpy() / (64 * 64 * 3)
+        self.info["reward_loss"] = -reward_loss.numpy()
+        self.info["kl_loss"] = kl_loss.numpy()
 
     def _train_latent_overshooting_loss(self, batchs):
         states = np.asarray([b["states"] for b in batchs], dtype=np.float32)
@@ -531,11 +529,9 @@ class Trainer(RLTrainer[Config, Parameter]):
             self.opt_decode.learning_rate = lr
             self.opt_reward.learning_rate = lr
 
-        return {
-            "img_loss": -image_loss.numpy() / (64 * 64 * 3),
-            "reward_loss": -reward_loss.numpy(),
-            "kl_loss": kl_loss.numpy(),
-        }
+        self.info["img_loss"] = -image_loss.numpy() / (64 * 64 * 3)
+        self.info["reward_loss"] = -reward_loss.numpy()
+        self.info["kl_loss"] = kl_loss.numpy()
 
 
 # ------------------------------------------------------

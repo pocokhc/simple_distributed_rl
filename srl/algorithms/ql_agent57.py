@@ -114,20 +114,6 @@ class Config(RLConfig, RLConfigComponentPriorityExperienceReplay):
         assert self.actor_num > 0
         assert self.multisteps >= 1
 
-    def get_info_types(self) -> dict:
-        return {
-            "size": {"type": int, "data": "last"},
-            "ext_td_error": {},
-            "int_td_error": {},
-            "episodic_reward": {},
-            "lifelong_reward": {},
-            "int_reward": {},
-            "priority": {},
-            "lr_ext": {"data": "last"},
-            "lr_int": {"data": "last"},
-            "epsilon": {"data": "last"},
-        }
-
 
 register(
     Config(),
@@ -301,13 +287,11 @@ class Trainer(RLTrainer[Config, Parameter]):
         # priority = abs(ext_td_error) + batch["beta"] * abs(int_td_error)
         self.memory.update(update_args, np.abs(ext_td_errors))
 
-        self.info = {
-            "size": len(self.parameter.Q_ext),
-            "ext_td_error": float(np.mean(ext_td_errors)),
-            "int_td_error": float(np.mean(int_td_errors)),
-            "lr_ext": lr_ext,
-            "lr_int": lr_int,
-        }
+        self.info["size"] = len(self.parameter.Q_ext)
+        self.info["ext_td_error"] = float(np.mean(ext_td_errors))
+        self.info["int_td_error"] = float(np.mean(int_td_errors))
+        self.info["lr_ext"] = lr_ext
+        self.info["lr_int"] = lr_int
 
 
 # ------------------------------------------------------

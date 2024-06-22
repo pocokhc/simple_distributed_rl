@@ -1,6 +1,6 @@
 # TODO list
 
-// (tensorboard) SRL上でいいI/Fの作成方法が思い浮かばず保留
+// (tensorboard) SRL上でいいI/Fの作成方法が思い浮かばず保留、tensorboardを愚直にいれると遅い
 // (SEED RL) 大量のActor向けなのでいったん見送り
 // (MARL) マルコフ過程みたいなモデルがある？Actor同士の通信方法の定義が見当たらずに保留
 // (jax) batch数(32)ぐらいの量だとnumpyの方が早かったので見送り
@@ -12,8 +12,72 @@
 1. Async-SGD
 1. (distribution)オリジナルrl/env対応
 1. DemoMemory
-1. configのjson保存
 
+a. coreにエピソード単位を追加 ok
+b. memoryを汎用的に
+c. modelの入力を何とかしたい
+d. memoryのbatch_sizeをコンストラクタに
+
+# v0.16.0
+
+**MainUpdates**
+
+・リファクタリングがメインですが規模が大きく細かい仕様が結構変わっています。
+メイン機能には変更ありません。
+・print_progressの出力を見直して見やすくしました。
+
+1. [base] big refactoring: 気になっていた部分を修正、細かい仕様変更等はあるが、メイン機能には変更なし
+    1. config
+      [base.env/rl_config] change: makeをconfigに追加し、いくつかのmakeをsrl.__init__から削除
+    1. [base.run.callback]
+        - change: 将来的な引数の変更に対応するために、引数の最後に**kwargsを追加(現状は影響なし)
+        - new: runner.callback削除に伴い、on_startとon_endをこちらに移動
+        - rename: TrainerCallbackをTrainCallbackにrename
+    1. [base.run] refactoring: runnerの実行部分をbaseに移行
+        - [context]
+            - runner.callbackのon_start/endをbaseに持ってきて、エピソードを含めた一連の流れをbaseで定義したかったのがリファクタした一番大きい理由
+            - new: env_configとrl_configを追加
+            - new: train_onlyを追加
+            - new: actor_devices,enable_stats,seed,device,framework等を追加
+            - remove: contextの移動に合わせて削除: env_config,rl_config,enable_stats,seed,device等々
+            - move: stop用の設定の確認ロジックをcore_playからcontextに移動し、一か所にまとめた
+        - new: base.systemを追加し、Runnerがプロセスの最初にやってた内容をグローバル化（device,psutil,pynvml,memory）
+        - move: runner.core_mp も base.run.play_mp に移行
+        - update: examples.rawコードを更新
+    1. [runner] refactoring、ファイル移動＋修正なのでcommitは汚いです…
+        - [runner] refactoring: 2段階継承にし、facadeを別ファイルに出来るように変更
+        - [runner_base] refactoring: contextの修正+2段階継承用に修正
+    1. [base.rl.registration]
+        - change: rulebaseをなくして統合（同じ扱いに）
+        - change: envのworkerのmakeコードをregistrationに移動し、一か所に
+    1. [base.rl.trainer] update: threadを試験的に追加
+    1. [base.rl.memory]
+        - change: abstractmethodを見直し、最低限のみに
+        - change: config.memoryを削除し、config直下に移動
+            - config.memory.warmup_sizeがconfig.memory_warmup_sizeに変更
+            - config.memory.capacityがconfig.memory_capacityに変更
+            - config.memory.set_〇〇がconfig.set_〇〇に
+        - change: sampleからbatch_size引数を削除
+    1. [base.rl.worker] change: infoを戻り値から変数に変更
+    1. [base.rl.worker_run] change: prev_actionの意味がおかしかったので、self.prev_actionをactionに変更し、prev_actionを追加
+1. [runner.callbacks.print_progress] update: printの表示を見やすく変更
+
+**OtherUpdates**
+
+1. [base.env.env_run] fix: _has_start変数が保存されていなかったので追加
+1. [runner.callbacks.rendering] new: aviの出力をcv2.VideoWriter_fourccが対応しているものに対応
+1. [base.rl.config] update: spaceのログ出力を見やすく変更
+1. [base.rl.worker_run] update: episode_seedを保持するように変更
+1. [base.info] new: Infoクラスを追加し、RLTrainer,RLWorker,EnvRunのinfoを置換
+    - get_info_typesを削除
+1. [diagrams] update
+1. [rl.tf.distributions] change: unimixの仕様を後から変更できるように変更
+1. [base.rl.algorithms] delete: ContinuousActionとDiscreteActionを削除
+
+**Bug Fixes**
+
+1. [runner.callbacks.print_progress] fix: trainが2回以上計算される場合にうまく計算されない不具合修正
+1. [rl.processors] fix: 画像の正規化のタイミングによっては0～1の正規化後でグレー化を試みようとするバグ修正
 
 # v0.15.4
 
@@ -39,7 +103,7 @@
 **Bug Fixes**
 
 1. [base.rl.worker_run] fix: doneを保持するように修正
-
+1. [runner.core_mp] fix: serializeとcompressで速度が低下していたバグ修正
 
 # v0.15.3
 
@@ -372,7 +436,7 @@ RLTrainer（とRLMemory）の変更が一番大きいので、自作でアルゴ
    1. [base] update: RLTrainerのtrainの動作を定義、batch処理だけを train_on_batchs として抜き出し。(自作方法も変わるのでドキュメントも更新)
    1. [base] update: RLTrainerに合わせてRLMemoryを全体的に見直し
       1. [base] rename: RLRemoteMemory -> RLMemoryに名前変更
-      1. capacity,memory.warmup_size,batch_size等をmemoryのハイパーパラメータとして実装
+      1. capacity,memory_warmup_size,batch_size等をmemoryのハイパーパラメータとして実装
       1. is_memory_warmup_needed等train側の処理で必要になる関数を定義
       1. [base] update: Worker側のRLMemoryはIRLMemoryWorkerに変更（addのみを実行）
    1. [base] update: RLWorker周りを見直してアップデート（大きくWorkerBaseをなくしてRLWorkerに統合しました）
@@ -532,7 +596,7 @@ from srl.algorithms import dqn
 
 rl_config = dqn.Config()
 # 関数を呼び出す形で指定
-rl_config.memory.capacity = 10_000  # capacityのみ特別で直接代入(もしかしたら今後関数に変更するかも)
+rl_config.memory_capacity = 10_000  # capacityのみ特別で直接代入(もしかしたら今後関数に変更するかも)
 rl_config.memory.set_proportional_memory(beta_steps=10000)
 rl_config.image_block.set_r2d3_image()
 rl_config.hidden_block.set_mlp(layer_sizes=(512,))

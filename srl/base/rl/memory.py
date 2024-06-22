@@ -3,21 +3,18 @@ import os
 import pickle
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Generic, Optional, TypeVar, cast
+from typing import Any, Generic, Optional, cast
 
-from srl.base.define import RLMemoryTypes
+from srl.base.define import RLMemoryTypes, TConfig
 from srl.base.rl.config import DummyRLConfig, RLConfig
 
 logger = logging.getLogger(__name__)
 
-_TConfig = TypeVar("_TConfig")
-
 
 class _IRLMemoryBase(ABC):
     @property
-    @abstractmethod
     def memory_type(self) -> RLMemoryTypes:
-        raise NotImplementedError()
+        return RLMemoryTypes.UNKNOWN
 
     def length(self) -> int:
         return -1
@@ -28,23 +25,9 @@ class IRLMemoryWorker(_IRLMemoryBase):
     def add(self, *args, serialized: bool = False) -> None:
         raise NotImplementedError()
 
-    @abstractmethod
-    def serialize_add_args(self, *args):
-        """addの引数をpickleできる形に変換"""
-        # return *args
-        raise NotImplementedError()
-
-
-class DummyRLMemoryWorker(IRLMemoryWorker):
-    @property
-    def memory_type(self) -> RLMemoryTypes:
-        return RLMemoryTypes.NONE
-
-    def add(self, *args) -> None:
-        raise NotImplementedError("Unused")
-
     def serialize_add_args(self, *args) -> tuple:
-        raise NotImplementedError("Unused")
+        """addの引数をpickleできる形に変換"""
+        return (args,)
 
 
 class IRLMemoryTrainer(_IRLMemoryBase):
@@ -60,15 +43,13 @@ class IRLMemoryTrainer(_IRLMemoryBase):
         raise NotImplementedError()
 
 
-class RLMemory(IRLMemoryWorker, IRLMemoryTrainer, Generic[_TConfig]):
-    def __init__(self, config: Optional[_TConfig]):
-        self.config: _TConfig = cast(_TConfig, DummyRLConfig() if config is None else config)
+class RLMemory(IRLMemoryWorker, IRLMemoryTrainer, Generic[TConfig]):
+    def __init__(self, config: Optional[TConfig]):
+        self.config: TConfig = cast(TConfig, DummyRLConfig() if config is None else config)
 
-    @abstractmethod
     def call_backup(self, **kwargs) -> Any:
         raise NotImplementedError()
 
-    @abstractmethod
     def call_restore(self, data: Any, **kwargs) -> None:
         raise NotImplementedError()
 
@@ -131,13 +112,17 @@ class RLMemory(IRLMemoryWorker, IRLMemoryTrainer, Generic[_TConfig]):
         logger.info(f"memory loaded (size: {self.length()}, time: {time.time() - t0:.1f}s): {path}")
 
 
+class DummyRLMemoryWorker(IRLMemoryWorker):
+    def add(self, *args) -> None:
+        raise NotImplementedError()
+
+    def serialize_add_args(self, *args) -> tuple:
+        raise NotImplementedError()
+
+
 class DummyRLMemory(RLMemory):
     def __init__(self, config: Optional[RLConfig] = None):
         super().__init__(config)
-
-    @property
-    def memory_type(self) -> RLMemoryTypes:
-        return RLMemoryTypes.NONE
 
     def call_backup(self, **kwargs) -> Any:
         return None

@@ -42,36 +42,34 @@ class _ShareData:
 
 
 class _TrainerRLMemoryThreadPrepareBatch(IRLMemoryTrainer):
-    def __init__(self, base_memory: RLMemory, batch_size: int, share_data: _ShareData):
+    def __init__(self, memory: RLMemory, batch_size: int, share_data: _ShareData):
         # recv,warmup両方threadなので、両方待つ場合は待機
-        self.base_memory = base_memory
+        self.memory = memory
         self.batch_size = batch_size
         self.share_data = share_data
         self.q_batch = queue.Queue()
         self.q_update = queue.Queue()
 
-    @property
-    def memory_type(self) -> RLMemoryTypes:
-        return RLMemoryTypes.NONE
+    def is_wait(self) -> bool:
+        return self.memory.is_warmup_needed() and self.q_update.empty()
 
-    def recv(self, dat) -> None:
-        if dat is not None:
-            self.base_memory.add(*dat, serialized=True)
-        if dat is None and self.base_memory.is_warmup_needed():
-            time.sleep(0.1)
-        if not self.base_memory.is_warmup_needed():
+    def thread_add(self, dat):
+        self.memory.add(*dat, serialized=True)
+
+    def thread_update(self):
+        if not self.memory.is_warmup_needed():
             if self.q_batch.qsize() < 5:
-                self.q_batch.put(self.base_memory.sample(self.batch_size, self.share_data.train_count))
+                self.q_batch.put(self.memory.sample(self.share_data.train_count))
         if not self.q_update.empty():
-            self.base_memory.update(*self.q_update.get())
+            self.memory.update(*self.q_update.get())
 
     def length(self) -> int:
-        return self.base_memory.length()
+        return self.memory.length()
 
     def is_warmup_needed(self) -> bool:
         return self.q_batch.empty()
 
-    def sample(self, batch_size: int, step: int) -> Any:
+    def sample(self, *args) -> Any:
         return self.q_batch.get()
 
     def update(self, *args) -> None:
@@ -91,6 +89,7 @@ def _memory_communicate(
         q_recv_count = 0
 
         if enable_prepare_sample_batch:
+            memory_th = cast(_TrainerRLMemoryThreadPrepareBatch, memory)
             # --- 受信できない場合もsampleを作り続ける
             while not share_data.end_signal:
                 try:
@@ -102,10 +101,14 @@ def _memory_communicate(
                     logger.error(f"Memory recv error: {e}")
                     continue
 
-                cast(_TrainerRLMemoryThreadPrepareBatch, memory).recv(dat)
-                if dat is not None:
+                if (dat is None) and memory_th.is_wait():
+                    time.sleep(0.1)
+                elif dat is not None:
                     q_recv_count += 1
                     share_data.q_recv_count = q_recv_count
+                    memory_th.thread_add(dat)
+                    memory_th.thread_update()
+
         else:
             # --- 受信できなければサーバ側なので少し待つ
             while not share_data.end_signal:

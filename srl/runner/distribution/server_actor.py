@@ -8,7 +8,6 @@ import traceback
 from typing import List, Optional
 
 from srl.base.context import RunContext, RunNameTypes
-from srl.base.define import RLMemoryTypes
 from srl.base.env.env_run import EnvRun
 from srl.base.exception import DistributionError
 from srl.base.rl.memory import IRLMemoryWorker
@@ -51,10 +50,6 @@ class _ActorRLMemoryThread(IRLMemoryWorker):
         self.share_data = share_data
         self.dist_queue_capacity = dist_queue_capacity
         self.base_memory = base_memory
-
-    @property
-    def memory_type(self) -> RLMemoryTypes:
-        return RLMemoryTypes.NONE
 
     def add(self, *args, serialized: bool = False) -> None:
         t0 = time.time()
@@ -218,10 +213,6 @@ class _ActorRLMemoryNoThread(IRLMemoryWorker):
         self.base_memory = base_memory
 
         self.keepalive_t0 = 0
-
-    @property
-    def memory_type(self) -> RLMemoryTypes:
-        return RLMemoryTypes.NONE
 
     def add(self, *args, serialized: bool = False) -> None:
         t0 = time.time()

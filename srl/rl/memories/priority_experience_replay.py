@@ -195,8 +195,8 @@ class PriorityExperienceReplay(RLMemory[RLConfigComponentPriorityExperienceRepla
             batch = zlib.compress(batch, level=self.config.memory_compress_level)
         return (batch, priority)
 
-    def sample(self, step: int) -> Tuple[List[Any], np.ndarray, List[Any]]:
-        batchs, weights, update_args = self.memory.sample(self.config.batch_size, step)
+    def sample(self, step: int, batch_size: int = 0) -> Tuple[List[Any], np.ndarray, List[Any]]:
+        batchs, weights, update_args = self.memory.sample(batch_size if batch_size > 0 else self.config.batch_size, step)
         if self.config.memory_compress:
             batchs = [pickle.loads(zlib.decompress(b)) for b in batchs]
         return batchs, weights, update_args

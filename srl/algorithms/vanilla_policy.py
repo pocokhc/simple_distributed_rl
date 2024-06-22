@@ -1,10 +1,10 @@
 import json
 from dataclasses import dataclass
-from typing import Any, Tuple, Union
+from typing import Any, Union
 
 import numpy as np
 
-from srl.base.define import RLActionType, RLBaseTypes, SpaceTypes
+from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.rl.algorithms.base_vanilla_policy import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
@@ -201,13 +201,12 @@ class Worker(RLWorker[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
 
-    def on_reset(self, worker) -> dict:
+    def on_reset(self, worker):
         self.state = self.config.observation_space.to_str(worker.state)
         self.invalid_actions = worker.get_invalid_actions()
         self.history = []
-        return {}
 
-    def policy(self, worker) -> Tuple[RLActionType, dict]:
+    def policy(self, worker) -> Any:
         self.state = self.config.observation_space.to_str(worker.state)
         self.invalid_actions = worker.get_invalid_actions()
 
@@ -239,11 +238,11 @@ class Worker(RLWorker[Config, Parameter]):
             env_action = np.clip(env_action, act_space.low[0], act_space.high[0])
             env_action = [env_action]  # list float
 
-        return env_action, {}
+        return env_action
 
-    def on_step(self, worker) -> dict:
+    def on_step(self, worker):
         if not self.training:
-            return {}
+            return
         self.history.append(
             [
                 self.state,
@@ -264,8 +263,6 @@ class Worker(RLWorker[Config, Parameter]):
                     "reward": reward,
                 }
                 self.memory.add(batch)
-
-        return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
         if isinstance(self.config.action_space, DiscreteSpace):

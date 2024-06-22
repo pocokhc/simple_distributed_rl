@@ -46,7 +46,6 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._episode_seed: Optional[int] = None
 
         self._player_index: int = 0
-        self._info: dict = {}
         self._prev_state: TObsType = cast(TObsType, [])  # None
         self._state: TObsType = cast(TObsType, [])  # None
         self._prev_action: TActType = cast(TActType, 0)
@@ -104,7 +103,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     @property
     def info(self) -> InfoType:
-        return self._info
+        return self._worker.info
 
     @property
     def prev_state(self) -> TObsType:
@@ -183,7 +182,6 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
                 self._dummy_rl_states_one_step for _ in range(self._config.window_length)
             ]
 
-        self._info = {}
         self._state = self.state_encode(
             self._dummy_rl_states_one_step,
             self._env,
@@ -216,16 +214,14 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
                 append_recent_state=True,
                 is_dummy=False,
             )
-            self._info = self._worker.on_reset(self)
-            if self._info is None:
-                self._info = {}
+            self._worker.on_reset(self)
             self._is_reset = True
         else:
             # 2週目以降は step -> policy
             self._on_step()
 
         # worker policy
-        action, info = self._worker.policy(self)
+        action = self._worker.policy(self)
         self._prev_action = self._action
         self._action = cast(TActType, action)
         if self._config.enable_assertion:
@@ -233,7 +229,6 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         elif self._config.enable_sanitize:
             self._action = self._config.action_space.sanitize(self._action)
         env_action = self.action_decode(self._action)
-        self._info.update(info)
 
         if self._context.rendering:
             self._render.cache_reset()
@@ -270,9 +265,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._reward = self.reward_encode(self._step_reward, self._env)
         self._done = self._env._done
         self._done_reason = self._env._done_reason
-        self._info = self._worker.on_step(self)
-        if self._info is None:
-            self._info = {}
+        self._worker.on_step(self)
         self._step_reward = 0
 
     def _set_invalid_actions(self):

@@ -57,15 +57,15 @@ class RLWorkerGeneric(
     def on_start(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]", context: "RunContext") -> None:
         pass
 
-    def on_reset(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]") -> InfoType:
-        return {}
+    def on_reset(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]") -> None:
+        pass
 
     @abstractmethod
-    def policy(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]") -> Tuple[TActType, InfoType]:
+    def policy(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]") -> TActType:
         raise NotImplementedError()
 
-    def on_step(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]") -> InfoType:
-        return {}
+    def on_step(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]") -> None:
+        pass
 
     def on_end(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]") -> None:
         pass
@@ -148,5 +148,5 @@ class RLWorker(
 
 
 class DummyRLWorker(RLWorker):
-    def policy(self, worker: "WorkerRun") -> Tuple[RLActionType, dict]:
-        return worker.sample_action(), {}
+    def policy(self, worker: "WorkerRun") -> RLActionType:
+        return worker.sample_action()

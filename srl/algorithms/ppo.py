@@ -442,16 +442,15 @@ class Worker(RLWorker[Config, Parameter]):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-    def on_reset(self, worker) -> dict:
+    def on_reset(self, worker):
         self.recent_batch = []
         self.recent_rewards = []
         self.recent_next_states = []
 
         self.v = None
         self.p_dist = None
-        return {}
 
-    def policy(self, worker):
+    def policy(self, worker) -> Any:
         state = worker.state
         if self.config.state_clip is not None:
             state = np.clip(state, self.config.state_clip[0], self.config.state_clip[1])
@@ -491,11 +490,11 @@ class Worker(RLWorker[Config, Parameter]):
         else:
             raise UndefinedError(self.config.action_space)
 
-        return env_action, {}
+        return env_action
 
-    def on_step(self, worker) -> dict:
+    def on_step(self, worker):
         if not self.training:
-            return {}
+            return
 
         reward = worker.reward
 
@@ -544,8 +543,6 @@ class Worker(RLWorker[Config, Parameter]):
 
             else:
                 raise UndefinedError(self.config.experience_collection_method)
-
-        return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
         # policy -> render -> env.step

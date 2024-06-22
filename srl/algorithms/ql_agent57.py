@@ -2,11 +2,10 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Tuple, Union
+from typing import Any, Union
 
 import numpy as np
 
-from srl.base.define import InfoType
 from srl.base.rl.algorithms.base_ql import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
@@ -332,7 +331,7 @@ class Worker(RLWorker[Config, Parameter]):
         self.ucb_actors_count = [1 for _ in range(self.config.actor_num)]  # 1回は保証
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
-    def on_reset(self, worker) -> InfoType:
+    def on_reset(self, worker):
         state = self.config.observation_space.to_str(worker.state)
 
         if self.training:
@@ -373,8 +372,6 @@ class Worker(RLWorker[Config, Parameter]):
         # エピソード内での訪問回数
         self.episodic_C = {}
 
-        return {}
-
     # (sliding-window UCB)
     def _calc_actor_index(self) -> int:
         # UCB計算用に保存
@@ -413,7 +410,7 @@ class Worker(RLWorker[Config, Parameter]):
         # UCB値最大のポリシー（複数あればランダム）
         return np.random.choice(np.where(ucbs == np.max(ucbs))[0])
 
-    def policy(self, worker) -> Tuple[int, InfoType]:
+    def policy(self, worker) -> int:
         state = self._recent_states[-1]
         invalid_actions = worker.invalid_actions
 
@@ -425,9 +422,9 @@ class Worker(RLWorker[Config, Parameter]):
         probs = funcs.calc_epsilon_greedy_probs(q, invalid_actions, self.epsilon, self.config.action_space.n)
         self.action = funcs.random_choice_by_probs(probs)
         self.prob = probs[self.action]
-        return self.action, {}
+        return self.action
 
-    def on_step(self, worker) -> InfoType:
+    def on_step(self, worker):
         self.prev_episode_reward += worker.reward
         n_state = self.config.observation_space.to_str(worker.state)
         self._recent_states.pop(0)
@@ -436,16 +433,17 @@ class Worker(RLWorker[Config, Parameter]):
         self.recent_invalid_actions.append(worker.invalid_actions)
 
         if not self.training:
-            return {}
+            return
 
         # 内部報酬
         if self.config.enable_intrinsic_reward:
             episodic_reward = self._calc_episodic_reward(n_state)
             lifelong_reward = self._calc_lifelong_reward(n_state)
             int_reward = episodic_reward * lifelong_reward
+            self.info["episodic_reward"] = episodic_reward
+            self.info["lifelong_reward"] = lifelong_reward
+            self.info["int_reward"] = int_reward
         else:
-            episodic_reward = 0
-            lifelong_reward = 0
             int_reward = 0
 
         self.recent_actions.pop(0)
@@ -458,6 +456,7 @@ class Worker(RLWorker[Config, Parameter]):
         self.recent_int_rewards.append(int_reward)
 
         priority = self._add_memory(worker.terminated)
+        self.info["priority"] = priority
 
         if worker.done:
             # 残りstepも追加
@@ -470,13 +469,6 @@ class Worker(RLWorker[Config, Parameter]):
                 self.recent_int_rewards.pop(0)
 
                 self._add_memory(worker.terminated)
-
-        return {
-            "episodic_reward": episodic_reward,
-            "lifelong_reward": lifelong_reward,
-            "int_reward": int_reward,
-            "priority": priority,
-        }
 
     def _add_memory(self, done):
         if self._recent_states[0] == "" and self._recent_states[1] == "":

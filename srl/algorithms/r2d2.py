@@ -1,12 +1,11 @@
 import random
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Union
 
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import InfoType
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import Processor
@@ -400,7 +399,7 @@ class Worker(RLWorker[Config, Parameter]):
         self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
         self.dummy_state = np.full(self.config.observation_space.shape, self.config.dummy_state_val, dtype=np.float32)
 
-    def on_reset(self, worker) -> InfoType:
+    def on_reset(self, worker):
         # states : burnin + sequence_length + next_state
         # actions: sequence_length
         # probs  : sequence_length
@@ -438,9 +437,7 @@ class Worker(RLWorker[Config, Parameter]):
             self._calc_td_error = True
             self._history_batch = []
 
-        return {}
-
-    def policy(self, worker) -> Tuple[int, InfoType]:
+    def policy(self, worker) -> int:
         state = worker.state[np.newaxis, np.newaxis, ...]  # (batch, time step, ...)
         q, self.hidden_state = self.parameter.q_online(state, self.hidden_state)
         q = q[0][0].numpy()  # (batch, time step, action_num)
@@ -455,11 +452,11 @@ class Worker(RLWorker[Config, Parameter]):
 
         self.prob = probs[self.action]
         self.q = q
-        return self.action, {}
+        return self.action
 
-    def on_step(self, worker) -> InfoType:
+    def on_step(self, worker):
         if not self.training:
-            return {}
+            return
 
         self._recent_states.pop(0)
         self._recent_states.append(worker.state.astype(np.float32))
@@ -530,8 +527,6 @@ class Worker(RLWorker[Config, Parameter]):
 
                         priority = abs(reward - info["q"])
                         self.memory.add(batch, priority)
-
-        return {}
 
     def _add_memory(self, calc_info):
         batch = {

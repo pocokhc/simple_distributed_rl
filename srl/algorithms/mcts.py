@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass
-from typing import Any, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -125,7 +125,7 @@ class Worker(RLWorker[Config, Parameter]):
         self.config: Config = self.config
         self.parameter: Parameter = self.parameter
 
-    def policy(self, worker) -> Tuple[int, dict]:
+    def policy(self, worker) -> int:
         self.state = self.config.observation_space.to_str(worker.state)
         self.invalid_actions = worker.get_invalid_actions()
         self.parameter.init_state(self.state)
@@ -141,7 +141,7 @@ class Worker(RLWorker[Config, Parameter]):
         c = [-np.inf if a in self.invalid_actions else c[a] for a in range(self.config.action_space.n)]  # mask
         action = int(np.random.choice(np.where(c == np.max(c))[0]))
 
-        return action, {}
+        return action
 
     def _simulation(self, env: EnvRun, state: str, depth: int = 0):
         if depth >= env.max_episode_steps:  # for safety

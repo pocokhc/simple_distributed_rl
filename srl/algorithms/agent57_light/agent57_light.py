@@ -3,11 +3,10 @@ import logging
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 import numpy as np
 
-from srl.base.define import InfoType
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import Processor
@@ -313,7 +312,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
         self.ucb_actors_count = [1 for _ in range(self.config.actor_num)]  # 1回は保証
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
-    def on_reset(self, worker) -> InfoType:
+    def on_reset(self, worker):
         if self.training:
             # エピソード毎に actor を決める
             self.actor_index = self._calc_actor_index()
@@ -339,11 +338,9 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
         # エピソードメモリ(エピソード毎に初期化)
         self.episodic_memory = collections.deque(maxlen=self.config.episodic_memory_capacity)
 
-        return {
-            "epsilon": self.epsilon,
-            "beta": self.beta,
-            "discount": self.discount,
-        }
+        self.info["epsilon"] = self.epsilon
+        self.info["beta"] = self.beta
+        self.info["discount"] = self.discount
 
     # (sliding-window UCB)
     def _calc_actor_index(self) -> int:
@@ -383,7 +380,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
         # UCB値最大のポリシー（複数あればランダム）
         return funcs.get_random_max_index(ucbs)
 
-    def policy(self, worker) -> Tuple[int, InfoType]:
+    def policy(self, worker) -> int:
 
         in_ = [
             worker.state[np.newaxis, ...],
@@ -404,9 +401,9 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
             action = int(np.argmax(self.q))
 
         self.onehot_action = np.identity(self.config.action_space.n, dtype=np.float32)[action]
-        return action, {}
+        return action
 
-    def on_step(self, worker) -> InfoType:
+    def on_step(self, worker):
         next_state = worker.state
         reward_ext = worker.reward
         next_invalid_actions = worker.get_invalid_actions()
@@ -418,15 +415,11 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
             episodic_reward = self._calc_episodic_reward(n_s)
             lifelong_reward = self._calc_lifelong_reward(n_s)
             reward_int = episodic_reward * lifelong_reward
-
-            _info = {
-                "episodic": episodic_reward,
-                "lifelong": lifelong_reward,
-                "reward_int": reward_int,
-            }
+            self.info["episodic"] = episodic_reward
+            self.info["lifelong"] = lifelong_reward
+            self.info["reward_int"] = reward_int
         else:
             reward_int = 0.0
-            _info = {}
 
         prev_onehot_action = self.prev_onehot_action
         prev_reward_ext = self.prev_reward_ext
@@ -436,7 +429,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
         self.prev_reward_int = reward_int
 
         if not self.training:
-            return _info
+            return
 
         """
         [
@@ -469,7 +462,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
 
         if not self.distributed:
             priority = None
-        elif not self.config.memory.requires_priority():
+        elif not self.config.requires_priority():
             priority = None
         else:
             next_invalid_actions_idx = [0 for _ in next_invalid_actions]
@@ -504,7 +497,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
                 priority = abs((target_q_ext + self.beta * target_q_int) - self.q[worker.action])
 
         self.memory.add(batch, priority)
-        return _info
+        return
 
     def _calc_episodic_reward(self, state):
         k = self.config.episodic_count_max

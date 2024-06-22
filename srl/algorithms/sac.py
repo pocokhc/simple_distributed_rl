@@ -414,13 +414,11 @@ class Trainer(RLTrainer[Config, Parameter]):
 class Worker(RLWorker[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
 
     def on_reset(self, worker):
-        return {}
+        pass
 
-    def policy(self, worker):
+    def policy(self, worker) -> Any:
         p_dist = self.parameter.policy(worker.state[np.newaxis, ...])
         if isinstance(self.config.action_space, DiscreteSpace):
             self.action = p_dist.sample(onehot=True).numpy()[0]
@@ -440,12 +438,11 @@ class Worker(RLWorker[Config, Parameter]):
         else:
             raise UndefinedError(self.config.action_space)
 
-        return env_action, {}
+        return env_action
 
     def on_step(self, worker):
         if not self.training:
-            return {}
-
+            return
         batch = {
             "state": worker.prev_state,
             "action": self.action,
@@ -454,8 +451,6 @@ class Worker(RLWorker[Config, Parameter]):
             "done": worker.done,
         }
         self.memory.add(batch)
-
-        return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
         # policy -> render -> env.step

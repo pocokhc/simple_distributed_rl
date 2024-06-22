@@ -1,11 +1,10 @@
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 import numpy as np
 
-from srl.base.define import InfoType
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import Processor
@@ -190,10 +189,10 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
 
         self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
 
-    def on_reset(self, worker) -> InfoType:
-        return {}
+    def on_reset(self, worker):
+        pass
 
-    def policy(self, worker) -> Tuple[int, InfoType]:
+    def policy(self, worker) -> int:
         invalid_actions = worker.get_invalid_actions()
 
         if self.training:
@@ -211,11 +210,12 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
             # 最大値を選ぶ（複数はほぼないので無視）
             action = int(np.argmax(q))
 
-        return action, {"epsilon": epsilon}
+        self.info["epsilon"] = epsilon
+        return action
 
-    def on_step(self, worker) -> InfoType:
+    def on_step(self, worker):
         if not self.training:
-            return {}
+            return
 
         # reward clip
         reward = worker.reward
@@ -247,7 +247,6 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
             worker.get_invalid_actions(),
         ]
         self.memory.add(batch)
-        return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
         # policy -> render -> env.step

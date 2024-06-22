@@ -1623,7 +1623,7 @@ class Worker(RLWorker):
 
         self.screen = None
 
-    def on_reset(self, worker) -> dict:
+    def on_reset(self, worker):
         self.stoch, self.deter = self.parameter.dynamics.get_initial_state()
         if self.config.action_space.stype == SpaceTypes.DISCRETE:
             self.action = tf.one_hot([0], self.config.action_space.n, dtype=tf.float32)
@@ -1637,7 +1637,6 @@ class Worker(RLWorker):
         self._recent_next_states = [state]
         self._recent_rewards = [0]
         self._rssm_step(state, self.action)
-        return {}
 
     def _rssm_step(self, state, action):
         embed = self.parameter.encode(state[np.newaxis, ...])
@@ -1647,7 +1646,7 @@ class Worker(RLWorker):
         self.deter = deter
         self.stoch = post["stoch"]
 
-    def policy(self, worker) -> Tuple[Any, dict]:
+    def policy(self, worker) -> Any:
         # debug
         if random.random() < self.config.epsilon:
             env_action = self.sample_action()
@@ -1657,7 +1656,7 @@ class Worker(RLWorker):
                 self.action = tf.constant([env_action], dtype=tf.float32)
             else:
                 raise UndefinedError(self.config.action_space.stype)
-            return env_action, {}
+            return env_action
 
         dist = self.parameter.actor(self.feat)
         if self.config.action_space.stype == SpaceTypes.DISCRETE:  # int
@@ -1679,14 +1678,14 @@ class Worker(RLWorker):
         else:
             raise UndefinedError(self.config.action_space.stype)
 
-        return env_action, {}
+        return env_action
 
-    def on_step(self, worker) -> dict:
+    def on_step(self, worker):
         next_state = worker.state.astype(np.float32)
         self._rssm_step(next_state, self.action)
 
         if not self.training:
-            return {}
+            return
 
         clip_rewards_fn = dict(none=lambda x: x, tanh=tf.tanh)[self.config.clip_rewards]
         reward = clip_rewards_fn(worker.reward)
@@ -1704,8 +1703,6 @@ class Worker(RLWorker):
                 "terminated": worker.done_type == DoneTypes.TERMINATED,
             }
             self.memory.add(batch)
-
-        return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
         # --- decode

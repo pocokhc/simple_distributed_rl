@@ -108,7 +108,7 @@ class Config(
 
     def __post_init__(self):
         super().__post_init__()
-        self.memory.set_proportional_memory()
+        self.set_proportional_memory()
         self.hidden_block.set_dueling_network((512,))
 
     def setup_from_actor(self, actor_num: int, actor_id: int) -> None:
@@ -131,9 +131,9 @@ class Config(
         self.enable_reward_clip = True
 
         # memory
-        self.memory.warmup_size = 80_000
-        self.memory.capacity = 1_000_000
-        self.memory.set_proportional_memory(
+        self.memory_warmup_size = 80_000
+        self.memory_capacity = 1_000_000
+        self.set_proportional_memory(
             alpha=0.5,
             beta_initial=0.4,
             beta_steps=1_000_000,
@@ -438,7 +438,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
         if priority is None:
             if not self.distributed:
                 priority = None
-            elif not self.config.memory.requires_priority():
+            elif not self.config.requires_priority():
                 priority = None
             else:
                 if self.q is None:

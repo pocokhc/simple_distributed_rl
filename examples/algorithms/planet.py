@@ -46,7 +46,7 @@ def train():
     # train
     runner.rollout(max_episodes=1000)
 
-    rl_config.memory.warmup_size = rl_config.batch_size + 1
+    rl_config.memory_warmup_size = rl_config.batch_size + 1
     runner.train_only(max_train_count=2_000)
 
     runner.save_parameter(_parameter_path)

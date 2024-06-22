@@ -21,8 +21,8 @@ def main():
     )
     rl_config.hidden_block.set_dueling_network((128, 128))
     rl_config.batch_size = 64
-    rl_config.memory.capacity = 100_000
-    rl_config.memory.set_replay_memory()
+    rl_config.memory_capacity = 100_000
+    rl_config.set_replay_memory()
     runner = srl.Runner(env_config, rl_config)
     runner.model_summary()
 

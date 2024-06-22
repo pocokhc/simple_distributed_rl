@@ -134,7 +134,7 @@ class Worker(RLWorker):
 
         if not self.distributed:
             priority = None
-        elif not self.config.memory.requires_priority():
+        elif not self.config.requires_priority():
             priority = None
         else:
             if self.q is None:

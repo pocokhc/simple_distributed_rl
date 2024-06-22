@@ -13,9 +13,43 @@ from srl.rl.memories.priority_memories.imemory import IPriorityMemory
 
 
 @dataclass
-class _PriorityExperienceReplayConfig:
-    capacity: int = 10_000
-    warmup_size: int = 1_000
+class RLConfigComponentPriorityExperienceReplay:
+    """PriorityExperienceReplay
+
+    これを継承しているアルゴリズムはbatch_size変数とmemory変数を持ちます。
+    memory変数から関数を呼ぶことで各memoryを設定できます。
+    また、memory変数から任意のパラメータを設定できます。
+
+    Examples:
+       >>> from srl.algorithms import dqn
+       >>> rl_config = dqn.Config()
+       >>>
+       >>> # 各パラメータの設定例
+       >>> rl_config.batch_size = 64
+       >>> rl_config.memory_capacity = 10000
+       >>> rl_config.memory_warmup_size = 10
+       >>>
+       >>> # ProportionalMemory の設定例
+       >>> rl_config.set_proportional_memory()
+    """
+
+    #: Batch size
+    batch_size: int = 32
+    #: capacity
+    memory_capacity: int = 100_000
+    #: warmup_size
+    memory_warmup_size: int = 1_000
+
+    #: memoryデータを圧縮してやり取りするかどうか
+    memory_compress: bool = True
+    #: memory(zlib)の圧縮レベル
+    memory_compress_level: int = -1
+
+    def assert_params_memory(self):
+        assert self.batch_size > 0
+        assert self.memory_warmup_size <= self.memory_capacity
+        assert self.batch_size <= self.memory_warmup_size
+
     _name: str = field(init=False, default="ReplayMemory")
     _kwargs: dict = field(init=False, default_factory=dict)
 
@@ -123,49 +157,12 @@ class _PriorityExperienceReplayConfig:
         return False
 
 
-@dataclass
-class RLConfigComponentPriorityExperienceReplay:
-    """PriorityExperienceReplay
-
-    これを継承しているアルゴリズムはbatch_size変数とmemory変数を持ちます。
-    memory変数から関数を呼ぶことで各memoryを設定できます。
-    また、memory変数から任意のパラメータを設定できます。
-
-    Examples:
-       >>> from srl.algorithms import dqn
-       >>> rl_config = dqn.Config()
-       >>>
-       >>> # 各パラメータの設定例
-       >>> rl_config.batch_size = 64
-       >>> rl_config.memory.capacity = 10000
-       >>> rl_config.memory.warmup_size = 10
-       >>>
-       >>> # ProportionalMemory の設定例
-       >>> rl_config.memory.set_proportional_memory()
-    """
-
-    batch_size: int = 32
-    memory: _PriorityExperienceReplayConfig = field(
-        init=False, default_factory=lambda: _PriorityExperienceReplayConfig()
-    )
-
-    #: memoryデータを圧縮してやり取りするかどうか
-    memory_compress: bool = True
-    #: memory(zlib)の圧縮レベル
-    memory_compress_level: int = -1
-
-    def assert_params_memory(self):
-        assert self.batch_size > 0
-        assert self.memory.warmup_size <= self.memory.capacity
-        assert self.batch_size <= self.memory.warmup_size
-
-
 class PriorityExperienceReplay(RLMemory[RLConfigComponentPriorityExperienceReplay]):
     def __init__(self, *args):
         super().__init__(*args)
         self.batch_size = self.config.batch_size
-        self.memory = self.config.memory.create_memory(
-            self.config.memory.capacity,
+        self.memory = self.config.create_memory(
+            self.config.memory_capacity,
             cast(RLConfig, self.config).dtype,
         )
 
@@ -177,7 +174,7 @@ class PriorityExperienceReplay(RLMemory[RLConfigComponentPriorityExperienceRepla
         return self.memory.length()
 
     def is_warmup_needed(self) -> bool:
-        return self.memory.length() < self.config.memory.warmup_size
+        return self.memory.length() < self.config.memory_warmup_size
 
     def add(self, batch: Any, priority: Optional[float] = None, serialized: bool = False) -> None:
         if serialized:

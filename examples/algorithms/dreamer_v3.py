@@ -33,8 +33,8 @@ def train_grid(mode: str):
     rl_config.lr_actor = 0.0001
     rl_config.horizon = 3
     # memory
-    rl_config.memory.warmup_size = 50
-    rl_config.memory.capacity = 10_000
+    rl_config.memory_warmup_size = 50
+    rl_config.memory_capacity = 10_000
 
     rl_config.encoder_decoder_dist = "linear"
     rl_config.free_nats = 0.01
@@ -80,8 +80,8 @@ def train_Pendulum():
     rl_config.lr_actor = 0.00002
     rl_config.horizon = 5
     # memory
-    rl_config.memory.warmup_size = 50
-    rl_config.memory.capacity = 10_000
+    rl_config.memory_warmup_size = 50
+    rl_config.memory_capacity = 10_000
 
     rl_config.encoder_decoder_dist = "linear"
     rl_config.free_nats = 0.1

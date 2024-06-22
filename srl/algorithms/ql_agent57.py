@@ -100,7 +100,7 @@ class Config(RLConfig, RLConfigComponentPriorityExperienceReplay):
 
     def __post_init__(self):
         super().__post_init__()
-        self.memory.warmup_size = 10
+        self.memory_warmup_size = 10
         self.batch_size = 4
 
     def get_framework(self) -> str:
@@ -496,7 +496,7 @@ class Worker(RLWorker[Config, Parameter]):
         # priority
         if not self.distributed:
             priority = 0
-        elif not self.config.memory.requires_priority():
+        elif not self.config.requires_priority():
             priority = 0
         else:
             td_error = self.parameter.calc_td_error(

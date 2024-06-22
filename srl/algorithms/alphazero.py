@@ -93,7 +93,7 @@ class Config(
         self.root_dirichlet_alpha = 0.03  # for Go, 0.3 for chess and 0.15 for shogi.
         self.root_exploration_fraction = 0.25
         self.batch_size = 4096
-        self.memory.warmup_size = 10000
+        self.memory_warmup_size = 10000
         self.lr = self.create_scheduler()
         self.lr.add_constant(300_000, 0.02)
         self.lr.add_constant(200_000, 0.002)

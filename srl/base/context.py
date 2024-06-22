@@ -104,7 +104,7 @@ class RunContext:
             ), "Please specify 'max_episodes', 'timeout' , 'max_steps' or 'max_train_count' or 'max_memory'."
             if self.max_memory > 0:
                 if hasattr(self.rl_config, "memory"):
-                    assert self.max_memory <= self.rl_config.memory.capacity
+                    assert self.max_memory <= self.rl_config.memory_capacity
                 if hasattr(self.rl_config, "memory_capacity"):
                     assert self.max_memory <= self.rl_config.memory_capacity
 

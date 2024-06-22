@@ -127,8 +127,8 @@ class Config(
         self.enable_rescale = True
         self.enable_retrace = False
 
-        self.memory.capacity = 1_000_000
-        self.memory.set_proportional_memory(
+        self.memory_capacity = 1_000_000
+        self.set_proportional_memory(
             alpha=0.9,
             beta_initial=0.6,
             beta_steps=1_000_000,
@@ -432,7 +432,7 @@ class Worker(RLWorker[Config, Parameter]):
         # TD誤差を計算するか
         if not self.distributed:
             self._calc_td_error = False
-        elif not self.config.memory.requires_priority():
+        elif not self.config.requires_priority():
             self._calc_td_error = False
         else:
             self._calc_td_error = True

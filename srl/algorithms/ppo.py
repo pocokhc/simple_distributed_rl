@@ -130,7 +130,7 @@ class Config(
         super().__post_init__()
 
         self.lr = self.create_scheduler().set_linear(2000, 0.02, 0.01)
-        self.memory.capacity = 2000
+        self.memory_capacity = 2000
         self.hidden_block.set((64, 64))
         self.value_block.set((64,))
         self.policy_block.set((64,))

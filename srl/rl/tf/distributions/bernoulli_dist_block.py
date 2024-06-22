@@ -47,25 +47,23 @@ class BernoulliDist:
 class BernoulliDistBlock(keras.Model):
     def __init__(
         self,
-        out_size: int,
         hidden_layer_sizes: Tuple[int, ...] = (),
         activation: str = "relu",
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.out_size = out_size
 
         self.hidden_layers = []
         for size in hidden_layer_sizes:
             self.hidden_layers.append(kl.Dense(size, activation=activation))
-        self.out_layer = kl.Dense(out_size)
+        self.hidden_layers.append(kl.Dense(1))
 
         self.loss_function = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
     def call(self, x, training=False):
         for layer in self.hidden_layers:
             x = layer(x, training=training)
-        return BernoulliDist(self.out_layer(x))
+        return BernoulliDist(x)
 
     @tf.function
     def compute_train_loss(self, x, y):

@@ -40,7 +40,7 @@ def one_hot(x, size: int, dtype=np.float32):
     return np.identity(size, dtype=dtype)[x]
 
 
-def twohot_encode(x, size: int, low: float, high: float) -> np.ndarray:  # List[float]
+def twohot_encode(x, size: int, low: float, high: float, dtype=np.float32) -> np.ndarray:  # List[float]
     x = np.clip(x, a_min=low, a_max=high)
     # 0-bins のサイズで正規化
     x = (size - 1) * (x - low) / (high - low)
@@ -48,11 +48,11 @@ def twohot_encode(x, size: int, low: float, high: float) -> np.ndarray:  # List[
     idx = np.floor(x).astype(np.int32)
     w = (x - idx)[..., np.newaxis]
 
-    onehot = np.identity(size, dtype=np.float32)
+    onehot = np.identity(size)
     onehot = np.vstack([onehot, np.zeros(size)])
     onehot1 = onehot[idx]
     onehot2 = onehot[idx + 1]
-    return onehot1 * (1 - w) + onehot2 * w
+    return (onehot1 * (1 - w) + onehot2 * w).astype(dtype)
 
 
 def twohot_decode(x, size: int, low: float, high: float):

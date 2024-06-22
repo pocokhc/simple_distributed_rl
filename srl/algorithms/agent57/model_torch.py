@@ -335,7 +335,7 @@ class Trainer(RLTrainer[Config, Parameter]):
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        batchs, weights, update_args = self.memory.sample(self.batch_size, self.train_count)
+        batchs, weights, update_args = self.memory.sample(self.train_count)
 
         (
             burnin_states,

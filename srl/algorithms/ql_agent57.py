@@ -266,7 +266,7 @@ class Trainer(RLTrainer[Config, Parameter]):
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        batchs, weights, update_args = self.memory.sample(self.batch_size, self.train_count)
+        batchs, weights, update_args = self.memory.sample(self.train_count)
 
         lr_ext = self.lr_ext_sch.get_and_update_rate(self.train_count)
         lr_int = self.lr_int_sch.get_and_update_rate(self.train_count)

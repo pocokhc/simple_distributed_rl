@@ -307,7 +307,7 @@ class Trainer(RLTrainer[Config, Parameter]):
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        batchs = self.memory.sample(self.batch_size)
+        batchs = self.memory.sample()
 
         states = []
         policies = []

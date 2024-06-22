@@ -165,13 +165,11 @@ class Memory(RLMemory):
     def serialize_add_args(self, type_: str, batch: Any) -> tuple:
         return type_, pickle.dumps(batch)
 
-    def sample(self, batch_size: int, step: int) -> Any:
-        if batch_size < 0:
-            batch_size = self.config.batch_size
+    def sample(self) -> Any:
         if self.config.train_mode == 1:
-            return random.sample(self.vae_buffer, batch_size)
+            return random.sample(self.vae_buffer, self.config.batch_size)
         elif self.config.train_mode == 2:
-            return random.sample(self.rnn_buffer, batch_size)
+            return random.sample(self.rnn_buffer, self.config.batch_size)
         else:
             return []
 
@@ -460,7 +458,7 @@ class Trainer(RLTrainer[Config, Parameter]):
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        batchs = self.memory.sample(self.batch_size, self.train_count)
+        batchs = self.memory.sample()
         self.info = {}
 
         if self.config.train_mode == 1:

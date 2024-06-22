@@ -119,8 +119,8 @@ class ExperienceReplayBuffer(RandomMemory, RLMemory[RLConfigComponentExperienceR
             batch = zlib.compress(batch, level=self.config.memory_compress_level)
         return (batch,)
 
-    def sample(self) -> List[Any]:
-        batchs = RandomMemory.sample(self, self.config.batch_size)
+    def sample(self, batch_size: int = 0) -> List[Any]:
+        batchs = RandomMemory.sample(self, batch_size if batch_size > 0 else self.config.batch_size)
         if self.config.memory_compress:
             batchs = [pickle.loads(zlib.decompress(b)) for b in batchs]
         return batchs

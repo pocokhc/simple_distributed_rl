@@ -12,13 +12,13 @@ import srl
 from srl.base.context import RunContext
 from srl.base.rl.parameter import RLParameter
 from srl.base.run.callback import CallbackType, RunCallback, TrainCallback
-from srl.runner.distribution.connectors.parameters import RedisParameters
-from srl.runner.distribution.connectors.redis_ import RedisConnector
 from srl.runner.distribution.interface import IMemoryReceiver
 from srl.runner.runner import Runner
 from srl.utils.common import compare_equal_version
 
 if TYPE_CHECKING:
+    from srl.runner.distribution.connectors.parameters import RedisParameters
+    from srl.runner.distribution.connectors.redis_ import RedisConnector
     from srl.runner.distribution.callback import DistributionCallback
 
 logger = logging.getLogger(__name__)
@@ -81,7 +81,7 @@ class TaskManagerParams:
 class TaskManager:
     def __init__(
         self,
-        redis_params: RedisParameters,
+        redis_params: "RedisParameters",
         role: str = "other",
         keepalive_interval: int = 10,
         keepalive_threshold: int = 101,
@@ -112,7 +112,9 @@ class TaskManager:
         self.params.task_name = self.task_name
 
     @staticmethod
-    def new_connector(connector: RedisConnector, task_manager_params: TaskManagerParams):
+    def new_connector(connector: "RedisConnector", task_manager_params: TaskManagerParams):
+        from srl.runner.distribution.connectors.parameters import RedisParameters
+
         t = TaskManager(RedisParameters(url="NO_USE"))
         t._connector = connector
         t.params = task_manager_params

@@ -4,7 +4,7 @@ import random
 import time
 import traceback
 from dataclasses import dataclass, field
-from typing import Any, Generator, List, Optional, Tuple
+from typing import Any, Generator, List, Optional, Tuple, cast
 
 from srl.base.context import RunContext, RunNameTypes
 from srl.base.define import EnvActionType

@@ -3,7 +3,7 @@ import queue
 import time
 import traceback
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import Any, List, Optional, cast
 
 from srl.base.context import RunContext
 from srl.base.rl.memory import IRLMemoryTrainer

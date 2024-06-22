@@ -2,7 +2,7 @@ import bisect
 import math
 import random
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional
 
 import numpy as np
 

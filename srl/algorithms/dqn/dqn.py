@@ -141,7 +141,7 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
         batch_size,
         n_state,
         reward,
-        done,
+        undone,
         next_invalid_actions,
     ):
         # ここの計算はtfで計算するよりnpで計算したほうが早い
@@ -164,7 +164,7 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
             maxq = funcs.inverse_rescaling(maxq)
 
         # --- Q値を計算
-        target_q = reward + done * self.config.discount * maxq
+        target_q = reward + undone * self.config.discount * maxq
 
         if self.config.enable_rescale:
             target_q = funcs.rescaling(target_q)
@@ -225,7 +225,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
             n_state,
             onehot_action,
             reward,
-            done,
+            undone,
             next_invalid_actions,
         ]
         """
@@ -240,8 +240,8 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
         ]
         self.memory.add(batch)
 
-    def render_terminal(self, worker, **kwargs) -> None:
-        # policy -> render -> env.step
+    def render_terminal(self, worker, **kwargs):
+        # policy -> render -> env.step -> on_step
         q = self.parameter.pred_single_q(worker.state)
         maxa = np.argmax(q)
         if self.config.enable_rescale:

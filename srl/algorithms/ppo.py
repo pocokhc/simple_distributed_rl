@@ -465,7 +465,7 @@ class Worker(RLWorker[Config, Parameter]):
             self.recent_batch.append(batch)
         elif isinstance(self.config.action_space, ArrayContinuousSpace):
             act_space = cast(ArrayContinuousSpace, self.config.action_space)
-            action, env_action = p_dist.policy((act_space.low, act_space.high), self.training)
+            action, env_action = p_dist.policy(act_space.low, act_space.high, self.training)
             batch = {
                 "state": state,
                 "action": action.numpy()[0][0],

@@ -123,13 +123,17 @@ class ImageProcessor(Processor):
             self.before_observation_type == SpaceTypes.GRAY_2ch or self.before_observation_type == SpaceTypes.GRAY_3ch
         ):
             # gray -> color
-            if "float" in str(state.dtype):
-                if self.before_observation_type == SpaceTypes.GRAY_2ch:
-                    state = state[..., np.newaxis]
-                state = np.tile(state, (1, 1, 3))
-            else:
-                state = np.asarray(state).astype(np.uint8)
-                state = cv2.applyColorMap(state, cv2.COLORMAP_HOT)
+            if self.before_observation_type == SpaceTypes.GRAY_2ch:
+                state = state[..., np.newaxis]
+            state = np.tile(state, (1, 1, 3))
+
+            # if "float" in str(state.dtype):
+            #    if self.before_observation_type == SpaceTypes.GRAY_2ch:
+            #        state = state[..., np.newaxis]
+            #    state = np.tile(state, (1, 1, 3))
+            # else:
+            #    state = np.asarray(state).astype(np.uint8)
+            #    state = cv2.applyColorMap(state, cv2.COLORMAP_HOT)
         elif self.before_observation_type == SpaceTypes.COLOR and (
             self.image_type == SpaceTypes.GRAY_2ch or self.image_type == SpaceTypes.GRAY_3ch
         ):
@@ -143,8 +147,12 @@ class ImageProcessor(Processor):
         if self.trimming is not None:
             state = state[self.top : self.bottom, self.left : self.right]
 
-        if (self.resize is not None) and ("float" not in str(state.dtype)):
-            state = cv2.resize(state, self.resize)
+        if self.resize is not None:
+            if "float" in str(state.dtype):
+                pass  # warning normされたものはresizeできない
+            else:
+                state = cv2.resize(state, self.resize)
+            assert state.shape[0] == self.resize[0] and state.shape[1] == self.resize[1]
 
         state = cast(np.ndarray, state)
         if self.enable_norm:

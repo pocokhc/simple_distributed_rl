@@ -95,26 +95,29 @@ class Trainer(RLTrainer[Config, Parameter]):
 
         self.sync_count = 0
 
-    def train_setup(self):
+    def implement_thread_train(self) -> bool:
+        return True
+
+    def thread_train_setup(self):
         if self.memory.is_warmup_needed():
             return None
-        batchs = self.memory.sample(self.batch_size)
-        state, n_state, onehot_action, reward, done, next_invalid_actions = zip(*batchs)
+        batchs = self.memory.sample()
+        state, n_state, onehot_action, reward, undone, next_invalid_actions = zip(*batchs)
         state = self.parameter.q_online.input_block.create_batch_stack_data(state)
-        onehot_action = np.asarray(onehot_action, dtype=np.float32)
-        reward = np.array(reward, dtype=np.float32)
-        done = np.array(done)
+        onehot_action = np.asarray(onehot_action, dtype=self.config.dtype)
+        reward = np.array(reward, dtype=self.config.dtype)
+        undone = np.array(undone)
 
         target_q = self.parameter.calc_target_q(
             len(batchs),
             n_state,
             reward,
-            done,
+            undone,
             next_invalid_actions,
         )
         return state, onehot_action, target_q
 
-    def train(self, setup_data):
+    def thread_train(self, setup_data):
         state, onehot_action, target_q = setup_data
 
         with tf.GradientTape() as tape:
@@ -133,6 +136,6 @@ class Trainer(RLTrainer[Config, Parameter]):
 
         return None
 
-    def train3(self, run_data):
+    def thread_train_teardown(self, train_data):
         if self.lr_sch.update(self.train_count):
             self.optimizer.learning_rate = self.lr_sch.get_rate()

@@ -101,7 +101,7 @@ class Trainer(RLTrainer[Config, Parameter]):
     def train_setup(self):
         if self.memory.is_warmup_needed():
             return None
-        batchs, weights, update_args = self.memory.sample(self.batch_size, self.train_count)
+        batchs, weights, update_args = self.memory.sample(self.train_count)
 
         if self.config.multisteps == 1:
             target_q, states, onehot_actions = calc_target_q(self.parameter, batchs, training=True)

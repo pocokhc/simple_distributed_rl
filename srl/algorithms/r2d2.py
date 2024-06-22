@@ -258,7 +258,7 @@ class Trainer(RLTrainer[Config, Parameter]):
     def train(self) -> None:
         if self.memory.is_warmup_needed():
             return
-        batchs, weights, update_args = self.memory.sample(self.batch_size, self.train_count)
+        batchs, weights, update_args = self.memory.sample(self.train_count)
 
         td_errors, loss = self._train_on_batchs(batchs, np.array(weights).reshape(-1, 1))
         self.memory.update(update_args, np.array(td_errors))

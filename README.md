@@ -6,31 +6,67 @@
 シンプルな分散強化学習フレームワークを目指して作成しています。  
 以下の特徴があります。  
 
-+ 標準で分散強化学習のサポート
++ 分散強化学習のサポート
 + 環境とアルゴリズム間のインタフェースの自動調整
++ Gym/Gymnasiumの環境に対応
 + カスタマイズ可能な環境クラスの提供
 + カスタマイズ可能な強化学習アルゴリズムクラスの提供
 + 有名な強化学習アルゴリズムの提供
 + （新しいアルゴリズムへの対応）
 
-本フレームワークに関するドキュメントは以下です。
+**ドキュメント**
 
-・ドキュメント：<https://pocokhc.github.io/simple_distributed_rl/>
+<https://pocokhc.github.io/simple_distributed_rl/>
 
-・Qiita記事（アルゴリズムに関する解説）：<https://qiita.com/pocokhc/items/a2f1ba993c79fdbd4b4d>
+
+**アルゴリズムの解説記事（Qiita）**
+
+<https://qiita.com/pocokhc/items/a2f1ba993c79fdbd4b4d>
 
 # 1. Install/Download
 
-必須ライブラリはnumpyだけです。  
-ただ使う機能によっては他のライブラリをインストール必要があります。（後述）  
+**Required library**
 
 ``` bash
 pip install numpy
 ```
 
-本フレームワークはGitHubからインストールまたはダウンロードをして使うことができます。
+**Option Libraries**
+
+使う機能によって以下のライブラリが必要になります。
+
++ Tensorflow が必要なアルゴリズムを使用する場合
+  + tensorflow
+  + tensorflow-probability
++ Torch が必要なアルゴリズムを使用する場合
+  + <https://pytorch.org/get-started/locally/>
++ 主に画像関係の機能を使用する場合
+  + pillow
+  + opencv-python
+  + pygame
++ 主にhistoryによる統計情報を扱う場合
+  + pandas
+  + matplotlib
++ OpenAI Gym の環境を使用する場合
+  + gym or gymnasium
+  + pygame
++ ハードウェアの統計情報を表示する場合
+  + psutil
+  + pynvml
++ クラウド/ネットワークによる分散学習を使用する場合
+  + redis
+  + pika
+  + paho-mqtt
+
+Tensorflow,Torch,pika,paho-mqttを除いたライブラリを一括でインストールするコマンドは以下です。
+
+``` bash
+pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml redis
+```
 
 ## Install
+
+本フレームワークはGitHubからインストールまたはダウンロードをして使う事を想定しています。
 
 ``` bash
 pip install git+https://github.com/pocokhc/simple_distributed_rl
@@ -65,38 +101,6 @@ import srl
 print(srl.__version__)
 ```
 
-## Option library
-
-使う機能によって以下ライブラリが必要になります。
-
-+ Tensorflow が必要なアルゴリズムを使う場合
-  + tensorflow
-  + tensorflow-probability
-+ Torch が必要なアルゴリズムを使う場合
-  + <https://pytorch.org/get-started/locally/>
-+ 主にRGBの描画関係を使用する場合
-  + pillow
-  + opencv-python
-  + pygame
-+ 主にhistoryによる統計情報を扱う場合
-  + pandas
-  + matplotlib
-+ OpenAI Gym の環境を使う場合
-  + gym or gymnasium
-  + pygame
-+ ハードウェアの統計情報を表示する場合
-  + psutil
-  + pynvml
-+ クラウド/ネットワークによる分散学習を使う場合
-  + redis
-  + pika
-  + paho-mqtt
-
-Tensorflow,Torch,pika,paho-mqttを除いたライブラリを一括でインストールするコマンドは以下です。
-
-``` bash
-pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml redis
-```
 
 # 2. Usage
 
@@ -135,18 +139,6 @@ if __name__ == "__main__":
 
 + [How To Use](https://pocokhc.github.io/simple_distributed_rl/pages/howtouse.html)
 
-
-## Distributed Learning (Online)
-
-ネットワーク経由での分散学習は以下のドキュメントを参照してください。
-
-+ [Distributed Learning (Online)](https://pocokhc.github.io/simple_distributed_rl/pages/distributed.html)
-
-またクラウドサービスとの連携はQiita記事を参照
-
-+ [クラウドサービスを利用した分散強化学習（無料編）](https://qiita.com/pocokhc/items/f7a32ee6c62cba54d6ab)
-+ [クラウドサービスを利用した分散強化学習（kubernetes編）](https://qiita.com/pocokhc/items/56c930e1e401ce156141)
-+ [クラウドサービスを利用した分散強化学習（GKE/有料編）](https://qiita.com/pocokhc/items/e08aab0fe56566ab9407)
 
 # 3. Framework Overview
 
@@ -202,7 +194,16 @@ env.render()
 worker.render()
 ```
 
-# 4. Algorithms
+
+# 4. Customize
+
+オリジナル環境とアルゴリズムの作成に関しては以下ドキュメントを参考にしてください。
+
++ [Make Original Environment](https://pocokhc.github.io/simple_distributed_rl/pages/custom_env.html)
++ [Make Original Algorithm](https://pocokhc.github.io/simple_distributed_rl/pages/custom_algorithm.html)
+
+
+# 5. Algorithms
 
 ## ModelFree
 
@@ -269,14 +270,22 @@ worker.render()
 |SearchDynaQ  |Discrete   |Discrete|ModelBase|-         |-    |100%|original|
 |SearchDreamer|Continuous |Discrete|ModelBase|✔        |-    |0%|original|
 
-# 5. Customize
 
-オリジナル環境とアルゴリズムの作成に関しては以下ドキュメントを参考にしてください。
 
-+ [Make Original Environment](https://pocokhc.github.io/simple_distributed_rl/pages/custom_env.html)
-+ [Make Original Algorithm](https://pocokhc.github.io/simple_distributed_rl/pages/custom_algorithm.html)
+# 6. Distributed Learning (Online)
 
-# 6. Development environment
+ネットワーク経由での分散学習は以下のドキュメントを参照してください。
+
++ [Distributed Learning (Online)](https://pocokhc.github.io/simple_distributed_rl/pages/distributed.html)
+
+またクラウドサービスとの連携はQiita記事を参照
+
++ [クラウドサービスを利用した分散強化学習（無料編）](https://qiita.com/pocokhc/items/f7a32ee6c62cba54d6ab)
++ [クラウドサービスを利用した分散強化学習（kubernetes編）](https://qiita.com/pocokhc/items/56c930e1e401ce156141)
++ [クラウドサービスを利用した分散強化学習（GKE/有料編）](https://qiita.com/pocokhc/items/e08aab0fe56566ab9407)
+
+
+# 7. Development environment
 
 Look "./dockers/"
 

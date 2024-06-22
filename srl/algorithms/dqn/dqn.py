@@ -83,8 +83,8 @@ class Config(
     def set_atari_config(self):
         """Set the Atari parameters written in the paper."""
         self.batch_size = 32
-        self.memory.capacity = 1_000_000
-        self.memory.warmup_size = 50_000
+        self.memory_capacity = 1_000_000
+        self.memory_warmup_size = 50_000
         self.input_image_block.set_dqn_block()
         self.hidden_block.set((512,))
         self.target_model_update_interval = 10000

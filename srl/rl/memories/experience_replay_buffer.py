@@ -2,19 +2,13 @@ import logging
 import pickle
 import random
 import zlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, List
 
 from srl.base.define import RLMemoryTypes
 from srl.base.rl.memory import RLMemory
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class _ExperienceReplayBufferConfig:
-    capacity: int = 100_000
-    warmup_size: int = 1_000
 
 
 @dataclass
@@ -33,13 +27,16 @@ class RLConfigComponentExperienceReplayBuffer:
        >>> from srl.algorithms import alphazero
        >>> rl_config = alphazero.Config()
        >>> rl_config.batch_size = 64
-       >>> rl_config.memory.capacity = 1000
-       >>> rl_config.memory.warmup_size = 1000
+       >>> rl_config.memory_capacity = 1000
+       >>> rl_config.memory_warmup_size = 1000
     """
 
     #: Batch size
     batch_size: int = 32
-    memory: _ExperienceReplayBufferConfig = field(init=False, default_factory=lambda: _ExperienceReplayBufferConfig())
+    #: capacity
+    memory_capacity: int = 100_000
+    #: warmup_size
+    memory_warmup_size: int = 1_000
 
     #: memoryデータを圧縮してやり取りするかどうか
     memory_compress: bool = True
@@ -48,8 +45,8 @@ class RLConfigComponentExperienceReplayBuffer:
 
     def assert_params_memory(self):
         assert self.batch_size > 0
-        assert self.memory.warmup_size <= self.memory.capacity
-        assert self.batch_size <= self.memory.warmup_size
+        assert self.memory_warmup_size <= self.memory_capacity
+        assert self.batch_size <= self.memory_warmup_size
 
 
 class RandomMemory:
@@ -94,14 +91,14 @@ class RandomMemory:
 class ExperienceReplayBuffer(RandomMemory, RLMemory[RLConfigComponentExperienceReplayBuffer]):
     def __init__(self, *args):
         RLMemory.__init__(self, *args)
-        RandomMemory.__init__(self, self.config.memory.capacity)
+        RandomMemory.__init__(self, self.config.memory_capacity)
 
     @property
     def memory_type(self) -> RLMemoryTypes:
         return RLMemoryTypes.BUFFER
 
     def is_warmup_needed(self) -> bool:
-        return len(self.memory) < self.config.memory.warmup_size
+        return len(self.memory) < self.config.memory_warmup_size
 
     def add(self, batch: Any, serialized: bool = False) -> None:
         if serialized:

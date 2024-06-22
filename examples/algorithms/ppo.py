@@ -17,8 +17,8 @@ def main(mode: str):
         surrogate_type="clip",  # kl or clip
     )
     rl_config.lr = 0.005
-    rl_config.memory.capacity = 1000
-    rl_config.memory.warmup_size = 1000
+    rl_config.memory_capacity = 1000
+    rl_config.memory_warmup_size = 1000
     rl_config.hidden_block.set((64, 64))
     rl_config.value_block.set(())
     rl_config.policy_block.set(())

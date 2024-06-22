@@ -138,7 +138,7 @@ class Config(
 
     def __post_init__(self):
         super().__post_init__()
-        self.memory.set_proportional_memory()
+        self.set_proportional_memory()
         self.hidden_block.set_dueling_network((512,))
         self.episodic_emb_block.set(
             (32,),

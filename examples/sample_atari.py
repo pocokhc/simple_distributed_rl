@@ -31,9 +31,9 @@ def _create_runner():
         enable_double_dqn=True,
         enable_rescale=False,
     )
-    rl_config.memory.warmup_size = 1_000
+    rl_config.memory_warmup_size = 1_000
     rl_config.epsilon = rl_config.create_scheduler().set_linear(TRAIN_COUNT, 1.0, 0.1)
-    rl_config.memory.capacity = 10_000
+    rl_config.memory_capacity = 10_000
     rl_config.input_image_block.set_r2d3_block()
     rl_config.hidden_block.set((512,))
     rl_config.window_length = 4

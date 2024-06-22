@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+
 import srl
 from srl.algorithms import alphazero
 from srl.utils import common
@@ -18,8 +19,8 @@ def main():
     rl_config.lr.add_constant(1000, 0.001)
     rl_config.lr.add_constant(4000, 0.0005)
     rl_config.lr.add_constant(1, 0.0002)
-    rl_config.memory.capacity = 100_000
-    rl_config.memory.warmup_size = 500
+    rl_config.memory_capacity = 100_000
+    rl_config.memory_warmup_size = 500
     rl_config.input_image_block.set_alphazero_block(9, 64)
     rl_config.value_block.set((128,))
     rl_config.policy_block.set((128,))

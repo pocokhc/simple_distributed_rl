@@ -17,7 +17,7 @@ def main():
         sequence_length=5,
     )
     rl_config.hidden_block.set((64,))
-    rl_config.memory.capacity = 100_000
+    rl_config.memory_capacity = 100_000
     runner = srl.Runner(env_config, rl_config)
     runner.model_summary()
 
@@ -46,7 +46,7 @@ def main_compare():
         enable_retrace=False,
     )
     r2d2_base.hidden_block.set((64,))
-    r2d2_base.memory.capacity = 100_000
+    r2d2_base.memory_capacity = 100_000
 
     # no retrace
     rl_configs.append(("no retrace", r2d2_base.copy()))

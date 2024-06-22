@@ -39,8 +39,8 @@ def main_dqn(is_mp):
         target_model_update_interval=1000,
     )
     rl_config.hidden_block.set(BASE_BLOCK)
-    rl_config.memory.warmup_size = 1000
-    rl_config.memory.capacity = 10_000
+    rl_config.memory_warmup_size = 1000
+    rl_config.memory_capacity = 10_000
     _run("DQN", rl_config, is_mp)
 
 
@@ -50,8 +50,8 @@ def main_rainbow(is_mp):
         target_model_update_interval=1000,
     )
     rl_config.hidden_block.set_dueling_network(BASE_BLOCK)
-    rl_config.memory.warmup_size = 1000
-    rl_config.memory.capacity = 10_000
+    rl_config.memory_warmup_size = 1000
+    rl_config.memory_capacity = 10_000
     _run("Rainbow", rl_config, is_mp)
 
 
@@ -63,8 +63,8 @@ def main_agent57_light(is_mp):
     )
     rl_config.enable_intrinsic_reward = False
     rl_config.hidden_block.set_dueling_network(BASE_BLOCK)
-    rl_config.memory.warmup_size = 1000
-    rl_config.memory.capacity = 10_000
+    rl_config.memory_warmup_size = 1000
+    rl_config.memory_capacity = 10_000
     _run("Agent57_light", rl_config, is_mp)
 
 
@@ -76,8 +76,8 @@ def main_r2d2(is_mp):
         sequence_length=2,
     )
     rl_config.hidden_block.set_dueling_network(BASE_BLOCK)
-    rl_config.memory.capacity = 10_000
-    rl_config.memory.warmup_size = 1000
+    rl_config.memory_capacity = 10_000
+    rl_config.memory_warmup_size = 1000
     _run("R2D2", rl_config, is_mp)
 
 
@@ -91,8 +91,8 @@ def main_agent57(is_mp):
     )
     rl_config.enable_intrinsic_reward = False
     rl_config.hidden_block.set_dueling_network(BASE_BLOCK)
-    rl_config.memory.capacity = 10_000
-    rl_config.memory.warmup_size = 1000
+    rl_config.memory_capacity = 10_000
+    rl_config.memory_warmup_size = 1000
     _run("Agent57", rl_config, is_mp)
 
 
@@ -101,8 +101,8 @@ def main_ppo(is_mp):
     rl_config.hidden_block.set(BASE_BLOCK)
     rl_config.policy_block.set(BASE_BLOCK)
     rl_config.value_block.set(BASE_BLOCK)
-    rl_config.memory.capacity = 10_000
-    rl_config.memory.warmup_size = 1000
+    rl_config.memory_capacity = 10_000
+    rl_config.memory_warmup_size = 1000
     _run("PPO", rl_config, is_mp)
 
 
@@ -110,8 +110,8 @@ def main_ddpg(is_mp):
     rl_config = ddpg.Config(lr=BASE_LR)
     rl_config.policy_block.set(BASE_BLOCK)
     rl_config.q_block.set(BASE_BLOCK)
-    rl_config.memory.capacity = 10_000
-    rl_config.memory.warmup_size = 1000
+    rl_config.memory_capacity = 10_000
+    rl_config.memory_warmup_size = 1000
     _run("DDPG", rl_config, is_mp)
 
 
@@ -119,8 +119,8 @@ def main_sac(is_mp):
     rl_config = sac.Config(lr_policy=BASE_LR, lr_q=BASE_LR)
     rl_config.policy_hidden_block.set(BASE_BLOCK)
     rl_config.q_hidden_block.set(BASE_BLOCK)
-    rl_config.memory.capacity = 10_000
-    rl_config.memory.warmup_size = 1000
+    rl_config.memory_capacity = 10_000
+    rl_config.memory_warmup_size = 1000
     _run("SAC", rl_config, is_mp)
 
 
@@ -139,8 +139,8 @@ def main_dreamer_v3(is_mp):
     rl_config.batch_size = 32
     rl_config.batch_length = 15
     rl_config.horizon = 5
-    rl_config.memory.capacity = 10_000
-    rl_config.memory.warmup_size = 50
+    rl_config.memory_capacity = 10_000
+    rl_config.memory_warmup_size = 50
     rl_config.free_nats = 0.1
     rl_config.warmup_world_model = 1_000
     _run("DreamerV3", rl_config, is_mp)

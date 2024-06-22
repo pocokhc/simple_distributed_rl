@@ -22,9 +22,9 @@ def main():
         enable_rescale=False,
         weight_decay=0,
     )
-    rl_config.memory.warmup_size = 200
+    rl_config.memory_warmup_size = 200
     rl_config.lr = rl_config.create_scheduler().set_linear(10_000, 0.002, 0.001)
-    rl_config.memory.capacity = 100_000
+    rl_config.memory_capacity = 100_000
     rl_config.input_image_block.set_alphazero_block(1, 16)
 
     rl_config.processors = [grid.LayerProcessor()]

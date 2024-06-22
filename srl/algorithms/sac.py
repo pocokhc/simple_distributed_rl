@@ -92,7 +92,7 @@ class Config(
 
     def __post_init__(self):
         super().__post_init__()
-        self.memory.capacity = 1000
+        self.memory_capacity = 1000
         self.policy_hidden_block.set((64, 64, 64))
         self.q_hidden_block.set((128, 128, 128))
 

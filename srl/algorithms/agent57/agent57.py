@@ -147,7 +147,7 @@ class Config(
 
     def __post_init__(self):
         super().__post_init__()
-        self.memory.set_proportional_memory()
+        self.set_proportional_memory()
         self.hidden_block.set_dueling_network((512,))
         self.episodic_emb_block.set(
             (32,),
@@ -176,9 +176,9 @@ class Config(
 
         self.episodic_memory_capacity = 30_000
 
-        self.memory.set_proportional_memory()
-        self.memory.capacity = 100_000
-        self.memory.warmup_size = 6250
+        self.set_proportional_memory()
+        self.memory_capacity = 100_000
+        self.memory_warmup_size = 6250
 
         self.target_model_update_interval = 1500
 

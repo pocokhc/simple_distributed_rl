@@ -38,7 +38,7 @@ class TwoHotDistBlock(keras.Model):
         high: float,
         hidden_layer_sizes: Tuple[int, ...] = (),
         activation: str = "relu",
-        use_symlog: bool = True,
+        use_symlog: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -71,3 +71,11 @@ class TwoHotDistBlock(keras.Model):
         probs = tf.clip_by_value(probs, 1e-10, 1)  # log(0)回避用
         loss = -tf.reduce_sum(y * tf.math.log(probs), axis=1)
         return tf.reduce_mean(loss)
+
+    def sample(self, x):
+        dist = self(x)
+        probs = dist.probs()
+        y = twohot_decode(probs, self.bins, self.low, self.high)
+        if self.use_symlog:
+            y = symexp(y)
+        return y

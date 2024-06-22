@@ -29,7 +29,7 @@ class AtariPongProcessor(Processor):
         assert is_package_installed("ale_py")
 
     def remap_observation_space(self, observation_space: SpaceBase, env: EnvRun) -> SpaceBase:
-        return BoxSpace((84, 84), 0, 1, stype=SpaceTypes.GRAY_2ch)
+        return BoxSpace((84, 84), 0, 255, np.uint8, stype=SpaceTypes.GRAY_2ch)
 
     def remap_reset(self, state, info, env: EnvRun):
         self.point = 0
@@ -51,6 +51,6 @@ class AtariPongProcessor(Processor):
             SpaceTypes.GRAY_2ch,
             trimming=(35, 10, 195, 150),
             resize=(84, 84),
-        ).astype(np.float64)
-        state = np.where(state > 127, 1.0, 0.0)
+        )
+        state = np.where(state > 127, 255, 0).astype(np.uint8)
         return state

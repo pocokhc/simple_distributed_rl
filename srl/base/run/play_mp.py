@@ -12,7 +12,6 @@ from multiprocessing import sharedctypes
 from typing import Any, List, cast
 
 from srl.base.context import RunContext, RunNameTypes
-from srl.base.define import RLMemoryTypes
 from srl.base.rl.memory import IRLMemoryWorker, RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.run import core_play, core_train_only
@@ -73,10 +72,6 @@ class _ActorRLMemory(IRLMemoryWorker):
         self.base_memory = base_memory
         self.q_send = 0
         self.t0_health = time.time()  # [2]
-
-    @property
-    def memory_type(self) -> RLMemoryTypes:
-        return RLMemoryTypes.NONE
 
     def add(self, *args, serialized: bool = False) -> None:
         t0 = time.time()

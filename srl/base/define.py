@@ -118,7 +118,7 @@ class RLBaseTypes(enum.Flag):
 
 
 class RLMemoryTypes(enum.Enum):
-    NONE = enum.auto()
+    UNKNOWN = enum.auto()
     SEQUENCE = enum.auto()
     BUFFER = enum.auto()
     PRIORITY = enum.auto()

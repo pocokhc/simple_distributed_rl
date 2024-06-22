@@ -98,7 +98,10 @@ class Trainer(RLTrainer[Config, Parameter]):
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
         self.sync_count = 0
 
-    def train_setup(self):
+    def implement_thread_train(self) -> bool:
+        return True
+
+    def thread_train_setup(self):
         if self.memory.is_warmup_needed():
             return None
         batchs, weights, update_args = self.memory.sample(self.train_count)
@@ -110,7 +113,7 @@ class Trainer(RLTrainer[Config, Parameter]):
 
         return states, onehot_actions, target_q, weights, update_args
 
-    def train(self, setup_data):
+    def thread_train(self, setup_data):
         states, onehot_actions, target_q, weights, update_args = setup_data
 
         with tf.GradientTape() as tape:
@@ -127,8 +130,8 @@ class Trainer(RLTrainer[Config, Parameter]):
 
         return loss.numpy(), target_q, q, update_args
 
-    def train_teardown(self, run_data):
-        loss, target_q, q, update_args = run_data
+    def thread_train_teardown(self, train_data):
+        loss, target_q, q, update_args = train_data
 
         self.info["loss"] = loss
 

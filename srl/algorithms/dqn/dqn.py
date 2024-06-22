@@ -112,14 +112,6 @@ class Config(
     def get_changeable_parameters(self) -> List[str]:
         return ["test_epsilon"]
 
-    def get_info_types(self) -> dict:
-        return {
-            "loss": {"data": "ave"},
-            "sync": {"type": int, "data": "last"},
-            "epsilon": {"data": "last"},
-            "lr": {"data": "last"},
-        }
-
 
 # ------------------------------------------------------
 # Memory

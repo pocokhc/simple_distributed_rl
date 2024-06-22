@@ -1,12 +1,11 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Generic, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Generic, List, Optional, cast
 
 import numpy as np
 
 from srl.base.define import (
     DoneTypes,
-    InfoType,
     RLActionType,
     RLObservationType,
     TActSpace,
@@ -16,6 +15,7 @@ from srl.base.define import (
     TObsType,
     TParameter,
 )
+from srl.base.info import Info
 from srl.base.render import IRender
 from srl.base.rl.config import RLConfig
 from srl.base.rl.memory import DummyRLMemoryWorker, IRLMemoryWorker
@@ -48,6 +48,9 @@ class RLWorkerGeneric(
             DummyRLParameter(cast(RLConfig, config)) if parameter is None else parameter,
         )
         self.memory: IRLMemoryWorker = cast(IRLMemoryWorker, DummyRLMemoryWorker() if memory is None else memory)
+
+        # abstract value
+        self.info = Info()
 
     def _set_worker_run(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]"):
         """WorkerRunの初期化で呼ばれる"""

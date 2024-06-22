@@ -110,20 +110,6 @@ class Config(
         assert self.v_min < self.v_max
         assert self.unroll_steps > 0
 
-    def get_info_types(self) -> dict:
-        return {
-            "loss": {},
-            "v_loss": {},
-            "policy_loss": {},
-            "reward_loss": {},
-            "chance_loss": {},
-            "q_loss": {},
-            "vae_loss": {},
-            "lr": {"data": "last"},
-            "vmin": {"data": "last"},
-            "vmax": {"data": "last"},
-        }
-
 
 register(
     Config(),
@@ -729,15 +715,13 @@ class Trainer(RLTrainer[Config, Parameter]):
         self.parameter.q_max = q_max
 
         self.train_count += 1
-        self.info = {
-            "loss": loss.numpy(),
-            "v_loss": np.mean(v_loss.numpy()),
-            "policy_loss": np.mean(policy_loss.numpy()),
-            "reward_loss": np.mean(reward_loss.numpy()),
-            "chance_loss": np.mean(chance_loss.numpy()),
-            "q_loss": np.mean(q_loss.numpy()),
-            "vae_loss": np.mean(vae_loss.numpy()),
-        }
+        self.info["loss"] = loss.numpy()
+        self.info["v_loss"] = np.mean(v_loss.numpy())
+        self.info["policy_loss"] = np.mean(policy_loss.numpy())
+        self.info["reward_loss"] = np.mean(reward_loss.numpy())
+        self.info["chance_loss"] = np.mean(chance_loss.numpy())
+        self.info["q_loss"] = np.mean(q_loss.numpy())
+        self.info["vae_loss"] = np.mean(vae_loss.numpy())
 
 
 # ------------------------------------------------------

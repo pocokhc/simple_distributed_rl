@@ -197,12 +197,6 @@ class Config(
         assert self.burnin >= 0
         assert self.sequence_length >= 1
 
-    def get_changeable_parameters(self) -> List[str]:
-        return []
-
-    def get_info_types(self) -> dict:
-        return {}
-
 
 # ------------------------------------------------------
 # Memory

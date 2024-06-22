@@ -122,13 +122,6 @@ class Config(
     def get_used_backup_restore(self) -> bool:
         return True
 
-    def get_info_types(self) -> dict:
-        return {
-            "value_loss": {},
-            "policy_loss": {},
-            "lr": {"data": "last"},
-        }
-
 
 register(
     Config(),

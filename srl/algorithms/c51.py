@@ -153,7 +153,6 @@ class Trainer(RLTrainer[Config, Parameter]):
         if self.memory.is_warmup_needed():
             return
         batchs = self.memory.sample()
-        self.info = {}
 
         states = []
         actions = []
@@ -222,7 +221,7 @@ class Trainer(RLTrainer[Config, Parameter]):
         self.optimizer.apply_gradients(zip(grads, self.parameter.Q.trainable_variables))
 
         self.train_count += 1
-        self.info = {"loss": loss.numpy()}
+        self.info["loss"] = loss.numpy()
 
         if self.lr_sch.update(self.train_count):
             lr = self.lr_sch.get_rate()

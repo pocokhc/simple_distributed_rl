@@ -8,9 +8,10 @@ from typing import Any, Callable, List, Optional, Union
 import numpy as np
 
 from srl.base.context import RunContext
-from srl.base.define import DoneTypes, EnvActionType, EnvObservationType, InfoType, KeyBindType, RenderModes
+from srl.base.define import DoneTypes, EnvActionType, EnvObservationType, KeyBindType, RenderModes
 from srl.base.env.config import EnvConfig
 from srl.base.exception import SRLError
+from srl.base.info import Info
 from srl.base.render import Render
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.space import SpaceBase
@@ -104,16 +105,20 @@ class EnvRun:
 
         # --- env reset
         self._reset_vals()
-        self._state, self._info = self.env.reset()
+        self._state, info = self.env.reset()
         if self.config.random_noop_max > 0:
             for _ in range(random.randint(0, self.config.random_noop_max)):
-                self._state, rewards, env_done, self._info = self.env.step(self.env.action_space.get_default())
+                self._state, rewards, env_done, info = self.env.step(self.env.action_space.get_default())
                 assert not DoneTypes.done(env_done), "Terminated during noop step."
         self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
 
         # --- processor
         for p in self._processors_reset:
-            self._state, self._info = p.remap_reset(self._state, self._info, self)
+            self._state, info = p.remap_reset(self._state, info, self)
+
+        # info
+        for k, v in info.items():
+            self._info.set_scalar(k, v)
 
         # --- check
         if self.config.enable_assertion:
@@ -136,7 +141,7 @@ class EnvRun:
         self._step_rewards = np.zeros(self.player_num)
         self._invalid_actions_list: list = [[] for _ in range(self.env.player_num)]
         self._t0 = time.time()
-        self._info: dict = {}
+        self._info = Info()
 
     def step(
         self,
@@ -206,11 +211,14 @@ class EnvRun:
             env_done = self.sanitize_done(env_done, "'done' in 'env.reset may' not be bool.")
         return state, rewards, env_done, info
 
-    def _step2(self, state: EnvObservationType, rewards: np.ndarray, env_done: Union[bool, DoneTypes], info: InfoType):
+    def _step2(self, state: EnvObservationType, rewards: np.ndarray, env_done: Union[bool, DoneTypes], info: dict):
         self._state = state
         self._step_rewards = rewards
         self._done = DoneTypes.from_bool(env_done)
-        self._info = info
+
+        # info
+        for k, v in info.items():
+            self._info.set_scalar(k, v)
 
         invalid_actions = self.env.get_invalid_actions(self.next_player_index)
         for p in self._processors_step_invalid_actions:
@@ -398,10 +406,6 @@ class EnvRun:
     def reward_info(self) -> dict:
         return self.env.reward_info
 
-    @property
-    def info_types(self) -> dict:
-        return self.env.info_types
-
     # state properties
     @property
     def state(self) -> EnvObservationType:
@@ -444,7 +448,7 @@ class EnvRun:
         return self._step_rewards
 
     @property
-    def info(self) -> InfoType:
+    def info(self) -> Info:
         return self._info
 
     @property

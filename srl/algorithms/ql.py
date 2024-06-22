@@ -50,13 +50,6 @@ class Config(RLConfig):
     def get_name(self) -> str:
         return "QL"
 
-    def get_info_types(self) -> dict:
-        return {
-            "size": {"type": int, "data": "last"},
-            "td_error": {},
-            "epsilon": {},
-        }
-
 
 register(
     Config(),
@@ -135,11 +128,9 @@ class Trainer(RLTrainer[Config, Parameter]):
             self.parameter.Q[state][action] += lr * td_error
             self.train_count += 1
 
-        self.info = {
-            "size": len(self.parameter.Q),
-            "td_error": td_error,
-            "lr": lr,
-        }
+        self.info["size"] = len(self.parameter.Q)
+        self.info["td_error"] = td_error
+        self.info["lr"] = lr
 
 
 # ------------------------------------------------------

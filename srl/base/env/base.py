@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
 
-from srl.base.define import DoneTypes, EnvActionType, EnvObservationType, InfoType, KeyBindType
+from srl.base.define import DoneTypes, EnvActionType, EnvObservationType, KeyBindType
 from srl.base.render import IRender
 from srl.base.spaces.space import SpaceBase
 
@@ -41,21 +41,6 @@ class EnvBase(ABC, IRender):
             "baseline": None,
         }
 
-    @property
-    def info_types(self) -> dict:
-        """infoの情報のタイプを指定、出力形式等で使用を想定
-        各行の句は省略可能
-        name : {
-            "type": 型を指定(None, int, float, str)
-            "data": 以下のデータ形式を指定
-                "ave" : 平均値を使用(default)
-                "last": 最後のデータを使用
-                "min" : 最小値
-                "max" : 最大値
-        }
-        """
-        return {}  # NotImplemented
-
     def setup(self, **kwargs) -> None:
         """run.core_play の文脈で最初に呼ばれます
         引数は RunContext の変数が入ります
@@ -63,7 +48,7 @@ class EnvBase(ABC, IRender):
         pass
 
     @abstractmethod
-    def reset(self) -> Tuple[EnvObservationType, InfoType]:
+    def reset(self) -> Tuple[EnvObservationType, dict]:
         """reset
 
         Returns: init_state, info
@@ -71,7 +56,7 @@ class EnvBase(ABC, IRender):
         raise NotImplementedError()
 
     @abstractmethod
-    def step(self, action: EnvActionType) -> Tuple[EnvObservationType, List[float], Union[bool, DoneTypes], InfoType]:
+    def step(self, action: EnvActionType) -> Tuple[EnvObservationType, List[float], Union[bool, DoneTypes], dict]:
         """step
 
         Args:
@@ -130,7 +115,7 @@ class EnvBase(ABC, IRender):
     # --------------------------------
     # direct
     # --------------------------------
-    def direct_step(self, *args, **kwargs) -> Tuple[bool, EnvObservationType, int, InfoType]:
+    def direct_step(self, *args, **kwargs) -> Tuple[bool, EnvObservationType, int, dict]:
         """direct step
         外部で環境を動かしてpolicyだけ実行したい場合に実装します。
         これは学習で使う場合を想定していません。

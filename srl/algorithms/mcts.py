@@ -36,9 +36,6 @@ class Config(RLConfig):
     def get_used_backup_restore(self) -> bool:
         return True
 
-    def get_info_types(self) -> dict:
-        return {"size": {"type": int, "data": "last"}}
-
 
 register(
     Config(),
@@ -113,7 +110,7 @@ class Trainer(RLTrainer[Config, Parameter]):
 
             self.train_count += 1
 
-        self.info = {"size": len(self.parameter.N)}
+        self.info["size"] = len(self.parameter.N)
 
 
 # ------------------------------------------------------

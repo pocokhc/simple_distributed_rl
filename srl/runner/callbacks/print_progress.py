@@ -12,7 +12,7 @@ from srl.base.run.callback import RunCallback, TrainCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.callbacks.evaluate import Evaluate
-from srl.utils.util_str import to_str_env_info, to_str_reward, to_str_time, to_str_trainer_info, to_str_worker_info
+from srl.utils.util_str import to_str_reward, to_str_time
 
 logger = logging.getLogger(__name__)
 
@@ -279,14 +279,14 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
             # [eval reward]
             s += self._eval_str(context, state.parameter)
 
-        # [info] , 速度優先して一番最新の状態をそのまま表示
+        # [info] 速度優先して一番最新の状態をそのまま表示
         s_info = ""
         if self.progress_env_info:
-            s_info += to_str_env_info(state.env)
+            s_info += state.env.info.to_str()
         if self.progress_worker_info:
-            s_info += to_str_worker_info(state.workers[self.progress_worker])
-        if self.progress_train_info:
-            s_info += to_str_trainer_info(state.trainer)
+            s_info += state.workers[self.progress_worker].info.to_str()
+        if self.progress_train_info and state.trainer is not None:
+            s_info += state.trainer.info.to_str()
 
         if self.single_line:
             print(s + s_info)
@@ -439,7 +439,7 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
         # [info] , 速度優先して一番最新の状態をそのまま表示
         s_info = ""
         if self.progress_train_info:
-            s_info += to_str_trainer_info(state.trainer)
+            s_info += state.trainer.info.to_str()
 
         if self.single_line:
             print(s + s_info)

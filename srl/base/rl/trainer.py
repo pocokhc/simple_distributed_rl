@@ -3,7 +3,8 @@ from abc import ABC
 from typing import Any, Generic, Optional
 
 from srl.base.context import RunContext
-from srl.base.define import InfoType, TConfig, TParameter
+from srl.base.define import TConfig, TParameter
+from srl.base.info import Info
 from srl.base.rl.memory import IRLMemoryTrainer
 
 logger = logging.getLogger(__name__)
@@ -16,11 +17,9 @@ class RLTrainer(ABC, Generic[TConfig, TParameter]):
         self.memory = memory
         self.__context = RunContext()
 
-        self.batch_size: int = getattr(self.config, "batch_size", 1)
-        self.info: InfoType = {}
-
         # abstract value
         self.train_count: int = 0
+        self.info = Info()
 
     def get_train_count(self) -> int:
         return self.train_count

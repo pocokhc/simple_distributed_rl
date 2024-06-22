@@ -166,14 +166,6 @@ class Config(
         self.assert_params_framework()
         assert self.multisteps > 0
 
-    def get_info_types(self) -> dict:
-        return {
-            "loss": {},
-            "sync": {"type": int, "data": "last"},
-            "epsilon": {"data": "last"},
-            "lr": {"data": "last"},
-        }
-
 
 # ------------------------------------------------------
 # Memory

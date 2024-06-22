@@ -40,14 +40,6 @@ class Config(RLConfig):
     def get_name(self) -> str:
         return "VanillaPolicy"
 
-    def get_info_types(self) -> dict:
-        return {
-            "size": {"type": int, "data": "last"},
-            "loss": {},
-            "loss_mean": {},
-            "loss_stddev": {},
-        }
-
 
 register(
     Config(),
@@ -123,9 +115,9 @@ class Trainer(RLTrainer[Config, Parameter]):
         batchs = self.memory.sample()
 
         if self.config.action_space.stype == SpaceTypes.DISCRETE:
-            self.info = self._train_discrete(batchs)
+            self._train_discrete(batchs)
         else:
-            self.info = self._train_continuous(batchs)
+            self._train_continuous(batchs)
         self.train_count += len(batchs)
 
     def _train_discrete(self, batchs):
@@ -150,11 +142,9 @@ class Trainer(RLTrainer[Config, Parameter]):
             self.parameter.policy[state][action] += lr * diff_j
             loss.append(abs(diff_j))
 
-        return {
-            "size": len(self.parameter.policy),
-            "loss": np.mean(loss),
-            "lr": lr,
-        }
+        self.info["size"] = len(self.parameter.policy)
+        self.info["loss"] = np.mean(loss)
+        self.info["lr"] = lr
 
     def _train_continuous(self, batchs):
         loss_mean = []
@@ -187,11 +177,9 @@ class Trainer(RLTrainer[Config, Parameter]):
             loss_mean.append(mean_diff_j)
             loss_stddev.append(stddev_diff_j)
 
-        return {
-            "size": len(self.parameter.policy),
-            "loss_mean": np.mean(loss_mean),
-            "loss_stddev": np.mean(loss_stddev),
-        }
+        self.info["size"] = len(self.parameter.policy)
+        self.info["loss_mean"] = np.mean(loss_mean)
+        self.info["loss_stddev"] = np.mean(loss_stddev)
 
 
 # ------------------------------------------------------

@@ -268,7 +268,8 @@ class Trainer(RLTrainer[Config, Parameter]):
             self.sync_count += 1
 
         self.train_count += 1
-        self.info = {"loss": loss, "sync": self.sync_count}
+        self.info["loss"] = loss
+        self.info["sync"] = self.sync_count
 
     def _train_on_batchs(self, batchs, weights):
         # (batch, dict[x], step) -> (batch, step, x)

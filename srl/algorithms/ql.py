@@ -2,11 +2,10 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, List, Tuple, Union
+from typing import Any, List, Union
 
 import numpy as np
 
-from srl.base.define import InfoType
 from srl.base.rl.algorithms.base_ql import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
@@ -152,10 +151,10 @@ class Worker(RLWorker[Config, Parameter]):
 
         self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
 
-    def on_reset(self, worker) -> InfoType:
-        return {}
+    def on_reset(self, worker):
+        pass
 
-    def policy(self, worker) -> Tuple[int, InfoType]:
+    def policy(self, worker) -> int:
         self.state = self.config.observation_space.to_str(worker.state)
         invalid_actions = worker.get_invalid_actions()
 
@@ -172,11 +171,12 @@ class Worker(RLWorker[Config, Parameter]):
             q = self.parameter.get_action_values(self.state)
             self.action = funcs.get_random_max_index(q, invalid_actions)
 
-        return self.action, {"epsilon": epsilon}
+        self.info["epsilon"] = epsilon
+        return self.action
 
-    def on_step(self, worker) -> InfoType:
+    def on_step(self, worker):
         if not self.training:
-            return {}
+            return
         """
         [
             state,
@@ -196,7 +196,6 @@ class Worker(RLWorker[Config, Parameter]):
             worker.get_invalid_actions(),
         ]
         self.memory.add(batch)
-        return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
         q = self.parameter.get_action_values(self.state)

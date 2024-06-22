@@ -1,13 +1,13 @@
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Union
 
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import InfoType, RLBaseTypes
+from srl.base.define import RLBaseTypes
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import Processor
@@ -559,14 +559,12 @@ class Worker(RLWorker[Config, Parameter]):
         self._v_min = np.inf
         self._v_max = -np.inf
 
-    def on_reset(self, worker) -> InfoType:
+    def on_reset(self, worker):
         self.history = []
 
         self.N = {}  # 訪問回数(s,a)
         self.W = {}  # 累計報酬(s,a)
         self.Q = {}
-
-        return {}
 
     def _init_state(self, state_str):
         if state_str not in self.N:
@@ -574,7 +572,7 @@ class Worker(RLWorker[Config, Parameter]):
             self.W[state_str] = [0 for _ in range(self.config.action_space.n)]
             self.Q[state_str] = [0 for _ in range(self.config.action_space.n)]
 
-    def policy(self, worker) -> Tuple[int, InfoType]:
+    def policy(self, worker) -> int:
         invalid_actions = worker.get_invalid_actions()
 
         # --- シミュレーションしてpolicyを作成
@@ -610,7 +608,8 @@ class Worker(RLWorker[Config, Parameter]):
         self.step_policy = [self.N[self.s0_str][a] / N for a in range(self.config.action_space.n)]
 
         self.action = int(action)
-        return self.action, {"policy_tau": policy_tau}
+        self.info["policy_tau"] = policy_tau
+        return self.action
 
     def _simulation(self, state, state_str, invalid_actions, depth: int = 0):
         if depth >= 99999:  # for safety
@@ -710,9 +709,9 @@ class Worker(RLWorker[Config, Parameter]):
             scores[a] = score
         return scores
 
-    def on_step(self, worker) -> InfoType:
+    def on_step(self, worker):
         if not self.training:
-            return {}
+            return
 
         self.history.append(
             {
@@ -797,10 +796,8 @@ class Worker(RLWorker[Config, Parameter]):
                     priority,
                 )
 
-        return {
-            "v_min": self._v_min,
-            "v_max": self._v_max,
-        }
+        self.info["v_min"] = self._v_min
+        self.info["v_max"] = self._v_max
 
     def render_terminal(self, worker, **kwargs) -> None:
         self._init_state(self.s0_str)

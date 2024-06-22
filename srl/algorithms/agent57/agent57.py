@@ -6,7 +6,6 @@ from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import InfoType
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import Processor
@@ -437,7 +436,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
         self.ucb_actors_count = [1 for _ in range(self.config.actor_num)]  # 1回は保証
         self.ucb_actors_reward = [0.0 for _ in range(self.config.actor_num)]
 
-    def on_reset(self, worker) -> InfoType:
+    def on_reset(self, worker):
         self.q_ext = [0] * self.config.action_space.n
         self.q_int = [0] * self.config.action_space.n
         self.q = [0] * self.config.action_space.n
@@ -481,7 +480,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
         # TD誤差を計算するか
         if not self.distributed:
             self._calc_td_error = False
-        elif not self.config.memory.requires_priority():
+        elif not self.config.requires_priority():
             self._calc_td_error = False
         else:
             self._calc_td_error = True
@@ -512,8 +511,6 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
 
         # エピソードメモリ(エピソード毎に初期化)
         self.episodic_memory = collections.deque(maxlen=self.config.episodic_memory_capacity)
-
-        return {}
 
     # (sliding-window UCB)
     def _calc_actor_index(self) -> int:
@@ -553,7 +550,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
         # UCB値最大のポリシー（複数あればランダム）
         return np.random.choice(np.where(ucbs == np.max(ucbs))[0])
 
-    def policy(self, worker) -> Tuple[int, InfoType]:
+    def policy(self, worker) -> int:
         prev_onehot_action = np.identity(self.config.action_space.n, dtype=np.float32)[self.action][
             np.newaxis, np.newaxis, ...
         ]
@@ -576,9 +573,9 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
         )
         self.action = funcs.random_choice_by_probs(probs)
         # self.prob = probs[self.action]  #[1]
-        return self.action, {}
+        return self.action
 
-    def on_step(self, worker) -> InfoType:
+    def on_step(self, worker):
         next_state = worker.state
         reward_ext = worker.reward
         self.episode_reward += reward_ext
@@ -590,15 +587,11 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
             self.episodic_reward = self._calc_episodic_reward(n_s)
             self.lifelong_reward = self._calc_lifelong_reward(n_s)
             self.reward_int = self.episodic_reward * self.lifelong_reward
-
-            _info = {
-                "episodic": self.episodic_reward,
-                "lifelong": self.lifelong_reward,
-                "reward_int": self.reward_int,
-            }
+            self.info["episodic"] = self.episodic_reward
+            self.info["lifelong"] = self.lifelong_reward
+            self.info["reward_int"] = self.reward_int
         else:
             self.reward_int = 0.0
-            _info = {}
 
         self.recent_states.pop(0)
         self.recent_states.append(next_state)
@@ -620,7 +613,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
         self.recent_hidden_states_int.append(self.parameter.convert_numpy_from_hidden_state(self.hidden_state_int))
 
         if not self.training:
-            return _info
+            return
 
         if self._calc_td_error:
             calc_info = {
@@ -685,7 +678,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
                             priority = abs((reward_ext + self.beta * reward_int) - info["q"])
                         self.memory.add(batch, priority)
 
-        return _info
+        return
 
     def _add_memory(self, calc_info):
         """
@@ -780,7 +773,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
 
         return reward
 
-    def render_terminal(self, worker, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs):
         if self.config.enable_rescale:
             q = inverse_rescaling(self.q)
             q_ext = inverse_rescaling(self.q_ext)

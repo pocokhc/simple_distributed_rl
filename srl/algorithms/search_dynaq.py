@@ -3,11 +3,11 @@ import logging
 import math
 import time
 from dataclasses import dataclass
-from typing import Any, Tuple
+from typing import Any
 
 import numpy as np
 
-from srl.base.define import DoneTypes, InfoType
+from srl.base.define import DoneTypes
 from srl.base.exception import UndefinedError
 from srl.base.rl.algorithms.base_ql import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
@@ -388,11 +388,10 @@ class Worker(RLWorker[Config, Parameter]):
         self.parameter.iteration_q("ext", self.config.iteration_threshold / 10, self.config.iteration_timeout * 2)
         self.parameter.iteration_q("int", self.config.iteration_threshold, self.config.iteration_timeout)
 
-    def on_reset(self, worker) -> InfoType:
+    def on_reset(self, worker):
         self.episodic = {}
-        return {}
 
-    def policy(self, worker) -> Tuple[int, InfoType]:
+    def policy(self, worker) -> int:
         self.state = self.config.observation_space.to_str(worker.state)
         invalid_actions = worker.invalid_actions
         self.parameter.init_q(self.state)
@@ -430,11 +429,11 @@ class Worker(RLWorker[Config, Parameter]):
             q = (1 - self.config.test_search_rate) * q_ext + self.config.test_search_rate * q_int
             self.action = funcs.get_random_max_index(q, invalid_actions)
 
-        return self.action, {}
+        return self.action
 
-    def on_step(self, worker) -> InfoType:
+    def on_step(self, worker):
         if not self.training:
-            return {}
+            return
         next_state = self.config.observation_space.to_str(worker.state)
         self.parameter.init_q(next_state)
 
@@ -454,7 +453,6 @@ class Worker(RLWorker[Config, Parameter]):
             "next_invalid_actions": worker.invalid_actions,
         }
         self.memory.add(batch)
-        return {}
 
     def _calc_episodic_reward(self, state, update: bool = True):
         if state not in self.episodic:

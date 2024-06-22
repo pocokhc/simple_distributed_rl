@@ -1,12 +1,11 @@
 import random
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Union
 
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import InfoType
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import Processor
@@ -244,10 +243,10 @@ class Worker(RLWorker):
             self.config.categorical_v_min, self.config.categorical_v_max, self.config.categorical_num_atoms
         )
 
-    def on_reset(self, worker) -> InfoType:
-        return {}
+    def on_reset(self, worker):
+        pass
 
-    def policy(self, worker) -> Tuple[int, InfoType]:
+    def policy(self, worker) -> int:
         state = worker.state
         invalid_actions = worker.get_invalid_actions()
 
@@ -272,12 +271,12 @@ class Worker(RLWorker):
             action = np.random.choice(np.where(q == q.max())[0])
 
         self.action = action
-        return int(action), {"epsilon": epsilon}
+        self.info["epsilon"] = epsilon
+        return int(action)
 
-    def on_step(self, worker) -> InfoType:
+    def on_step(self, worker):
         if not self.training:
-            return {}
-
+            return
         batch = {
             "state": worker.prev_state,
             "next_state": worker.state,
@@ -286,7 +285,6 @@ class Worker(RLWorker):
             "done": worker.terminated,
         }
         self.memory.add(batch)
-        return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
         logits = self.parameter.Q(worker.prev_state[np.newaxis, ...])

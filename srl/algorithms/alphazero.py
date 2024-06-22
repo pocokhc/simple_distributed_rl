@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Union
 
 import numpy as np
 import tensorflow as tf
@@ -345,21 +345,19 @@ class Worker(RLWorker[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
 
-    def on_reset(self, worker) -> dict:
+    def on_reset(self, worker):
         self.sampling_step = 0
         self.history = []
 
         self.N = {}  # 訪問回数(s,a)
         self.W = {}  # 累計報酬(s,a)
 
-        return {}
-
     def _init_state(self, state_str):
         if state_str not in self.N:
             self.N[state_str] = [0 for _ in range(self.config.action_space.n)]
             self.W[state_str] = [0 for _ in range(self.config.action_space.n)]
 
-    def policy(self, worker) -> Tuple[int, dict]:
+    def policy(self, worker) -> int:
         self.state = worker.state
         self.state_str = self.config.observation_space.to_str(self.state)
         self.invalid_actions = worker.get_invalid_actions()
@@ -382,7 +380,7 @@ class Worker(RLWorker[Config, Parameter]):
             counts = np.asarray(self.N[self.state_str])
             action = np.random.choice(np.where(counts == counts.max())[0])
 
-        return int(action), {}
+        return int(action)
 
     def _simulation(self, env: EnvRun, state: np.ndarray, state_str: str, depth: int = 0):
         if depth >= env.max_episode_steps:  # for safety
@@ -471,11 +469,11 @@ class Worker(RLWorker[Config, Parameter]):
             scores[a] = score
         return scores
 
-    def on_step(self, worker) -> dict:
+    def on_step(self, worker):
         self.sampling_step += 1
 
         if not self.training:
-            return {}
+            return
 
         self.history.append([self.state, self.step_policy, worker.reward])
 
@@ -491,8 +489,6 @@ class Worker(RLWorker[Config, Parameter]):
                         "reward": reward,
                     }
                 )
-
-        return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
         self._init_state(self.state_str)

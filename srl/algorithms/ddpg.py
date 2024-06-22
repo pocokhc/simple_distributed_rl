@@ -1,11 +1,10 @@
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Union
 
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import InfoType
 from srl.base.rl.algorithms.base_continuous import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import Processor
@@ -343,10 +342,10 @@ class Worker(RLWorker):
     def __init__(self, *args):
         super().__init__(*args)
 
-    def on_reset(self, worker) -> InfoType:
-        return {}
+    def on_reset(self, worker):
+        pass
 
-    def policy(self, worker) -> Tuple[List[float], InfoType]:
+    def policy(self, worker) -> List[float]:
         self.action = self.parameter.actor_online(worker.state[np.newaxis, ...]).numpy()[0]
 
         if self.training:
@@ -360,12 +359,11 @@ class Worker(RLWorker):
             self.config.action_space.high - self.config.action_space.low
         )
         env_action = env_action.tolist()
-        return env_action, {}
+        return env_action
 
-    def on_step(self, worker) -> InfoType:
+    def on_step(self, worker):
         if not self.training:
-            return {}
-
+            return
         batch = {
             "state": worker.prev_state,
             "action": self.action,
@@ -374,8 +372,6 @@ class Worker(RLWorker):
             "done": worker.terminated,
         }
         self.memory.add(batch)
-
-        return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
         state = worker.prev_state.reshape(1, -1)

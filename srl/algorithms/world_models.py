@@ -3,7 +3,7 @@ import pickle
 import random
 from dataclasses import dataclass
 from functools import reduce
-from typing import Any, List, Optional, Tuple, Union, cast
+from typing import Any, List, Optional, Union, cast
 
 import numpy as np
 import tensorflow as tf
@@ -586,7 +586,7 @@ class Worker(RLWorker[Config, Parameter]):
                 self.elite_params.append(p)
             self.params_idx = 0
 
-    def on_reset(self, worker) -> dict:
+    def on_reset(self, worker):
         if self.training and self.sample_collection:
             self.memory.add("vae", worker.state)
             self._recent_states = [worker.state]
@@ -599,9 +599,7 @@ class Worker(RLWorker[Config, Parameter]):
             self.parameter.controller.set_flat_params(self.elite_params[self.params_idx])
             self.total_reward = 0
 
-        return {}
-
-    def policy(self, worker) -> Tuple[Any, dict]:
+    def policy(self, worker) -> Any:
         self.invalid_actions = worker.invalid_actions
         self.state = worker.state
         self.z = self.parameter.vae.encode(worker.state[np.newaxis, ...])
@@ -619,11 +617,11 @@ class Worker(RLWorker[Config, Parameter]):
             self.hidden_state = self.parameter.rnn.forward(self.z, action, self.hidden_state, return_rnn_only=True)
 
         self.action = action
-        return action, {}
+        return action
 
-    def on_step(self, worker) -> dict:
+    def on_step(self, worker):
         if not self.training:
-            return {}
+            return
 
         if self.sample_collection:
             self.memory.add("vae", self.state)
@@ -658,9 +656,9 @@ class Worker(RLWorker[Config, Parameter]):
                     self.params_idx = 0
                     self.elite_rewards = [[] for _ in range(self.config.num_individual)]
 
-            return {}
+            return
 
-        return {}
+        return
 
     def _eval(self):
         elite_rewards = np.array(self.elite_rewards).mean(axis=1)

@@ -1,14 +1,14 @@
 import random
 import time
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple, Union, cast
+from typing import Any, List, Optional, Union, cast
 
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 from tensorflow import keras
 
-from srl.base.define import InfoType, RLBaseTypes, SpaceTypes
+from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import Processor
@@ -554,7 +554,7 @@ class Worker(RLWorker):
         self._recent_actions = []
         self._recent_rewards = []
 
-    def on_reset(self, worker) -> InfoType:
+    def on_reset(self, worker):
         if self.config.experience_acquisition_method != "loop":
             self._recent_states = []
             self._recent_actions = []
@@ -564,13 +564,10 @@ class Worker(RLWorker):
         self.stoch = tf.zeros((1, self.config.stoch_size), dtype=tf.float32)
         self.action = 0
 
-        return {}
-
-    def policy(self, worker) -> Tuple[int, InfoType]:
-
+    def policy(self, worker) -> int:
         if self.training:
             self.action = cast(int, self.sample_action())
-            return self.action, {}
+            return self.action
 
         # --- rssm step
         embed = self.parameter.encode(worker.state[np.newaxis, ...])
@@ -587,7 +584,7 @@ class Worker(RLWorker):
         else:
             raise NotImplementedError(self.config.action_algorithm)
 
-        return int(self.action), {}
+        return int(self.action)
 
     def _ga_policy(self, deter, stoch):
         # --- 初期個体
@@ -681,9 +678,9 @@ class Worker(RLWorker):
             reward += _r.numpy()[0][0]
         return reward
 
-    def on_step(self, worker) -> InfoType:
+    def on_step(self, worker):
         if not self.training:
-            return {}
+            return
         next_state = worker.state
 
         clip_rewards_fn = dict(none=lambda x: x, tanh=tf.tanh)[self.config.clip_rewards]
@@ -723,8 +720,6 @@ class Worker(RLWorker):
                         "rewards": self._recent_rewards,
                     }
                 )
-
-        return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
         pass

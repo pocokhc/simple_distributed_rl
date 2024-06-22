@@ -2,11 +2,10 @@ import logging
 import pickle
 import random
 from dataclasses import dataclass
-from typing import Any, Tuple, Union
+from typing import Any, Union
 
 import numpy as np
 
-from srl.base.define import InfoType
 from srl.base.rl.algorithms.base_ql import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
@@ -266,10 +265,10 @@ class Worker(RLWorker):
 
         self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
 
-    def on_reset(self, worker) -> InfoType:
-        return {}
+    def on_reset(self, worker):
+        pass
 
-    def policy(self, worker) -> Tuple[int, InfoType]:
+    def policy(self, worker) -> int:
         self.state = self.config.observation_space.to_str(worker.state)
         self.invalid_actions = worker.get_invalid_actions()
 
@@ -288,12 +287,11 @@ class Worker(RLWorker):
             q = [(-np.inf if a in self.invalid_actions else v) for a, v in enumerate(q)]
             self.action = np.random.choice(np.where(q == np.max(q))[0])
 
-        return int(self.action), {}
+        return int(self.action)
 
-    def on_step(self, worker) -> InfoType:
+    def on_step(self, worker):
         if not self.training:
-            return {}
-
+            return
         batch = {
             "state": self.state,
             "next_state": self.config.observation_space.to_str(worker.state),
@@ -304,7 +302,6 @@ class Worker(RLWorker):
             "next_invalid_actions": worker.get_invalid_actions(),
         }
         self.memory.add(batch)
-        return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
         q = self.parameter.get_action_values(self.state, self.invalid_actions)

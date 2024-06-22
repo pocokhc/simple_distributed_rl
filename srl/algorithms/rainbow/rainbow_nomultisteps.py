@@ -1,9 +1,7 @@
 import random
-from typing import Tuple
 
 import numpy as np
 
-from srl.base.define import InfoType
 from srl.base.rl.worker import RLWorker
 from srl.rl import functions as funcs
 from srl.rl.functions import inverse_rescaling, rescaling
@@ -69,17 +67,17 @@ class Worker(RLWorker):
 
         self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
 
-    def on_reset(self, worker) -> InfoType:
-        return {}
+    def on_reset(self, worker):
+        pass
 
-    def policy(self, worker) -> Tuple[int, InfoType]:
+    def policy(self, worker) -> int:
         invalid_actions = worker.get_invalid_actions()
 
         if self.config.enable_noisy_dense:
             self.q = self.parameter.pred_single_q(worker.state)
             self.q[invalid_actions] = -np.inf
             self.action = int(np.argmax(self.q))
-            return self.action, {}
+            return self.action
 
         if self.training:
             epsilon = self.epsilon_sch.get_and_update_rate(self.total_step)
@@ -96,11 +94,12 @@ class Worker(RLWorker):
             # 最大値を選ぶ（複数はほぼないとして無視）
             self.action = int(np.argmax(self.q))
 
-        return self.action, {"epsilon": epsilon}
+        self.info["epsilon"] = epsilon
+        return self.action
 
-    def on_step(self, worker) -> InfoType:
+    def on_step(self, worker):
         if not self.training:
-            return {}
+            return
         reward = worker.reward
         self.step_epsilon += 1
 
@@ -144,7 +143,6 @@ class Worker(RLWorker):
             priority = abs(target_q - select_q)
 
         self.memory.add(batch, priority)
-        return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
         if self.q is None:

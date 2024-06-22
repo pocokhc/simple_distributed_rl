@@ -1,11 +1,10 @@
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 import numpy as np
 
-from srl.base.define import InfoType
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import Processor
@@ -321,7 +320,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
 
         self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
 
-    def on_reset(self, worker) -> InfoType:
+    def on_reset(self, worker):
         self._recent_states = [self.dummy_state for _ in range(self.config.multisteps + 1)]
         self._recent_actions = [
             self.onehot_arr[random.randint(0, self.config.action_space.n - 1)] for _ in range(self.config.multisteps)
@@ -334,9 +333,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
         self._recent_states.pop(0)
         self._recent_states.append(worker.state)
 
-        return {}
-
-    def policy(self, worker) -> Tuple[int, InfoType]:
+    def policy(self, worker) -> int:
         self.state = worker.state
         invalid_actions = worker.get_invalid_actions()
 
@@ -345,7 +342,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
             self.q[invalid_actions] = -np.inf
             self.action = int(np.argmax(self.q))
             # self.prob = 1.0 #[1]
-            return self.action, {}
+            return self.action
 
         if self.training:
             epsilon = self.epsilon_sch.get_and_update_rate(self.total_step)
@@ -365,15 +362,16 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
             self.action = int(np.argmax(self.q))
             # self.prob = epsilon / valid_action_num + (1 - epsilon) #[1]
 
-        return self.action, {"epsilon": epsilon}
+        self.info["epsilon"] = epsilon
+        return self.action
 
-    def on_step(self, worker) -> InfoType:
+    def on_step(self, worker):
         reward = worker.reward
         self._recent_states.pop(0)
         self._recent_states.append(worker.state)
 
         if not self.training:
-            return {}
+            return
 
         # reward clip
         if self.config.enable_reward_clip:
@@ -412,8 +410,6 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
                 self._recent_invalid_actions.pop(0)
                 self._recent_invalid_actions.append([])
                 self._add_memory(priority)
-
-        return {}
 
     def _add_memory(self, priority):
         """

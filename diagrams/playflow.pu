@@ -34,36 +34,26 @@ loop episode
 
     User -> WorkerRun: policy()
         note right
-        env.next_player_index policy
+        worker_idx = env.next_player_index
+        state = <color blue>encode(env.state)</color>
         end note
 
         alt 1st step
             WorkerRun -> Worker: on_reset(WorkerRun)
-                note right
-                state = <color blue>encode(env.state)</color>
-                end note
-                Worker -> Worker: call_on_reset(WorkerRun)
-                return info
-            return info
+            return
         else After the 2nd step
             WorkerRun -> Worker: on_step(WorkerRun)
-                note right
-                next_state = <color blue>encode(env.state)</color>
-                end note
-                Worker -> Worker: call_on_step(WorkerRun)
-                    Worker -> Memory: add(batch)
-                    return
-                return info
-            return info
+                Worker -> Memory: add(batch)
+                return
+            return
         end
 
         WorkerRun -> Worker: policy(WorkerRun)
-            Worker -> Worker: call_policy(WorkerRun)
-                Worker -> Parameter: get parameter
-                return
-            return action
+            Worker -> Parameter: get parameter
+            return
         return action
-        note right
+
+        note left
         action = <color red>decode(action)</color>
         end note
     return action
@@ -78,12 +68,12 @@ loop episode
         return state, reward, done, next_player_index
     return
 
-    User -> WorkerRun: on_step(env)
+    User -> WorkerRun: on_step()
         note right
         save step reward
         end note
         alt done
-            WorkerRun -> Worker: on_reset(env)
+            WorkerRun -> Worker: on_step(WorkerRun)
             return
         end
     return
@@ -93,7 +83,7 @@ loop episode
         return batchs
         Trainer -> Parameter: update parameter
         return
-    return info
+    return
 
     User -> EnvRun: render()
         EnvRun -> EnvBase: rendering

@@ -8,7 +8,7 @@
 
   * 2. graphviz Install  
   <https://www.graphviz.org/download/>  
-  (Version at creation: graphviz-8.1.0)  
+  (Version at creation: graphviz-11.0.0)  
 
   * 3. PlantUML(VSCode Extension) Install  
   <https://marketplace.visualstudio.com/items?itemName=jebbs.plantuml>  

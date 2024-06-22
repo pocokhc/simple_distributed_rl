@@ -17,9 +17,9 @@ class base.RunState {
 
 
 ' --- registration
-
-base.EnvConfig -- base.registration
-base.RLConfig -- base.registration
+base.RunContext -- base.registration
+base.EnvConfig -- base.RunContext
+base.RLConfig -- base.RunContext
 
 interface base.registration {
     make_env()
@@ -31,8 +31,6 @@ interface base.registration {
 
 
 ' --- run
-
-base.RunContext -- base.run
 base.RunState -- base.run
 
 interface base.run {
@@ -49,18 +47,15 @@ base.run <|- base.BaseRunMemo
 base.registration .> base.run : Run with the maked one. >
 
 ' --- Runner
-
 class Runner {
     .. play info ..
-    env_config : EnvConfig
-    rl_config : RLConfig
     context : RunContext
     .. keep instance ..
     env : EnvRyn
     parameter : RLParameter
     memory : RLMemory
     .. facade ..
-    core_play()
+    train()
 }
 base.registration <.. Runner : call <
 base.run <.. Runner : call <

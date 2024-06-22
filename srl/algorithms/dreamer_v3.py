@@ -553,7 +553,8 @@ class RSSM(keras.Model):
             # (batch, stoch, classes) -> (batch * stoch, classes)
             batch = x.shape[0]
             x = tf.reshape(x, (batch * self.stoch_size, self.classes))
-            dist = CategoricalDist(x, self.unimix)
+            dist = CategoricalDist(x)
+            dist.set_unimix(self.unimix)
             # (batch * stoch, classes) -> (batch, stoch, classes) -> (batch, stoch * classes)
             stoch = tf.cast(
                 tf.reshape(dist.rsample(), (batch, self.stoch_size, self.classes)),
@@ -586,7 +587,8 @@ class RSSM(keras.Model):
             # (batch, stoch, classes) -> (batch * stoch, classes)
             batch = x.shape[0]
             x = tf.reshape(x, (batch * self.stoch_size, self.classes))
-            dist = CategoricalDist(x, self.unimix)
+            dist = CategoricalDist(x)
+            dist.set_unimix(self.unimix)
             # (batch * stoch, classes) -> (batch, stoch, classes) -> (batch, stoch * classes)
             stoch = tf.cast(
                 tf.reshape(dist.rsample(), (batch, self.stoch_size, self.classes)),
@@ -1062,7 +1064,7 @@ class Parameter(RLParameter):
             raise UndefinedError(self.config.reward_type)
 
         # --- continue
-        self.cont = BernoulliDistBlock(1, self.config.cont_layer_sizes, self.config.dense_act, name="ContinueModel")
+        self.cont = BernoulliDistBlock(self.config.cont_layer_sizes, self.config.dense_act, name="ContinueModel")
         logger.info("Continue: Bernoulli")
 
         # --- critic
@@ -1137,7 +1139,6 @@ class Parameter(RLParameter):
                 self.actor = CategoricalDistBlock(
                     self.config.action_space.n,
                     self.config.actor_layer_sizes,
-                    unimix=self.config.actor_discrete_unimix,
                     name="Actor",
                 )
                 logger.info(f"Actor: Categorical(unimix={self.config.actor_discrete_unimix})")
@@ -1232,7 +1233,7 @@ class Trainer(RLTrainer[Config, Parameter]):
         self.seq_reward = [[] for _ in range(self.config.batch_size)]
         self.seq_undone = [[] for _ in range(self.config.batch_size)]
         self.seq_unterminated = [[] for _ in range(self.config.batch_size)]
-        self.stoch, self.deter = self.parameter.dynamics.get_initial_state(self.batch_size)
+        self.stoch, self.deter = self.parameter.dynamics.get_initial_state(self.config.batch_size)
 
     def train(self) -> None:
         if self.memory.is_warmup_needed():

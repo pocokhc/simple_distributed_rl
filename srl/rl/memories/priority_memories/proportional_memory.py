@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, cast
 
 import numpy as np
 
@@ -126,7 +126,7 @@ class ProportionalMemory(IPriorityMemory):
         elif not _restore_skip:
             priority = (abs(priority) + self.epsilon) ** self.alpha
 
-        self.tree.add(priority, batch)
+        self.tree.add(cast(float, priority), batch)
         self.size += 1
         if self.size > self.capacity:
             self.size = self.capacity

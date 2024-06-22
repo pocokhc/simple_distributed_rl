@@ -44,9 +44,9 @@ def main(ip: str, port: int):
     actor_id = server_state.join_actor(context.actor_num)
     rl_config.setup_from_actor(context.actor_num, actor_id)
 
-    env = srl.make_env(env_config)
+    env = env_config.make()
     assert env.player_num == 1
-    parameter = srl.make_parameter(rl_config)
+    parameter = rl_config.make_parameter()
     worker = srl.make_worker(rl_config, env, parameter, remote_memory)
 
     env.setup(context)

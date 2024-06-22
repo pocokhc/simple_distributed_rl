@@ -67,8 +67,8 @@ def run_trainer(queue, ip, port):
     remote_board = manager.Board()
     remote_memory = manager.RemoteMemory()
 
-    parameter = srl.make_parameter(rl_config)
-    trainer = srl.make_trainer(rl_config, parameter, remote_memory, distributed=True)
+    parameter = rl_config.make_parameter()
+    trainer = rl_config.make_trainer(parameter, remote_memory, distributed=True)
     trainer.train_start(context)
 
     train_count = 0
@@ -97,7 +97,7 @@ def run_trainer(queue, ip, port):
 def run_server(config):
     server_state = ServerState()
     board = Board()
-    remote_memory = srl.make_memory(config["rl_config"])
+    remote_memory = config["rl_config"].make_memory()
     MPManager.register("get_config", callable=lambda: config)
     MPManager.register("get_server_state", callable=lambda: server_state)
     MPManager.register("RemoteMemory", callable=lambda: remote_memory)
@@ -134,7 +134,7 @@ def train(config):
 
     # --- last param
     param = queue.get()
-    parameter = srl.make_parameter(rl_config)
+    parameter = rl_config.make_parameter()
     parameter.restore(param)
 
     return parameter
@@ -174,7 +174,7 @@ if __name__ == "__main__":
 
     # --- evaluate
     context = RunContext()
-    env = srl.make_env(env_config)
+    env = env_config.make()
     assert env.player_num == 1
     worker = srl.make_worker(rl_config, env, parameter)
     env.setup(context)

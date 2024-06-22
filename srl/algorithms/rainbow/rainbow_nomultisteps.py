@@ -16,12 +16,12 @@ from .rainbow import CommonInterfaceParameter, Config
 def calc_target_q(self: CommonInterfaceParameter, batchs, training: bool):
     batch_size = len(batchs)
 
-    states, n_states, onehot_actions, rewards, dones, _ = zip(*batchs)
+    states, n_states, onehot_actions, rewards, undones, _ = zip(*batchs)
     states = np.asarray(states)
     n_states = np.asarray(n_states)
     onehot_actions = np.asarray(onehot_actions, dtype=np.float32)
     rewards = np.array(rewards, dtype=np.float32)
-    dones = np.array(dones, dtype=np.float32)
+    undones = np.array(undones, dtype=np.float32)
     next_invalid_actions = [e for b in batchs for e in b[5]]
     next_invalid_actions_idx = [i for i, b in enumerate(batchs) for e in b[5]]
 
@@ -41,7 +41,7 @@ def calc_target_q(self: CommonInterfaceParameter, batchs, training: bool):
         maxq = inverse_rescaling(maxq)
 
     # --- Q値を計算
-    target_q = rewards + dones * self.config.discount * maxq
+    target_q = rewards + undones * self.config.discount * maxq
 
     if self.config.enable_rescale:
         target_q = rescaling(target_q)

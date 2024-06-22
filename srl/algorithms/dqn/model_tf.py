@@ -53,7 +53,6 @@ class QNetwork(keras.Model):
 class Parameter(CommonInterfaceParameter):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
 
         self.q_online = QNetwork(self.config, name="Q_online")
         self.q_target = QNetwork(self.config, name="Q_target")
@@ -89,8 +88,6 @@ class Parameter(CommonInterfaceParameter):
 class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
 
         self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())

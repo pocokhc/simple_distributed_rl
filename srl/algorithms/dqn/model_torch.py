@@ -42,7 +42,6 @@ class QNetwork(nn.Module):
 class Parameter(CommonInterfaceParameter):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
 
         self.device = torch.device(self.config.used_device_torch)
 
@@ -100,8 +99,6 @@ class Parameter(CommonInterfaceParameter):
 class Trainer(RLTrainer[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
 
         self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
         self.optimizer = optim.Adam(self.parameter.q_online.parameters(), lr=self.lr_sch.get_rate())
@@ -116,18 +113,18 @@ class Trainer(RLTrainer[Config, Parameter]):
         self.parameter.q_target.to(device)
         self.parameter.q_online.to(device)
 
-        batchs = self.memory.sample(self.batch_size)
-        state, n_state, onehot_action, reward, done, next_invalid_actions = zip(*batchs)
+        batchs = self.memory.sample()
+        state, n_state, onehot_action, reward, undone, next_invalid_actions = zip(*batchs)
         state = self.parameter.q_online.input_block.create_batch_stack_data(state, device)
-        onehot_action = torch.tensor(np.asarray(onehot_action, dtype=np.float32)).to(device)
-        reward = np.array(reward, dtype=np.float32)
-        done = np.array(done)
+        onehot_action = torch.tensor(np.asarray(onehot_action, dtype=self.config.dtype)).to(device)
+        reward = np.array(reward, dtype=self.config.dtype)
+        undone = np.array(undone)
 
         target_q = self.parameter.calc_target_q(
             len(batchs),
             n_state,
             reward,
-            done,
+            undone,
             next_invalid_actions,
         )
         target_q = torch.from_numpy(target_q).to(dtype=torch.float32).to(device)

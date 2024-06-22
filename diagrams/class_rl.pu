@@ -8,38 +8,18 @@ enum RLBaseTypes {
     MULTI
 }
 
-class WorkerRun {
-    env : EnvRun
-    on_reset(env)
-    policy() : action
-    on_step()
-    render()
-    state_encode(env_state) : rl_state
-    action_decode(rl_action) : env_action
+
+abstract RLConfig {
+    .. abstract ..
+    get_name() : str
+    get_base_action_type() : RLBaseTypes
+    get_base_observation_type() : RLBaseTypes
+    get_framework() : str
+    .. Runtime properties ..
+    action_space : SpaceBase
+    observation_space : SpaceBase
 }
-note "Keeps run-time state.\nAbsorbs the difference with the environment." as WorkerRunMemo
-WorkerRun . WorkerRunMemo
 
-
-abstract RLWorker {
-    config : RLConfig
-    parameter : RLParameter
-    memory : <color red>IRLMemoryWorker</color>
-    on_reset()
-    policy()
-    on_step()
-    render_terminal()
-    render_rgb_array()
-}
-RLWorker -- WorkerRun
-
-
-abstract RLTrainer {
-    config : RLConfig
-    parameter : RLParameter
-    memory : <color red>IRLMemoryTrainer</color>
-    train()
-}
 
 abstract RLMemory {
     config : RLConfig
@@ -63,18 +43,38 @@ abstract RLParameter {
 }
 
 
-abstract RLConfig {
-    .. abstract ..
-    get_name() : str
-    get_base_action_type() : RLBaseTypes
-    get_base_observation_type() : RLBaseTypes
-    get_framework() : str
-    .. Runtime properties ..
-    action_space : SpaceBase
-    observation_space : SpaceBase
-    observation_space_of_env : SpaceBase
+abstract RLTrainer {
+    config : RLConfig
+    parameter : RLParameter
+    memory : <color red>IRLMemoryTrainer</color>
+    train()
 }
 
+
+abstract RLWorker {
+    config : RLConfig
+    parameter : RLParameter
+    memory : <color red>IRLMemoryWorker</color>
+    on_reset()
+    policy() : action
+    on_step()
+    render_terminal()
+    render_rgb_array()
+}
+RLWorker -- WorkerRun
+
+
+class WorkerRun {
+    env : EnvRun
+    on_reset(env)
+    policy() : action
+    on_step()
+    render()
+    state_encode(env_state) : rl_state
+    action_decode(rl_action) : env_action
+}
+note "Keeps run-time state.\nAbsorbs the difference with the environment." as WorkerRunMemo
+WorkerRun . WorkerRunMemo
 
 RLBaseTypes . RLConfig
 

@@ -13,6 +13,8 @@ class CategoricalDist:
         self._logits = logits
 
     def set_unimix(self, unimix: float):
+        if unimix == 0:
+            return
         probs = torch.softmax(self._logits, -1)
         uniform = torch.ones_like(probs) / probs.shape[-1]
         probs = (1 - unimix) * probs + unimix * uniform
@@ -51,13 +53,14 @@ class CategoricalDist:
         return (a - probs).detach() + probs
 
     def log_probs(self):
-        return self._dist.log_prob
+        return torch.log(self._dist.probs)
 
     def log_prob(self, a, onehot: bool = False):
         if onehot:
             a = torch.squeeze(a, dim=-1)
             a = torch.nn.functional.one_hot(a, self.classes).float()
-        return self._dist.log_prob(a)
+        a = torch.sum(self.log_probs() * a, dim=-1, keepdim=True)
+        return a
 
     def entropy(self):
         return torch.unsqueeze(self._dist.entropy(), dim=-1)

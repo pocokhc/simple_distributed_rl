@@ -15,6 +15,8 @@ class CategoricalDist:
         self._probs = self._base_probs
 
     def set_unimix(self, unimix: float):
+        if unimix == 0:
+            return
         uniform = tf.ones_like(self._base_probs) / self._base_probs.shape[-1]
         self._probs = (1 - unimix) * self._base_probs + unimix * uniform
 
@@ -85,8 +87,7 @@ class CategoricalDistBlock(keras.Model):
     @tf.function
     def compute_train_loss(self, x, y, unimix: float = 0):
         dist = self(x, training=True)
-        if unimix > 0:
-            dist.set_unimix(unimix)
+        dist.set_unimix(unimix)
         probs = dist.probs()
 
         # クロスエントロピーの最小化

@@ -13,18 +13,15 @@
 1. (distribution)オリジナルrl/env対応
 1. DemoMemory
 
-a. coreにエピソード単位を追加 ok
-b. memoryを汎用的に
-c. modelの入力を何とかしたい
-d. memoryのbatch_sizeをコンストラクタに
 
 # v0.16.0
 
 **MainUpdates**
 
-・リファクタリングがメインですが規模が大きく細かい仕様が結構変わっています。
+・リファクタリングがメインですが規模が大きく細かい仕様が結構変わっています。（特にアルゴリズムの実装方法に変更があります）
 メイン機能には変更ありません。
 ・print_progressの出力を見直して見やすくしました。
+・READMEとドキュメントを更新しました。
 
 1. [base] big refactoring: 気になっていた部分を修正、細かい仕様変更等はあるが、メイン機能には変更なし
     1. config
@@ -70,9 +67,12 @@ d. memoryのbatch_sizeをコンストラクタに
 1. [base.rl.worker_run] update: episode_seedを保持するように変更
 1. [base.info] new: Infoクラスを追加し、RLTrainer,RLWorker,EnvRunのinfoを置換
     - get_info_typesを削除
-1. [diagrams] update
 1. [rl.tf.distributions] change: unimixの仕様を後から変更できるように変更
 1. [base.rl.algorithms] delete: ContinuousActionとDiscreteActionを削除
+1. [diagrams] update
+1. [docs] update
+1. [dockers] update: tf215をarchiveに移動し、latestのversionを最新に更新
+
 
 **Bug Fixes**
 

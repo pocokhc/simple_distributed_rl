@@ -17,7 +17,7 @@ def main():
         enable_rescale=False,
     )
     rl_config.hidden_block.set_dueling_network((64, 64))
-    rl_config.memory.set_proportional_memory()
+    rl_config.set_proportional_memory()
     runner = srl.Runner(env_config, rl_config)
     runner.set_device("CPU")
     runner.model_summary()
@@ -53,7 +53,7 @@ def main_compare():
         enable_rescale=False,
     )
     rainbow_base_config.hidden_block.set((64, 64))
-    rainbow_base_config.memory.set_replay_memory()
+    rainbow_base_config.set_replay_memory()
 
     rl_configs.append(("base", rainbow_base_config.copy()))
 
@@ -74,7 +74,7 @@ def main_compare():
     rl_configs.append(("multisteps 10", _c))
 
     _c = rainbow_base_config.copy()
-    _c.memory.set_proportional_memory(alpha=1.0, beta_initial=1.0)
+    _c.set_proportional_memory(alpha=1.0, beta_initial=1.0)
     rl_configs.append(("ProportionalMemory", _c))
 
     _c = rainbow_base_config.copy()
@@ -82,7 +82,7 @@ def main_compare():
     _c.hidden_block.set_dueling_network((64, 64))
     _c.enable_noisy_dense = True
     _c.multisteps = 10
-    _c.memory.set_proportional_memory(alpha=1.0, beta_initial=0.8, beta_steps=200 * 50)
+    _c.set_proportional_memory(alpha=1.0, beta_initial=0.8, beta_steps=200 * 50)
     rl_configs.append(("Rainbow", _c))
 
     results = []
@@ -109,4 +109,4 @@ def main_compare():
 
 if __name__ == "__main__":
     main()
-    main_compare()
+    # main_compare()

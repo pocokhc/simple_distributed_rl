@@ -1,5 +1,4 @@
 import numpy as np
-
 import srl
 from srl.algorithms import ppo
 from srl.base.define import SpaceTypes
@@ -24,8 +23,8 @@ def main(mode: str):
     rl_config.policy_block.set(())
 
     if mode == "CONTINUOUS":
-        TRAIN_COUNT = 40000
-        rl_config.lr = 0.001
+        TRAIN_COUNT = 50000
+        rl_config.lr = 0.0005
         rl_config.entropy_weight = 1.0
         rl_config.override_action_type = SpaceTypes.CONTINUOUS
     else:

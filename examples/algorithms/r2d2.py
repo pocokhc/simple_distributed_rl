@@ -2,7 +2,6 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
-
 import srl
 from srl.algorithms import r2d2
 
@@ -80,4 +79,4 @@ def main_compare():
 
 if __name__ == "__main__":
     main()
-    main_compare()
+    # main_compare()

@@ -1,8 +1,6 @@
 import os
 from typing import cast
 
-import numpy as np
-
 import srl
 from srl.algorithms import planet
 from srl.base.define import ObservationModes
@@ -10,7 +8,7 @@ from srl.base.define import ObservationModes
 _parameter_path = os.path.join(os.path.dirname(__file__), "_planet_param.dat")
 
 
-def _create_runner():
+def _create_runner(is_load=True):
     rl_config = planet.Config(
         deter_size=50,
         stoch_size=10,
@@ -31,17 +29,17 @@ def _create_runner():
         # action_algorithm="random",
     )
     rl_config.observation_mode = ObservationModes.RENDER_IMAGE
-    rl_config.parameter_path = _parameter_path
-    env_config = srl.EnvConfig("EasyGrid")
-    env_config.max_episode_steps = 10
-    return srl.Runner(env_config, rl_config)
+    env_config = srl.EnvConfig("EasyGrid", max_episode_steps=10)
+    runner = srl.Runner(env_config, rl_config)
+    if is_load:
+        runner.load_parameter(_parameter_path)
+    return runner
 
 
 def train():
-    runner = _create_runner()
-    rl_config = cast(planet.Config, runner.rl_config)
-
+    runner = _create_runner(is_load=False)
     runner.model_summary()
+    rl_config = cast(planet.Config, runner.rl_config)
 
     # train
     runner.rollout(max_episodes=1000)
@@ -54,14 +52,12 @@ def train():
 
 def evaluate():
     runner = _create_runner()
-    rewards = runner.evaluate(max_episodes=10)
-    print(rewards)
-    print("mean", np.mean(rewards))
+    rewards = runner.evaluate(max_episodes=1)
+    print("rewards", rewards)
 
 
 def animation():
     runner = _create_runner()
-
     path = os.path.join(os.path.dirname(__file__), "_planet.gif")
     runner.animation_save_gif(path)
 

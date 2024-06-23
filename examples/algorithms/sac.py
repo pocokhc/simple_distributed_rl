@@ -59,5 +59,5 @@ def main_continuous():
 
 
 if __name__ == "__main__":
-    # main_discrete()
-    main_continuous()
+    main_discrete()
+    # main_continuous()

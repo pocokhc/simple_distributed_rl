@@ -1,11 +1,10 @@
 import json
 import random
 from dataclasses import dataclass
-from typing import Tuple
 
 import numpy as np
 
-from srl.base.define import InfoType, RLBaseTypes
+from srl.base.define import RLBaseTypes
 from srl.base.rl.config import RLConfig
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
@@ -95,10 +94,8 @@ class Trainer(RLTrainer[Config, Parameter]):
             td_error /= len(batchs)
 
         # 学習結果(任意)
-        self.info = {
-            "Q": len(self.parameter.Q),
-            "td_error": td_error,
-        }
+        self.info["Q"] = len(self.parameter.Q)
+        self.info["td_error"] = td_error
 
 
 class Worker(RLWorker[Config, Parameter]):
@@ -106,9 +103,9 @@ class Worker(RLWorker[Config, Parameter]):
         super().__init__(*args)
 
     def on_reset(self, worker):
-        return {}
+        pass
 
-    def policy(self, worker):
+    def policy(self, worker) -> int:
         self.state = self.config.observation_space.to_str(worker.state)
 
         # 学習中かどうかで探索率を変える
@@ -127,11 +124,11 @@ class Worker(RLWorker[Config, Parameter]):
             # 最大値を選ぶ（複数あればランダム）
             self.action = np.random.choice(np.where(q == q.max())[0])
 
-        return int(self.action), {}
+        return int(self.action)
 
-    def on_step(self, worker) -> InfoType:
+    def on_step(self, worker):
         if not self.training:
-            return {}
+            return
 
         batch = {
             "state": self.state,
@@ -141,10 +138,9 @@ class Worker(RLWorker[Config, Parameter]):
             "done": worker.terminated,
         }
         self.memory.add(batch)  # memoryはaddのみ
-        return {}
 
     # 強化学習の可視化用、今回ですとQテーブルを表示しています。
-    def render_terminal(self, worker, **kwargs) -> None:
+    def render_terminal(self, worker, **kwargs):
         q = self.parameter.get_action_values(self.state)
         maxa = np.argmax(q)
         for a in range(self.config.action_space.n):

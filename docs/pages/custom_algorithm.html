@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Make Original Algorithm &mdash; SimpleDistributedRL 0.15.3.3 ドキュメント</title>
+  <title>Make Original Algorithm &mdash; SimpleDistributedRL 0.15.4.1 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -15,8 +15,8 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=97054236"></script>
-        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/documentation_options.js?v=8adebd8b"></script>
+        <script src="../_static/doctools.js?v=9a2dae69"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
     <script src="../_static/js/theme.js"></script>
@@ -55,23 +55,23 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="custom_env.html">Make Original Environment</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Make Original Algorithm</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#id1">概要</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id2">実装する各クラスの説明</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#config">Config</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#memory">Memory</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#id1">1. 概要</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id2">2. 実装する各クラスの説明</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#config">2-1. Config</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#memory">2-2. Memory</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#sequencememory">SequenceMemory</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#experiencereplaybuffer">ExperienceReplayBuffer</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#priorityexperiencereplay">PriorityExperienceReplay</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#parameter">Parameter</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#trainer">Trainer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parameter">2-3. Parameter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#trainer">2-4. Trainer</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#worker">Worker</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#id3">自作アルゴリズムの登録</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id4">型アノテーション</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#q">実装例(Q学習)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id3">3. 自作アルゴリズムの登録</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id4">4. 型アノテーション</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#q">5. 実装例(Q学習)</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="framework_detail.html">Detailed Framework</a></li>
@@ -82,7 +82,9 @@
 <li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rl_config_tree.html">RLConfig Parameters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Configuration related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-train-related">Runner(Train related)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-distribution-related">Runner(Distribution related)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
 <ul>
@@ -126,30 +128,33 @@
              
   <section id="make-original-algorithm">
 <span id="custom-algorithm"></span><h1>Make Original Algorithm<a class="headerlink" href="#make-original-algorithm" title="Link to this heading"></a></h1>
-<p>ここでは本フレームワークでの自作アルゴリズムを作成する方法を説明します。構成は以下です。</p>
-<ol class="arabic simple">
-<li><p>概要</p></li>
+<p>ここでは本フレームワークでの自作アルゴリズムを作成する方法を説明します。</p>
+<ul class="simple">
+<li><p>1.概要</p></li>
 <li><dl class="simple">
-<dt>実装するクラスの説明</dt><dd><ol class="arabic simple">
-<li><p>Config</p></li>
-<li><p>Memory</p></li>
-<li><p>Parameter</p></li>
-<li><p>Trainer</p></li>
-<li><p>Worker</p></li>
-</ol>
+<dt>2.実装するクラスの説明</dt><dd><ul>
+<li><p>2-1.Config</p></li>
+<li><p>2-2.Memory</p></li>
+<li><p>2-3.Parameter</p></li>
+<li><p>2-4.Trainer</p></li>
+<li><p>2-5.Worker</p></li>
+</ul>
 </dd>
 </dl>
 </li>
-<li><p>自作アルゴリズムの登録</p></li>
-<li><p>型アノテーション</p></li>
-<li><p>Q学習実装例</p></li>
-</ol>
+<li><p>3.自作アルゴリズムの登録</p></li>
+<li><p>4.型アノテーション</p></li>
+<li><p>5.Q学習実装例</p></li>
+</ul>
 <section id="id1">
-<h2>概要<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
-<p>自作アルゴリズムでは5つクラスを定義する必要があり、以下のように連携して動作します。(図にはないですが、他にハイパーパラメータを管理するConfigクラスがあります)</p>
+<h2>1. 概要<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
+<div class="line-block">
+<div class="line">自作アルゴリズムは5つクラスが以下のように連携して動作します。</div>
+<div class="line">※図にはないですが、他にハイパーパラメータを管理するConfigクラスがあります</div>
+<div class="line">※WorkerRunとEnvRunはフレームワーク内の内容になるので意識する必要はありません</div>
+</div>
 <img alt="../_images/overview-sequence.drawio.png" src="../_images/overview-sequence.drawio.png" />
 <div class="line-block">
-<div class="line">WorkerRunとEnvRunはフレームワーク内の動作になるので意識する必要はありません。</div>
 <div class="line">それぞれの役割は以下です。</div>
 </div>
 <table class="docutils align-default">
@@ -160,7 +165,8 @@
 <tbody>
 <tr class="row-odd"><td><p>Config</p></td>
 <td><ul class="simple">
-<li><p>ハイパーパラメータを管理するクラス</p></li>
+<li><p>ハイパーパラメータを管理</p></li>
+<li><p>実行時のSpace情報を管理</p></li>
 </ul>
 </td>
 </tr>
@@ -186,8 +192,8 @@
 <tr class="row-odd"><td><p>Worker</p></td>
 <td><ul class="simple">
 <li><p>Environmentと連携しサンプルを収集</p></li>
-<li><p>収集したサンプルをMemoryに送信（add only）</p></li>
-<li><p>行動決定に必要な情報をParameterから読む（read only）</p></li>
+<li><p>収集したサンプルをMemoryに送信</p></li>
+<li><p>行動決定に必要な情報をParameterから読む</p></li>
 </ul>
 </td>
 </tr>
@@ -203,9 +209,9 @@
 <p>各クラスの実装の仕方を見ていきます。</p>
 </section>
 <section id="id2">
-<h2>実装する各クラスの説明<a class="headerlink" href="#id2" title="Link to this heading"></a></h2>
+<h2>2. 実装する各クラスの説明<a class="headerlink" href="#id2" title="Link to this heading"></a></h2>
 <section id="config">
-<h3>Config<a class="headerlink" href="#config" title="Link to this heading"></a></h3>
+<h3>2-1. Config<a class="headerlink" href="#config" title="Link to this heading"></a></h3>
 <p>強化学習アルゴリズムの種類やハイパーパラメータを管理するクラスです。
 基底クラスは <cite>srl.base.rl.base.RLConfig</cite> でこれを継承して作成します。</p>
 <p>RLConfig で実装が必要な関数・プロパティは以下です。</p>
@@ -275,7 +281,7 @@
 </div>
 </section>
 <section id="memory">
-<h3>Memory<a class="headerlink" href="#memory" title="Link to this heading"></a></h3>
+<h3>2-2. Memory<a class="headerlink" href="#memory" title="Link to this heading"></a></h3>
 <div class="line-block">
 <div class="line">Workerが取得したサンプル(batch)をTrainerに渡す役割を持っているクラスです。</div>
 <div class="line">以下の3種類から継承します。</div>
@@ -433,9 +439,9 @@
 
 <span class="c1"># --- select memory</span>
 <span class="n">config</span> <span class="o">=</span> <span class="n">MyConfig</span><span class="p">()</span>
-<span class="c1"># config.memory.set_replay_memory()</span>
-<span class="n">config</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">set_proportional_memory</span><span class="p">()</span>
-<span class="c1"># config.memory.set_rankbase_memory()</span>
+<span class="c1"># config.set_replay_memory()</span>
+<span class="n">config</span><span class="o">.</span><span class="n">set_proportional_memory</span><span class="p">()</span>
+<span class="c1"># config.set_rankbase_memory()</span>
 
 <span class="c1"># --- run memory</span>
 <span class="n">memory</span> <span class="o">=</span> <span class="n">MyRemoteMemory</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
@@ -451,8 +457,11 @@
 </section>
 </section>
 <section id="parameter">
-<h3>Parameter<a class="headerlink" href="#parameter" title="Link to this heading"></a></h3>
-<p>パラメータを管理するクラスです。深層学習の場合はここにニューラルネットワークを定義することを想定しています。</p>
+<h3>2-3. Parameter<a class="headerlink" href="#parameter" title="Link to this heading"></a></h3>
+<div class="line-block">
+<div class="line">パラメータを管理するクラスです。</div>
+<div class="line">深層学習の場合はここにニューラルネットワークを定義することを想定しています。</div>
+</div>
 <p>実装が必要な関数は以下です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.parameter</span> <span class="kn">import</span> <span class="n">RLParameter</span>
 
@@ -472,14 +481,17 @@
    <span class="k">def</span> <span class="nf">call_backup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="c1"># その他任意の関数を作成できます</span>
-   <span class="c1"># （分散学習ではTrainer/Worker間で値を保持できない点に注意）</span>
+   <span class="c1"># その他任意の関数を作成できます。</span>
+   <span class="c1"># 分散学習ではTrainer/Worker間で値を保持できない点に注意（backup/restoreした値のみ共有されます）</span>
 </pre></div>
 </div>
 </section>
 <section id="trainer">
-<h3>Trainer<a class="headerlink" href="#trainer" title="Link to this heading"></a></h3>
-<p>学習を定義する部分です。Memoryから経験を受け取ってParameterを更新します。</p>
+<h3>2-4. Trainer<a class="headerlink" href="#trainer" title="Link to this heading"></a></h3>
+<div class="line-block">
+<div class="line">学習を定義する部分です。</div>
+<div class="line">Memoryから経験を受け取ってParameterを更新します。</div>
+</div>
 <p>実装が必要な関数は以下です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.trainer</span> <span class="kn">import</span> <span class="n">RLTrainer</span>
 
@@ -534,7 +546,8 @@
    <span class="n">trainer</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>※v0.15.0からRLWorkerを直接継承する方法に変更しました</p>
+<p>※v0.15.0からRLWorkerを直接継承する方法に変更しました
+※v0.16.0からInfoが戻り値ではなく、内部変数になりました。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.worker</span> <span class="kn">import</span> <span class="n">RLWorker</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.worker_run</span> <span class="kn">import</span> <span class="n">WorkerRun</span>
 
@@ -548,30 +561,20 @@
       <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="p">:</span> <span class="n">MyParameter</span>
       <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="p">:</span> <span class="n">IRLMemoryWorker</span>
 
-   <span class="k">def</span> <span class="nf">on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="n">WorkerRun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; エピソードの最初に呼ばれる関数</span>
-
-<span class="sd">      Returns:</span>
-<span class="sd">            Info         : 任意の情報</span>
-<span class="sd">      &quot;&quot;&quot;</span>
+   <span class="k">def</span> <span class="nf">on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="n">WorkerRun</span><span class="p">):</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; エピソードの最初に呼ばれる関数 &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="k">def</span> <span class="nf">policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="n">WorkerRun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLActionType</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">:</span>
+   <span class="k">def</span> <span class="nf">policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="n">WorkerRun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLActionType</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; このターンで実行するアクションを返す関数、この関数のみ実装が必須になります</span>
 
-<span class="sd">      Returns: (</span>
+<span class="sd">      Returns:</span>
 <span class="sd">            RLActionType : 実行するアクション</span>
-<span class="sd">            Info         : 任意の情報</span>
-<span class="sd">      )</span>
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="k">def</span> <span class="nf">on_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="n">WorkerRun</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; Envが1step実行した後に呼ばれる関数</span>
-
-<span class="sd">      Returns:</span>
-<span class="sd">            dict: 情報(任意)</span>
-<span class="sd">      &quot;&quot;&quot;</span>
+   <span class="k">def</span> <span class="nf">on_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="n">WorkerRun</span><span class="p">):</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot; Envが1step実行した後に呼ばれる関数 &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
    <span class="k">def</span> <span class="nf">render_terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -615,7 +618,8 @@
    <span class="k">def</span> <span class="nf">on_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="s2">&quot;WorkerRun&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
       <span class="n">worker</span><span class="o">.</span><span class="n">prev_state</span>      <span class="c1"># step前の状態(policyのworker.stateと等価)</span>
       <span class="n">worker</span><span class="o">.</span><span class="n">state</span>           <span class="c1"># step後の状態</span>
-      <span class="n">worker</span><span class="o">.</span><span class="n">prev_action</span>     <span class="c1"># step前のアクション(policyで返したアクションと等価)</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">prev_action</span>     <span class="c1"># step前の前のアクション</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">action</span>          <span class="c1"># step前のアクション(policyで返したアクションと等価)</span>
       <span class="n">worker</span><span class="o">.</span><span class="n">reward</span>          <span class="c1"># step後の即時報酬</span>
       <span class="n">worker</span><span class="o">.</span><span class="n">done</span>            <span class="c1"># step後に終了フラグが立ったか</span>
       <span class="n">worker</span><span class="o">.</span><span class="n">terminated</span>      <span class="c1"># step後にenvが終了フラグを立てたか</span>
@@ -627,7 +631,7 @@
 </section>
 </section>
 <section id="id3">
-<h2>自作アルゴリズムの登録<a class="headerlink" href="#id3" title="Link to this heading"></a></h2>
+<h2>3. 自作アルゴリズムの登録<a class="headerlink" href="#id3" title="Link to this heading"></a></h2>
 <p>以下で登録します。
 第2引数以降の entry_point は、<cite>モジュールパス + &quot;:&quot; + クラス名`で、
 モジュールパスは `importlib.import_module</cite> で呼び出せる形式である必要があります。</p>
@@ -643,42 +647,41 @@
 </div>
 </section>
 <section id="id4">
-<h2>型アノテーション<a class="headerlink" href="#id4" title="Link to this heading"></a></h2>
+<h2>4. 型アノテーション<a class="headerlink" href="#id4" title="Link to this heading"></a></h2>
 <p>動作に影響はないですが、ジェネリック型を追加し実装を簡単にしています。
 適用方法は以下です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">Config</span><span class="p">(</span><span class="n">RLConfig</span><span class="p">):</span>
    <span class="k">pass</span>
 
-<span class="c1"># RLParameter[_TConfig]</span>
-<span class="c1">#   _TConfig : RLConfig型</span>
+<span class="c1"># RLParameter[TConfig]</span>
+<span class="c1">#   TConfig : RLConfig型</span>
 <span class="k">class</span> <span class="nc">Parameter</span><span class="p">(</span><span class="n">RLParameter</span><span class="p">[</span><span class="n">Config</span><span class="p">]):</span>
    <span class="k">pass</span>
 
-<span class="c1"># RLTrainer[_TConfig, _TParameter]</span>
-<span class="c1">#   _TConfig    : RLConfig型</span>
-<span class="c1">#   _TParameter : RLParameter型</span>
+<span class="c1"># RLTrainer[TConfig, _TParameter]</span>
+<span class="c1">#   TConfig    : RLConfig型</span>
+<span class="c1">#   TParameter : RLParameter型</span>
 <span class="k">class</span> <span class="nc">Trainer</span><span class="p">(</span><span class="n">RLTrainer</span><span class="p">[</span><span class="n">Config</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">]):</span>
    <span class="k">pass</span>
 
-<span class="c1"># RLWorker[_TConfig, _TParameter]</span>
-<span class="c1">#   _TConfig    : RLConfig型</span>
-<span class="c1">#   _TParameter : RLParameter型</span>
+<span class="c1"># RLWorker[TConfig, _TParameter]</span>
+<span class="c1">#   TConfig    : RLConfig型</span>
+<span class="c1">#   TParameter : RLParameter型</span>
 <span class="k">class</span> <span class="nc">Worker</span><span class="p">(</span><span class="n">RLWorker</span><span class="p">[</span><span class="n">Config</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">]):</span>
    <span class="k">pass</span>
 </pre></div>
 </div>
 </section>
 <section id="q">
-<h2>実装例(Q学習)<a class="headerlink" href="#q" title="Link to this heading"></a></h2>
+<h2>5. 実装例(Q学習)<a class="headerlink" href="#q" title="Link to this heading"></a></h2>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">random</span>
 <span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
-<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">InfoType</span><span class="p">,</span> <span class="n">RLBaseTypes</span>
+<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLBaseTypes</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.config</span> <span class="kn">import</span> <span class="n">RLConfig</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.parameter</span> <span class="kn">import</span> <span class="n">RLParameter</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.registration</span> <span class="kn">import</span> <span class="n">register</span>
@@ -768,10 +771,8 @@
             <span class="n">td_error</span> <span class="o">/=</span> <span class="nb">len</span><span class="p">(</span><span class="n">batchs</span><span class="p">)</span>
 
         <span class="c1"># 学習結果(任意)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">info</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;Q&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="o">.</span><span class="n">Q</span><span class="p">),</span>
-            <span class="s2">&quot;td_error&quot;</span><span class="p">:</span> <span class="n">td_error</span><span class="p">,</span>
-        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;Q&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="o">.</span><span class="n">Q</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;td_error&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">td_error</span>
 
 
 <span class="k">class</span> <span class="nc">Worker</span><span class="p">(</span><span class="n">RLWorker</span><span class="p">[</span><span class="n">Config</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">]):</span>
@@ -779,9 +780,9 @@
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">):</span>
-        <span class="k">return</span> <span class="p">{}</span>
+        <span class="k">pass</span>
 
-    <span class="k">def</span> <span class="nf">policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">observation_space</span><span class="o">.</span><span class="n">to_str</span><span class="p">(</span><span class="n">worker</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
 
         <span class="c1"># 学習中かどうかで探索率を変える</span>
@@ -800,11 +801,11 @@
             <span class="c1"># 最大値を選ぶ（複数あればランダム）</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">action</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">q</span> <span class="o">==</span> <span class="n">q</span><span class="o">.</span><span class="n">max</span><span class="p">())[</span><span class="mi">0</span><span class="p">])</span>
 
-        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">action</span><span class="p">),</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">action</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">on_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">InfoType</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">on_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span><span class="p">:</span>
-            <span class="k">return</span> <span class="p">{}</span>
+            <span class="k">return</span>
 
         <span class="n">batch</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">,</span>
@@ -814,10 +815,9 @@
             <span class="s2">&quot;done&quot;</span><span class="p">:</span> <span class="n">worker</span><span class="o">.</span><span class="n">terminated</span><span class="p">,</span>
         <span class="p">}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>  <span class="c1"># memoryはaddのみ</span>
-        <span class="k">return</span> <span class="p">{}</span>
 
     <span class="c1"># 強化学習の可視化用、今回ですとQテーブルを表示しています。</span>
-    <span class="k">def</span> <span class="nf">render_terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">render_terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter</span><span class="o">.</span><span class="n">get_action_values</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
         <span class="n">maxa</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">action_space</span><span class="o">.</span><span class="n">n</span><span class="p">):</span>

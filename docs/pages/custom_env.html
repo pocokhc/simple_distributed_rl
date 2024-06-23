@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Make Original Environment &mdash; SimpleDistributedRL 0.15.3.3 ドキュメント</title>
+  <title>Make Original Environment &mdash; SimpleDistributedRL 0.15.4.1 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -15,8 +15,8 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=97054236"></script>
-        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/documentation_options.js?v=8adebd8b"></script>
+        <script src="../_static/doctools.js?v=9a2dae69"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
     <script src="../_static/js/theme.js"></script>
@@ -54,19 +54,22 @@
 <p class="caption" role="heading"><span class="caption-text">Custom</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Make Original Environment</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#id1">1. 実装クラス</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#id2">1-1. Gym環境の実装</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id1">1. 環境クラスの実装</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id2">1-1. Gymクラスによる実装</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#id3">Gym環境の実装に本フレームワークの実装を追加する方法</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#envbase">1-2. EnvBaseクラスを利用する方法</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id4">一人プレイ用のクラス</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id5">ターン制二人プレイ用のクラス</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id6">その他オプション</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#envbase">1-2. EnvBaseクラスによる実装</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id4">EnvBase</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id5">一人プレイ環境</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id6">ターン制二人プレイ環境</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id7">その他のオプション</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#space">2. Spaceクラスについて</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id7">3. 自作環境の登録</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id8">4. 実装例</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#id9">テスト</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id8">3. 自作環境の登録</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id9">4. 実装例</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id10">テスト</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#q">5. Q学習による学習例</a></li>
@@ -81,7 +84,9 @@
 <li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rl_config_tree.html">RLConfig Parameters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Configuration related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-train-related">Runner(Train related)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-distribution-related">Runner(Distribution related)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
 <ul>
@@ -125,48 +130,52 @@
              
   <section id="make-original-environment">
 <span id="custom-env"></span><h1>Make Original Environment<a class="headerlink" href="#make-original-environment" title="Link to this heading"></a></h1>
-<p>ここでは本フレームワークでの自作環境を作成する方法を説明します。
-構成としては大きく以下です。</p>
+<p>ここでは本フレームワークでの自作環境を作成する方法を説明します。</p>
 <ul class="simple">
 <li><dl class="simple">
-<dt>1.実装するクラスの説明</dt><dd><ul>
-<li><p>1-1.OpenAI gymクラス</p></li>
-<li><p>1-2.Baseクラス</p></li>
-<li><p>1-3.一人プレイ（singleplay）</p></li>
-<li><p>1-4.ターン制二人プレイ(turnbase2player)</p></li>
+<dt>1.環境クラスの実装</dt><dd><ul>
+<li><p>1-1.Gymクラスによる実装</p></li>
+<li><dl class="simple">
+<dt>1-2.EnvBaseクラスによる実装</dt><dd><ul>
+<li><p>一人プレイ環境の実装</p></li>
+<li><p>ターン制二人プレイ環境の実装</p></li>
+</ul>
+</dd>
+</dl>
+</li>
 </ul>
 </dd>
 </dl>
 </li>
 <li><p>2.Spaceクラスの説明</p></li>
 <li><p>3.登録</p></li>
-<li><p>4.実装例(singleplay)</p></li>
+<li><p>4.実装例</p></li>
 <li><p>5.Q学習による学習例</p></li>
 </ul>
 <section id="id1">
-<h2>1. 実装クラス<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
-<p>自作環境を作成する方法は現在以下の二つがあります。</p>
+<h2>1. 環境クラスの実装<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
+<p>自作環境を作成する方法は大きく二つあります。</p>
 <ul class="simple">
-<li><p><a class="reference external" href="https://github.com/openai/gym">Gym</a> または <a class="reference external" href="https://github.com/Farama-Foundation/Gymnasium">Gymnasium</a> （以下gym）の環境を用意する</p></li>
+<li><p><a class="reference external" href="https://github.com/openai/gym">Gym</a> または <a class="reference external" href="https://github.com/Farama-Foundation/Gymnasium">Gymnasium</a> （以下Gym）の環境を用意する</p></li>
 <li><p>本フレームワークで実装されている 'srl.base.env.EnvBase' を継承する</p></li>
 </ul>
 <p>それぞれについて説明します。</p>
 <section id="id2">
-<h3>1-1. Gym環境の実装<a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
+<h3>1-1. Gymクラスによる実装<a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
 <div class="line-block">
-<div class="line">gymの環境を利用を利用する場合は別途 <cite>pip install gym</cite> が必要です。</div>
-<div class="line">ただ、gym環境を利用する場合、一部本フレームワークに特化した内容にはならない点には注意してください。</div>
+<div class="line">Gymの環境を利用を利用する場合は別途 <cite>pip install gymnasium</cite> が必要です。</div>
+<div class="line">ただ、Gym環境を利用する場合、一部本フレームワークに特化した内容にはならない点には注意してください。</div>
 <div class="line">ある程度自動で予測していますが、状態やアクションが連続か離散か等、学習に必要な情報が増えており、その予測が間違う可能性があります。</div>
+<div class="line"><br /></div>
+<div class="line">※Gym側の更新等により不正確な情報になる可能性があります。より正確な情報は公式(<a class="reference external" href="https://github.com/Farama-Foundation/Gymnasium">https://github.com/Farama-Foundation/Gymnasium</a>)を見てください。</div>
 </div>
-<p>※gym側の更新等により不正確な情報になる可能性があります。より正確な情報は公式(<a class="reference external" href="https://github.com/Farama-Foundation/Gymnasium">https://github.com/Farama-Foundation/Gymnasium</a>)を見てください。</p>
-<p>具体的なコードは以下です。
-gym.Envを継承して作成します。</p>
+<p>Gym環境の実装例は以下です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">gymnasium</span> <span class="k">as</span> <span class="nn">gym</span>
 <span class="kn">from</span> <span class="nn">gymnasium</span> <span class="kn">import</span> <span class="n">spaces</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
 <span class="k">class</span> <span class="nc">MyGymEnv</span><span class="p">(</span><span class="n">gym</span><span class="o">.</span><span class="n">Env</span><span class="p">):</span>
-   <span class="c1"># 利用できるrender_modesを指定するようです</span>
+   <span class="c1"># 利用できるrender_modesを指定</span>
    <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;render_modes&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;ansi&quot;</span><span class="p">,</span> <span class="s2">&quot;rgb_array&quot;</span><span class="p">],</span> <span class="s2">&quot;render_fps&quot;</span><span class="p">:</span> <span class="mi">4</span><span class="p">}</span>
 
    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">render_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
@@ -208,8 +217,10 @@ gym.Envを継承して作成します。</p>
       <span class="k">pass</span>
 </pre></div>
 </div>
-<p>環境クラスを作成したら登録します。
-登録時のid名は &quot;名前-vX&quot; という形式である必要があります。</p>
+<div class="line-block">
+<div class="line">環境クラスを作成したら登録します。</div>
+<div class="line">登録時のid名は &quot;名前-vX&quot; という形式である必要があります。</div>
+</div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">gymnasium.envs.registration</span>
 
 <span class="n">gymnasium</span><span class="o">.</span><span class="n">envs</span><span class="o">.</span><span class="n">registration</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
@@ -238,8 +249,10 @@ gym.Envを継承して作成します。</p>
 </section>
 <section id="id3">
 <h3>Gym環境の実装に本フレームワークの実装を追加する方法<a class="headerlink" href="#id3" title="Link to this heading"></a></h3>
-<p>Gym環境を実装したクラスに以下の関数を追加すると本フレームワークが認識します。
-（バージョンにより対応する項目は追加・変更する可能性があります）</p>
+<div class="line-block">
+<div class="line">Gym環境を実装したクラスに以下の関数を追加すると本フレームワークが認識します。</div>
+<div class="line">（本フレームワークのバージョンにより対応する項目は追加・変更する可能性があります）</div>
+</div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MyGymEnv</span><span class="p">(</span><span class="n">gym</span><span class="o">.</span><span class="n">Env</span><span class="p">):</span>
 
    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
@@ -263,34 +276,30 @@ gym.Envを継承して作成します。</p>
    <span class="k">def</span> <span class="nf">get_key_bind</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">KeyBindType</span><span class="p">]:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; 手動入力時のキーのマップを指定できます &quot;&quot;&quot;</span>
       <span class="k">return</span> <span class="kc">None</span>
-
-   <span class="k">def</span> <span class="nf">make_worker</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;RLWorker&quot;</span><span class="p">]:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; 別途作成したWorkerを指定できます。主にルールベースのAIを想定 &quot;&quot;&quot;</span>
-      <span class="k">return</span> <span class="kc">None</span>
 </pre></div>
 </div>
 </section>
 <section id="envbase">
-<h3>1-2. EnvBaseクラスを利用する方法<a class="headerlink" href="#envbase" title="Link to this heading"></a></h3>
+<h3>1-2. EnvBaseクラスによる実装<a class="headerlink" href="#envbase" title="Link to this heading"></a></h3>
 <div class="line-block">
 <div class="line">本フレームワーク共通で使用する基底クラス(<cite>srl.base.env.EnvBase</cite>)の説明です。</div>
-<div class="line">本フレームワークで環境を使う場合は、このクラスを継承している必要があります。</div>
-</div>
-<div class="line-block">
-<div class="line">ただ、EnvBaseは複数人のプレイ環境も実装できるようにいくつか余分な情報が入っています。</div>
-<div class="line">これは作成する環境がどういったものかである程度決定できる情報があり、それに特化したクラスも用意しています。</div>
-<div class="line">環境を作成する場合は、以下のクラスから選んで継承し作成してください。</div>
+<div class="line">本フレームワークの環境はこのクラスを継承している必要があります。</div>
+<div class="line"><br /></div>
+<div class="line">ただこれは、複数人のプレイ環境も実装できるように実装しているので、特定の環境にとっては余分な情報があります。</div>
+<div class="line">環境の構成が以下に合う場合は、別途特化したクラス継承しする事で手間が減ります。</div>
 </div>
 <ul class="simple">
 <li><p>EnvBase         : 0から環境を作る場合に継承するクラス</p></li>
 <li><p>SinglePlayEnv   : 一人用の環境を作る場合に継承するクラス</p></li>
 <li><p>TurnBase2Player : 二人用ターン制の環境を作る場合に継承するクラス</p></li>
 </ul>
-<p>EnvBase を継承した後に実装が必要な関数・プロパティは以下です。</p>
+<p>以下、継承した後に実装が必要な関数・プロパティです。</p>
+<section id="id4">
+<h4>EnvBase<a class="headerlink" href="#id4" title="Link to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
 <span class="kn">from</span> <span class="nn">srl.base.env</span> <span class="kn">import</span> <span class="n">EnvBase</span>
 <span class="kn">from</span> <span class="nn">srl.base.spaces.space</span> <span class="kn">import</span> <span class="n">SpaceBase</span>
-<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">EnvActionType</span><span class="p">,</span> <span class="n">EnvObservationType</span><span class="p">,</span> <span class="n">EnvObservationTypes</span><span class="p">,</span> <span class="n">InfoType</span>
+<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">EnvActionType</span><span class="p">,</span> <span class="n">EnvObservationType</span><span class="p">,</span> <span class="n">EnvObservationTypes</span>
 
 
 <span class="k">class</span> <span class="nc">MyEnvBase</span><span class="p">(</span><span class="n">EnvBase</span><span class="p">):</span>
@@ -315,7 +324,7 @@ gym.Envを継承して作成します。</p>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; プレイヤー人数 &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">EnvObservationType</span><span class="p">,</span> <span class="n">InfoType</span><span class="p">]:</span>
+   <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">EnvObservationType</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; 1エピソードの最初に実行。（初期化処理を実装）</span>
 <span class="sd">      Returns: (</span>
 <span class="sd">            init_state : 初期状態</span>
@@ -324,7 +333,7 @@ gym.Envを継承して作成します。</p>
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">:</span> <span class="n">EnvActionType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">EnvObservationType</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">InfoType</span><span class="p">]:</span>
+   <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">:</span> <span class="n">EnvActionType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">EnvObservationType</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; actionとplayerを元に1step進める処理を実装</span>
 
 <span class="sd">      Args:</span>
@@ -350,15 +359,13 @@ gym.Envを継承して作成します。</p>
 </pre></div>
 </div>
 </section>
-<section id="id4">
-<h3>一人プレイ用のクラス<a class="headerlink" href="#id4" title="Link to this heading"></a></h3>
-<p>一人プレイ用に特化した基底クラスの説明です。
-（<cite>srl.base.env.genre.singleplay.SinglePlayEnv</cite>）</p>
+<section id="id5">
+<h4>一人プレイ環境<a class="headerlink" href="#id5" title="Link to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
 
 <span class="kn">from</span> <span class="nn">srl.base.env.genre</span> <span class="kn">import</span> <span class="n">SinglePlayEnv</span>
 <span class="kn">from</span> <span class="nn">srl.base.spaces.space</span> <span class="kn">import</span> <span class="n">SpaceBase</span>
-<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">EnvObservationTypes</span><span class="p">,</span> <span class="n">InfoType</span>
+<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">EnvObservationTypes</span>
 
 
 <span class="k">class</span> <span class="nc">MySinglePlayEnv</span><span class="p">(</span><span class="n">SinglePlayEnv</span><span class="p">):</span>
@@ -378,7 +385,7 @@ gym.Envを継承して作成します。</p>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; 1エピソードの最大ステップ数 &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="k">def</span> <span class="nf">call_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">EnvObservationType</span><span class="p">,</span> <span class="n">InfoType</span><span class="p">]:</span>
+   <span class="k">def</span> <span class="nf">call_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">EnvObservationType</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; 1エピソードの最初に実行。（初期化処理を実装）</span>
 <span class="sd">      Returns: (</span>
 <span class="sd">            EnvObservation (observation_spaceの型): 初期状態</span>
@@ -387,7 +394,7 @@ gym.Envを継承して作成します。</p>
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="k">def</span> <span class="nf">call_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">EnvObservationType</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">InfoType</span><span class="p">]:</span>
+   <span class="k">def</span> <span class="nf">call_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">EnvObservationType</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; actionを元に1step進める処理を実装</span>
 <span class="sd">      Returns: (</span>
 <span class="sd">            next_state : 1step後の状態</span>
@@ -400,15 +407,13 @@ gym.Envを継承して作成します。</p>
 </pre></div>
 </div>
 </section>
-<section id="id5">
-<h3>ターン制二人プレイ用のクラス<a class="headerlink" href="#id5" title="Link to this heading"></a></h3>
-<p>ターン制二人プレイに特化した基底クラスの説明です。
-(<cite>srl.base.env.genre.turnbase2player.TurnBase2Player</cite>)</p>
+<section id="id6">
+<h4>ターン制二人プレイ環境<a class="headerlink" href="#id6" title="Link to this heading"></a></h4>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span>
 
 <span class="kn">from</span> <span class="nn">srl.base.env.genre</span> <span class="kn">import</span> <span class="n">TurnBase2Player</span>
 <span class="kn">from</span> <span class="nn">srl.base.spaces.space</span> <span class="kn">import</span> <span class="n">SpaceBase</span>
-<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">EnvObservationTypes</span><span class="p">,</span> <span class="n">InfoType</span>
+<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">EnvObservationTypes</span>
 
 
 <span class="k">class</span> <span class="nc">MyTurnBase2Player</span><span class="p">(</span><span class="n">TurnBase2Player</span><span class="p">):</span>
@@ -433,7 +438,7 @@ gym.Envを継承して作成します。</p>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; 次ターンのプレイヤー番号を返す &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="k">def</span> <span class="nf">call_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">EnvObservationType</span><span class="p">,</span> <span class="n">InfoType</span><span class="p">]:</span>
+   <span class="k">def</span> <span class="nf">call_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">EnvObservationType</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; 1エピソードの最初に実行。（初期化処理を実装）</span>
 <span class="sd">      Returns: (</span>
 <span class="sd">            EnvObservation (observation_spaceの型): 初期状態</span>
@@ -443,7 +448,7 @@ gym.Envを継承して作成します。</p>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
 
-   <span class="k">def</span> <span class="nf">call_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">EnvObservationType</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">InfoType</span><span class="p">]:</span>
+   <span class="k">def</span> <span class="nf">call_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">EnvObservationType</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; action を元に1step進める処理を実装</span>
 <span class="sd">      Returns: (</span>
 <span class="sd">            next_state     : 1step後の状態</span>
@@ -457,10 +462,10 @@ gym.Envを継承して作成します。</p>
 </pre></div>
 </div>
 </section>
-<section id="id6">
-<h3>その他オプション<a class="headerlink" href="#id6" title="Link to this heading"></a></h3>
-<p>その他必須ではないですが、設定できる関数・プロパティとなります。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<section id="id7">
+<h4>その他のオプション<a class="headerlink" href="#id7" title="Link to this heading"></a></h4>
+<p>必須ではないですが、設定できる関数・プロパティとなります。</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <span class="w">   </span><span class="sd">&quot;&quot;&quot; srlのrunnerで、train等の実行単位の最初に呼ばれる関数</span>
 <span class="sd">   引数 kwargs は `srl.base.run.context.RunContext` の変数が入ります &quot;&quot;&quot;</span>
    <span class="k">pass</span>
@@ -528,16 +533,11 @@ gym.Envを継承して作成します。</p>
 </div>
 </section>
 </section>
+</section>
 <section id="space">
 <h2>2. Spaceクラスについて<a class="headerlink" href="#space" title="Link to this heading"></a></h2>
-<p>Spaceクラスは、アクション・状態の取りうる範囲を決めるクラスとなります。
-現状5種類あり以下となります。</p>
+<p>Spaceクラスは、アクション・状態の取りうる範囲を決めるクラスで以下となります。</p>
 <table class="docutils align-default">
-<colgroup>
-<col style="width: 7.7%" />
-<col style="width: 30.8%" />
-<col style="width: 61.5%" />
-</colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>SpaceClass</p></th>
 <th class="head"><p>型</p></th>
@@ -572,48 +572,53 @@ gym.Envを継承して作成します。</p>
 </tr>
 </tbody>
 </table>
-<p>BoxSpaceはコンストラクタでstypeを指定できます。
-stypeはアルゴリズム側が認識する型となり、以下があります。</p>
+<div class="line-block">
+<div class="line">BoxSpaceはコンストラクタでstypeを指定できます。</div>
+<div class="line">stypeはアルゴリズム側が認識する型となり、以下があります。</div>
+</div>
 <table class="docutils align-default">
 <thead>
 <tr class="row-odd"><th class="head"><p>SpaceTypes</p></th>
-<th class="head"></th>
+<th class="head"><p>内容</p></th>
+<th class="head"><p>shape</p></th>
 </tr>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>DISCRETE</p></td>
 <td><p>離散</p></td>
+<td></td>
 </tr>
 <tr class="row-odd"><td><p>CONTINUOUS</p></td>
 <td><p>連続</p></td>
+<td></td>
 </tr>
 <tr class="row-even"><td><p>GRAY_2ch</p></td>
 <td><p>グレー画像(2ch)</p></td>
+<td><p>(height, width)</p></td>
 </tr>
 <tr class="row-odd"><td><p>GRAY_3ch</p></td>
 <td><p>グレー画像(3ch)</p></td>
+<td><p>(height, width, 1)</p></td>
 </tr>
 <tr class="row-even"><td><p>COLOR</p></td>
 <td><p>カラー画像(3ch)</p></td>
+<td><p>(height, width, 3)</p></td>
 </tr>
 <tr class="row-odd"><td><p>IMAGE</p></td>
 <td><p>画像形式</p></td>
+<td><p>(height, width, N)</p></td>
 </tr>
 </tbody>
 </table>
-<p>例えば <cite>BoxSpace((64,64,3), stype=SpaceTypes.COLOR)</cite> とすればカラー画像になります。
-詳細はコード <cite>srl.base.env.spaces</cite>、 <cite>srl.base.define</cite> を見てください。</p>
+<div class="line-block">
+<div class="line">例えば <cite>BoxSpace((64,64,3), stype=SpaceTypes.COLOR)</cite> とすればカラー画像になります。</div>
+<div class="line">詳細はコード <cite>srl.base.env.spaces</cite>、 <cite>srl.base.define</cite> を見てください。</div>
+</div>
 </section>
-<section id="id7">
-<h2>3. 自作環境の登録<a class="headerlink" href="#id7" title="Link to this heading"></a></h2>
-<p>作成した環境は以下で登録して使います。
-引数は以下です。</p>
+<section id="id8">
+<h2>3. 自作環境の登録<a class="headerlink" href="#id8" title="Link to this heading"></a></h2>
+<p>作成した環境は以下で登録します。</p>
 <table class="docutils align-default">
-<colgroup>
-<col style="width: 7.7%" />
-<col style="width: 30.8%" />
-<col style="width: 61.5%" />
-</colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>引数</p></th>
 <th class="head"><p>説明</p></th>
@@ -645,9 +650,9 @@ stypeはアルゴリズム側が認識する型となり、以下があります
 </pre></div>
 </div>
 </section>
-<section id="id8">
-<h2>4. 実装例<a class="headerlink" href="#id8" title="Link to this heading"></a></h2>
-<p>左右に動け、左が穴で右がゴールなシンプルな環境を実装します。</p>
+<section id="id9">
+<h2>4. 実装例<a class="headerlink" href="#id9" title="Link to this heading"></a></h2>
+<p>左右に動け、左が穴、右がゴールなシンプルな環境を実装します。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">enum</span>
 <span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
@@ -749,7 +754,18 @@ stypeはアルゴリズム側が認識する型となり、以下があります
         <span class="k">return</span> <span class="mi">1000</span> <span class="o">/</span> <span class="mi">1</span>
 </pre></div>
 </div>
-<p>実装した環境を動かすコードは以下です。</p>
+<p>実装した環境を動かすコード例は以下です。</p>
+<p><strong>Runnerで実行する場合</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
+
+<span class="c1"># 実装したEnvファイルをimportし、registerに登録</span>
+<span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">sample_env</span>  <span class="c1"># noqa F401</span>
+
+<span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="s2">&quot;SampleEnv&quot;</span><span class="p">)</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">render_terminal</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><strong>関数を呼び出して直接実行する場合</strong></p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
 
 <span class="c1"># 実装したEnvファイルをimportし、registerに登録</span>
@@ -771,8 +787,8 @@ stypeはアルゴリズム側が認識する型となり、以下があります
 <span class="nb">print</span><span class="p">(</span><span class="n">total_reward</span><span class="p">)</span>
 </pre></div>
 </div>
-<section id="id9">
-<h3>テスト<a class="headerlink" href="#id9" title="Link to this heading"></a></h3>
+<section id="id10">
+<h3>テスト<a class="headerlink" href="#id10" title="Link to this heading"></a></h3>
 <p>最低限ですが、ちゃんと動くか以下でテストできます。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># 実装したEnvファイルをimportし、registerに登録</span>
 <span class="kn">from</span> <span class="nn">srl.envs</span> <span class="kn">import</span> <span class="n">sample_env</span>  <span class="c1"># noqa F401</span>
@@ -786,7 +802,6 @@ stypeはアルゴリズム側が認識する型となり、以下があります
 </section>
 <section id="q">
 <h2>5. Q学習による学習例<a class="headerlink" href="#q" title="Link to this heading"></a></h2>
-<p>以下のように学習できます。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
 <span class="kn">import</span> <span class="nn">srl</span>

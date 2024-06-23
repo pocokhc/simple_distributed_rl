@@ -54,7 +54,7 @@ def train_grid(mode: str):
 
     path = os.path.join(os.path.dirname(__file__), f"_dreamer_{mode}.gif")
     runner.animation_save_gif(path)
-    runner.replay_window()
+    # runner.replay_window()
 
 
 def train_Pendulum():
@@ -93,7 +93,7 @@ def train_Pendulum():
 
     path = os.path.join(os.path.dirname(__file__), "_dreamer_Pendulum.gif")
     runner.animation_save_gif(path)
-    runner.replay_window()
+    # runner.replay_window()
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Installation &mdash; SimpleDistributedRL 0.15.3.3 ドキュメント</title>
+  <title>Installation &mdash; SimpleDistributedRL 0.15.4.1 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -15,8 +15,8 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=97054236"></script>
-        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/documentation_options.js?v=8adebd8b"></script>
+        <script src="../_static/doctools.js?v=9a2dae69"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
     <script src="../_static/js/theme.js"></script>
@@ -48,10 +48,10 @@
               <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#option-libraries">Option Libraries</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#id1">Installation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#download-no-install">Download(No install)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#sample-code">Sample code</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#option-library">Option library</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="howtouse.html">How To Use</a></li>
@@ -69,7 +69,9 @@
 <li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rl_config_tree.html">RLConfig Parameters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Configuration related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-train-related">Runner(Train related)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-distribution-related">Runner(Distribution related)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
 <ul>
@@ -114,14 +116,81 @@
   <section id="installation">
 <span id="install"></span><h1>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h1>
 <p>必須ライブラリはnumpyだけです。
-ただ使う機能によっては他のライブラリをインストール必要があります。（後述）</p>
+ただ使う機能によっては他のライブラリをインストール必要があります。</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>numpy
 </pre></div>
 </div>
-<p>SRLはGitHubからインストールまたはダウンロードをして使うことができます。</p>
+<section id="option-libraries">
+<h2>Option Libraries<a class="headerlink" href="#option-libraries" title="Link to this heading"></a></h2>
+<p>使う機能によって以下ライブラリが必要になります。</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>Tensorflow が必要なアルゴリズムを使用する場合</dt><dd><ul>
+<li><p>tensorflow</p></li>
+<li><p>tensorflow-probability</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Torch が必要なアルゴリズムを使用する場合</dt><dd><ul>
+<li><p><a class="reference external" href="https://pytorch.org/get-started/locally/">https://pytorch.org/get-started/locally/</a></p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>主に画像関係の機能を使用する場合</dt><dd><ul>
+<li><p>pillow</p></li>
+<li><p>opencv-python</p></li>
+<li><p>pygame</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>主にhistoryによる統計情報を扱う場合</dt><dd><ul>
+<li><p>pandas</p></li>
+<li><p>matplotlib</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>OpenAI Gym の環境を使用する場合</dt><dd><ul>
+<li><p>gym or gymnasium</p></li>
+<li><p>pygame</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>ハードウェアの統計情報を表示する場合</dt><dd><ul>
+<li><p>psutil</p></li>
+<li><p>pynvml</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>クラウド/ネットワークによる分散学習を使用する場合</dt><dd><ul>
+<li><p>redis</p></li>
+<li><p>pika</p></li>
+<li><p>paho-mqtt</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+<p>Tensorflow,Torch,pika,paho-mqttを除いたライブラリを一括でインストールするコマンドは以下です。</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>matplotlib<span class="w"> </span>pillow<span class="w"> </span>opencv-python<span class="w"> </span>pygame<span class="w"> </span>pandas<span class="w"> </span>gymnasium<span class="w"> </span>psutil<span class="w"> </span>pynvml<span class="w"> </span>redis
+</pre></div>
+</div>
+</section>
 <section id="id1">
 <h2>Installation<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
-<p>GitHubから直接インストールするコマンドは以下です。</p>
+<p>本フレームワークはGitHubからインストールまたはダウンロードをして使う事を想定しています。
+GitHubから直接インストールするコマンドは以下です。</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/pocokhc/simple_distributed_rl
 </pre></div>
 </div>
@@ -171,73 +240,6 @@
 
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
     <span class="n">main</span><span class="p">()</span>
-</pre></div>
-</div>
-</section>
-<section id="option-library">
-<h2>Option library<a class="headerlink" href="#option-library" title="Link to this heading"></a></h2>
-<p>使う機能によって以下ライブラリが必要になります。</p>
-<ul class="simple">
-<li><dl class="simple">
-<dt>Tensorflow が必要なアルゴリズムを使う場合</dt><dd><ul>
-<li><p>tensorflow</p></li>
-<li><p>tensorflow-probability</p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>Torch が必要なアルゴリズムを使う場合</dt><dd><ul>
-<li><p><a class="reference external" href="https://pytorch.org/get-started/locally/">https://pytorch.org/get-started/locally/</a></p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>主にRGBの描画関係を使用する場合</dt><dd><ul>
-<li><p>pillow</p></li>
-<li><p>opencv-python</p></li>
-<li><p>pygame</p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>主にhistoryによる統計情報を扱う場合</dt><dd><ul>
-<li><p>pandas</p></li>
-<li><p>matplotlib</p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>OpenAI Gym の環境を使う場合</dt><dd><ul>
-<li><p>gym or gymnasium</p></li>
-<li><p>pygame</p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>ハードウェアの統計情報を表示する場合</dt><dd><ul>
-<li><p>psutil</p></li>
-<li><p>pynvml</p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>クラウド/ネットワークによる分散学習を使う場合</dt><dd><ul>
-<li><p>redis</p></li>
-<li><p>pika</p></li>
-<li><p>paho-mqtt</p></li>
-</ul>
-</dd>
-</dl>
-</li>
-</ul>
-<p>Tensorflow,Torch,pika,paho-mqttを除いたライブラリを一括でインストールするコマンドは以下です。</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>matplotlib<span class="w"> </span>pillow<span class="w"> </span>opencv-python<span class="w"> </span>pygame<span class="w"> </span>pandas<span class="w"> </span>gymnasium<span class="w"> </span>psutil<span class="w"> </span>pynvml<span class="w"> </span>redis
 </pre></div>
 </div>
 </section>

@@ -4,7 +4,7 @@
 How To Use
 ===============
 
-基本は以下の手順を想定しています。
+大きく以下となります。
 
 1. 環境を設定（EnvConfig）
 2. アルゴリズムを設定（RLConfig）
@@ -21,7 +21,7 @@ How To Use
     import srl
     env_config = srl.EnvConfig("Grid")
 
-Gym/Gymnasium がインストールされていればそれらのIDも指定できます。
+Gym/Gymnasium の環境とも互換があり指定できます。
 
 .. code-block:: python
 

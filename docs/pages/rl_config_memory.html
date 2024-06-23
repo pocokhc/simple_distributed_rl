@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Memory &mdash; SimpleDistributedRL 0.15.3.3 ドキュメント</title>
+  <title>Memory &mdash; SimpleDistributedRL 0.15.4.1 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -15,8 +15,8 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=97054236"></script>
-        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/documentation_options.js?v=8adebd8b"></script>
+        <script src="../_static/doctools.js?v=9a2dae69"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=4dbe4bdc"></script>
     <script src="../_static/js/theme.js"></script>
@@ -88,7 +88,9 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Configuration related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-train-related">Runner(Train related)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-distribution-related">Runner(Distribution related)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
 <ul>
@@ -154,7 +156,7 @@
 <span id="rlconfigcomponentexperiencereplaybuffer"></span><h2>ExperienceReplayBuffer<a class="headerlink" href="#experiencereplaybuffer" title="Link to this heading"></a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.experience_replay_buffer.</span></span><span class="sig-name descname"><span class="pre">RLConfigComponentExperienceReplayBuffer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_compress</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_compress_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.experience_replay_buffer.</span></span><span class="sig-name descname"><span class="pre">RLConfigComponentExperienceReplayBuffer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_capacity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_warmup_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_compress</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_compress_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer" title="Link to this definition"></a></dt>
 <dd><p>ExperienceReplayBuffer</p>
 <p>これを継承しているアルゴリズムはbatch_size変数とmemory変数を持ちます。
 memory変数からパラメータを設定できます。</p>
@@ -168,14 +170,26 @@ batch_size(int): Batch size. default is 32</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">alphazero</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span> <span class="o">=</span> <span class="n">alphazero</span><span class="o">.</span><span class="n">Config</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">=</span> <span class="mi">64</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">capacity</span> <span class="o">=</span> <span class="mi">1000</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">warmup_size</span> <span class="o">=</span> <span class="mi">1000</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">memory_capacity</span> <span class="o">=</span> <span class="mi">1000</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">memory_warmup_size</span> <span class="o">=</span> <span class="mi">1000</span>
 </pre></div>
 </div>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.batch_size">
 <span class="sig-name descname"><span class="pre">batch_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32</span></em><a class="headerlink" href="#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.batch_size" title="Link to this definition"></a></dt>
 <dd><p>Batch size</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.memory_capacity">
+<span class="sig-name descname"><span class="pre">memory_capacity</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">100000</span></em><a class="headerlink" href="#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.memory_capacity" title="Link to this definition"></a></dt>
+<dd><p>capacity</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.memory_warmup_size">
+<span class="sig-name descname"><span class="pre">memory_warmup_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1000</span></em><a class="headerlink" href="#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.memory_warmup_size" title="Link to this definition"></a></dt>
+<dd><p>warmup_size</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -197,7 +211,7 @@ batch_size(int): Batch size. default is 32</p>
 <span id="rlconfigcomponentpriorityexperiencereplay"></span><h2>PriorityExperienceReplay<a class="headerlink" href="#priorityexperiencereplay" title="Link to this heading"></a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_experience_replay.</span></span><span class="sig-name descname"><span class="pre">RLConfigComponentPriorityExperienceReplay</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_compress</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_compress_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_experience_replay.</span></span><span class="sig-name descname"><span class="pre">RLConfigComponentPriorityExperienceReplay</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_capacity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_warmup_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_compress</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_compress_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay" title="Link to this definition"></a></dt>
 <dd><p>PriorityExperienceReplay</p>
 <p>これを継承しているアルゴリズムはbatch_size変数とmemory変数を持ちます。
 memory変数から関数を呼ぶことで各memoryを設定できます。
@@ -208,13 +222,31 @@ memory変数から関数を呼ぶことで各memoryを設定できます。
 <span class="gp">&gt;&gt;&gt;</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># 各パラメータの設定例</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">=</span> <span class="mi">64</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">capacity</span> <span class="o">=</span> <span class="mi">10000</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">warmup_size</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">memory_capacity</span> <span class="o">=</span> <span class="mi">10000</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">memory_warmup_size</span> <span class="o">=</span> <span class="mi">10</span>
 <span class="gp">&gt;&gt;&gt;</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># ProportionalMemory の設定例</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">set_proportional_memory</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">set_proportional_memory</span><span class="p">()</span>
 </pre></div>
 </div>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.batch_size">
+<span class="sig-name descname"><span class="pre">batch_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32</span></em><a class="headerlink" href="#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.batch_size" title="Link to this definition"></a></dt>
+<dd><p>Batch size</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.memory_capacity">
+<span class="sig-name descname"><span class="pre">memory_capacity</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">100000</span></em><a class="headerlink" href="#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.memory_capacity" title="Link to this definition"></a></dt>
+<dd><p>capacity</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.memory_warmup_size">
+<span class="sig-name descname"><span class="pre">memory_warmup_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1000</span></em><a class="headerlink" href="#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.memory_warmup_size" title="Link to this definition"></a></dt>
+<dd><p>warmup_size</p>
+</dd></dl>
+
 <dl class="py attribute">
 <dt class="sig sig-object py" id="srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.memory_compress">
 <span class="sig-name descname"><span class="pre">memory_compress</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.memory_compress" title="Link to this definition"></a></dt>

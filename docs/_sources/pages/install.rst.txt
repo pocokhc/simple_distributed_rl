@@ -6,20 +6,55 @@ Installation
 
 .. currentmodule:: srl
 
-必須ライブラリはnumpyだけです。
-ただ使う機能によっては他のライブラリをインストール必要があります。（後述）
+必須ライブラリはnumpyだけです。  
+ただ使う機能によっては他のライブラリをインストール必要があります。  
 
 .. code-block:: console
 
     $ pip install numpy
 
-SRLはGitHubからインストールまたはダウンロードをして使うことができます。
+
+Option Libraries
+====================
+
+使う機能によって以下ライブラリが必要になります。
+
++ Tensorflow が必要なアルゴリズムを使用する場合
+   + tensorflow
+   + tensorflow-probability
++ Torch が必要なアルゴリズムを使用する場合
+   + https://pytorch.org/get-started/locally/
++ 主に画像関係の機能を使用する場合
+   + pillow
+   + opencv-python
+   + pygame
++ 主にhistoryによる統計情報を扱う場合
+   + pandas
+   + matplotlib
++ OpenAI Gym の環境を使用する場合
+   + gym or gymnasium
+   + pygame
++ ハードウェアの統計情報を表示する場合
+   + psutil
+   + pynvml
++ クラウド/ネットワークによる分散学習を使用する場合
+   + redis
+   + pika
+   + paho-mqtt
+
+Tensorflow,Torch,pika,paho-mqttを除いたライブラリを一括でインストールするコマンドは以下です。
+
+.. code-block:: console
+
+    $ pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml redis
+
 
 
 Installation
 ============
 
-GitHubから直接インストールするコマンドは以下です。
+本フレームワークはGitHubからインストールまたはダウンロードをして使う事を想定しています。  
+GitHubから直接インストールするコマンドは以下です。  
 
 .. code-block:: console
 
@@ -63,38 +98,3 @@ Sample code
 
 .. literalinclude:: ../../examples/sample_basic.py
 
-
-
-Option library
-====================
-
-使う機能によって以下ライブラリが必要になります。
-
-+ Tensorflow が必要なアルゴリズムを使う場合
-   + tensorflow
-   + tensorflow-probability
-+ Torch が必要なアルゴリズムを使う場合
-   + https://pytorch.org/get-started/locally/
-+ 主にRGBの描画関係を使用する場合
-   + pillow
-   + opencv-python
-   + pygame
-+ 主にhistoryによる統計情報を扱う場合
-   + pandas
-   + matplotlib
-+ OpenAI Gym の環境を使う場合
-   + gym or gymnasium
-   + pygame
-+ ハードウェアの統計情報を表示する場合
-   + psutil
-   + pynvml
-+ クラウド/ネットワークによる分散学習を使う場合
-   + redis
-   + pika
-   + paho-mqtt
-
-Tensorflow,Torch,pika,paho-mqttを除いたライブラリを一括でインストールするコマンドは以下です。
-
-.. code-block:: console
-
-    $ pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml redis

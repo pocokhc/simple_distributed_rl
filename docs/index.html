@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="ja" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Welcome to SimpleDistributedRL&#39;s documentation! &mdash; SimpleDistributedRL 0.15.3.3 ドキュメント</title>
+  <title>Welcome to SimpleDistributedRL&#39;s documentation! &mdash; SimpleDistributedRL 0.15.4.1 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
 
@@ -15,10 +15,11 @@
   
         <script src="_static/jquery.js?v=5d32c60e"></script>
         <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="_static/documentation_options.js?v=97054236"></script>
-        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/documentation_options.js?v=8adebd8b"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
         <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="_static/translations.js?v=4dbe4bdc"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="索引" href="genindex.html" />
     <link rel="search" title="検索" href="search.html" />
@@ -62,7 +63,9 @@
 <li class="toctree-l1"><a class="reference internal" href="pages/rl_config.html">RLConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/rl_config_tree.html">RLConfig Parameters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/runner.html">Runner(Configuration related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/runner.html#runner-train-related">Runner(Train related)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/runner.html#runner-distribution-related">Runner(Distribution related)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
 <ul>
@@ -110,10 +113,10 @@
 <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="pages/install.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/install.html#option-libraries">Option Libraries</a></li>
 <li class="toctree-l2"><a class="reference internal" href="pages/install.html#id1">Installation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="pages/install.html#download-no-install">Download(No install)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="pages/install.html#sample-code">Sample code</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/install.html#option-library">Option library</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="pages/howtouse.html">How To Use</a><ul>
@@ -136,19 +139,19 @@
 <p class="caption" role="heading"><span class="caption-text">Custom</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="pages/custom_env.html">Make Original Environment</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id1">1. 実装クラス</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id1">1. 環境クラスの実装</a></li>
 <li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#space">2. Spaceクラスについて</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id7">3. 自作環境の登録</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id8">4. 実装例</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id8">3. 自作環境の登録</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id9">4. 実装例</a></li>
 <li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#q">5. Q学習による学習例</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="pages/custom_algorithm.html">Make Original Algorithm</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id1">概要</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id2">実装する各クラスの説明</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id3">自作アルゴリズムの登録</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id4">型アノテーション</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#q">実装例(Q学習)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id1">1. 概要</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id2">2. 実装する各クラスの説明</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id3">3. 自作アルゴリズムの登録</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id4">4. 型アノテーション</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#q">5. 実装例(Q学習)</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="pages/framework_detail.html">Detailed Framework</a><ul>
@@ -181,11 +184,19 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="pages/runner.html">Runner(Configuration related)</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="pages/runner.html#srl.runner.runner.Runner"><code class="docutils literal notranslate"><span class="pre">Runner</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/runner.html#srl.runner.runner_base.RunnerBase"><code class="docutils literal notranslate"><span class="pre">RunnerBase</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/runner.html#runner-train-related">Runner(Train related)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/runner.html#srl.runner.runner_facade_train.RunnerFacadeTrain"><code class="docutils literal notranslate"><span class="pre">RunnerFacadeTrain</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="pages/runner.html#runner-runtime-related">Runner(Runtime related)</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="pages/runner.html#srl.runner.runner_facade.RunnerFacade"><code class="docutils literal notranslate"><span class="pre">RunnerFacade</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/runner.html#srl.runner.runner_facade_play.RunnerFacadePlay"><code class="docutils literal notranslate"><span class="pre">RunnerFacadePlay</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/runner.html#runner-distribution-related">Runner(Distribution related)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/runner.html#srl.runner.runner_facade_distribution.RunnerFacadeDistribution"><code class="docutils literal notranslate"><span class="pre">RunnerFacadeDistribution</span></code></a></li>
 </ul>
 </li>
 </ul>

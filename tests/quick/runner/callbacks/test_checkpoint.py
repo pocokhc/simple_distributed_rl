@@ -14,7 +14,7 @@ def test_pickle():
 
 def test_train(tmp_path):
     rl_config = ql_agent57.Config(batch_size=2)
-    rl_config.memory.warmup_size = 10
+    rl_config.memory_warmup_size = 10
     runner = srl.Runner("OX", rl_config)
 
     runner.set_checkpoint(tmp_path, is_load=False, interval=1)
@@ -38,12 +38,12 @@ def test_train_load(tmp_path):
 
 def test_train_only(tmp_path):
     rl_config = ql_agent57.Config(batch_size=2)
-    rl_config.memory.warmup_size = 10
+    rl_config.memory_warmup_size = 10
     runner = srl.Runner("Grid", rl_config)
 
     runner.rollout(max_memory=100)
     assert runner.memory is not None
-    assert runner.memory.length() > rl_config.memory.warmup_size
+    assert runner.memory.length() > rl_config.memory_warmup_size
 
     runner.set_checkpoint(tmp_path, is_load=False, interval=1)
     runner.train_only(timeout=3)

@@ -28,11 +28,6 @@ class StubEnv(grid.Grid):
 
 
 class StubWorker(RLWorker):
-    def __init__(self, b=0, **kwargs):
-        super().__init__(**kwargs)
-        if b > 0:
-            assert b == 2
-
     def policy(self, worker):
         pass
 
@@ -53,7 +48,7 @@ def test_make_workers():
     memory = rl_config.make_memory()
 
     # --- non
-    workers, main_worker_idx = srl.make_workers([], env, parameter, memory, rl_config)
+    workers, main_worker_idx = srl.make_workers([], env, rl_config, parameter, memory)
     assert len(workers) == 8
     assert main_worker_idx == 0
     assert workers[0].config.get_name() == "QL"
@@ -73,24 +68,23 @@ def test_make_workers():
         None,  # share param
         None,  # out of index
     ]
-    workers, main_worker_idx = srl.make_workers(players, env, parameter, memory, rl_config)
-    assert len(workers) == 9
-    assert main_worker_idx == 6
+    workers, main_worker_idx = srl.make_workers(players, env, rl_config, parameter, memory)
+    assert len(workers) == 8
+    assert main_worker_idx == 5
     assert isinstance(workers[0].worker, StubEnvWorker)
     assert isinstance(workers[1].worker, StubEnvWorker)
     assert workers[0].worker != workers[1].worker
     assert isinstance(workers[2].worker, StubWorker)
-    assert isinstance(workers[3].worker, StubWorker)
-    assert workers[2].worker != workers[3].worker
-    for i in [4, 5, 6, 7]:
+    assert workers[3].worker != workers[4].worker
+    for i in [3, 4, 5, 6]:
         assert workers[i].config.get_name() == "QL"
         assert workers[i].worker.memory is not None
         assert workers[i].worker.parameter is not None
     # other rl
+    assert workers[3].worker.memory is not workers[4].worker.memory
     assert workers[4].worker.memory is not workers[5].worker.memory
-    assert workers[5].worker.memory is not workers[6].worker.memory
+    assert workers[3].worker.parameter is not workers[4].worker.parameter
     assert workers[4].worker.parameter is not workers[5].worker.parameter
-    assert workers[5].worker.parameter is not workers[6].worker.parameter
     # None
-    assert workers[6].worker.memory is workers[7].worker.memory
-    assert workers[6].worker.parameter is workers[7].worker.parameter
+    assert workers[5].worker.memory is workers[6].worker.memory
+    assert workers[5].worker.parameter is workers[6].worker.parameter

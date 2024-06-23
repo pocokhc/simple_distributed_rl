@@ -1,6 +1,5 @@
 from typing import Tuple
 
-
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_base_case import CommonBaseCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -13,7 +12,7 @@ class QuickCase(CommonQuickCase):
         rl_config = agent57_light.Config()
         rl_config.set_tensorflow()
 
-        rl_config.memory.warmup_size = 2
+        rl_config.memory_warmup_size = 2
         rl_config.batch_size = 2
         rl_config.input_image_block.set_dqn_block(filters=2)
         rl_config.hidden_block.set_dueling_network((2, 2))
@@ -40,7 +39,7 @@ class BaseCase(CommonBaseCase):
             enable_intrinsic_reward=True,
         )
         rl_config.hidden_block.set_dueling_network((64, 64))
-        rl_config.memory.set_replay_memory()
+        rl_config.set_replay_memory()
 
         return rl_config
 

@@ -9,7 +9,7 @@ def test_raw(monkeypatch):
     monkeypatch.setattr("sys.stdin", io.StringIO("3\n3\n2\n2\n2\n"))
 
     env = srl.make_env("EasyGrid")
-    worker = srl.make_worker_rulebase("human", env)
+    worker = srl.make_worker("human", env)
 
     context = RunContext(render_mode="terminal")
     env.setup(context)

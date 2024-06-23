@@ -1,7 +1,6 @@
 import pytest
 
-import srl
-from srl.algorithms import ql
+from srl.base.system.pynvml_ import close_nvidia, read_nvml
 from srl.utils import common
 
 
@@ -14,18 +13,11 @@ def test_pynvml():
     else:
         pytest.skip()
 
-    runner = srl.Runner("Grid", ql.Config())
-    gpus = runner.read_nvml()
-    assert len(gpus) == 0
-
-    for _ in range(2):
-        runner = srl.Runner("Grid", ql.Config())
-        runner._setup_nvidia()
-
-        gpus = runner.read_nvml()
+    for _ in range(5):
+        gpus = read_nvml()
         assert len(gpus) > 0
         for device_id, gpu, memory in gpus:
             print(device_id, gpu, memory)
 
-    runner.close_nvidia()
-    runner.close_nvidia()
+    close_nvidia()
+    close_nvidia()

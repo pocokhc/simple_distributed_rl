@@ -15,7 +15,7 @@ def test_loss():
 
     from srl.rl.tf.distributions.bernoulli_dist_block import BernoulliDistBlock
 
-    block = BernoulliDistBlock(1, (32, 32))
+    block = BernoulliDistBlock((32, 32))
     block.build((None, 1))
 
     optimizer = keras.optimizers.Adam(learning_rate=0.002)

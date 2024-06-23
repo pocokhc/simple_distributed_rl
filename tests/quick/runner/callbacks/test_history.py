@@ -87,7 +87,7 @@ def test_on_memory_train_only_plot():
     pytest.importorskip("matplotlib")
 
     rl_config = ql_agent57.Config(batch_size=1)
-    rl_config.memory.warmup_size = 5
+    rl_config.memory_warmup_size = 5
     runner = srl.Runner("OX", rl_config)
     runner.rollout(max_memory=10)
 

@@ -65,11 +65,11 @@ def _play_memory_sub(
     # --- loop
     for i in range(100):
         if not is_priority:
-            batchs = memory.sample(batch_size)
+            batchs = memory.sample()
             assert len(batchs) == 5
             assert memory.length() == capacity
         else:
-            batchs, weights, update_args = memory.sample(batch_size, i)
+            batchs, weights, update_args = memory.sample(i)
             assert len(batchs) == 5
             assert len(weights) == 5
 
@@ -88,8 +88,8 @@ def test_experience_replay_buffer():
         pass
 
     conf = C()
-    conf.memory.capacity = capacity
-    conf.memory.warmup_size = warmup_size
+    conf.memory_capacity = capacity
+    conf.memory_warmup_size = warmup_size
     conf.batch_size = batch_size
 
     memory = ExperienceReplayBuffer(conf)
@@ -101,8 +101,8 @@ def _play_priority_memories(conf: RLConfigComponentPriorityExperienceReplay):
     warmup_size = 5
     batch_size = 5
 
-    conf.memory.capacity = capacity
-    conf.memory.warmup_size = warmup_size
+    conf.memory_capacity = capacity
+    conf.memory_warmup_size = warmup_size
     conf.batch_size = batch_size
 
     memory = PriorityExperienceReplay(conf)
@@ -116,23 +116,23 @@ class _C_PER(DummyRLConfig, RLConfigComponentPriorityExperienceReplay):
 
 def test_replay_memory():
     conf = _C_PER()
-    conf.memory.set_replay_memory()
+    conf.set_replay_memory()
     _play_priority_memories(conf)
 
 
 def test_proportional_memory():
     conf = _C_PER()
-    conf.memory.set_proportional_memory()
+    conf.set_proportional_memory()
     _play_priority_memories(conf)
 
 
 def test_rankbase_memory():
     conf = _C_PER()
-    conf.memory.set_rankbase_memory()
+    conf.set_rankbase_memory()
     _play_priority_memories(conf)
 
 
 def test_rankbase_memory_linear():
     conf = _C_PER()
-    conf.memory.set_rankbase_memory_linear()
+    conf.set_rankbase_memory_linear()
     _play_priority_memories(conf)

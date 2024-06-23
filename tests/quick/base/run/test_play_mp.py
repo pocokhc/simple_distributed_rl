@@ -2,7 +2,7 @@ import ctypes
 import multiprocessing as mp
 import queue
 from multiprocessing import sharedctypes
-from typing import Optional, cast
+from typing import cast
 
 import numpy as np
 import pytest
@@ -11,18 +11,18 @@ import pytest_mock
 import srl
 from srl.algorithms import ql_agent57
 from srl.base.context import RunContext
-from srl.base.run.callback import RunCallback, TrainerCallback
+from srl.base.run.callback import RunCallback, TrainCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
-from srl.runner.core_mp import _run_actor, _run_trainer
+from srl.base.run.play_mp import MpData, _run_actor, _run_trainer
 from srl.utils import common
 
 
-class _AssertTrainCallbacks(RunCallback, TrainerCallback):
-    def on_episodes_end(self, context: RunContext, state: RunStateActor) -> None:
+class _AssertTrainCallbacks(RunCallback, TrainCallback):
+    def on_episodes_end(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         assert state.sync_actor > 1
 
-    def on_trainer_end(self, context: RunContext, state: RunStateTrainer) -> None:
+    def on_trainer_end(self, context: RunContext, state: RunStateTrainer, **kwargs) -> None:
         assert state.sync_trainer > 1
 
 
@@ -51,10 +51,12 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
         runner.context.max_episodes = 2
     runner.context.training = True
     runner.context.distributed = True
-    runner.config.actor_parameter_sync_interval = 0
 
-    task_config = runner.create_task_config(callbacks=[])
-    task_config.callbacks.append(c)
+    mp_data = MpData(
+        runner.context,
+        [c],
+        actor_parameter_sync_interval=0,
+    )
 
     if interrupt_stop:
 
@@ -65,11 +67,11 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
             def on_episode_end(self, context: RunContext, state: RunStateActor) -> None:
                 self.end_signal.value = True
 
-        task_config.callbacks.append(_c2(end_signal))
+        mp_data.callbacks.append(_c2(end_signal))
 
     # --- run
     _run_actor(
-        task_config,
+        mp_data,
         remote_queue,
         remote_qsize,
         1000,
@@ -87,10 +89,9 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
     print(batch)
 
 
-@pytest.mark.parametrize("enable_prepare_sample_batch", [False, True])
 @pytest.mark.parametrize("interrupt_stop", [False, True])
 @pytest.mark.timeout(5)  # pip install pytest_timeout
-def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch, interrupt_stop: bool):
+def test_trainer(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
     common.logger_print()
 
     remote_queue = queue.Queue()
@@ -99,9 +100,9 @@ def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch,
     end_signal = _DummyValue(False)
 
     # --- create task
-    c = mocker.Mock(spec=TrainerCallback)
+    c = mocker.Mock(spec=TrainCallback)
     rl_config = ql_agent57.Config()
-    rl_config.memory.warmup_size = 10
+    rl_config.memory_warmup_size = 10
     rl_config.batch_size = 1
     runner = srl.Runner("Grid", rl_config)
     if not interrupt_stop:
@@ -109,15 +110,15 @@ def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch,
     runner.context.timeout = 10
     runner.context.training = True
     runner.context.distributed = True
-    runner.config.trainer_parameter_send_interval = 0
-    runner.config.dist_enable_prepare_sample_batch = enable_prepare_sample_batch
-
-    task_config = runner.create_task_config(callbacks=[])
-    task_config.callbacks.append(c)
+    mp_data = MpData(
+        runner.context,
+        [c],
+        trainer_parameter_send_interval=0,
+    )
 
     if interrupt_stop:
 
-        class _c2(TrainerCallback):
+        class _c2(TrainCallback):
             def __init__(self, train_end_signal):
                 self.train_end_signal = train_end_signal
 
@@ -126,7 +127,7 @@ def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch,
                 if state.trainer.get_train_count() > 10:
                     self.train_end_signal.value = True
 
-        task_config.callbacks.append(_c2(end_signal))
+        mp_data.callbacks.append(_c2(end_signal))
 
     # --- add queue
     for _ in range(100):
@@ -144,7 +145,7 @@ def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch,
 
     # --- run
     _run_trainer(
-        task_config,
+        mp_data,
         runner.make_parameter(),
         runner.make_memory(),
         remote_queue,
@@ -162,7 +163,7 @@ def test_trainer(mocker: pytest_mock.MockerFixture, enable_prepare_sample_batch,
 def test_train():
     common.logger_print()
     rl_config = ql_agent57.Config(batch_size=2)
-    rl_config.memory.warmup_size = 10
+    rl_config.memory_warmup_size = 10
     runner = srl.Runner("Grid", rl_config)
     runner.set_progress_options(enable_eval=True)
     runner.train_mp(

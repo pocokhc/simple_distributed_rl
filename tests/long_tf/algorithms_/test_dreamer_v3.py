@@ -170,11 +170,11 @@ def test_compute_V_dreamer_v2(horizon_h_target):
 @pytest.mark.parametrize("resize_type", ["stride", "stride3", "max"])
 @pytest.mark.parametrize("dist_type", ["linear", "normal"])
 def test_image_enc_dec(normalization_type, resize_type, dist_type):
-    from srl.algorithms.dreamer_v3 import _ImageDecoder, _ImageEncoder
+    from srl.algorithms.dreamer_v3 import ImageDecoder, ImageEncoder
 
     img = np.zeros((96, 192, 3))
-    encode = _ImageEncoder(img.shape, 16, 1, "relu", normalization_type, resize_type, 4)
-    decode = _ImageDecoder(encode, False, 16, 1, "relu", normalization_type, resize_type, dist_type)
+    encode = ImageEncoder(img.shape, 16, 1, "relu", normalization_type, resize_type, 4)
+    decode = ImageDecoder(encode, False, 16, 1, "relu", normalization_type, resize_type, dist_type)
 
     # encode.build((None,) + img.shape)
     # decode.build((None, 100))

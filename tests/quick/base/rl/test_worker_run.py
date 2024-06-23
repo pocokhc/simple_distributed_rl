@@ -5,7 +5,7 @@ import pytest
 
 import srl
 from srl.base.context import RunContext
-from srl.base.define import InfoType, ObservationModes, RLActionType, RLBaseTypes, SpaceTypes
+from srl.base.define import ObservationModes, RLActionType, RLBaseTypes, SpaceTypes
 from srl.base.env.base import SpaceBase
 from srl.base.env.genre.singleplay import SinglePlayEnv
 from srl.base.env.registration import register as register_env
@@ -54,7 +54,7 @@ class StubEnv(SinglePlayEnv):
     def player_num(self) -> int:
         return 1
 
-    def call_reset(self) -> Tuple[int, InfoType]:
+    def call_reset(self) -> Tuple[int, dict]:
         return self.s_state, {}
 
     def call_step(self, action):
@@ -100,17 +100,15 @@ class StubRLWorker(RLWorker):
         self.state = np.array(0)
         self.action = 0
 
-    def on_reset(self, worker) -> dict:
+    def on_reset(self, worker):
         self.on_reset_state = worker.state
-        return {}
 
-    def policy(self, worker) -> Tuple[RLActionType, dict]:
+    def policy(self, worker) -> RLActionType:
         self.state = worker.state
-        return self.action, {}
+        return self.action
 
-    def on_step(self, worker) -> InfoType:
+    def on_step(self, worker):
         self.state = worker.state
-        return {}
 
 
 @pytest.fixture(scope="function", autouse=True)

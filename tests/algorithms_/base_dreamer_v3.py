@@ -56,8 +56,8 @@ class QuickCase(CommonQuickCase):
         rl_config.batch_length = 2
         rl_config.horizon = 2
         # memory
-        rl_config.memory.warmup_size = 2
-        rl_config.memory.capacity = 10_000
+        rl_config.memory_warmup_size = 2
+        rl_config.memory_capacity = 10_000
 
         rl_config.override_action_type = rl_param[1]
         return rl_config, {}
@@ -75,8 +75,8 @@ class BaseCase(CommonBaseCase):
         elif mode == "v3":
             rl_config.set_dreamer_v3()
         # memory
-        rl_config.memory.warmup_size = 50
-        rl_config.memory.capacity = 10_000
+        rl_config.memory_warmup_size = 50
+        rl_config.memory_capacity = 10_000
         return rl_config
 
     @pytest.mark.parametrize("ver", ["v1", "v2", "v3"])

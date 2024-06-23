@@ -6,7 +6,6 @@ from srl.algorithms import ql
 from srl.base.context import RunContext
 from srl.base.rl.parameter import DummyRLParameter
 from srl.runner.distribution.task_manager import TaskConfig
-from srl.runner.runner import RunnerConfig
 from tests.distribution.runner.distribution_external.memory_test_functions import memory_connector_test
 from tests.distribution.runner.distribution_mock.server_mock import (
     create_gcp_mock,
@@ -47,6 +46,7 @@ def test_memory_mqtt(mocker: pytest_mock.MockerFixture):
 
 def test_memory_gcp(mocker: pytest_mock.MockerFixture):
     pytest.importorskip("google")
+    pytest.importorskip("google.cloud")
     create_gcp_mock(mocker)
     memory_connector_test(GCPParameters(project_id="test"))
 
@@ -87,7 +87,8 @@ def test_task(mocker: pytest_mock.MockerFixture):
     client = TaskManager(RedisParameters(host="test"), "client")
     env_config = srl.EnvConfig("Grid")
     rl_config = ql.Config()
-    task_config = TaskConfig(env_config, rl_config, RunnerConfig(), RunContext(), [])
+    rl_config.setup(env_config.make())
+    task_config = TaskConfig(RunContext(env_config, rl_config), [])
     task_config.context.actor_num = 2
     task_config.context.max_train_count = 10
     client.create_task(task_config, DummyRLParameter())
@@ -113,35 +114,31 @@ def test_task(mocker: pytest_mock.MockerFixture):
     from srl.runner.distribution.server_actor import _task_assign as actor_task_assign
 
     # queueのセットアップ前はアサインしない
-    runner = actor_task_assign(actor1)
-    assert runner is None
+    run_params = actor_task_assign(actor1)
+    assert run_params is None
 
     # queueをセットアップ
     assert not trainer.is_setup_memory()
     trainer.setup_memory(RedisParameters(host="test").create_memory_receiver(), is_purge=True)
     assert trainer.is_setup_memory()
 
-    runner = actor_task_assign(actor1)
-    assert runner is not None
-    assert runner.context.actor_id == 0
+    task_config, env, parameter, actor_id = actor_task_assign(actor1)
+    assert actor_id == 0
     assert actor1.get_config() is not None
-    assert client.get_actor(runner.context.actor_id, "id") == actor1.params.uid
+    assert client.get_actor(actor_id, "id") == actor1.params.uid
 
-    runner = actor_task_assign(actor1)
-    assert runner is not None
-    assert runner.context.actor_id == 0
+    task_config, env, parameter, actor_id = actor_task_assign(actor1)
+    assert actor_id == 0
 
     # assign actor2
     actor2 = TaskManager(RedisParameters(host="test"), "actor")
-    runner = actor_task_assign(actor2)
-    assert runner is not None
-    assert runner.context.actor_id == 1
+    task_config, env, parameter, actor_id = actor_task_assign(actor2)
+    assert actor_id == 1
     assert actor2.get_config() is not None
-    assert client.get_actor(runner.context.actor_id, "id") == actor2.params.uid
+    assert client.get_actor(actor_id, "id") == actor2.params.uid
 
-    runner = actor_task_assign(actor2)
-    assert runner is not None
-    assert runner.context.actor_id == 1
+    task_config, env, parameter, actor_id = actor_task_assign(actor2)
+    assert actor_id == 1
 
     # assign actor3
     actor3 = TaskManager(RedisParameters(host="test"), "actor")

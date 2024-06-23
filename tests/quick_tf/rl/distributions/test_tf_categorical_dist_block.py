@@ -16,7 +16,7 @@ def test_loss(unimix):
 
     from srl.rl.tf.distributions.categorical_dist_block import CategoricalDistBlock
 
-    m = CategoricalDistBlock(5, (32, 32), unimix=unimix)
+    m = CategoricalDistBlock(5, (32, 32))
     m.build((None, 1))
     m.summary()
 
@@ -24,7 +24,7 @@ def test_loss(unimix):
     for i in range(200):
         x_train, y_train = _create_dataset(32)
         with tf.GradientTape() as tape:
-            loss = m.compute_train_loss(x_train, y_train)
+            loss = m.compute_train_loss(x_train, y_train, unimix=unimix)
         grads = tape.gradient(loss, m.trainable_variables)
         optimizer.apply_gradients(zip(grads, m.trainable_variables))
 
@@ -33,12 +33,14 @@ def test_loss(unimix):
 
     x_true, y_true = _create_dataset(10)
     dist = m(x_true)
+    dist.set_unimix(unimix)
     print(x_true.reshape(-1))
     print(y_true)
     print(dist.sample())
 
     x_true, y_true = _create_dataset(1000)
     dist = m(x_true)
+    dist.set_unimix(unimix)
     y_pred = dist.sample(onehot=True)
     rmse = np.sqrt(np.mean((y_true - y_pred) ** 2))
     print(f"rmse: {rmse}")
@@ -57,10 +59,11 @@ def test_loss_grad(unimix):
     class _Model(keras.Model):
         def __init__(self):
             super().__init__()
+            self.unimix = unimix
             self.h1 = [
                 keras.layers.Dense(128, activation="relu"),
             ]
-            self.block = CategoricalDistBlock(5, unimix=unimix)
+            self.block = CategoricalDistBlock(5)
             self.h2 = [
                 keras.layers.Dense(128, activation="relu"),
                 keras.layers.Dense(1),
@@ -70,6 +73,7 @@ def test_loss_grad(unimix):
             for h in self.h1:
                 x = h(x)
             dist = self.block(x)
+            dist.set_unimix(self.unimix)
             x = dist.rsample()
             for h in self.h2:
                 x = h(x)

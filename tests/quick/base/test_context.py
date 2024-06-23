@@ -3,9 +3,8 @@ from pprint import pprint
 
 import pytest
 
-import srl
 from srl.algorithms import dqn
-from srl.base.context import RunContext
+from srl.base.context import RunContext, RunNameTypes
 from srl.base.env.config import EnvConfig
 from srl.utils import common
 
@@ -54,3 +53,43 @@ def test_to_dict(framework):
     json_dict = c.to_dict()
     pprint(json_dict)
     json.dumps(json_dict)
+
+
+# -----------------------------------
+# get_device
+# -----------------------------------
+@pytest.mark.parametrize(
+    "run_name, device, true_device",
+    [
+        [RunNameTypes.main, "AUTo", "AUTO"],
+        [RunNameTypes.main, "gpu:1", "GPU:1"],
+        [RunNameTypes.trainer, "", "AUTO"],
+        [RunNameTypes.eval, "", "CPU"],
+    ],
+)
+def test_get_device(run_name, device, true_device):
+    context = RunContext()
+    context.run_name = run_name
+    context.device = device
+    get_device = context.get_device()
+    assert get_device == true_device
+
+
+@pytest.mark.parametrize(
+    "device, actor_id, true_device",
+    [
+        ["AUTo", 0, "CPU"],
+        ["GPu", 1, "GPU"],
+        [["", ""], 1, "CPU"],
+        [["", "AUTO"], 1, "CPU"],
+        [["", "GPu"], 1, "GPU"],
+        [["CPU:0", "Cpu:1"], 1, "CPU:1"],
+    ],
+)
+def test_get_device_actor(device, actor_id, true_device):
+    context = RunContext()
+    context.run_name = RunNameTypes.actor
+    context.actor_devices = device
+    context.actor_id = actor_id
+    get_device = context.get_device()
+    assert get_device == true_device

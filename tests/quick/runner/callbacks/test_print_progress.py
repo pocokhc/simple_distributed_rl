@@ -11,7 +11,7 @@ def test_pickle():
 
 def test_train():
     rl_config = ql_agent57.Config(batch_size=2)
-    rl_config.memory.warmup_size = 10
+    rl_config.memory_warmup_size = 10
     runner = srl.Runner("OX", rl_config)
 
     runner.set_progress_options(start_time=1, interval_limit=1, env_info=True, enable_eval=True)
@@ -20,13 +20,13 @@ def test_train():
 
 def test_train_only():
     rl_config = ql_agent57.Config(batch_size=2)
-    rl_config.memory.warmup_size = 10
+    rl_config.memory_warmup_size = 10
     runner = srl.Runner("Grid", rl_config)
 
     runner.set_progress_options(start_time=1, interval_limit=1, env_info=True)
     runner.rollout(timeout=3, enable_progress=True)
     assert runner.memory is not None
-    assert runner.memory.length() > rl_config.memory.warmup_size
+    assert runner.memory.length() > rl_config.memory_warmup_size
 
     runner.set_progress_options(start_time=1, interval_limit=1)
     runner.train_only(timeout=3, enable_progress=True)

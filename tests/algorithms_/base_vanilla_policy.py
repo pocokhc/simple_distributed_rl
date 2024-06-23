@@ -31,7 +31,7 @@ class BaseCase:
 
     def test_Grid_continuous(self):
         tester = TestRL()
-        rl_config = vanilla_policy.Config()
+        rl_config = vanilla_policy.Config(lr=0.01)
         rl_config.override_action_type = SpaceTypes.CONTINUOUS
         runner = srl.Runner("Grid", rl_config)
         runner.set_seed(1)

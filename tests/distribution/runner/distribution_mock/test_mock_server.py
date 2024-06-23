@@ -25,7 +25,7 @@ try:
         RabbitMQParameters,
         RedisParameters,
     )
-    from srl.runner.distribution.task_manager import TaskManager
+    from srl.runner.distribution.task_manager import TaskConfig, TaskManager
 except ModuleNotFoundError:
     pass
 
@@ -41,6 +41,7 @@ def test_server_actor(mocker: pytest_mock.MockerFixture, server, enable_actor_th
     elif server == "redis":
         memory_params = RedisParameters(host="test")
     elif server == "pika":
+        pytest.importorskip("pika")
         create_pika_mock(mocker)
         memory_params = RabbitMQParameters(host="test")
     elif server == "paho":
@@ -58,14 +59,21 @@ def test_server_actor(mocker: pytest_mock.MockerFixture, server, enable_actor_th
     redis_params = RedisParameters(host="test")
 
     # --- create task
-    runner = srl.Runner("Grid", ql_agent57.Config())
-    runner.context.timeout = 10
-    runner.context.max_memory = 100
-    runner.context.training = True
-    runner.config.dist_enable_actor_thread = enable_actor_thread
-    runner.config.actor_parameter_sync_interval = 0
+    context = srl.RunContext(srl.EnvConfig("Grid"), ql_agent57.Config())
+    context.rl_config.setup(context.env_config.make())
+    context.timeout = 10
+    context.max_memory = 100
+    context.training = True
     task_manager = TaskManager(redis_params, "client")
-    task_manager.create_task(runner.create_task_config(callbacks=[]), runner.make_parameter())
+    task_manager.create_task(
+        TaskConfig(
+            context,
+            callbacks=[],
+            enable_actor_thread=enable_actor_thread,
+            actor_parameter_sync_interval=0,
+        ),
+        context.rl_config.make_parameter(),
+    )
     if memory_params is None:
         task_manager.setup_memory(redis_params.create_memory_receiver(), is_purge=True)
     else:
@@ -109,6 +117,7 @@ def test_server_trainer(mocker: pytest_mock.MockerFixture, server, dist_option):
     elif server == "redis":
         memory_params = RedisParameters(host="test")
     elif server == "pika":
+        pytest.importorskip("pika")
         create_pika_mock(mocker)
         memory_params = RabbitMQParameters(host="test")
     elif server == "paho":
@@ -128,16 +137,23 @@ def test_server_trainer(mocker: pytest_mock.MockerFixture, server, dist_option):
 
     # --- create task
     rl_config = ql_agent57.Config()
-    rl_config.memory.warmup_size = 10
+    rl_config.memory_warmup_size = 10
     rl_config.batch_size = 1
-    runner = srl.Runner("Grid", rl_config)
-    runner.context.max_train_count = 5
-    runner.context.training = True
-    runner.config.dist_enable_trainer_thread = dist_option[0]
-    runner.config.dist_enable_prepare_sample_batch = dist_option[1]
-    runner.config.trainer_parameter_send_interval = 0
+    context = srl.RunContext(srl.EnvConfig("Grid"), rl_config)
+    context.rl_config.setup(context.env_config.make())
+    context.max_train_count = 5
+    context.training = True
     task_manager = TaskManager(redis_params, "client")
-    task_manager.create_task(runner.create_task_config(callbacks=[]), runner.make_parameter())
+    task_manager.create_task(
+        TaskConfig(
+            context,
+            callbacks=[],
+            enable_trainer_thread=dist_option[0],
+            enable_prepare_sample_batch=dist_option[1],
+            trainer_parameter_send_interval=0,
+        ),
+        context.rl_config.make_parameter(),
+    )
     if memory_params is None:
         memory_params2 = redis_params
     else:
@@ -146,6 +162,7 @@ def test_server_trainer(mocker: pytest_mock.MockerFixture, server, dist_option):
 
     # add batch
     memory_sender = memory_params2.create_memory_sender()
+    base_memory = rl_config.make_memory()
     for _ in range(100):
         dat = (
             {
@@ -160,8 +177,8 @@ def test_server_trainer(mocker: pytest_mock.MockerFixture, server, dist_option):
             },
             0,
         )
-        dat = zlib.compress(pickle.dumps(dat))
-        memory_sender.memory_add(dat)
+        raw = base_memory.serialize_add_args(*dat)
+        memory_sender.memory_add(raw)
 
     # --- run
     assert task_manager.get_trainer("train") == ""

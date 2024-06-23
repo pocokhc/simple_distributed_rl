@@ -4,13 +4,13 @@ import pytest
 
 import srl
 from srl.base.context import RunContext
-from srl.base.define import EnvActionType, EnvObservationType, InfoType, RenderModes, RLActionType, SpaceTypes
+from srl.base.define import EnvActionType, EnvObservationType, RenderModes, RLActionType, SpaceTypes
 from srl.base.env import registration as env_registration
 from srl.base.env.base import EnvBase
 from srl.base.rl.config import DummyRLConfig
 from srl.base.rl.registration import register as rl_register
 from srl.base.rl.worker import RLWorker
-from srl.base.run.core_play import play
+from srl.base.run.play import play
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.space import SpaceBase
 
@@ -41,28 +41,27 @@ class StubEnv(EnvBase):
     def next_player_index(self) -> int:
         return 0
 
-    def reset(self) -> Tuple[EnvObservationType, InfoType]:
+    def reset(self) -> Tuple[EnvObservationType, dict]:
         return 1, {}
 
-    def step(self, action: EnvActionType) -> Tuple[EnvObservationType, List[float], bool, InfoType]:
+    def step(self, action: EnvActionType) -> Tuple[EnvObservationType, List[float], bool, dict]:
         return 2, [10.0], False, {}
 
 
 class StubWorker(RLWorker):
-    def on_reset(self, worker) -> InfoType:
+    def on_reset(self, worker):
         assert worker.prev_state == [0]
         assert worker.state == [1]
-        assert worker.prev_action == 0
+        assert worker.action == 0
         assert worker.prev_invalid_actions == []
         assert worker.invalid_actions == []
         self.step_c = 0
-        return {}
 
-    def policy(self, worker) -> Tuple[RLActionType, InfoType]:
+    def policy(self, worker) -> RLActionType:
         if self.step_c == 0:
             assert worker.prev_state == [0]
             assert worker.state == [1]
-            assert worker.prev_action == 0
+            assert worker.action == 0
             assert worker.reward == 0
             assert not worker.done
             assert worker.prev_invalid_actions == []
@@ -70,18 +69,18 @@ class StubWorker(RLWorker):
         else:
             assert worker.prev_state == [1]
             assert worker.state == [2]
-            assert worker.prev_action == 2
+            assert worker.action == 2
             assert worker.reward == 10
             assert not worker.done
             assert worker.prev_invalid_actions == []
             assert worker.invalid_actions == []
-        return 2, {}
+        return 2
 
-    def on_step(self, worker) -> InfoType:
+    def on_step(self, worker):
         if self.step_c == 0:
             assert worker.prev_state == [1]
             assert worker.state == [2]
-            assert worker.prev_action == 2
+            assert worker.action == 2
             assert worker.reward == 10
             assert not worker.done
             assert worker.prev_invalid_actions == []
@@ -89,19 +88,18 @@ class StubWorker(RLWorker):
         else:
             assert worker.prev_state == [2]
             assert worker.state == [2]
-            assert worker.prev_action == 2
+            assert worker.action == 2
             assert worker.reward == 10
             assert not worker.done
             assert worker.prev_invalid_actions == []
             assert worker.invalid_actions == []
         self.step_c += 1
-        return {}
 
     def render_terminal(self, worker, **kwargs) -> None:
         if self.step_c == 0:
             assert worker.prev_state == [0]
             assert worker.state == [1]
-            assert worker.prev_action == 2
+            assert worker.action == 2
             assert worker.reward == 0
             assert not worker.done
             assert worker.prev_invalid_actions == []
@@ -109,7 +107,7 @@ class StubWorker(RLWorker):
         else:
             assert worker.prev_state == [1]
             assert worker.state == [2]
-            assert worker.prev_action == 2
+            assert worker.action == 2
             assert worker.reward == 10
             assert not worker.done
             assert worker.prev_invalid_actions == []
@@ -121,9 +119,9 @@ def scope_function():
     env_registration.register("StubEnvCore", entry_point=__name__ + ":StubEnv", enable_assert=False)
     rl_register(
         DummyRLConfig(name="StubWorker"),
-        memory_entry_point="dummy",
-        parameter_entry_point="dummy",
-        trainer_entry_point="dummy",
+        memory_entry_point="",
+        parameter_entry_point="",
+        trainer_entry_point="",
         worker_entry_point=__name__ + ":StubWorker",
         enable_assert=False,
     )

@@ -38,6 +38,7 @@ def test_loss(use_symlog):
     print(x_true)
     print(y_true)
     print(dist.mode())
+    print(m.sample(x_true))
 
     x_true, y_true = _create_dataset(1000)
     dist = m(x_true)

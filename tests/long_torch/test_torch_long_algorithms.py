@@ -57,14 +57,6 @@ class Test_dqn_GPU(_CommonOption_GPU, base_dqn.BaseCase):
     pass
 
 
-class Test_planet_CPU(_CommonOption_CPU, base_planet.BaseCase):
-    pass
-
-
-class Test_planet_GPU(_CommonOption_GPU, base_planet.BaseCase):
-    pass
-
-
 class Test_rainbow_CPU(_CommonOption_CPU, base_rainbow.BaseCase):
     pass
 

@@ -17,6 +17,7 @@ from srl.test.env import TestEnv
 
 def test_play_FrozenLake():
     pytest.importorskip("gym")
+    pytest.importorskip("pygame")
 
     # observation_space: Discrete(16)
     # action_space     : Discrete(4)
@@ -33,6 +34,7 @@ def test_play_FrozenLake():
 
 def test_play_CartPole():
     pytest.importorskip("gym")
+    pytest.importorskip("pygame")
 
     # observation_space: Box((4,))
     # action_space     : Discrete(2)
@@ -54,6 +56,7 @@ def test_play_CartPole():
 
 def test_play_Blackjack():
     pytest.importorskip("gym")
+    pytest.importorskip("pygame")
 
     # observation_space: Tuple(Discrete(32), Discrete(11), Discrete(2))
     # action_space     : Discrete(2)
@@ -77,6 +80,7 @@ def test_play_Blackjack():
 
 def test_play_Pendulum():
     pytest.importorskip("gym")
+    pytest.importorskip("pygame")
 
     # observation_space: Box([-1. -1. -8.], [1. 1. 8.], (3,), float32)
     # action_space     : Box(-2.0, 2.0, (1,), float32)
@@ -339,6 +343,7 @@ def test_original_space():
 
 def test_random():
     pytest.importorskip("gym")
+    pytest.importorskip("pygame")
 
     env = srl.make_env(srl.EnvConfig("Pendulum-v1", use_gym=True))
     env.setup()
@@ -371,6 +376,7 @@ def test_random():
 
 def test_wrapper():
     pytest.importorskip("gym")
+    pytest.importorskip("pygame")
     import gym
 
     class MyWrapper(GymUserWrapper):

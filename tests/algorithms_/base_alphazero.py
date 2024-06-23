@@ -1,6 +1,5 @@
 from typing import Tuple
 
-
 import srl
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_base_case import CommonBaseCase
@@ -18,7 +17,7 @@ class QuickCase(CommonQuickCase):
 
         rl_config.num_simulations = 2
         rl_config.sampling_steps = 2
-        rl_config.memory.warmup_size = 2
+        rl_config.memory_warmup_size = 2
         rl_config.batch_size = 2
         rl_config.input_image_block.set_alphazero_block(1, 2)
         rl_config.value_block.set((2, 2))
@@ -50,7 +49,7 @@ class BaseCase(CommonBaseCase):
 
         rl_config = self._create_rl_config()
         rl_config.discount = 0.9
-        rl_config.memory.warmup_size = 100
+        rl_config.memory_warmup_size = 100
         rl_config.processors = [grid.LayerProcessor()]
         runner, tester = self.create_runner("Grid", rl_config)
 
@@ -102,7 +101,7 @@ class BaseCase(CommonBaseCase):
         rl_config = self._create_rl_config()
         rl_config.value_type = "rate"
         rl_config.batch_size = 32
-        rl_config.memory.warmup_size = 500
+        rl_config.memory_warmup_size = 500
         rl_config.lr = rl_config.create_scheduler()
         rl_config.lr.add_constant(1000, 0.001)
         rl_config.lr.add_constant(5000, 0.0005)

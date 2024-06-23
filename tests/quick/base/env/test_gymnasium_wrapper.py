@@ -18,7 +18,7 @@ from srl.utils import common
 
 def test_play_FrozenLake():
     pytest.importorskip("gymnasium")
-
+    
     # observation_space: Discrete(16)
     # action_space     : Discrete(4)
     tester = TestEnv()

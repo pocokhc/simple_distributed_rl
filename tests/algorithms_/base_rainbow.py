@@ -21,7 +21,7 @@ class QuickCase(CommonQuickCase):
         rl_config.set_atari_config()
 
         rl_config.batch_size = 2
-        rl_config.memory.warmup_size = 2
+        rl_config.memory_warmup_size = 2
         rl_config.multisteps = rl_param
         rl_config.target_model_update_interval = 1
         rl_config.enable_rescale = True
@@ -101,7 +101,7 @@ class BaseCase(CommonBaseCase):
         rl_config.hidden_block.set((64, 32, 16))
         rl_config.epsilon = 0
         rl_config.multisteps = 3
-        rl_config.memory.set_replay_memory()
+        rl_config.set_replay_memory()
 
         runner, tester = self.create_runner("OX", rl_config)
         runner.set_players([None, "random"])
@@ -122,7 +122,7 @@ class BaseCase(CommonBaseCase):
         rl_config.enable_double_dqn = False
         rl_config.enable_noisy_dense = False
         rl_config.multisteps = 1
-        rl_config.memory.set_replay_memory()
+        rl_config.set_replay_memory()
         rl_config.enable_rescale = False
         rl_config.window_length = 1
         return rl_config
@@ -169,7 +169,7 @@ class BaseCase(CommonBaseCase):
     def test_Pendulum_proportional(self):
         self.check_skip()
         rl_config = self._create_pendulum_config()
-        rl_config.memory.set_proportional_memory(alpha=1.0, beta_initial=1.0)
+        rl_config.set_proportional_memory(alpha=1.0, beta_initial=1.0)
         runner, tester = self.create_runner("Pendulum-v1", rl_config)
         runner.train(max_train_count=200 * 120)
         tester.eval(runner)
@@ -177,7 +177,7 @@ class BaseCase(CommonBaseCase):
     def test_Pendulum_rankbase(self):
         self.check_skip()
         rl_config = self._create_pendulum_config()
-        rl_config.memory.set_rankbase_memory(alpha=1.0, beta_initial=1.0)
+        rl_config.set_rankbase_memory(alpha=1.0, beta_initial=1.0)
         runner, tester = self.create_runner("Pendulum-v1", rl_config)
         runner.train(max_train_count=200 * 120)
         tester.eval(runner)
@@ -185,7 +185,7 @@ class BaseCase(CommonBaseCase):
     def test_Pendulum_rankbaseLinear(self):
         self.check_skip()
         rl_config = self._create_pendulum_config()
-        rl_config.memory.set_rankbase_memory_linear(alpha=1.0, beta_initial=1.0)
+        rl_config.set_rankbase_memory_linear(alpha=1.0, beta_initial=1.0)
         runner, tester = self.create_runner("Pendulum-v1", rl_config)
         runner.train(max_train_count=200 * 120)
         tester.eval(runner)
@@ -198,7 +198,7 @@ class BaseCase(CommonBaseCase):
         rl_config.hidden_block.set_dueling_network((64, 64))
         rl_config.enable_noisy_dense = True
         rl_config.multisteps = 10
-        rl_config.memory.set_proportional_memory(alpha=1.0, beta_initial=1.0)
+        rl_config.set_proportional_memory(alpha=1.0, beta_initial=1.0)
         runner, tester = self.create_runner("Pendulum-v1", rl_config)
         runner.train(max_train_count=200 * 100)
         tester.eval(runner)

@@ -25,7 +25,7 @@ class QuickCase(CommonQuickCase):
             num_simulations=2,
             print_ga_debug=False,
         )
-        rl_config.memory.warmup_size = 2
+        rl_config.memory_warmup_size = 2
 
         rl_config.observation_mode = ObservationModes.RENDER_IMAGE
         return rl_config, {}
@@ -60,7 +60,7 @@ class BaseCase(CommonBaseCase):
         env_config.max_episode_steps = 20
 
         rl_config = self._create_rl_config()
-        rl_config.memory.warmup_size = rl_config.batch_size + 1
+        rl_config.memory_warmup_size = rl_config.batch_size + 1
         rl_config.observation_mode = ObservationModes.RENDER_IMAGE
 
         runner, tester = self.create_runner(env_config, rl_config)
@@ -78,7 +78,7 @@ class BaseCase(CommonBaseCase):
         env_config.max_episode_steps = 20
 
         rl_config = self._create_rl_config()
-        rl_config.memory.warmup_size = rl_config.batch_size + 1
+        rl_config.memory_warmup_size = rl_config.batch_size + 1
         rl_config.observation_mode = ObservationModes.RENDER_IMAGE
 
         runner, tester = self.create_runner(env_config, rl_config)
@@ -114,7 +114,7 @@ class BaseCase(CommonBaseCase):
             num_simulations=5,
             print_ga_debug=False,
         )
-        rl_config.memory.warmup_size = rl_config.batch_size + 1
+        rl_config.memory_warmup_size = rl_config.batch_size + 1
         rl_config.observation_mode = ObservationModes.RENDER_IMAGE
 
         runner, tester = self.create_runner(env_config, rl_config)

@@ -32,7 +32,7 @@ class QuickCase(CommonQuickCase):
             surrogate_type=rl_param[3],
         )
         rl_config.batch_size = 2
-        rl_config.memory.warmup_size = 2
+        rl_config.memory_warmup_size = 2
 
         return rl_config, {}
 
@@ -55,8 +55,8 @@ class BaseCase(CommonBaseCase):
         rl_config.hidden_block.set((64, 64))
         rl_config.value_block.set(())
         rl_config.policy_block.set(())
-        rl_config.memory.capacity = 1000
-        rl_config.memory.warmup_size = 1000
+        rl_config.memory_capacity = 1000
+        rl_config.memory_warmup_size = 1000
         return rl_config
 
     def test_EasyGrid1(self):

@@ -4,7 +4,7 @@ from srl.base.context import RunContext
 
 def test_raw():
     env = srl.make_env("Grid")
-    worker = srl.make_worker_rulebase("random", env)
+    worker = srl.make_worker("random", env)
 
     context = RunContext()
     env.setup(context)

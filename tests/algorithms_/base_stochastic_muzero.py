@@ -18,7 +18,7 @@ class QuickCase(CommonQuickCase):
             batch_size=2,
             dynamics_blocks=1,
         )
-        rl_config.memory.warmup_size = 2
+        rl_config.memory_warmup_size = 2
         rl_config.input_image_block.set_alphazero_block(1, 4)
 
         return rl_config, dict(use_layer_processor=True)
@@ -39,9 +39,9 @@ class BaseCase(CommonBaseCase):
             enable_rescale=False,
             codebook_size=4,
         )
-        rl_config.memory.warmup_size = 200
+        rl_config.memory_warmup_size = 200
         rl_config.lr = 0.001
-        rl_config.memory.set_replay_memory()
+        rl_config.set_replay_memory()
         rl_config.input_image_block.set_alphazero_block(1, 16)
         return rl_config
 

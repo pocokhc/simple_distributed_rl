@@ -76,7 +76,7 @@ class DummyTrainCallback(TrainCallback):
 def test_trainer_callback(mocker: pytest_mock.MockerFixture):
     env_config = srl.EnvConfig("Grid")
     rl_config = ql_agent57.Config()
-    rl_config.memory.warmup_size = 100
+    rl_config.memory_warmup_size = 100
     rl_config.batch_size = 1
 
     env = env_config.make()

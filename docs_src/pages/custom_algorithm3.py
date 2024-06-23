@@ -34,9 +34,9 @@ class MyRemoteMemory(PriorityExperienceReplay):
 
 # --- select memory
 config = MyConfig()
-# config.memory.set_replay_memory()
-config.memory.set_proportional_memory()
-# config.memory.set_rankbase_memory()
+# config.set_replay_memory()
+config.set_proportional_memory()
+# config.set_rankbase_memory()
 
 # --- run memory
 memory = MyRemoteMemory(config)

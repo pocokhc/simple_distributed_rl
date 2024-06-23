@@ -4,28 +4,29 @@
 Make Original Algorithm
 =========================
 
-ここでは本フレームワークでの自作アルゴリズムを作成する方法を説明します。構成は以下です。
+ここでは本フレームワークでの自作アルゴリズムを作成する方法を説明します。
 
-#. 概要  
-#. 実装するクラスの説明  
-    #. Config
-    #. Memory
-    #. Parameter
-    #. Trainer
-    #. Worker
-#. 自作アルゴリズムの登録
-#. 型アノテーション
-#. Q学習実装例
++ 1. 概要  
++ 2. 実装するクラスの説明  
+    + 2-1. Config
+    + 2-2. Memory
+    + 2-3. Parameter
+    + 2-4. Trainer
+    + 2-5. Worker
++ 3. 自作アルゴリズムの登録
++ 4. 型アノテーション
++ 5. Q学習実装例
 
 
-概要
+1. 概要
 ==========
 
-自作アルゴリズムでは5つクラスを定義する必要があり、以下のように連携して動作します。(図にはないですが、他にハイパーパラメータを管理するConfigクラスがあります)
+| 自作アルゴリズムは5つクラスが以下のように連携して動作します。
+| ※図にはないですが、他にハイパーパラメータを管理するConfigクラスがあります
+| ※WorkerRunとEnvRunはフレームワーク内の内容になるので意識する必要はありません
 
 .. image:: ../../diagrams/overview-sequence.drawio.png
 
-| WorkerRunとEnvRunはフレームワーク内の動作になるので意識する必要はありません。
 | それぞれの役割は以下です。
 
 .. list-table::
@@ -33,7 +34,8 @@ Make Original Algorithm
    :header-rows: 0
 
    * - Config
-     - + ハイパーパラメータを管理するクラス
+     - + ハイパーパラメータを管理
+       + 実行時のSpace情報を管理
    * - Memory
      - + Workerが収集したサンプルを管理
    * - Parameter
@@ -43,8 +45,8 @@ Make Original Algorithm
        + 学習後、Parameterを更新する
    * - Worker
      - + Environmentと連携しサンプルを収集
-       + 収集したサンプルをMemoryに送信（add only）
-       + 行動決定に必要な情報をParameterから読む（read only）
+       + 収集したサンプルをMemoryに送信
+       + 行動決定に必要な情報をParameterから読む
 
 
 分散学習は以下となり各クラスが非同期で動作します。
@@ -59,11 +61,10 @@ Make Original Algorithm
 各クラスの実装の仕方を見ていきます。
 
 
-実装する各クラスの説明
-=======================
+2. 実装する各クラスの説明
+================================
 
-
-Config
+2-1. Config
 --------------------------------------------
 
 強化学習アルゴリズムの種類やハイパーパラメータを管理するクラスです。  
@@ -138,7 +139,7 @@ RLConfig で実装が必要な関数・プロパティは以下です。
 
 
 
-Memory
+2-2. Memory
 --------------------------------------------
 
 | Workerが取得したサンプル(batch)をTrainerに渡す役割を持っているクラスです。
@@ -199,10 +200,11 @@ PriorityExperienceReplay
 .. literalinclude:: custom_algorithm3.py
 
 
-Parameter
+2-3. Parameter
 --------------------------------------------
 
-パラメータを管理するクラスです。深層学習の場合はここにニューラルネットワークを定義することを想定しています。
+| パラメータを管理するクラスです。
+| 深層学習の場合はここにニューラルネットワークを定義することを想定しています。
 
 実装が必要な関数は以下です。
 
@@ -227,14 +229,15 @@ Parameter
       def call_backup(self, **kwargs):
          raise NotImplementedError()
 
-      # その他任意の関数を作成できます
-      # （分散学習ではTrainer/Worker間で値を保持できない点に注意）
+      # その他任意の関数を作成できます。
+      # 分散学習ではTrainer/Worker間で値を保持できない点に注意（backup/restoreした値のみ共有されます）
 
 
-Trainer
+2-4. Trainer
 --------------------------
 
-学習を定義する部分です。Memoryから経験を受け取ってParameterを更新します。  
+| 学習を定義する部分です。
+| Memoryから経験を受け取ってParameterを更新します。  
 
 実装が必要な関数は以下です。
 
@@ -295,7 +298,7 @@ Worker
       trainer.train()
 
 ※v0.15.0からRLWorkerを直接継承する方法に変更しました
-
+※v0.16.0からInfoが戻り値ではなく、内部変数になりました。
 
 .. code-block:: python
 
@@ -312,30 +315,20 @@ Worker
          self.parameter: MyParameter
          self.memory: IRLMemoryWorker
 
-      def on_reset(self, worker: WorkerRun) -> dict:
-         """ エピソードの最初に呼ばれる関数 
-         
-         Returns: 
-               Info         : 任意の情報
-         """
+      def on_reset(self, worker: WorkerRun):
+         """ エピソードの最初に呼ばれる関数 """
          raise NotImplementedError()
 
-      def policy(self, worker: WorkerRun) -> RLActionType | dict:
+      def policy(self, worker: WorkerRun) -> RLActionType:
          """ このターンで実行するアクションを返す関数、この関数のみ実装が必須になります
 
-         Returns: (
+         Returns:
                RLActionType : 実行するアクション
-               Info         : 任意の情報
-         )
          """
          raise NotImplementedError()
 
-      def on_step(self, worker: WorkerRun) -> dict:
-         """ Envが1step実行した後に呼ばれる関数
-
-         Returns:
-               dict: 情報(任意)
-         """
+      def on_step(self, worker: WorkerRun):
+         """ Envが1step実行した後に呼ばれる関数 """
          raise NotImplementedError()
 
       def render_terminal(self, worker, **kwargs) -> None:
@@ -391,8 +384,7 @@ Worker
          worker.invalid_action       # step後の有効ではないアクションリスト
 
 
-
-自作アルゴリズムの登録
+3. 自作アルゴリズムの登録
 =========================
 
 以下で登録します。  
@@ -411,12 +403,11 @@ Worker
    )
 
 
-型アノテーション
+4. 型アノテーション
 =========================
 
 動作に影響はないですが、ジェネリック型を追加し実装を簡単にしています。
 適用方法は以下です。
-
 
 .. code-block:: python
 
@@ -424,26 +415,26 @@ Worker
    class Config(RLConfig):
       pass
 
-   # RLParameter[_TConfig]
-   #   _TConfig : RLConfig型
+   # RLParameter[TConfig]
+   #   TConfig : RLConfig型
    class Parameter(RLParameter[Config]):
       pass
 
-   # RLTrainer[_TConfig, _TParameter]
-   #   _TConfig    : RLConfig型
-   #   _TParameter : RLParameter型
+   # RLTrainer[TConfig, _TParameter]
+   #   TConfig    : RLConfig型
+   #   TParameter : RLParameter型
    class Trainer(RLTrainer[Config, Parameter]):
       pass
 
-   # RLWorker[_TConfig, _TParameter]
-   #   _TConfig    : RLConfig型
-   #   _TParameter : RLParameter型
+   # RLWorker[TConfig, _TParameter]
+   #   TConfig    : RLConfig型
+   #   TParameter : RLParameter型
    class Worker(RLWorker[Config, Parameter]):
       pass
 
 
 
-実装例(Q学習)
+5. 実装例(Q学習)
 =================
 
 .. literalinclude:: custom_algorithm4.py

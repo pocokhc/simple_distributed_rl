@@ -6,7 +6,7 @@ import numpy as np
 from srl.base.define import EnvObservationType
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
+from srl.base.rl.processor import RLProcessor
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
@@ -16,7 +16,7 @@ from srl.base.spaces.discrete import DiscreteSpace
 
 
 @dataclass
-class NormalizeProcessor(Processor):
+class NormalizeProcessor(RLProcessor):
     feature_rang: Tuple[float, float] = (0, 1)
 
     def remap_observation_space(self, env_observation_space: SpaceBase, env: EnvRun, rl_config: RLConfig) -> SpaceBase:

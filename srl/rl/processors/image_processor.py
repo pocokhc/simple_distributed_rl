@@ -7,7 +7,7 @@ import numpy as np
 from srl.base.define import EnvObservationType, SpaceTypes
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
+from srl.base.rl.processor import RLProcessor
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces.box import BoxSpace
 from srl.utils.common import is_package_installed
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class ImageProcessor(Processor):
+class ImageProcessor(RLProcessor):
     image_type: SpaceTypes = SpaceTypes.GRAY_2ch
     resize: Optional[Tuple[int, int]] = None  # (w, h)
     enable_norm: bool = False

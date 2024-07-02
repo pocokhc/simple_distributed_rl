@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
 
 from srl.base.define import RenderModes
-from srl.base.env.processor import Processor
+from srl.base.env.processor import EnvProcessor
 from srl.utils.serialize import convert_for_json
 
 if TYPE_CHECKING:
@@ -74,7 +74,7 @@ class EnvConfig:
     font_size: int = 18
 
     #: Processorを使う場合、定義したProcessorのリスト
-    processors: List[Processor] = field(default_factory=list)
+    processors: List[EnvProcessor] = field(default_factory=list)
 
     # --- other
     #: action/observationの値をエラーが出ないように可能な限り変換します。

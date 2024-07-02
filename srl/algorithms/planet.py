@@ -11,7 +11,7 @@ from tensorflow import keras
 from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
-from srl.base.rl.processor import Processor
+from srl.base.rl.processor import RLProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
@@ -80,7 +80,7 @@ class Config(
     def __post_init__(self):
         super().__post_init__()
 
-    def get_processors(self) -> List[Optional[Processor]]:
+    def get_processors(self) -> List[Optional[RLProcessor]]:
         return [
             ImageProcessor(
                 image_type=SpaceTypes.COLOR,

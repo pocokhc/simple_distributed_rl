@@ -2,14 +2,14 @@ import numpy as np
 
 from srl.base.define import DoneTypes, SpaceTypes
 from srl.base.env.env_run import EnvRun
-from srl.base.env.processor import Processor
+from srl.base.env.processor import EnvProcessor
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.space import SpaceBase
 from srl.rl.functions import image_processor
 from srl.utils.common import is_package_installed
 
 
-class AtariProcessor(Processor):
+class AtariProcessor(EnvProcessor):
     def __init__(self):
         assert is_package_installed("ale_py")
 
@@ -24,7 +24,7 @@ class AtariProcessor(Processor):
         return state, rewards, done, info
 
 
-class AtariPongProcessor(Processor):
+class AtariPongProcessor(EnvProcessor):
     def __init__(self):
         assert is_package_installed("ale_py")
 

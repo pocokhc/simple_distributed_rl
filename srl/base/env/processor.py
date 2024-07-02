@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class Processor(ABC):
+class EnvProcessor(ABC):
 
     def remap_action_space(self, action_space: SpaceBase, env: "EnvRun") -> SpaceBase:
         return action_space

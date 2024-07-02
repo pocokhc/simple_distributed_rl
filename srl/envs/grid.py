@@ -12,7 +12,7 @@ from srl.base.env import registration
 from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.env.genre import SinglePlayEnv
 from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import Processor
+from srl.base.rl.processor import RLProcessor
 from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 
 logger = logging.getLogger(__name__)
@@ -478,7 +478,7 @@ class Grid(SinglePlayEnv):
         return np.mean(rewards)
 
 
-class LayerProcessor(Processor):
+class LayerProcessor(RLProcessor):
     def remap_observation_space(self, env_observation_space: SpaceBase, env: EnvRun, rl_config: RLConfig) -> SpaceBase:
         _env = cast(Grid, env.unwrapped)
         observation_space = BoxSpace(

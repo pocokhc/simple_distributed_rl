@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class Processor(ABC):
+class RLProcessor(ABC):
     def setup(self, env: "EnvRun", rl_config: "RLConfig"):
         pass
 

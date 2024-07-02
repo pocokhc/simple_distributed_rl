@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from srl.base.rl.algorithms.extend_worker import ExtendWorker
     from srl.base.rl.memory import IRLMemoryTrainer, IRLMemoryWorker
     from srl.base.rl.parameter import RLParameter
-    from srl.base.rl.processor import Processor
+    from srl.base.rl.processor import RLProcessor
     from srl.rl.schedulers.scheduler import SchedulerConfig
 
 logger = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     use_rl_processor: bool = True
 
     #: Processorを使う場合、定義したProcessorのリスト
-    processors: List["Processor"] = field(default_factory=list)
+    processors: List["RLProcessor"] = field(default_factory=list)
 
     # --- Worker Config
     #: state_encodeを有効にするか
@@ -139,7 +139,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     def setup_from_actor(self, actor_num: int, actor_id: int) -> None:
         pass  # NotImplemented
 
-    def get_processors(self) -> List[Optional["Processor"]]:
+    def get_processors(self) -> List[Optional["RLProcessor"]]:
         return []  # NotImplemented
 
     def get_changeable_parameters(self) -> List[str]:
@@ -175,8 +175,8 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         # -------------------------------------------------
         # processor
         # -------------------------------------------------
-        obs_processors: List[Processor] = []
-        self._episode_processors: List[Processor] = []
+        obs_processors: List[RLProcessor] = []
+        self._episode_processors: List[RLProcessor] = []
 
         # user processor
         for p in self.processors:
@@ -251,7 +251,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             env_obs_space_list.append(TextSpace(len(texts)))
 
         # --- apply processors
-        self._obs_processors_list: List[List[Processor]] = []
+        self._obs_processors_list: List[List[RLProcessor]] = []
         if self.enable_state_encode:
             # 各spaceに適用する
             for i in range(len(env_obs_space_list)):
@@ -548,11 +548,11 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         return self._is_setup
 
     @property
-    def observation_processors_list(self) -> List[List["Processor"]]:
+    def observation_processors_list(self) -> List[List["RLProcessor"]]:
         return self._obs_processors_list
 
     @property
-    def episode_processors(self) -> List["Processor"]:
+    def episode_processors(self) -> List["RLProcessor"]:
         return self._episode_processors
 
     @property

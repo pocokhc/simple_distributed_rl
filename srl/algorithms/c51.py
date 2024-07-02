@@ -8,7 +8,7 @@ from tensorflow import keras
 
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
-from srl.base.rl.processor import Processor
+from srl.base.rl.processor import RLProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.rl import functions as funcs
@@ -55,7 +55,7 @@ class Config(
     def __post_init__(self):
         super().__post_init__()
 
-    def get_processors(self) -> List[Optional[Processor]]:
+    def get_processors(self) -> List[Optional[RLProcessor]]:
         return [self.input_image_block.get_processor()]
 
     def get_framework(self) -> str:

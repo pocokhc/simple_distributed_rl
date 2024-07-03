@@ -20,6 +20,13 @@ register(
     enable_assert=False,
 )
 
+register(
+    id="OX-layer",
+    entry_point=__name__ + ":OX",
+    kwargs={"obs_type": "layer"},
+    enable_assert=False,
+)
+
 
 class OX(TurnBase2Player):
     _scores_cache = {}

@@ -34,6 +34,25 @@ register(
     enable_assert=False,
 )
 
+register(
+    id="Othello-layer",
+    entry_point=__name__ + ":Othello",
+    kwargs={"W": 8, "H": 8, "obs_type": "layer"},
+    enable_assert=False,
+)
+register(
+    id="Othello6x6-layer",
+    entry_point=__name__ + ":Othello",
+    kwargs={"W": 6, "H": 6, "obs_type": "layer"},
+    enable_assert=False,
+)
+register(
+    id="Othello4x4-layer",
+    entry_point=__name__ + ":Othello",
+    kwargs={"W": 4, "H": 4, "obs_type": "layer"},
+    enable_assert=False,
+)
+
 
 @dataclass
 class Othello(TurnBase2Player):

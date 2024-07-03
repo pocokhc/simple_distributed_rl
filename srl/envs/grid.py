@@ -30,6 +30,18 @@ registration.register(
 )
 
 registration.register(
+    id="Grid-layer",
+    entry_point=__name__ + ":Grid",
+    kwargs={
+        "move_reward": -0.04,
+        "move_prob": 0.8,
+        "reward_baseline": 0.65,
+        "obs_type": "layer",
+    },
+    enable_assert=False,
+)
+
+registration.register(
     id="EasyGrid",
     entry_point=__name__ + ":Grid",
     kwargs={

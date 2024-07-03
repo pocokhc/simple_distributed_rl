@@ -10,7 +10,7 @@ from srl.base.rl.trainer import RLTrainer
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.torch_.blocks.input_block import create_in_block_out_value
 
-from .rainbow import CommonInterfaceParameter, Config
+from .rainbow import CommonInterfaceParameter, Config, Memory
 from .rainbow_nomultisteps import calc_target_q
 
 
@@ -99,7 +99,7 @@ class Parameter(CommonInterfaceParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer[Config, Parameter]):
+class Trainer(RLTrainer[Config, Parameter, Memory]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config

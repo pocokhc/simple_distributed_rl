@@ -47,7 +47,7 @@ class RLWorkerGeneric(
             TParameter,
             DummyRLParameter(cast(RLConfig, config)) if parameter is None else parameter,
         )
-        self.memory: IRLMemoryWorker = cast(IRLMemoryWorker, DummyRLMemoryWorker() if memory is None else memory)
+        self.memory = DummyRLMemoryWorker() if memory is None else memory
 
         # abstract value
         self.info = Info()

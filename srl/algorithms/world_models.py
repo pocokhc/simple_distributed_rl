@@ -433,7 +433,7 @@ class Parameter(RLParameter[Config]):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer[Config, Parameter]):
+class Trainer(RLTrainer[Config, Parameter, Memory]):
     def __init__(self, *args):
         super().__init__(*args)
         self.memory = cast(Memory, self.memory)

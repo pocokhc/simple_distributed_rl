@@ -113,11 +113,14 @@ class ExperienceReplayBuffer(RandomMemory, RLMemory[RLConfigComponentExperienceR
                 pass  # nothing
         RandomMemory.add(self, batch)
 
-    def serialize_add_args(self, batch: Any) -> tuple:
+    def serialize_add_args(self, batch: Any) -> Any:
         batch = pickle.dumps(batch)
         if self.config.memory_compress:
             batch = zlib.compress(batch, level=self.config.memory_compress_level)
-        return (batch,)
+        return batch
+
+    def deserialize_add_args(self, raw: Any) -> Any:
+        return raw, True
 
     def sample(self, batch_size: int = 0) -> List[Any]:
         batchs = RandomMemory.sample(self, batch_size if batch_size > 0 else self.config.batch_size)

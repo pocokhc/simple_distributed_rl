@@ -1,14 +1,12 @@
 import datetime
 import logging
-import queue
 import threading
 import time
 import traceback
-from typing import Any, List, Optional, cast
+from typing import List, Optional, cast
 
 from srl.base.context import RunContext, RunNameTypes
-from srl.base.define import RLMemoryTypes
-from srl.base.rl.memory import IRLMemoryTrainer, RLMemory
+from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.run import core_train_only
 from srl.base.run.callback import TrainCallback
@@ -24,13 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------
-# thread
-#  enable_prepare_sample_batch: True
-#   (add -> sample, update) | (train)
-#
-#  enable_prepare_sample_batch: False
-#   (add) | (sample -> train -> update)
-#
+# thread (add) | (sample -> train -> update)
 # ---------------------------------------------------
 class _ShareData:
     def __init__(self):
@@ -41,94 +33,35 @@ class _ShareData:
         self.th_error = ""
 
 
-class _TrainerRLMemoryThreadPrepareBatch(IRLMemoryTrainer):
-    def __init__(self, memory: RLMemory, batch_size: int, share_data: _ShareData):
-        # recv,warmup両方threadなので、両方待つ場合は待機
-        self.memory = memory
-        self.batch_size = batch_size
-        self.share_data = share_data
-        self.q_batch = queue.Queue()
-        self.q_update = queue.Queue()
-
-    def is_wait(self) -> bool:
-        return self.memory.is_warmup_needed() and self.q_update.empty()
-
-    def thread_add(self, dat):
-        self.memory.add(*dat, serialized=True)
-
-    def thread_update(self):
-        if not self.memory.is_warmup_needed():
-            if self.q_batch.qsize() < 5:
-                self.q_batch.put(self.memory.sample(self.share_data.train_count))
-        if not self.q_update.empty():
-            self.memory.update(*self.q_update.get())
-
-    def length(self) -> int:
-        return self.memory.length()
-
-    def is_warmup_needed(self) -> bool:
-        return self.q_batch.empty()
-
-    def sample(self, *args) -> Any:
-        return self.q_batch.get()
-
-    def update(self, *args) -> None:
-        self.q_update.put(args)
-
-
 def _memory_communicate(
     manager_copy_args,
     memory: RLMemory,
     share_data: _ShareData,
-    enable_prepare_sample_batch,
 ):
     try:
         manager = ServerManager._copy(*manager_copy_args)
         memory_receiver = manager.get_memory_receiver()
-
         q_recv_count = 0
 
-        if enable_prepare_sample_batch:
-            memory_th = cast(_TrainerRLMemoryThreadPrepareBatch, memory)
-            # --- 受信できない場合もsampleを作り続ける
-            while not share_data.end_signal:
-                try:
-                    if not memory_receiver.is_connected:
-                        memory_receiver.ping()
-
-                    dat = memory_receiver.memory_recv()
-                except Exception as e:
-                    logger.error(f"Memory recv error: {e}")
+        while not share_data.end_signal:
+            if not memory_receiver.is_connected:
+                time.sleep(1)
+                if not memory_receiver.ping():
                     continue
 
-                if (dat is None) and memory_th.is_wait():
-                    time.sleep(0.1)
-                elif dat is not None:
-                    q_recv_count += 1
-                    share_data.q_recv_count = q_recv_count
-                    memory_th.thread_add(dat)
-                    memory_th.thread_update()
+            try:
+                dat = memory_receiver.memory_recv()
+            except Exception as e:
+                logger.error(f"Memory recv error: {e}")
+                continue
 
-        else:
-            # --- 受信できなければサーバ側なので少し待つ
-            while not share_data.end_signal:
-                if not memory_receiver.is_connected:
-                    time.sleep(1)
-                    if not memory_receiver.ping():
-                        continue
-
-                try:
-                    dat = memory_receiver.memory_recv()
-                except Exception as e:
-                    logger.error(f"Memory recv error: {e}")
-                    continue
-
-                if dat is None:
-                    time.sleep(0.1)
-                else:
-                    q_recv_count += 1
-                    share_data.q_recv_count = q_recv_count
-                    memory.add(*dat, serialized=True)
+            if dat is None:
+                time.sleep(0.1)
+            else:
+                q_recv_count += 1
+                share_data.q_recv_count = q_recv_count
+                dat = memory.deserialize_add_args(dat)
+                memory.add(*dat)
 
     except Exception:
         share_data.th_error = traceback.format_exc()
@@ -217,27 +150,24 @@ class _TrainerInterruptNoThread(TrainCallback):
         self.sync_parameter_t0 = time.time()
         self.start_train_count = self.task_manager.get_train_count()
 
-    def on_train_before(self, context: RunContext, state: RunStateTrainer, **kwargs) -> bool:
+    def on_train_after(self, context: RunContext, state: RunStateTrainer, **kwargs) -> bool:
         state.memory = cast(RLMemory, state.memory)
 
-        # --- recv memory
+        # --- recv memory -> add
         if not self.memory_receiver.is_connected:
             self.memory_receiver.ping()
         if self.memory_receiver.is_connected:
             dat = self.memory_receiver.memory_recv()
             if dat is not None:
                 self.q_recv_count += 1
-                state.memory.add(*dat, serialized=True)
+                dat = state.memory.deserialize_add_args(dat)
+                state.memory.add(*dat)
                 state.trainer_recv_q = self.q_recv_count
         else:
             dat = None
 
-        # no warmupとmemory emptyなら待つ
-        if dat is None and state.memory.is_warmup_needed():
-            time.sleep(1)
-
-        # --- sync parameter
         if state.is_step_trained:
+            # --- sync parameter
             if time.time() - self.sync_parameter_t0 > self.trainer_parameter_send_interval:
                 self.sync_parameter_t0 = time.time()
 
@@ -245,6 +175,10 @@ class _TrainerInterruptNoThread(TrainCallback):
                 if params is not None:
                     self.parameter_writer.parameter_update(params)
                     state.sync_trainer += 1
+        else:
+            # 学習してなく、dataの受信もなければ待つ
+            if dat is None:
+                time.sleep(1)
 
         # --- keepalive
         if time.time() - self.keepalive_t0 > self.task_manager.params.keepalive_interval:
@@ -269,6 +203,9 @@ class _TrainerInterruptNoThread(TrainCallback):
         )
 
 
+# ------------------------------------------
+# run
+# ------------------------------------------
 def _run_trainer(manager: ServerManager, task_config: TaskConfig, parameter: RLParameter):
     task_manager = manager.get_task_manager()
     parameter_writer = manager.get_parameter_writer()
@@ -289,19 +226,11 @@ def _run_trainer(manager: ServerManager, task_config: TaskConfig, parameter: RLP
         # --- thread
         if task_config.enable_trainer_thread:
             share_data = _ShareData()
-            if task_config.enable_prepare_sample_batch:
-                batch_size = getattr(task_config.context.rl_config, "batch_size", 1)
-                memory = _TrainerRLMemoryThreadPrepareBatch(memory, batch_size, share_data)
 
             _manager_copy_args = manager._copy_args()
             memory_ps = threading.Thread(
                 target=_memory_communicate,
-                args=(
-                    _manager_copy_args,
-                    memory,
-                    share_data,
-                    task_config.enable_prepare_sample_batch,
-                ),
+                args=(_manager_copy_args, memory, share_data),
             )
             parameter_ps = threading.Thread(
                 target=_parameter_communicate,

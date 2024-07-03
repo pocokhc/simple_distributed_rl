@@ -11,7 +11,7 @@ from srl.base.rl.config import DummyRLConfig, RLConfig
 logger = logging.getLogger(__name__)
 
 
-class _IRLMemoryBase(ABC):
+class IRLMemoryWorker(ABC):
     @property
     def memory_type(self) -> RLMemoryTypes:
         return RLMemoryTypes.UNKNOWN
@@ -19,31 +19,18 @@ class _IRLMemoryBase(ABC):
     def length(self) -> int:
         return -1
 
-
-class IRLMemoryWorker(_IRLMemoryBase):
     @abstractmethod
-    def add(self, *args, serialized: bool = False) -> None:
+    def add(self, *args) -> None:
         raise NotImplementedError()
 
-    def serialize_add_args(self, *args) -> tuple:
-        """addの引数をpickleできる形に変換"""
-        return (args,)
+    def serialize_add_args(self, *args) -> Any:
+        return pickle.dumps(args)
+
+    def deserialize_add_args(self, raw: Any) -> Any:
+        return pickle.loads(raw)
 
 
-class IRLMemoryTrainer(_IRLMemoryBase):
-    @abstractmethod
-    def is_warmup_needed(self) -> bool:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def sample(self, *args) -> Any:
-        raise NotImplementedError()
-
-    def update(self, *args) -> None:
-        raise NotImplementedError()
-
-
-class RLMemory(IRLMemoryWorker, IRLMemoryTrainer, Generic[TConfig]):
+class RLMemory(IRLMemoryWorker, Generic[TConfig]):
     def __init__(self, config: Optional[TConfig]):
         self.config: TConfig = cast(TConfig, DummyRLConfig() if config is None else config)
 
@@ -116,14 +103,8 @@ class DummyRLMemoryWorker(IRLMemoryWorker):
     def add(self, *args) -> None:
         raise NotImplementedError()
 
-    def serialize_add_args(self, *args) -> tuple:
-        raise NotImplementedError()
-
 
 class DummyRLMemory(RLMemory):
-    def __init__(self, config: Optional[RLConfig] = None):
-        super().__init__(config)
-
     def call_backup(self, **kwargs) -> Any:
         return None
 
@@ -132,12 +113,3 @@ class DummyRLMemory(RLMemory):
 
     def add(self, *args) -> None:
         pass
-
-    def serialize_add_args(self, *args):
-        pass
-
-    def is_warmup_needed(self) -> bool:
-        return False
-
-    def sample(self, batch_size: int, step: int) -> Any:
-        return None

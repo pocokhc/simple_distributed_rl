@@ -1,4 +1,3 @@
-import pickle
 from typing import Any, List
 
 from srl.base.define import RLMemoryTypes
@@ -27,13 +26,8 @@ class SequenceMemory(RLMemory):
     def is_warmup_needed(self) -> bool:
         return len(self.buffer) == 0
 
-    def add(self, batch: Any, serialized: bool = False) -> None:
-        if serialized:
-            batch = pickle.loads(batch)
+    def add(self, batch: Any) -> None:
         self.buffer.append(batch)
-
-    def serialize_add_args(self, batch: Any) -> tuple:
-        return (pickle.dumps(batch),)
 
     def sample(self) -> List[Any]:
         buffer = self.buffer

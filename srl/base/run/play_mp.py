@@ -73,7 +73,7 @@ class _ActorRLMemory(IRLMemoryWorker):
         self.q_send = 0
         self.t0_health = time.time()  # [2]
 
-    def add(self, *args, serialized: bool = False) -> None:
+    def add(self, *args) -> None:
         t0 = time.time()
         while True:
             if self.end_signal.value:
@@ -256,7 +256,8 @@ def _memory_communicate(
                 batch = remote_queue.get(timeout=5)
                 with remote_qsize.get_lock():
                     remote_qsize.value -= 1
-                memory.add(*batch, serialized=True)
+                batch = memory.deserialize_add_args(batch)
+                memory.add(*batch)
                 share_dict["q_recv"] += 1
     except MemoryError:
         import gc

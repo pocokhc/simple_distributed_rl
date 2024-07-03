@@ -15,24 +15,19 @@ from srl.rl.memories.sequence_memory import SequenceMemory
 def test_sequence_memory():
     memory = SequenceMemory(DummyRLConfig())
     assert memory.length() == 0
-    assert memory.is_warmup_needed()
 
     memory.add((1, "A", [2, 2, 2]))
     memory.add((2, "B", [3, 3, 3]))
     assert memory.length() == 2
-    assert not memory.is_warmup_needed()
 
     memory.restore(memory.backup(compress=False))
     assert memory.length() == 2
-    assert not memory.is_warmup_needed()
 
     memory.restore(memory.backup(compress=True))
     assert memory.length() == 2
-    assert not memory.is_warmup_needed()
 
     batchs = memory.sample()
     assert memory.length() == 0
-    assert memory.is_warmup_needed()
     assert len(batchs) == 2
     assert batchs[0][0] == 1
 
@@ -48,11 +43,9 @@ def _play_memory_sub(
     assert warmup_size <= capacity
 
     # --- warmup
-    assert memory.is_warmup_needed()
     for i in range(100):
         memory.add((i, i, i, i))
     assert memory.length() == capacity
-    assert not memory.is_warmup_needed()
 
     # --- サイズ以上をsampleした場合の動作は未定義
     # with pytest.raises(ValueError) as e:
@@ -60,7 +53,6 @@ def _play_memory_sub(
 
     memory.restore(memory.backup(compress=True))
     assert memory.length() == capacity
-    assert not memory.is_warmup_needed()
 
     # --- loop
     for i in range(100):
@@ -75,7 +67,6 @@ def _play_memory_sub(
 
             memory.update(update_args, np.array([b[3] for b in batchs]))
             assert memory.length() == capacity
-            assert not memory.is_warmup_needed()
 
 
 def test_experience_replay_buffer():

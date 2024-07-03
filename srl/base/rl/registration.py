@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple, Type, Union, cast
 from srl.base.define import PlayerType
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.config import DummyRLConfig, RLConfig
-from srl.base.rl.memory import DummyRLMemory, IRLMemoryTrainer, IRLMemoryWorker, RLMemory
+from srl.base.rl.memory import DummyRLMemory, IRLMemoryWorker, RLMemory
 from srl.base.rl.parameter import DummyRLParameter, RLParameter
 from srl.base.rl.trainer import DummyRLTrainer, RLTrainer
 from srl.base.rl.worker import DummyRLWorker, RLWorker
@@ -73,7 +73,7 @@ def make_parameter(rl_config: RLConfig, env: Optional[EnvRun] = None, is_load: b
 def make_trainer(
     rl_config: RLConfig,
     parameter: RLParameter,
-    memory: IRLMemoryTrainer,
+    memory: RLMemory,
     env: Optional[EnvRun] = None,
 ) -> RLTrainer:
     _check_rl_config(rl_config, env)
@@ -148,7 +148,7 @@ def make_workers(
     env: EnvRun,
     rl_config: Optional[RLConfig] = None,
     parameter: Optional[RLParameter] = None,
-    memory: Optional[RLMemory] = None,
+    memory: Optional[IRLMemoryWorker] = None,
 ) -> Tuple[List[WorkerRun], int]:
     players = players[:]
 

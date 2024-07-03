@@ -12,7 +12,7 @@ from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.torch_ import helper
 from srl.rl.torch_.blocks.input_block import create_in_block_out_value
 
-from .agent57 import CommonInterfaceParameter, Config
+from .agent57 import CommonInterfaceParameter, Config, Memory
 
 
 # ------------------------------------------------------
@@ -306,7 +306,7 @@ class Parameter(CommonInterfaceParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer[Config, Parameter]):
+class Trainer(RLTrainer[Config, Parameter, Memory]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config

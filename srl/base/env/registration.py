@@ -20,7 +20,7 @@ def make_base(config: Union[str, EnvConfig]) -> EnvBase:
 
     if env_name not in _registry:
         # --- srl内のenvはloadする
-        if env_name in ["Grid", "EasyGrid"]:
+        if env_name in ["Grid", "EasyGrid", "Grid-layer"]:
             import srl.envs.grid  # noqa F401
         elif env_name == "IGrid":
             import srl.envs.igrid  # noqa F401
@@ -28,9 +28,16 @@ def make_base(config: Union[str, EnvConfig]) -> EnvBase:
             import srl.envs.connectx  # noqa F401
         elif env_name in ["OneRoad", "OneRoad-hard"]:
             import srl.envs.oneroad  # noqa F401
-        elif env_name in ["Othello", "Othello6x6", "Othello4x4"]:
+        elif env_name in [
+            "Othello",
+            "Othello6x6",
+            "Othello4x4",
+            "Othello-layer",
+            "Othello6x6-layer",
+            "Othello4x4-layer",
+        ]:
             import srl.envs.othello  # noqa F401
-        elif env_name == "OX":
+        elif env_name in ["OX", "OX-layer"]:
             import srl.envs.ox  # noqa F401
         elif env_name == "SampleEnv":
             import srl.envs.sample_env  # noqa F401

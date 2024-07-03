@@ -29,6 +29,12 @@ class Info:
     def items(self):
         return self._data.items()
 
+    def copy(self):
+        o = Info()
+        o._data = self._data.copy()
+        o._data_type = self._data_type.copy()
+        return o
+
     def set_scalar(
         self,
         name: str,

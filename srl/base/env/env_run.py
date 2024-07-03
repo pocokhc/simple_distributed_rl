@@ -1,5 +1,4 @@
 import logging
-import pickle
 import random
 import time
 import traceback
@@ -21,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 class EnvRun:
     def __init__(self, config: EnvConfig) -> None:
+        # restore/backup用に状態は意識して管理
+
         from srl.base.env.registration import make_base
 
         self.config = config
@@ -34,6 +35,8 @@ class EnvRun:
         self._processors_step_invalid_actions: Any = [
             c for c in self._processors if hasattr(c, "remap_step_invalid_actions")
         ]
+
+        # --- space
         self._action_space = self.env.action_space
         self._observation_space = self.env.observation_space
         for p in self._processors:
@@ -47,6 +50,70 @@ class EnvRun:
         self._done = DoneTypes.RESET
         self._is_direct_step = False
         self._has_start = False
+
+    def _reset_vals(self):
+        self._step_num: int = 0
+        self._state = self.env.observation_space.get_default()
+        self._done: DoneTypes = DoneTypes.NONE
+        self._done_reason: str = ""
+        self._prev_player_index: int = 0
+        self._episode_rewards = np.zeros(self.player_num)
+        self._step_rewards = np.zeros(self.player_num)
+        self._invalid_actions_list: List[List[EnvActionType]] = [[] for _ in range(self.env.player_num)]
+        self._t0 = time.time()
+        self._info = Info()
+
+    def backup(self) -> Any:
+        # - spaceは状態を持たない
+        # - renderはcacheクリア
+        d = [
+            # reset_vals
+            self._step_num,
+            self._observation_space.copy_value(self._state),
+            self._done,
+            self._done_reason,
+            self._prev_player_index,
+            self._episode_rewards.copy(),
+            self._step_rewards.copy(),
+            [s[:] for s in self._invalid_actions_list],
+            self._t0,
+            self._info.copy(),
+            # init val
+            self._is_direct_step,
+            self._has_start,
+            # processor
+            [p.backup() for p in self._processors],
+            # env
+            self.env.backup(),
+        ]
+        return d
+
+    def restore(self, dat: Any) -> None:
+        # reset_vals
+        self._step_num = dat[0]
+        self._state = dat[1]
+        self._done = dat[2]
+        self._done_reason = dat[3]
+        self._prev_player_index = dat[4]
+        self._episode_rewards = dat[5].copy()
+        self._step_rewards = dat[6].copy()
+        self._invalid_actions_list = dat[7][:]
+        self._t0 = dat[8]
+        self._info = dat[9].copy()
+        # init val
+        self._is_direct_step = dat[10]
+        self._has_start = dat[11]
+        # processor
+        [p.restore(dat[12][i]) for i, p in enumerate(self._processors)]
+        # env
+        self.env.restore(dat[13])
+
+        # render
+        self._render.cache_reset()
+
+        if self._is_direct_step:
+            if not self.env.can_simulate_from_direct_step:
+                logger.warning("env does not support 'step' after 'direct_step'.")
 
     # --- with
     def __del__(self):
@@ -131,24 +198,14 @@ class EnvRun:
                 for a in self._invalid_actions_list
             ]
 
-    def _reset_vals(self):
-        self._step_num: int = 0
-        self._state = self.env.observation_space.get_default()
-        self._done: DoneTypes = DoneTypes.NONE
-        self._done_reason: str = ""
-        self._prev_player_index: int = 0
-        self._episode_rewards = np.zeros(self.player_num)
-        self._step_rewards = np.zeros(self.player_num)
-        self._invalid_actions_list: list = [[] for _ in range(self.env.player_num)]
-        self._t0 = time.time()
-        self._info = Info()
-
     def step(
         self,
         action: EnvActionType,
         frameskip: int = 0,
         frameskip_function: Optional[Callable[[], None]] = None,
     ) -> None:
+        if self._done == DoneTypes.TRUNCATED:
+            return
         if self._done != DoneTypes.NONE:
             raise SRLError(f"It is in the done state. Please execute reset(). ({self._done})")
         if self._is_direct_step and (not self.env.can_simulate_from_direct_step):
@@ -247,58 +304,6 @@ class EnvRun:
             elif self.config.episode_timeout > 0 and time.time() - self._t0 > self.config.episode_timeout:
                 self._done = DoneTypes.TRUNCATED
                 self._done_reason = "timeout"
-
-    def backup(self, include_env: bool = True) -> Any:
-        logger.debug("env.backup")
-        d = [
-            self._step_num,
-            self._episode_rewards,
-            self._state,
-            self._step_rewards,
-            self._done,
-            self._done_reason,
-            self._prev_player_index,
-            self._invalid_actions_list,
-            self._info,
-            self._t0,
-            self._is_direct_step,
-            self._has_start,
-            [p.copy() for p in self._processors],
-        ]
-        data: list = [pickle.dumps(d)]
-        if include_env:
-            data.append(self.env.backup())
-        return data
-
-    def restore(self, data: Any) -> None:
-        logger.debug("env.restore")
-        d = pickle.loads(data[0])
-        self._step_num = d[0]
-        self._episode_rewards = d[1]
-        self._state = d[2]
-        self._step_rewards = d[3]
-        self._done = d[4]
-        self._done_reason = d[5]
-        self._prev_player_index = d[6]
-        self._invalid_actions_list = d[7]
-        self._info = d[8]
-        self._t0 = d[9]
-        self._is_direct_step = d[10]
-        self._has_start = d[11]
-
-        self._processors = [p.copy() for p in d[12]]
-        self._processors_reset = [c for c in self._processors if hasattr(c, "remap_reset")]
-        self._processors_step_action = [c for c in self._processors if hasattr(c, "remap_step_action")]
-        self._processors_step = [c for c in self._processors if hasattr(c, "remap_step")]
-        self._processors_step_invalid_actions = [
-            c for c in self._processors if hasattr(c, "remap_step_invalid_actions")
-        ]
-
-        if self._is_direct_step:
-            if not self.env.can_simulate_from_direct_step:
-                logger.warning("env does not support 'step' after 'direct_step'.")
-        if len(data) == 2:
-            self.env.restore(data[1])
 
     # ------------------------------------
     # check

@@ -54,3 +54,9 @@ class AtariPongProcessor(EnvProcessor):
         )
         state = np.where(state > 127, 255, 0).astype(np.uint8)
         return state
+
+    def backup(self):
+        return self.point
+
+    def restore(self, dat):
+        self.point = dat

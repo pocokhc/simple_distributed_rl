@@ -128,6 +128,9 @@ class BoxSpace(SpaceBase[np.ndarray]):
         o._is_stack_gray_2ch = self._is_stack_gray_2ch
         return o
 
+    def copy_value(self, v: np.ndarray) -> np.ndarray:
+        return v.copy()
+
     def __eq__(self, o: "BoxSpace") -> bool:
         if not isinstance(o, BoxSpace):
             return False

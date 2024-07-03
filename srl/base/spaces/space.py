@@ -40,6 +40,10 @@ class SpaceBase(ABC, Generic[_T]):
         raise NotImplementedError()
 
     @abstractmethod
+    def copy_value(self, v: _T) -> _T:
+        raise NotImplementedError()
+
+    @abstractmethod
     def __eq__(self, __o: "SpaceBase") -> bool:
         raise NotImplementedError()
 

@@ -119,6 +119,9 @@ class MultiSpace(SpaceBase[list]):
         o.encode_tbl = self.encode_tbl
         return o
 
+    def copy_value(self, val: list) -> list:
+        return [s.copy_value(v) for v, s in zip(val, self.spaces)]
+
     def __eq__(self, o: "MultiSpace") -> bool:
         if not isinstance(o, MultiSpace):
             return False

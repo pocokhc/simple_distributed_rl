@@ -1,7 +1,7 @@
 import logging
 import pickle
 from abc import ABC
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from srl.base.spaces.space import SpaceBase
 
@@ -33,7 +33,13 @@ class RLProcessor(ABC):
 
     # doneはenv側も影響するため定義が難しい
 
-    def copy(self) -> "Processor":
+    def backup(self) -> Any:
+        return None
+
+    def restore(self, dat: Any) -> None:
+        pass
+    
+    def copy(self) -> "RLProcessor":
         o = self.__class__()
 
         for k, v in self.__dict__.items():

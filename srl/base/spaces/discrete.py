@@ -83,6 +83,9 @@ class DiscreteSpace(SpaceBase[int]):
     def copy(self) -> "DiscreteSpace":
         return DiscreteSpace(self._n, self._start)
 
+    def copy_value(self, v: int) -> int:
+        return v
+
     def __eq__(self, o: "DiscreteSpace") -> bool:
         if not isinstance(o, DiscreteSpace):
             return False

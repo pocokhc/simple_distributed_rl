@@ -126,6 +126,9 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         o.encode_tbl = self.encode_tbl
         return o
 
+    def copy_value(self, v: List[int]) -> List[int]:
+        return v[:]
+
     def __eq__(self, o: "ArrayDiscreteSpace") -> bool:
         if not isinstance(o, ArrayDiscreteSpace):
             return False

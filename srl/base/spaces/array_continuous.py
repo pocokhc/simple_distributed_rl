@@ -104,6 +104,9 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
         o.division_tbl = self.division_tbl
         return o
 
+    def copy_value(self, v: List[float]) -> List[float]:
+        return v[:]
+
     def __eq__(self, o: "ArrayContinuousSpace") -> bool:
         if not isinstance(o, ArrayContinuousSpace):
             return False

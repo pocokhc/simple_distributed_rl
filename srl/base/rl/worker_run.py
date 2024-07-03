@@ -34,33 +34,24 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         worker: RLWorkerGeneric[RLConfig, RLParameter, TActSpace, TActType, TObsSpace, TObsType],
         env: EnvRun,
     ):
+        # restore/backup用に状態は意識して管理
+
         worker.config.setup(env, enable_log=False)
         worker._set_worker_run(self)
 
         self._worker = worker
         self._config: RLConfig[SpaceBase, SpaceBase] = worker.config
         self._env = env
-        self._context = RunContext()
         self._render = Render(worker)
         self._has_start = False
-        self._episode_seed: Optional[int] = None
 
-        self._player_index: int = 0
-        self._prev_state: TObsType = cast(TObsType, [])  # None
-        self._state: TObsType = cast(TObsType, [])  # None
-        self._prev_action: TActType = cast(TActType, 0)
-        self._action: TActType = cast(TActType, 0)
-        self._reward: float = 0
-        self._step_reward: float = 0
-        self._done: DoneTypes = DoneTypes.RESET
-        self._done_reason: str = ""
-        self._prev_invalid_actions: List[TActType] = []
-        self._invalid_actions: List[TActType] = []
-        self._total_step: int = 0
-        self._dummy_rl_states_one_step = self._config.observation_space_one_step.get_default()
+        self._on_start_val(RunContext())
+        self._on_reset_val(0)
 
-        self._processors_on_reset: Any = [c for c in self._config.episode_processors if hasattr(c, "remap_on_reset")]
-        self._processors_reward: Any = [c for c in self._config.episode_processors if hasattr(c, "remap_reward")]
+        # --- processor
+        self._processors = [c.copy() for c in self.config.episode_processors]
+        self._processors_on_reset: Any = [c for c in self._processors if hasattr(c, "remap_on_reset")]
+        self._processors_reward: Any = [c for c in self._processors if hasattr(c, "remap_reward")]
 
     # ------------------------------------
     # episode functions
@@ -158,12 +149,15 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return self._episode_seed
 
     def on_start(self, context: RunContext):
-        self._context = context
+        self._on_start_val(context)
         self._render.set_render_mode(context.render_mode)
-
-        # --- worker
         self._worker.on_start(self, context)
         self._has_start = True
+
+    def _on_start_val(self, context: RunContext):
+        self._context = context
+        self._total_step: int = 0
+        self._dummy_rl_states_one_step = self._config.observation_space_one_step.get_default()
 
     def on_end(self):
         self._worker.on_end(self)
@@ -173,6 +167,10 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         if not self._has_start:
             raise SRLError("Cannot call worker.on_reset() before calling worker.on_start(context)")
 
+        self._on_reset_val(player_index, seed)
+        [r.remap_on_reset(self, self._env) for r in self._processors_on_reset]
+
+    def _on_reset_val(self, player_index: int, seed: Optional[int] = None):
         self._player_index = player_index
         self._episode_seed = seed
         self._is_reset = False
@@ -193,13 +191,12 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._prev_state = self._state
         self._action = cast(TActType, 0)
         self._prev_action = cast(TActType, 0)
-        self._reward = 0
-        self._step_reward = 0
+        self._reward: float = 0
+        self._step_reward: float = 0
         self._done = DoneTypes.NONE
-        self._done_reason = ""
+        self._done_reason: str = ""
+        self._invalid_actions: List[TActType] = []
         self._set_invalid_actions()
-
-        [r.remap_on_reset(self, self._env) for r in self._processors_on_reset]
 
     def policy(self) -> EnvActionType:
         if not self._is_reset:
@@ -263,10 +260,10 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             is_dummy=False,
         )
         self._reward = self.reward_encode(self._step_reward, self._env)
+        self._step_reward = 0
         self._done = self._env._done
         self._done_reason = self._env._done_reason
         self._worker.on_step(self)
-        self._step_reward = 0
 
     def _set_invalid_actions(self):
         self._prev_invalid_actions = self._invalid_actions
@@ -578,3 +575,57 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         rewards = [self.reward_encode(r, env) for r in env.step_rewards.tolist()]
 
         return next_state, rewards
+
+    def backup(self) -> Any:
+        d = [
+            # on_start
+            self._total_step,
+            self._has_start,
+            # on_reset
+            self._player_index,
+            self._episode_seed,
+            self._is_reset,
+            (
+                [self._config.observation_space_one_step.copy_value(s) for s in self._recent_states]
+                if self._config.window_length > 1
+                else []
+            ),
+            self._config.observation_space.copy_value(self._state),
+            self._config.observation_space.copy_value(self._prev_state),
+            self._config.action_space.copy_value(self._action),
+            self._config.action_space.copy_value(self._prev_action),
+            self._reward,
+            self._step_reward,
+            self._done,
+            self._done_reason,
+            self._invalid_actions[:],
+            self._prev_invalid_actions[:],
+            # env
+            self._env.backup(),
+        ]
+        return d
+
+    def restore(self, dat: Any):
+        # on_start
+        self._total_step = dat[0]
+        self._has_start = dat[1]
+        # on_reset
+        self._player_index = dat[2]
+        self._episode_seed = dat[3]
+        self._is_reset = dat[4]
+        if self._config.window_length > 1:
+            self._recent_states = dat[5][:]
+        self._state = dat[6]
+        self._prev_state = dat[7]
+        self._action = dat[8]
+        self._prev_action = dat[9]
+        self._reward = dat[10]
+        self._step_reward = dat[11]
+        self._done = dat[12]
+        self._done_reason = dat[13]
+        self._invalid_actions = dat[14][:]
+        self._prev_invalid_actions = dat[15]
+        self._env.restore(dat[16])
+
+        if self._context.rendering:
+            self._render.cache_reset()

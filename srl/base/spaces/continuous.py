@@ -89,6 +89,9 @@ class ContinuousSpace(SpaceBase[float]):
         o.division_tbl = self.division_tbl
         return o
 
+    def copy_value(self, v: float) -> float:
+        return v
+
     def __eq__(self, o: "ContinuousSpace") -> bool:
         if not isinstance(o, ContinuousSpace):
             return False

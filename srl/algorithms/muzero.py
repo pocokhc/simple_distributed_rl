@@ -424,7 +424,7 @@ def _scale_gradient(tensor, scale):
     return tensor * scale + tf.stop_gradient(tensor) * (1 - scale)
 
 
-class Trainer(RLTrainer[Config, Parameter]):
+class Trainer(RLTrainer[Config, Parameter, Memory]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config

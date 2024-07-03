@@ -10,7 +10,7 @@ from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.input_block import create_in_block_out_value
 from srl.utils.common import compare_less_version
 
-from .agent57 import CommonInterfaceParameter, Config
+from .agent57 import CommonInterfaceParameter, Config, Memory
 
 kl = keras.layers
 v216_older = compare_less_version(tf.__version__, "2.16.0")
@@ -265,7 +265,7 @@ class Parameter(CommonInterfaceParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer[Config, Parameter]):
+class Trainer(RLTrainer[Config, Parameter, Memory]):
     def __init__(self, *args):
         super().__init__(*args)
         self.config: Config = self.config

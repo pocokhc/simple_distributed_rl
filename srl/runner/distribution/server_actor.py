@@ -51,7 +51,7 @@ class _ActorRLMemoryThread(IRLMemoryWorker):
         self.dist_queue_capacity = dist_queue_capacity
         self.base_memory = base_memory
 
-    def add(self, *args, serialized: bool = False) -> None:
+    def add(self, *args) -> None:
         t0 = time.time()
         while True:
             if self.q.qsize() < self.dist_queue_capacity / 2:
@@ -214,7 +214,7 @@ class _ActorRLMemoryNoThread(IRLMemoryWorker):
 
         self.keepalive_t0 = 0
 
-    def add(self, *args, serialized: bool = False) -> None:
+    def add(self, *args) -> None:
         t0 = time.time()
         while True:
             # --- server check

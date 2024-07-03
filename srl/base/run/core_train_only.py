@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, List, Optional, cast
 
 from srl.base.context import RunContext
-from srl.base.rl.memory import IRLMemoryTrainer
+from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.trainer import RLTrainer
 from srl.utils import common
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RunStateTrainer:
     trainer: RLTrainer
-    memory: IRLMemoryTrainer
+    memory: RLMemory
     parameter: RLParameter
 
     elapsed_t0: float = 0

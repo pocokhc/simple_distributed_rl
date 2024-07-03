@@ -19,7 +19,7 @@ from srl.utils.serialize import convert_for_json
 
 if TYPE_CHECKING:
     from srl.base.rl.algorithms.extend_worker import ExtendWorker
-    from srl.base.rl.memory import IRLMemoryTrainer, IRLMemoryWorker
+    from srl.base.rl.memory import IRLMemoryWorker, RLMemory
     from srl.base.rl.parameter import RLParameter
     from srl.base.rl.processor import RLProcessor
     from srl.rl.schedulers.scheduler import SchedulerConfig
@@ -648,7 +648,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
         return make_parameter(self, env=env, is_load=is_load)
 
-    def make_trainer(self, parameter: "RLParameter", memory: "IRLMemoryTrainer", env: Optional[EnvRun] = None):
+    def make_trainer(self, parameter: "RLParameter", memory: "RLMemory", env: Optional[EnvRun] = None):
         """make_trainer(rl_config) と同じ動作"""
         from srl.base.rl.registration import make_trainer
 

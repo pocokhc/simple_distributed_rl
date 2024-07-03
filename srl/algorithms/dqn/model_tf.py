@@ -8,7 +8,7 @@ from srl.base.rl.trainer import RLTrainer
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.input_block import create_in_block_out_value
 
-from .dqn import CommonInterfaceParameter, Config
+from .dqn import CommonInterfaceParameter, Config, Memory
 
 kl = keras.layers
 
@@ -85,13 +85,12 @@ class Parameter(CommonInterfaceParameter):
 # ------------------------------------------------------
 # Trainer
 # ------------------------------------------------------
-class Trainer(RLTrainer[Config, Parameter]):
+class Trainer(RLTrainer[Config, Parameter, Memory]):
     def __init__(self, *args):
         super().__init__(*args)
 
         self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
         self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
-        self.loss_func = keras.losses.Huber()
 
         self.sync_count = 0
 

@@ -21,23 +21,21 @@ abstract RLConfig {
 }
 
 
+abstract IRLMemoryWorker {
+    add(*args)
+}
 abstract RLMemory {
     config : RLConfig
-    .. <color red>IRLMemoryWorker</color> ..
-    add()
-    .. <color red>IRLMemoryTrainer</color> ..
-    is_warmup_needed()
-    sample()
-    update()
-    .. other ..
+    UserFunctions()
     backup()
     restore()
 }
+IRLMemoryWorker -|> RLMemory
 
 
 abstract RLParameter {
     config : RLConfig
-    length() : int
+    UserFunctions()
     restore()
     backup()
 }
@@ -46,7 +44,7 @@ abstract RLParameter {
 abstract RLTrainer {
     config : RLConfig
     parameter : RLParameter
-    memory : <color red>IRLMemoryTrainer</color>
+    memory : RLMemory
     train()
 }
 
@@ -85,7 +83,7 @@ RLConfig -- RLMemory
 
 RLParameter -- RLWorker
 RLParameter -- RLTrainer
-RLMemory -- RLWorker
+IRLMemoryWorker -- RLWorker
 RLMemory -- RLTrainer
 
 @enduml

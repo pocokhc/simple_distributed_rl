@@ -62,6 +62,7 @@ PlayerType = Union[
 # --- Generic ---
 TConfig = TypeVar("TConfig")
 TParameter = TypeVar("TParameter")
+TMemory = TypeVar("TMemory")
 TActSpace = TypeVar("TActSpace")
 TActType = TypeVar("TActType")
 TObsSpace = TypeVar("TObsSpace")

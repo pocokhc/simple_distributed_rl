@@ -17,9 +17,9 @@ from srl.runner.runner import Runner
 from srl.utils.common import compare_equal_version
 
 if TYPE_CHECKING:
+    from srl.runner.distribution.callback import DistributionCallback
     from srl.runner.distribution.connectors.parameters import RedisParameters
     from srl.runner.distribution.connectors.redis_ import RedisConnector
-    from srl.runner.distribution.callback import DistributionCallback
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,6 @@ class TaskConfig:
     queue_capacity: int = 1000
     trainer_parameter_send_interval: int = 1  # sec
     actor_parameter_sync_interval: int = 1  # sec
-    enable_prepare_sample_batch: bool = False
     enable_trainer_thread: bool = True
     enable_actor_thread: bool = True
 

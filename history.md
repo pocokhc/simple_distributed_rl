@@ -14,6 +14,28 @@
 1. DemoMemory
 
 
+# v0.16.1
+
+**MainUpdates**
+
+1. [base.rl.memory] change: 今までの実績からRLMemoryとRLTrainerを密結合に変更
+   1. [base.rl.memory]
+       - IRLMemoryTrainerを削除し、RLMemoryに統合
+       - 必須をadd関数のみに変更
+       - serializedをaddの引数から削除し、新しいdeserialize_add_args関数に移行
+       - is_warmup_needed/sampleを削除し、Trainer側で使う関数はユーザが自由に作成する想定に
+   1. [basel.rl.trainer] change: Genericの引数にTMemoryを追加
+   1. [diagrams] update: class_rlを更新
+   1. [runner.distribution] remove: enable_prepare_sample_batchを削除（Memory-Trainer間の高速化はthreadに任せる予定）
+1. [base.rl.worker_run] new: WorkerRunのbackup/restoreを追加
+   1. [base.rl.env_run] update: backup/restoreを最適化
+   1. [base.spaces] new: copy_value関数を追加
+
+**OtherUpdates**
+
+1. [base.rl/env.processor] rename: 混同しないようにEnvProcessor,RLProcessorにrename
+1. [envs] update: grid/othello/oxのlayerを引数指定からID指定に変更
+
 # v0.16.0
 
 **MainUpdates**

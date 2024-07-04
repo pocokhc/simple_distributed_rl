@@ -15,8 +15,7 @@ from srl.base.env.registration import make as make_env
 from srl.base.rl.config import DummyRLConfig, RLConfig
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
-from srl.base.rl.registration import (make_memory, make_parameter,
-                                      make_trainer, make_worker, make_workers)
+from srl.base.rl.registration import make_memory, make_parameter, make_trainer, make_worker, make_workers
 from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run import play
@@ -27,8 +26,7 @@ from srl.utils.serialize import convert_for_json
 if TYPE_CHECKING:
     import psutil
 
-    from srl.runner.callbacks.history_viewer import (HistoryViewer,
-                                                     HistoryViewers)
+    from srl.runner.callbacks.history_viewer import HistoryViewer, HistoryViewers
 
 logger = logging.getLogger(__name__)
 
@@ -635,8 +633,7 @@ class RunnerBase:
         self._callback_history_on_file = None
         if self._history_on_memory_kwargs is not None:
             if enable_history_on_memory:
-                from srl.runner.callbacks.history_on_memory import \
-                    HistoryOnMemory
+                from srl.runner.callbacks.history_on_memory import HistoryOnMemory
 
                 self._callback_history_on_memory = HistoryOnMemory(**self._history_on_memory_kwargs)
                 callbacks.append(self._callback_history_on_memory)
@@ -679,7 +676,6 @@ class RunnerBase:
         workers: Optional[List[WorkerRun]],
         main_worker_idx: int,
         callbacks: List[CallbackType],
-        enable_generator: bool,
         logger_config: bool,
     ):
         # --- make instance
@@ -703,7 +699,40 @@ class RunnerBase:
             main_worker_idx,
             trainer,
             callbacks,
-            enable_generator=enable_generator,
+            logger_config=logger_config,
+        )
+
+    def _wrap_base_run_generator(
+        self,
+        parameter: Optional[RLParameter],
+        memory: Optional[RLMemory],
+        trainer: Optional[RLTrainer],
+        workers: Optional[List[WorkerRun]],
+        main_worker_idx: int,
+        callbacks: List[CallbackType],
+        logger_config: bool,
+    ):
+        # --- make instance
+        if workers is None:
+            if parameter is None:
+                parameter = self.make_parameter()
+            if memory is None:
+                memory = self.make_memory()
+            workers, main_worker_idx = self.make_workers(parameter, memory)
+        if not self.context.disable_trainer and trainer is None:
+            if parameter is None:
+                parameter = self.make_parameter()
+            if memory is None:
+                memory = self.make_memory()
+            trainer = self.make_trainer(parameter, memory)
+
+        return play.play_generator(
+            self.context,
+            self.make_env(),
+            workers,
+            main_worker_idx,
+            trainer,
+            callbacks,
             logger_config=logger_config,
         )
 

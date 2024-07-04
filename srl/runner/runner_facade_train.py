@@ -91,7 +91,6 @@ class RunnerFacadeTrain(RunnerBase):
                 workers=None,
                 main_worker_idx=0,
                 callbacks=callbacks,
-                enable_generator=False,
                 logger_config=logger_config,
             ),
         )
@@ -155,7 +154,6 @@ class RunnerFacadeTrain(RunnerBase):
                 workers=None,
                 main_worker_idx=0,
                 callbacks=callbacks,
-                enable_generator=False,
                 logger_config=logger_config,
             ),
         )
@@ -304,7 +302,6 @@ class RunnerFacadeTrain(RunnerBase):
     #     queue_capacity: int = 1000,
     #     trainer_parameter_send_interval: int = 1,
     #     actor_parameter_sync_interval: int = 1,
-    #     enable_prepare_sample_batch: bool = False,
     #     device_actors: Union[str, List[str]] = "AUTO",
     #     # --- stop config
     #     max_episodes: int = -1,
@@ -347,7 +344,6 @@ class RunnerFacadeTrain(RunnerBase):
     #     self.config.dist_queue_capacity = queue_capacity
     #     self.config.trainer_parameter_send_interval = trainer_parameter_send_interval
     #     self.config.actor_parameter_sync_interval = actor_parameter_sync_interval
-    #     self.config.dist_enable_prepare_sample_batch = enable_prepare_sample_batch
     #     self.config.device_actors = device_actors
 
     #     # --- set context

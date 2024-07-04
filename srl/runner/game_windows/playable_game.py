@@ -10,7 +10,7 @@ from srl.base.env.env_run import EnvRun
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
-from srl.base.run.core_play import play_generator as core_play
+from srl.base.run.core_play_generator import play_generator
 from srl.base.spaces.multi import MultiSpace
 from srl.runner.game_windows.game_window import GameWindow, KeyStatus
 
@@ -59,7 +59,7 @@ class PlayableGame(GameWindow):
         self.playable_callback = _PlayableCallback(self.env, action_division_num)
 
         # --- play ---
-        self.gen_play = core_play(
+        self.gen_play = play_generator(
             context,
             env,
             workers,

@@ -107,7 +107,7 @@ def test_server_actor(mocker: pytest_mock.MockerFixture, server, enable_actor_th
 
 
 @pytest.mark.parametrize("server", ["", "redis", "pika", "paho", "gcp"])
-@pytest.mark.parametrize("dist_option", [[False, False], [True, False], [True, True]])
+@pytest.mark.parametrize("dist_option", [False, True])
 @pytest.mark.timeout(10)  # pip install pytest_timeout
 def test_server_trainer(mocker: pytest_mock.MockerFixture, server, dist_option):
     pytest.importorskip("redis")
@@ -148,8 +148,7 @@ def test_server_trainer(mocker: pytest_mock.MockerFixture, server, dist_option):
         TaskConfig(
             context,
             callbacks=[],
-            enable_trainer_thread=dist_option[0],
-            enable_prepare_sample_batch=dist_option[1],
+            enable_trainer_thread=dist_option,
             trainer_parameter_send_interval=0,
         ),
         context.rl_config.make_parameter(),

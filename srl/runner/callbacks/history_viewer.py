@@ -7,7 +7,7 @@ from srl.utils.common import is_package_installed, is_packages_installed
 
 if TYPE_CHECKING:
     from srl.runner.callbacks.history_on_memory import HistoryOnMemory
-    from srl.runner.runner import Runner
+    from srl.runner.runner_base import RunnerBase
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +127,7 @@ class HistoryViewer:
     # ------------------------------------
     # memory
     # ------------------------------------
-    def set_history_on_memory(self, history: "HistoryOnMemory", runner: "Runner"):
+    def set_history_on_memory(self, history: "HistoryOnMemory", runner: "RunnerBase"):
         self.env_config: dict = runner.env_config.to_dict()
         self.rl_config: dict = runner.rl_config.to_dict()
         self.context: dict = runner.context.to_dict()

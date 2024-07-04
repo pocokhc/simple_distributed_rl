@@ -89,7 +89,7 @@ class EnvBase(ABC, IRender):
     def close(self) -> None:
         pass
 
-    def get_invalid_actions(self, player_index: int = -1) -> List[EnvObservationType]:
+    def get_invalid_actions(self, player_index: int = -1) -> List[EnvActionType]:
         return []
 
     def action_to_str(self, action: Union[str, EnvActionType]) -> str:

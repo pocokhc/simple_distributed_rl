@@ -426,111 +426,115 @@ def train(
     [c.on_start(context) for c in callbacks]
     # ------------------
 
-    # --- log ---
-    if logger_config:
-        logger.info("--- Context ---" + "\n" + pprint.pformat(context.to_dict()))
-    # ------------
+    try:
+        # --- log ---
+        if logger_config:
+            logger.info("--- Context ---" + "\n" + pprint.pformat(context.to_dict()))
+        # ------------
 
-    # mp を notebook で実行する場合はrlの定義をpyファイルにする必要あり TODO: それ以外でも動かないような
-    # if is_env_notebook() and "__main__" in str(remote_memory_class):
-    #    raise RuntimeError("The definition of rl must be in the py file")
+        # mp を notebook で実行する場合はrlの定義をpyファイルにする必要あり TODO: それ以外でも動かないような
+        # if is_env_notebook() and "__main__" in str(remote_memory_class):
+        #    raise RuntimeError("The definition of rl must be in the py file")
 
-    """ multiprocessing を spawn で統一
+        """ multiprocessing を spawn で統一
 
-    1. tensorflowはforkに対して安全ではないようです。
-    https://github.com/tensorflow/tensorflow/issues/5448#issuecomment-258934405
+        1. tensorflowはforkに対して安全ではないようです。
+        https://github.com/tensorflow/tensorflow/issues/5448#issuecomment-258934405
 
-    2. 以下issueと多分同じバグ発生
-    https://github.com/keras-team/keras/issues/3181#issuecomment-668175300
+        2. 以下issueと多分同じバグ発生
+        https://github.com/keras-team/keras/issues/3181#issuecomment-668175300
 
-    tensorflow の内部で使っている thread が multiprocessing の子プロセスと相性が悪いようでフリーズする不具合。
-    set_intra_op_parallelism_threads(1) にて子スレッドを作れないようにしても対処できる。
+        tensorflow の内部で使っている thread が multiprocessing の子プロセスと相性が悪いようでフリーズする不具合。
+        set_intra_op_parallelism_threads(1) にて子スレッドを作れないようにしても対処できる。
 
-    set_intra_op_parallelism_threads は tensorflow の初期化前にしか実行できずエラーになるので
-    こちらは実装が複雑になる可能性あり
-    # RuntimeError: Intra op parallelism cannot be modified after initialization.
+        set_intra_op_parallelism_threads は tensorflow の初期化前にしか実行できずエラーになるので
+        こちらは実装が複雑になる可能性あり
+        # RuntimeError: Intra op parallelism cannot be modified after initialization.
 
-    3. linux + GPU + tensorflow + multiprocessing にて以下エラーがでてtrainerが落ちる
-    # Failed setting context: CUDA_ERROR_NOT_INITIALIZED: initialization error
-    """
-    if not __is_set_start_method:
-        if mp.get_start_method() != "spawn":
-            mp.set_start_method("spawn", force=True)
-            __is_set_start_method = True
+        3. linux + GPU + tensorflow + multiprocessing にて以下エラーがでてtrainerが落ちる
+        # Failed setting context: CUDA_ERROR_NOT_INITIALIZED: initialization error
+        """
+        if not __is_set_start_method:
+            if mp.get_start_method() != "spawn":
+                mp.set_start_method("spawn", force=True)
+                __is_set_start_method = True
 
-    """ note
-    - mp.Queue + BaseManager
-      - qsizeはmacOSで例外が出る可能性あり(https://docs.python.org/ja/3/library/multiprocessing.html#multiprocessing.Queue)
-      - 終了時にqueueにデータがあると子プロセス(actor)が終了しない
-    - Manager.Queue
-      - 終了時のqueue.getがものすごい時間がかかる
-      - 終了時にqueueにデータがあっても終了する
-      - qsizeがmacOSで使えるかは未確認
-    """
-    # manager.Value : https://github.com/python/cpython/issues/79967
-    remote_qsize = cast(sharedctypes.Synchronized, mp.Value(ctypes.c_int, 0))
-    # manager.Valueだとなぜかうまくいかない時がある
-    end_signal = mp.Value(ctypes.c_bool, False)
-    with mp.Manager() as manager:
-        remote_queue = manager.Queue()
-        remote_board: Any = manager.Value(ctypes.c_char_p, None)
+        """ note
+        - mp.Queue + BaseManager
+        - qsizeはmacOSで例外が出る可能性あり(https://docs.python.org/ja/3/library/multiprocessing.html#multiprocessing.Queue)
+        - 終了時にqueueにデータがあると子プロセス(actor)が終了しない
+        - Manager.Queue
+        - 終了時のqueue.getがものすごい時間がかかる
+        - 終了時にqueueにデータがあっても終了する
+        - qsizeがmacOSで使えるかは未確認
+        """
+        # manager.Value : https://github.com/python/cpython/issues/79967
+        remote_qsize = cast(sharedctypes.Synchronized, mp.Value(ctypes.c_int, 0))
+        # manager.Valueだとなぜかうまくいかない時がある
+        end_signal = mp.Value(ctypes.c_bool, False)
+        with mp.Manager() as manager:
+            remote_queue = manager.Queue()
+            remote_board: Any = manager.Value(ctypes.c_char_p, None)
 
-        # --- init remote_memory/parameter
-        params = parameter.backup(to_cpu=True)
-        if params is not None:
-            remote_board.set(pickle.dumps(params))
+            # --- init remote_memory/parameter
+            params = parameter.backup(to_cpu=True)
+            if params is not None:
+                remote_board.set(pickle.dumps(params))
 
-        # --- actor ---
-        actors_ps_list: List[mp.Process] = []
-        for actor_id in range(context.actor_num):
-            params = (
-                mp_data,
-                remote_queue,
-                remote_qsize,
-                mp_data.queue_capacity,
-                remote_board,
-                actor_id,
-                end_signal,
-            )
-            ps = mp.Process(target=_run_actor, args=params)
-            actors_ps_list.append(ps)
-        # -------------
+            # --- actor ---
+            actors_ps_list: List[mp.Process] = []
+            for actor_id in range(context.actor_num):
+                params = (
+                    mp_data,
+                    remote_queue,
+                    remote_qsize,
+                    mp_data.queue_capacity,
+                    remote_board,
+                    actor_id,
+                    end_signal,
+                )
+                ps = mp.Process(target=_run_actor, args=params)
+                actors_ps_list.append(ps)
+            # -------------
 
-        # --- start
-        logger.info("[main] process start")
-        [p.start() for p in actors_ps_list]
+            # --- start
+            logger.info("[main] process start")
+            [p.start() for p in actors_ps_list]
 
-        # train
-        try:
-            _run_trainer(
-                mp_data,
-                parameter,
-                memory,
-                remote_queue,
-                remote_qsize,
-                remote_board,
-                end_signal,
-            )
-        finally:
-            if not end_signal.value:
-                end_signal.value = True
-                logger.info("[main] end_signal=True (trainer end)")
+            # train
+            try:
+                _run_trainer(
+                    mp_data,
+                    parameter,
+                    memory,
+                    remote_queue,
+                    remote_qsize,
+                    remote_board,
+                    end_signal,
+                )
+            finally:
+                if not end_signal.value:
+                    end_signal.value = True
+                    logger.info("[main] end_signal=True (trainer end)")
 
-        # --- プロセスの終了を待つ
-        for i, w in enumerate(actors_ps_list):
-            for _ in range(10):
-                if w.is_alive():
-                    time.sleep(1)
+            # --- プロセスの終了を待つ
+            for i, w in enumerate(actors_ps_list):
+                for _ in range(10):
+                    if w.is_alive():
+                        time.sleep(1)
+                    else:
+                        # 子プロセスが正常終了していなければ例外を出す
+                        # exitcode: 0 正常, 1 例外, 負 シグナル
+                        if w.exitcode != 0 and w.exitcode is not None:
+                            raise RuntimeError(
+                                f"An exception has occurred in actor{i} process.(exitcode: {w.exitcode})"
+                            )
+                        break
                 else:
-                    # 子プロセスが正常終了していなければ例外を出す
-                    # exitcode: 0 正常, 1 例外, 負 シグナル
-                    if w.exitcode != 0 and w.exitcode is not None:
-                        raise RuntimeError(f"An exception has occurred in actor{i} process.(exitcode: {w.exitcode})")
-                    break
-            else:
-                logger.info(f"[main] actor{i} terminate")
-                w.terminate()
+                    logger.info(f"[main] actor{i} terminate")
+                    w.terminate()
 
-    # --- callbacks ---
-    [c.on_end(context) for c in callbacks]
-    # ------------------
+    finally:
+        # --- callbacks ---
+        [c.on_end(context) for c in callbacks]
+        # ------------------

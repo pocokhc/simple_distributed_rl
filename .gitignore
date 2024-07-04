@@ -11,6 +11,10 @@ _*.*
 !__init__.py
 _*/
 
+# --- mlflow
+mlruns/
+mlruns.db
+
 # --- vscode
 .vscode/
 !.vscode/extensions.json

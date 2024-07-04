@@ -83,8 +83,13 @@ class RunContext:
         self.env_config: EnvConfig = self.env_config  # change type
         self.rl_config: RLConfig = self.rl_config  # change type
 
-    def to_dict(self) -> dict:
-        return convert_for_json(self.__dict__)
+    def to_dict(self, include_env_config: bool = True, include_rl_config: bool = True) -> dict:
+        d = convert_for_json(self.__dict__)
+        if not include_env_config:
+            del d["env_config"]
+        if not include_rl_config:
+            del d["rl_config"]
+        return d
 
     def copy(self) -> "RunContext":
         return copy.deepcopy(self)

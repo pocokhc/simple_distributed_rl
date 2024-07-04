@@ -81,7 +81,6 @@ class RunnerFacadePlay(RunnerBase):
                 workers=None,
                 main_worker_idx=0,
                 callbacks=callbacks,
-                enable_generator=False,
                 logger_config=False,
             ),
         )
@@ -157,7 +156,6 @@ class RunnerFacadePlay(RunnerBase):
                 workers=None,
                 main_worker_idx=0,
                 callbacks=callbacks,
-                enable_generator=False,
                 logger_config=False,
             ),
         )
@@ -240,7 +238,6 @@ class RunnerFacadePlay(RunnerBase):
                 workers=None,
                 main_worker_idx=0,
                 callbacks=callbacks,
-                enable_generator=False,
                 logger_config=False,
             ),
         )
@@ -326,7 +323,6 @@ class RunnerFacadePlay(RunnerBase):
                 workers=None,
                 main_worker_idx=0,
                 callbacks=callbacks,
-                enable_generator=False,
                 logger_config=False,
             ),
         )
@@ -415,7 +411,6 @@ class RunnerFacadePlay(RunnerBase):
                 workers=None,
                 main_worker_idx=0,
                 callbacks=callbacks,
-                enable_generator=False,
                 logger_config=False,
             ),
         )
@@ -503,7 +498,6 @@ class RunnerFacadePlay(RunnerBase):
                 workers=None,
                 main_worker_idx=0,
                 callbacks=callbacks,
-                enable_generator=False,
                 logger_config=False,
             ),
         )
@@ -631,7 +625,6 @@ class RunnerFacadePlay(RunnerBase):
                 workers=None,
                 main_worker_idx=0,
                 callbacks=callbacks,
-                enable_generator=False,
                 logger_config=False,
             ),
         )

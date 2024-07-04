@@ -9,10 +9,9 @@ from srl.base.context import RunContext
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.trainer import RLTrainer
+from srl.base.run.callback import TrainCallback
 from srl.utils import common
 from srl.utils.serialize import convert_for_json
-
-from .callback import TrainCallback
 
 logger = logging.getLogger(__name__)
 

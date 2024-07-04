@@ -19,7 +19,6 @@ def play(
     main_worker_idx: int,
     trainer: Optional[RLTrainer] = None,
     callbacks: List[CallbackType] = [],
-    enable_generator: bool = False,
     logger_config: bool = False,
 ):
     from srl.base.run import core_play
@@ -44,7 +43,6 @@ def play(
         common.set_seed(context.seed, context.seed_enable_gpu)
     # --------------
 
-    if not enable_generator:
         state = core_play.play(
             context,
             env,
@@ -56,9 +54,40 @@ def play(
         # --- callbacks ---
         [c.on_end(context) for c in callbacks_run]
         # -----------------
-        return state
-    else:
-        return core_play.play_generator(
+
+def play_generator(
+    context: RunContext,
+    env: EnvRun,
+    workers: List[WorkerRun],
+    main_worker_idx: int,
+    trainer: Optional[RLTrainer] = None,
+    callbacks: List[CallbackType] = [],
+    logger_config: bool = False,
+):
+    from srl.base.run import core_play_generator
+
+    context.check_stop_config()
+
+    # --- callbacks ---
+    callbacks_run: List[RunCallback] = cast(
+        List[RunCallback],
+        [c for c in callbacks if issubclass(c.__class__, RunCallback)],
+    )
+    [c.on_start(context) for c in callbacks_run]
+    # -----------------
+
+    try:
+        # --- log ---
+        if logger_config:
+            logger.info("--- Context ---" + "\n" + pprint.pformat(context.to_dict()))
+        # ------------
+
+        # --- random ---
+        if context.seed is not None:
+            common.set_seed(context.seed, context.seed_enable_gpu)
+        # --------------
+
+        gen = core_play_generator.play_generator(
             context,
             env,
             workers,
@@ -66,6 +95,11 @@ def play(
             trainer,
             callbacks_run,
         )
+    finally:
+        # --- callbacks ---
+        [c.on_end(context) for c in callbacks_run]
+        # -----------------
+    return gen
 
 
 def play_trainer_only(

@@ -258,7 +258,7 @@ class PlayableGame(GameWindow):
                 try:
                     gen_status, _, gen_state = next(self.gen_play)
                     if gen_status == "on_step_end":
-                        gen_state.env.set_done()
+                        gen_state.env.end_episode()
                         break
                 except StopIteration:
                     self.pygame_done = True

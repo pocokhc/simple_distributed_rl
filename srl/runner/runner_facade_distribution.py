@@ -23,7 +23,6 @@ class RunnerFacadeDistribution(RunnerBase):
         queue_capacity: int = 1000,
         trainer_parameter_send_interval: int = 1,
         actor_parameter_sync_interval: int = 1,
-        enable_prepare_sample_batch: bool = False,
         enable_trainer_thread: bool = True,
         enable_actor_thread: bool = True,
         # --- stop config
@@ -92,7 +91,6 @@ class RunnerFacadeDistribution(RunnerBase):
                 queue_capacity=queue_capacity,
                 trainer_parameter_send_interval=trainer_parameter_send_interval,
                 actor_parameter_sync_interval=actor_parameter_sync_interval,
-                enable_prepare_sample_batch=enable_prepare_sample_batch,
                 enable_trainer_thread=enable_trainer_thread,
                 enable_actor_thread=enable_actor_thread,
             ),
@@ -123,7 +121,6 @@ class RunnerFacadeDistribution(RunnerBase):
         queue_capacity: int = 1000,
         trainer_parameter_send_interval: int = 1,
         actor_parameter_sync_interval: int = 1,
-        enable_prepare_sample_batch: bool = False,
         enable_trainer_thread: bool = True,
         enable_actor_thread: bool = True,
         # --- stop config
@@ -182,7 +179,6 @@ class RunnerFacadeDistribution(RunnerBase):
                 queue_capacity=queue_capacity,
                 trainer_parameter_send_interval=trainer_parameter_send_interval,
                 actor_parameter_sync_interval=actor_parameter_sync_interval,
-                enable_prepare_sample_batch=enable_prepare_sample_batch,
                 enable_trainer_thread=enable_trainer_thread,
                 enable_actor_thread=enable_actor_thread,
             ),

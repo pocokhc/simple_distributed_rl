@@ -33,15 +33,16 @@ def play(
     [c.on_start(context) for c in callbacks_run]
     # -----------------
 
-    # --- log ---
-    if logger_config:
-        logger.info("--- Context ---" + "\n" + pprint.pformat(context.to_dict()))
-    # ------------
+    try:
+        # --- log ---
+        if logger_config:
+            logger.info("--- Context ---" + "\n" + pprint.pformat(context.to_dict()))
+        # ------------
 
-    # --- random ---
-    if context.seed is not None:
-        common.set_seed(context.seed, context.seed_enable_gpu)
-    # --------------
+        # --- random ---
+        if context.seed is not None:
+            common.set_seed(context.seed, context.seed_enable_gpu)
+        # --------------
 
         state = core_play.play(
             context,
@@ -51,9 +52,13 @@ def play(
             trainer,
             callbacks_run,
         )
+    finally:
         # --- callbacks ---
         [c.on_end(context) for c in callbacks_run]
         # -----------------
+
+    return state
+
 
 def play_generator(
     context: RunContext,
@@ -120,15 +125,24 @@ def play_trainer_only(
     [c.on_start(context) for c in callbacks_run]
     # -----------------
 
-    # --- log ---
-    if logger_config:
-        logger.info("--- Context ---" + "\n" + pprint.pformat(context.to_dict()))
-        logger.info("--- Trainer ---" + "\n" + pprint.pformat(trainer.config.to_dict()))
-    # ------------
+    try:
 
-    # --- random ---
-    if context.seed is not None:
-        common.set_seed(context.seed, context.seed_enable_gpu)
-    # --------------
+        # --- log ---
+        if logger_config:
+            logger.info("--- Context ---" + "\n" + pprint.pformat(context.to_dict()))
+            logger.info("--- Trainer ---" + "\n" + pprint.pformat(trainer.config.to_dict()))
+        # ------------
 
-    return core_train_only.play_trainer_only(context, trainer, callbacks_run)
+        # --- random ---
+        if context.seed is not None:
+            common.set_seed(context.seed, context.seed_enable_gpu)
+        # --------------
+
+        state = core_train_only.play_trainer_only(context, trainer, callbacks_run)
+
+    finally:
+        # --- callbacks ---
+        [c.on_end(context) for c in callbacks_run]
+        # -----------------
+
+    return state

@@ -12,6 +12,7 @@ from tests.algorithms_ import (
     base_r2d2,
     base_rainbow,
     base_sac,
+    base_snd,
     base_stochastic_muzero,
     base_world_models,
 )
@@ -134,6 +135,14 @@ class Test_sac_CPU(_CommonOption_CPU, base_sac.BaseCase):
 
 
 class Test_sac_GPU(_CommonOption_GPU, base_sac.BaseCase):
+    pass
+
+
+class Test_snd_CPU(_CommonOption_CPU, base_snd.BaseCase):
+    pass
+
+
+class Test_snd_GPU(_CommonOption_GPU, base_snd.BaseCase):
     pass
 
 

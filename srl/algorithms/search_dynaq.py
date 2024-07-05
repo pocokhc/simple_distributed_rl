@@ -190,36 +190,48 @@ class Parameter(RLParameter[Config]):
         else:
             raise UndefinedError(mode)
 
+        all_states = []
+        for state in self.trans.keys():
+            for act in range(self.config.action_space.n):
+                if act in self.invalid_actions[state]:
+                    continue
+                N = sum(self.trans[state][act].values())
+                if N == 0:
+                    continue
+                _next_states = []
+                for next_state in self.trans[state][act].keys():
+                    if self.trans[state][act][next_state] == 0:
+                        continue
+                    _next_states.append(
+                        [
+                            next_state,
+                            self.trans[state][act][next_state] / N,
+                            reward_tbl[state][act][next_state],
+                            self.done[state][act][next_state],
+                        ]
+                    )
+                if len(_next_states) == 0:
+                    continue
+                all_states.append([state, act, _next_states])
+
         delta = 0
+        count = 0
         t0 = time.time()
         while time.time() - t0 < timeout:  # for safety
             delta = 0
-            for state in self.trans.keys():
-                for act in range(self.config.action_space.n):
-                    if act in self.invalid_actions[state]:
-                        continue
-                    N = sum(self.trans[state][act].values())
-                    if N == 0:
-                        continue
-
-                    q = 0
-                    for next_state in self.trans[state][act].keys():
-                        if self.trans[state][act][next_state] == 0:
-                            continue
-                        trans_prob = self.trans[state][act][next_state] / N
-                        reward = reward_tbl[state][act][next_state]
-                        done = self.done[state][act][next_state]
-                        n_q = self.calc_next_q(q_tbl[next_state], prob, self.invalid_actions[next_state])
-                        gain = reward + (1 - done) * discount * n_q
-                        q += trans_prob * gain
-
-                    delta = max(delta, abs(q_tbl[state][act] - q))
-                    q_tbl[state][act] = q
-
+            for state, act, next_states in all_states:
+                q = 0
+                for next_state, trans_prob, reward, done in next_states:
+                    n_q = self.calc_next_q(q_tbl[next_state], prob, self.invalid_actions[next_state])
+                    gain = reward + (1 - done) * discount * n_q
+                    q += trans_prob * gain
+                delta = max(delta, abs(q_tbl[state][act] - q))
+                q_tbl[state][act] = q
+                count += 1
             if delta < threshold:
                 break
         else:
-            logger.info(f"[{mode}] iteration timeout(delta={delta}, threshold={threshold})")
+            logger.info(f"[{mode}] iteration timeout(delta={delta}, threshold={threshold}, count={count})")
 
         # update range
         for state in self.trans.keys():
@@ -331,7 +343,9 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             # --- ext (greedy)
             # TD誤差なので生データ
             n_q = self.parameter.calc_next_q(
-                self.parameter.q_ext[n_state], self.config.q_ext_target_policy_prob, next_invalid_actions
+                self.parameter.q_ext[n_state],
+                self.config.q_ext_target_policy_prob,
+                next_invalid_actions,
             )
             target_q = reward_ext + (1 - done) * self.config.q_ext_discount * n_q
             td_error_ext = target_q - self.parameter.q_ext[state][action]
@@ -344,7 +358,9 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 
             # --- int (sarsa)
             n_q = self.parameter.calc_next_q(
-                self.parameter.q_int[n_state], self.config.q_int_target_policy_prob, next_invalid_actions
+                self.parameter.q_int[n_state],
+                self.config.q_int_target_policy_prob,
+                next_invalid_actions,
             )
             target_q = reward_int + (1 - done) * self.config.q_int_discount * n_q
             td_error_int = target_q - self.parameter.q_int[state][action]
@@ -363,8 +379,16 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
                 self.parameter.action_count[state][action] += 1
 
             if self.train_count % self.config.iteration_interval == 0:
-                self.parameter.iteration_q("ext", self.config.iteration_threshold, self.config.iteration_timeout)
-                self.parameter.iteration_q("int", self.config.iteration_threshold, self.config.iteration_timeout)
+                self.parameter.iteration_q(
+                    "ext",
+                    self.config.iteration_threshold,
+                    self.config.iteration_timeout,
+                )
+                self.parameter.iteration_q(
+                    "int",
+                    self.config.iteration_threshold,
+                    self.config.iteration_timeout,
+                )
                 self.iteration_num += 1
 
             self.train_count += 1
@@ -383,7 +407,11 @@ class Worker(RLWorker[Config, Parameter]):
         super().__init__(*args)
 
     def on_start(self, worker, context) -> None:
-        self.parameter.iteration_q("ext", self.config.iteration_threshold / 10, self.config.iteration_timeout * 2)
+        self.parameter.iteration_q(
+            "ext",
+            self.config.iteration_threshold / 10,
+            self.config.iteration_timeout * 2,
+        )
         self.parameter.iteration_q("int", self.config.iteration_threshold, self.config.iteration_timeout)
 
     def on_reset(self, worker):

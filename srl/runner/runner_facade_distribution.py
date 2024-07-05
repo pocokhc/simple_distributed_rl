@@ -54,6 +54,7 @@ class RunnerFacadeDistribution(RunnerBase):
 
         # --- set context
         self.context.run_name = RunNameTypes.main
+        self.context.flow_mode = "train_distribution"
         # stop config
         self.context.max_episodes = -1
         self.context.timeout = timeout
@@ -72,14 +73,8 @@ class RunnerFacadeDistribution(RunnerBase):
         self.context.enable_train_thread = enable_train_thread
         self.context.thread_queue_capacity = thread_queue_capacity
 
-        self._base_run_before(
-            enable_progress=enable_progress,
-            enable_progress_eval=False,
-            enable_checkpoint=False,
-            enable_history_on_memory=False,
-            enable_history_on_file=False,
-            callbacks=callbacks_run,
-        )
+        if enable_progress:
+            self.apply_progress(callbacks_run, enable_eval=False)
 
         from srl.runner.distribution.task_manager import TaskConfig, TaskManager
 
@@ -111,8 +106,6 @@ class RunnerFacadeDistribution(RunnerBase):
             task_manager.finished("runner")
             task_manager.read_parameter(self.make_parameter(is_load=False))
 
-        self._base_run_after()
-
     def train_distribution_start(
         self,
         redis_params: "RedisParameters",
@@ -142,6 +135,7 @@ class RunnerFacadeDistribution(RunnerBase):
 
         # --- set context
         self.context.run_name = RunNameTypes.main
+        self.context.flow_mode = "train_distribution_start"
         # stop config
         self.context.max_episodes = -1
         self.context.timeout = timeout
@@ -160,14 +154,8 @@ class RunnerFacadeDistribution(RunnerBase):
         self.context.enable_train_thread = enable_train_thread
         self.context.thread_queue_capacity = thread_queue_capacity
 
-        self._base_run_before(
-            enable_progress=enable_progress,
-            enable_progress_eval=False,
-            enable_checkpoint=False,
-            enable_history_on_memory=False,
-            enable_history_on_file=False,
-            callbacks=callbacks,
-        )
+        if enable_progress:
+            self.apply_progress(callbacks, enable_eval=False)
 
         from srl.runner.distribution.task_manager import TaskConfig, TaskManager
 

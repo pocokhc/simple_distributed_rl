@@ -9,6 +9,7 @@ from srl.base.rl.parameter import RLParameter
 from srl.base.rl.trainer import RLTrainer
 from srl.base.run.callback import CallbackType
 from srl.base.run.core_play import RunStateActor
+from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.runner_base import RunnerBase
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,7 @@ class RunnerFacadeTrain(RunnerBase):
 
         # --- set context
         self.context.run_name = RunNameTypes.main
+        self.context.flow_mode = "train"
         # stop config
         self.context.max_episodes = max_episodes
         self.context.timeout = timeout
@@ -74,29 +76,21 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.enable_train_thread = enable_train_thread
         self.context.thread_queue_capacity = thread_queue_capacity
 
-        self._base_run_before(
-            enable_progress=enable_progress,
-            enable_progress_eval=True,
-            enable_checkpoint=True,
-            enable_history_on_memory=True,
-            enable_history_on_file=True,
-            callbacks=callbacks,
-        )
-        state = cast(
-            RunStateActor,
-            self._wrap_base_run(
-                parameter=parameter,
-                memory=memory,
-                trainer=trainer,
-                workers=None,
-                main_worker_idx=0,
-                callbacks=callbacks,
-                logger_config=logger_config,
-            ),
-        )
-        self._base_run_after()
+        if enable_progress:
+            self.apply_progress(callbacks, enable_eval=True)
+        self.apply_checkpoint(callbacks)
+        self._apply_history(callbacks)
 
-        return state
+        self.run_context(
+            parameter=parameter,
+            memory=memory,
+            trainer=trainer,
+            callbacks=callbacks,
+            logger_config=logger_config,
+        )
+
+        self._after_history()
+        return cast(RunStateActor, self.state)
 
     def rollout(
         self,
@@ -120,6 +114,7 @@ class RunnerFacadeTrain(RunnerBase):
 
         # --- set context
         self.context.run_name = RunNameTypes.main
+        self.context.flow_mode = "rollout"
         # stop config
         self.context.max_episodes = max_episodes
         self.context.timeout = timeout
@@ -137,29 +132,20 @@ class RunnerFacadeTrain(RunnerBase):
         # thread
         self.context.enable_train_thread = False
 
-        self._base_run_before(
-            enable_progress=enable_progress,
-            enable_progress_eval=False,
-            enable_checkpoint=True,
-            enable_history_on_memory=True,
-            enable_history_on_file=True,
-            callbacks=callbacks,
-        )
-        state = cast(
-            RunStateActor,
-            self._wrap_base_run(
-                parameter=parameter,
-                memory=memory,
-                trainer=None,
-                workers=None,
-                main_worker_idx=0,
-                callbacks=callbacks,
-                logger_config=logger_config,
-            ),
-        )
-        self._base_run_after()
+        if enable_progress:
+            self.apply_progress(callbacks, enable_eval=False)
+        self.apply_checkpoint(callbacks)
+        self._apply_history(callbacks)
 
-        return state
+        self.run_context(
+            parameter=parameter,
+            memory=memory,
+            callbacks=callbacks,
+            logger_config=logger_config,
+        )
+
+        self._after_history()
+        return cast(RunStateActor, self.state)
 
     def train_only(
         self,
@@ -183,6 +169,7 @@ class RunnerFacadeTrain(RunnerBase):
 
         # --- context
         self.context.run_name = RunNameTypes.main
+        self.context.flow_mode = "train_only"
         # stop config
         self.context.max_episodes = 0
         self.context.timeout = timeout
@@ -201,24 +188,21 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.enable_train_thread = enable_train_thread
         self.context.thread_queue_capacity = thread_queue_capacity
 
-        self._base_run_before(
-            enable_progress=enable_progress,
-            enable_progress_eval=True,
-            enable_checkpoint=True,
-            enable_history_on_memory=True,
-            enable_history_on_file=True,
-            callbacks=callbacks,
-        )
-        state = self._wrap_base_run_trainer_only(
+        if enable_progress:
+            self.apply_progress(callbacks, enable_eval=True)
+        self.apply_checkpoint(callbacks)
+        self._apply_history(callbacks)
+
+        self.run_context(
             parameter=parameter,
             memory=memory,
             trainer=trainer,
             callbacks=callbacks,
             logger_config=logger_config,
         )
-        self._base_run_after()
 
-        return state
+        self._after_history()
+        return cast(RunStateTrainer, self.state)
 
     def train_mp(
         self,
@@ -251,6 +235,7 @@ class RunnerFacadeTrain(RunnerBase):
 
         # --- set context
         self.context.run_name = RunNameTypes.main
+        self.context.flow_mode = "train_mp"
         # stop config
         self.context.max_episodes = -1
         self.context.timeout = timeout
@@ -269,14 +254,10 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.enable_train_thread = enable_train_thread
         self.context.thread_queue_capacity = thread_queue_capacity
 
-        self._base_run_before(
-            enable_progress=enable_progress,
-            enable_progress_eval=True,
-            enable_checkpoint=True,
-            enable_history_on_memory=False,
-            enable_history_on_file=True,
-            callbacks=callbacks,
-        )
+        if enable_progress:
+            self.apply_progress(callbacks, enable_eval=True)
+        self.apply_checkpoint(callbacks)
+        self._apply_history(callbacks)
 
         from srl.base.run.play_mp import MpData, train
 
@@ -293,7 +274,7 @@ class RunnerFacadeTrain(RunnerBase):
             logger_config,
         )
 
-        self._base_run_after()
+        self._after_history()
 
     # def train_mp_debug(
     #     self,

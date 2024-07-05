@@ -1,9 +1,12 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, List, Union, cast
+from typing import Any, List, Optional, Union, cast
 
 from srl.base.context import RunNameTypes
 from srl.base.define import PlayerType, RenderModes
+from srl.base.rl.memory import RLMemory
+from srl.base.rl.parameter import RLParameter
+from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
 from srl.runner.runner_base import CallbackType, RunnerBase
 
@@ -24,6 +27,8 @@ class RunnerFacadePlay(RunnerBase):
         enable_progress: bool = True,
         # --- other
         callbacks: List[CallbackType] = [],
+        parameter: Optional[RLParameter] = None,
+        memory: Optional[RLMemory] = None,
     ) -> Union[List[float], List[List[float]]]:  # single play , multi play
         """シミュレーションし、報酬を返します。
 
@@ -47,6 +52,7 @@ class RunnerFacadePlay(RunnerBase):
 
         # --- set context
         self.context.run_name = RunNameTypes.main
+        self.context.flow_mode = "evaluate"
         # stop config
         self.context.max_episodes = max_episodes
         self.context.timeout = timeout
@@ -64,28 +70,12 @@ class RunnerFacadePlay(RunnerBase):
         # thread
         self.context.enable_train_thread = False
 
-        self._base_run_before(
-            enable_progress=enable_progress,
-            enable_progress_eval=False,
-            enable_checkpoint=False,
-            enable_history_on_memory=False,
-            enable_history_on_file=False,
-            callbacks=callbacks,
-        )
-        state = cast(
-            RunStateActor,
-            self._wrap_base_run(
-                parameter=None,
-                memory=None,
-                trainer=None,
-                workers=None,
-                main_worker_idx=0,
-                callbacks=callbacks,
-                logger_config=False,
-            ),
-        )
-        self._base_run_after()
+        if enable_progress:
+            self.apply_progress(callbacks, enable_eval=False)
 
+        self.run_context(parameter=parameter, memory=memory, callbacks=callbacks)
+
+        state = cast(RunStateActor, self.state)
         if self.env_config.player_num == 1:
             return [r[0] for r in state.episode_rewards_list]
         else:
@@ -102,12 +92,15 @@ class RunnerFacadePlay(RunnerBase):
         max_steps: int = -1,
         # --- other
         callbacks: List[CallbackType] = [],
+        parameter: Optional[RLParameter] = None,
+        memory: Optional[RLMemory] = None,
     ):
         callbacks = callbacks[:]
         mode = RenderModes.terminal
 
         # --- set context
         self.context.run_name = RunNameTypes.main
+        self.context.flow_mode = "render_terminal"
         # stop config
         self.context.max_episodes = 1
         self.context.timeout = timeout
@@ -139,28 +132,9 @@ class RunnerFacadePlay(RunnerBase):
         logger.info("enable Rendering")
         # -----------------
 
-        self._base_run_before(
-            enable_progress=False,
-            enable_progress_eval=False,
-            enable_checkpoint=False,
-            enable_history_on_memory=False,
-            enable_history_on_file=False,
-            callbacks=callbacks,
-        )
-        state = cast(
-            RunStateActor,
-            self._wrap_base_run(
-                parameter=None,
-                memory=None,
-                trainer=None,
-                workers=None,
-                main_worker_idx=0,
-                callbacks=callbacks,
-                logger_config=False,
-            ),
-        )
-        self._base_run_after()
+        self.run_context(parameter=parameter, memory=memory, callbacks=callbacks)
 
+        state = cast(RunStateActor, self.state)
         return state.episode_rewards_list[0]
 
     def render_window(
@@ -181,12 +155,15 @@ class RunnerFacadePlay(RunnerBase):
         enable_progress: bool = True,
         # --- other
         callbacks: List[CallbackType] = [],
+        parameter: Optional[RLParameter] = None,
+        memory: Optional[RLMemory] = None,
     ):
         callbacks = callbacks[:]
         mode = RenderModes.window
 
         # --- context
         self.context.run_name = RunNameTypes.main
+        self.context.flow_mode = "render_window"
         # stop config
         self.context.max_episodes = 1
         self.context.timeout = timeout
@@ -221,29 +198,83 @@ class RunnerFacadePlay(RunnerBase):
         )
         logger.info("add callback Rendering")
 
-        self._base_run_before(
-            enable_progress=enable_progress,
-            enable_progress_eval=False,
-            enable_checkpoint=False,
-            enable_history_on_memory=False,
-            enable_history_on_file=False,
-            callbacks=callbacks,
-        )
-        state = cast(
-            RunStateActor,
-            self._wrap_base_run(
-                parameter=None,
-                memory=None,
-                trainer=None,
-                workers=None,
-                main_worker_idx=0,
-                callbacks=callbacks,
-                logger_config=False,
-            ),
-        )
-        self._base_run_after()
+        if enable_progress:
+            self.apply_progress(callbacks, enable_eval=False)
 
+        self.run_context(parameter=parameter, memory=memory, callbacks=callbacks)
+
+        state = cast(RunStateActor, self.state)
         return state.episode_rewards_list[0]
+
+    def run_render(
+        self,
+        # rendering
+        render_kwargs: dict = {},
+        step_stop: bool = False,
+        render_skip_step: bool = True,
+        # render option
+        render_interval: float = -1,  # ms
+        render_scale: float = 1.0,
+        font_name: str = "",
+        font_size: int = 18,
+        # --- stop config
+        timeout: float = -1,
+        max_steps: int = -1,
+        # --- progress
+        enable_progress: bool = True,
+        # --- other
+        callbacks: List[CallbackType] = [],
+        parameter: Optional[RLParameter] = None,
+        memory: Optional[RLMemory] = None,
+    ):
+        callbacks = callbacks[:]
+        mode = RenderModes.rgb_array
+
+        # --- set context
+        self.context.run_name = RunNameTypes.main
+        self.context.flow_mode = "run_render"
+        # stop config
+        self.context.max_episodes = 1
+        self.context.timeout = timeout
+        self.context.max_steps = max_steps
+        self.context.max_train_count = 0
+        self.context.max_memory = 0
+        # play config
+        self.context.shuffle_player = False
+        self.context.disable_trainer = True
+        # play info
+        self.context.distributed = False
+        self.context.training = False
+        self.context.rendering = True
+        self.context.render_mode = mode
+        # thread
+        self.context.enable_train_thread = False
+
+        # --- rendering ---
+        from srl.runner.callbacks.rendering import Rendering
+
+        render = Rendering(
+            mode=mode,
+            kwargs=render_kwargs,
+            step_stop=step_stop,
+            render_skip_step=render_skip_step,
+            render_interval=render_interval,
+            render_scale=render_scale,
+            font_name=font_name,
+            font_size=font_size,
+        )
+        callbacks.append(render)
+        logger.info("add callback Rendering")
+        # -----------------
+
+        if enable_progress:
+            self.apply_progress(callbacks, enable_eval=False)
+
+        self.run_context(parameter=parameter, memory=memory, callbacks=callbacks)
+
+        state = cast(RunStateActor, self.state)
+        print(f"render step: {state.total_step}, reward: {state.episode_rewards_list[0]}")
+        return render
 
     def animation_save_gif(
         self,
@@ -266,72 +297,26 @@ class RunnerFacadePlay(RunnerBase):
         enable_progress: bool = True,
         # --- other
         callbacks: List[CallbackType] = [],
+        parameter: Optional[RLParameter] = None,
+        memory: Optional[RLMemory] = None,
     ):
-        callbacks = callbacks[:]
-        mode = RenderModes.rgb_array
-
-        # --- set context
-        self.context.run_name = RunNameTypes.main
-        # stop config
-        self.context.max_episodes = 1
-        self.context.timeout = timeout
-        self.context.max_steps = max_steps
-        self.context.max_train_count = 0
-        self.context.max_memory = 0
-        # play config
-        self.context.shuffle_player = False
-        self.context.disable_trainer = True
-        # play info
-        self.context.distributed = False
-        self.context.training = False
-        self.context.rendering = True
-        self.context.render_mode = mode
-        # thread
-        self.context.enable_train_thread = False
-
-        # --- rendering ---
-        from srl.runner.callbacks.rendering import Rendering
-
-        rendering = Rendering(
-            mode=mode,
-            kwargs=render_kwargs,
-            step_stop=step_stop,
-            render_skip_step=render_skip_step,
-            render_interval=render_interval,
-            render_scale=render_scale,
-            font_name=font_name,
-            font_size=font_size,
+        render = self.run_render(
+            render_kwargs,
+            step_stop,
+            render_skip_step,
+            render_interval,
+            render_scale,
+            font_name,
+            font_size,
+            timeout,
+            max_steps,
+            enable_progress,
+            callbacks,
+            parameter,
+            memory,
         )
-        callbacks.append(rendering)
-        logger.info("add callback Rendering")
-        # -----------------
-
-        self._base_run_before(
-            enable_progress=enable_progress,
-            enable_progress_eval=False,
-            enable_checkpoint=False,
-            enable_history_on_memory=False,
-            enable_history_on_file=False,
-            callbacks=callbacks,
-        )
-        state = cast(
-            RunStateActor,
-            self._wrap_base_run(
-                parameter=None,
-                memory=None,
-                trainer=None,
-                workers=None,
-                main_worker_idx=0,
-                callbacks=callbacks,
-                logger_config=False,
-            ),
-        )
-        self._base_run_after()
-
-        print(f"animation_save_gif step: {state.total_step}, reward: {state.episode_rewards_list[0]}")
-        rendering.save_gif(path, render_interval, draw_info)
-
-        return state
+        render.save_gif(path, render_interval, draw_info)
+        return render
 
     def animation_save_avi(
         self,
@@ -354,72 +339,26 @@ class RunnerFacadePlay(RunnerBase):
         enable_progress: bool = True,
         # --- other
         callbacks: List[CallbackType] = [],
+        parameter: Optional[RLParameter] = None,
+        memory: Optional[RLMemory] = None,
     ):
-        callbacks = callbacks[:]
-        mode = RenderModes.rgb_array
-
-        # --- set context
-        self.context.run_name = RunNameTypes.main
-        # stop config
-        self.context.max_episodes = 1
-        self.context.timeout = timeout
-        self.context.max_steps = max_steps
-        self.context.max_train_count = 0
-        self.context.max_memory = 0
-        # play config
-        self.context.shuffle_player = False
-        self.context.disable_trainer = True
-        # play info
-        self.context.distributed = False
-        self.context.training = False
-        self.context.rendering = True
-        self.context.render_mode = mode
-        # thread
-        self.context.enable_train_thread = False
-
-        # --- rendering ---
-        from srl.runner.callbacks.rendering import Rendering
-
-        rendering = Rendering(
-            mode=mode,
-            kwargs=render_kwargs,
-            step_stop=step_stop,
-            render_skip_step=render_skip_step,
-            render_interval=render_interval,
-            render_scale=render_scale,
-            font_name=font_name,
-            font_size=font_size,
+        render = self.run_render(
+            render_kwargs,
+            step_stop,
+            render_skip_step,
+            render_interval,
+            render_scale,
+            font_name,
+            font_size,
+            timeout,
+            max_steps,
+            enable_progress,
+            callbacks,
+            parameter,
+            memory,
         )
-        callbacks.append(rendering)
-        logger.info("add callback Rendering")
-        # -----------------
-
-        self._base_run_before(
-            enable_progress=enable_progress,
-            enable_progress_eval=False,
-            enable_checkpoint=False,
-            enable_history_on_memory=False,
-            enable_history_on_file=False,
-            callbacks=callbacks,
-        )
-        state = cast(
-            RunStateActor,
-            self._wrap_base_run(
-                parameter=None,
-                memory=None,
-                trainer=None,
-                workers=None,
-                main_worker_idx=0,
-                callbacks=callbacks,
-                logger_config=False,
-            ),
-        )
-        self._base_run_after()
-
-        print(f"animation_save_avi step: {state.total_step}, reward: {state.episode_rewards_list[0]}")
-        rendering.save_avi(path, render_interval, draw_info, codec=codec)
-
-        return state
+        render.save_avi(path, render_interval, draw_info, codec=codec)
+        return render
 
     def animation_display(
         self,
@@ -441,72 +380,26 @@ class RunnerFacadePlay(RunnerBase):
         enable_progress: bool = True,
         # --- other
         callbacks: List[CallbackType] = [],
+        parameter: Optional[RLParameter] = None,
+        memory: Optional[RLMemory] = None,
     ):
-        callbacks = callbacks[:]
-        mode = RenderModes.rgb_array
-
-        # --- set context
-        self.context.run_name = RunNameTypes.main
-        # stop config
-        self.context.max_episodes = 1
-        self.context.timeout = timeout
-        self.context.max_steps = max_steps
-        self.context.max_train_count = 0
-        self.context.max_memory = 0
-        # play config
-        self.context.shuffle_player = False
-        self.context.disable_trainer = True
-        # play info
-        self.context.distributed = False
-        self.context.training = False
-        self.context.rendering = True
-        self.context.render_mode = mode
-        # thread
-        self.context.enable_train_thread = False
-
-        # --- rendering ---
-        from srl.runner.callbacks.rendering import Rendering
-
-        rendering = Rendering(
-            mode=mode,
-            kwargs=render_kwargs,
-            step_stop=step_stop,
-            render_skip_step=render_skip_step,
-            render_interval=render_interval,
-            render_scale=render_scale,
-            font_name=font_name,
-            font_size=font_size,
+        render = self.run_render(
+            render_kwargs,
+            step_stop,
+            render_skip_step,
+            render_interval,
+            render_scale,
+            font_name,
+            font_size,
+            timeout,
+            max_steps,
+            enable_progress,
+            callbacks,
+            parameter,
+            memory,
         )
-        callbacks.append(rendering)
-        logger.info("add callback Rendering")
-        # -----------------
-
-        self._base_run_before(
-            enable_progress=enable_progress,
-            enable_progress_eval=False,
-            enable_checkpoint=False,
-            enable_history_on_memory=False,
-            enable_history_on_file=False,
-            callbacks=callbacks,
-        )
-        state = cast(
-            RunStateActor,
-            self._wrap_base_run(
-                parameter=None,
-                memory=None,
-                trainer=None,
-                workers=None,
-                main_worker_idx=0,
-                callbacks=callbacks,
-                logger_config=False,
-            ),
-        )
-        self._base_run_after()
-
-        print(f"animation_display step: {state.total_step}, reward: {state.episode_rewards_list[0]}")
-        rendering.display(render_interval, render_scale, draw_info)
-
-        return state
+        render.display(render_interval, render_scale, draw_info)
+        return render
 
     def replay_window(
         self,
@@ -525,6 +418,7 @@ class RunnerFacadePlay(RunnerBase):
 
         # --- set context
         self.context.run_name = RunNameTypes.main
+        self.context.flow_mode = "replay_window"
         # stop config
         self.context.max_episodes = 1
         self.context.timeout = timeout
@@ -542,21 +436,13 @@ class RunnerFacadePlay(RunnerBase):
         # thread
         self.context.enable_train_thread = False
 
-        self._base_run_before(
-            enable_progress=enable_progress,
-            enable_progress_eval=False,
-            enable_checkpoint=False,
-            enable_history_on_memory=False,
-            enable_history_on_file=False,
-            callbacks=callbacks,
-        )
+        if enable_progress:
+            self.apply_progress(callbacks, enable_eval=False)
 
         from srl.runner.game_windows.replay_window import RePlayableGame
 
         window = RePlayableGame(self, view_state=view_state, callbacks=callbacks, _is_test=_is_test)
         window.play()
-
-        self._base_run_after()
 
     def play_terminal(
         self,
@@ -570,6 +456,8 @@ class RunnerFacadePlay(RunnerBase):
         max_steps: int = -1,
         # --- other
         callbacks: List[CallbackType] = [],
+        parameter: Optional[RLParameter] = None,
+        memory: Optional[RLMemory] = None,
     ):
         callbacks = callbacks[:]
         mode = RenderModes.terminal
@@ -577,6 +465,7 @@ class RunnerFacadePlay(RunnerBase):
 
         # --- set context
         self.context.run_name = RunNameTypes.main
+        self.context.flow_mode = "play_terminal"
         # stop config
         self.context.max_episodes = 1
         self.context.timeout = timeout
@@ -607,29 +496,9 @@ class RunnerFacadePlay(RunnerBase):
         logger.info("add callback Rendering")
         # -----------------
 
-        self._base_run_before(
-            enable_progress=False,
-            enable_progress_eval=False,
-            enable_checkpoint=False,
-            enable_history_on_memory=False,
-            enable_history_on_file=False,
-            callbacks=callbacks,
-        )
+        self.run_context(parameter=parameter, memory=memory, callbacks=callbacks)
 
-        state = cast(
-            RunStateActor,
-            self._wrap_base_run(
-                parameter=None,
-                memory=None,
-                trainer=None,
-                workers=None,
-                main_worker_idx=0,
-                callbacks=callbacks,
-                logger_config=False,
-            ),
-        )
-        self._base_run_after()
-
+        state = cast(RunStateActor, self.state)
         return state.episode_rewards_list[0]
 
     def play_window(
@@ -645,11 +514,12 @@ class RunnerFacadePlay(RunnerBase):
         callbacks: List[CallbackType] = [],
         _is_test: bool = False,  # for test
     ):
-        callbacks = callbacks[:]
+        callbacks2 = cast(List[RunCallback], [c for c in callbacks if issubclass(c.__class__, RunCallback)])
         mode = RenderModes.rgb_array
 
         # --- set context
         self.context.run_name = RunNameTypes.main
+        self.context.flow_mode = "play_window"
         # stop config
         self.context.max_episodes = -1
         self.context.timeout = timeout
@@ -683,7 +553,7 @@ class RunnerFacadePlay(RunnerBase):
             view_state=view_state,
             action_division_num=action_division_num,
             key_bind=key_bind,
-            callbacks=callbacks,
+            callbacks=callbacks2,
             _is_test=_is_test,
         )
         game.play()

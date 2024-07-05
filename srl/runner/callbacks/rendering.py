@@ -1,7 +1,7 @@
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, List, Union
+from typing import List, Union
 
 import numpy as np
 
@@ -13,9 +13,6 @@ from srl.base.run.core_play import RunStateActor
 from srl.utils.render_functions import text_to_rgb_array
 
 logger = logging.getLogger(__name__)
-
-if TYPE_CHECKING:
-    from matplotlib.animation import ArtistAnimation
 
 
 @dataclass
@@ -277,7 +274,7 @@ class Rendering(RunCallback):
         interval: float = -1,  # ms
         scale: float = 1.0,
         draw_info: bool = True,
-    ) -> "ArtistAnimation":
+    ):
         assert len(self.frames) > 0
 
         import matplotlib.pyplot as plt

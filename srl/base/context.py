@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, List, Optional, Union
 
 from srl.base.define import PlayerType, RenderModes
-from srl.base.system.device import setup_device
 from srl.utils.serialize import convert_for_json
 
 if TYPE_CHECKING:
@@ -35,6 +34,7 @@ class RunContext:
 
     # --- runtime context
     run_name: RunNameTypes = RunNameTypes.main
+    flow_mode: str = ""
     # stop config
     max_episodes: int = 0
     timeout: float = 0
@@ -59,6 +59,12 @@ class RunContext:
     actor_id: int = 0
     actor_num: int = 1
     actor_devices: Union[str, List[str]] = "CPU"
+
+    # --- memory
+    #: None : not change
+    #: <=0  : auto
+    #: int  : 指定サイズで設定
+    memory_limit: Optional[int] = -1
 
     # --- stats
     enable_stats: bool = False
@@ -119,6 +125,11 @@ class RunContext:
         else:
             return self.run_name.name
 
+    def set_memory_limit(self):
+        from srl.base.system.memory import set_memory_limit
+
+        set_memory_limit(self.memory_limit)
+
     def set_device(self):
         if self.rl_config is None:
             logger.warning("skip set device (RLConfig is None)")
@@ -127,6 +138,9 @@ class RunContext:
         self.framework = self.rl_config.get_framework()
         if self.framework == "":
             return
+
+        from srl.base.system.device import setup_device
+
         used_device_tf, used_device_torch = setup_device(
             self.framework,
             self.get_device(),

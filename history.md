@@ -8,15 +8,19 @@
 // RLTrainerでinfoの計算コストは保留（metricsを別途導入案も保留）
 // cached_propertyでちょっと高速化?→予想外のバグがでそうなので保留
 // RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
+// DemoMemory: 個別対応かな
 1. keras3対応？
 1. Async-SGD
 1. (distribution)オリジナルrl/env対応
-1. DemoMemory
 
-
+[examples.baseline] update: gym.classic_control.pendulum を
 # v0.16.1
 
 **MainUpdates**
+
+・MLFlowをテスト導入しました。（使用例：examples/sample_mlflow.py）
+・RLMemoryをリファクタリング
+・SNDアルゴリズムを追加
 
 1. [base.rl.memory] change: 今までの実績からRLMemoryとRLTrainerを密結合に変更
    1. [base.rl.memory]
@@ -30,11 +34,21 @@
 1. [base.rl.worker_run] new: WorkerRunのbackup/restoreを追加
    1. [base.rl.env_run] update: backup/restoreを最適化
    1. [base.spaces] new: copy_value関数を追加
+1. [runner.callbacks] new: MLFlowをテスト導入、使用例は examples/sample_mlflow.py を参照、問題なければRunnerに統合予定
+   1. [runner] update: RunnerからConfigを削除し、Parameter等の実行時の状態のみを持つようにリファクタリング
+1. [algorithms] new: SNDを追加
+
+
+[examples.baseline] update: gym.classic_control.pendulum を MLFlowに変更
 
 **OtherUpdates**
 
 1. [base.rl/env.processor] rename: 混同しないようにEnvProcessor,RLProcessorにrename
 1. [envs] update: grid/othello/oxのlayerを引数指定からID指定に変更
+1. [base.env.env_run] change: set_doneをend_episodeにrename
+1. [base.run.play] refactor: play_generatorを別ファイルにし、引数指定から別関数に変更
+1. [base.run.callbacks] update: on_start～on_endまでをfinallyで囲み、on_endが必ず実行されるように修正
+
 
 # v0.16.0
 

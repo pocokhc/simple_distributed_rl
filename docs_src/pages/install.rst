@@ -41,12 +41,15 @@ Option Libraries
    + redis
    + pika
    + paho-mqtt
++ 学習を管理する場合
+  + mlflow
 
-Tensorflow,Torch,pika,paho-mqttを除いたライブラリを一括でインストールするコマンドは以下です。
+一括インストールコマンドは以下です。
+（Tensorflow、Torch、クラウド分散学習用ライブラリ、mlflowを除く）
 
 .. code-block:: console
 
-    $ pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml redis
+    $ pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml
 
 
 

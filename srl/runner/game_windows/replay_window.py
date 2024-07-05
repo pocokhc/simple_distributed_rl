@@ -99,16 +99,7 @@ class RePlayableGame(GameWindow):
             self.episode_data = cache[1]
         else:
             self.runner.context.disable_trainer = True
-            self.runner._wrap_base_run(
-                parameter=None,
-                memory=None,
-                trainer=None,
-                workers=None,
-                main_worker_idx=0,
-                callbacks=self.callbacks,
-                enable_generator=False,
-                logger_config=False,
-            )
+            self.runner.run_context(callbacks=self.callbacks)
 
             total_rewards = 0
             if len(self.history.steps) > 0:

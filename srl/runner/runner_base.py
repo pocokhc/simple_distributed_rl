@@ -1,4 +1,3 @@
-import copy
 import datetime
 import logging
 import os
@@ -20,8 +19,8 @@ from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run import play
 from srl.base.run.callback import CallbackType
-from srl.base.system.memory import set_memory_limit
-from srl.utils.serialize import convert_for_json
+from srl.base.run.core_play import RunStateActor
+from srl.base.run.core_train_only import RunStateTrainer
 
 if TYPE_CHECKING:
     import psutil
@@ -29,22 +28,6 @@ if TYPE_CHECKING:
     from srl.runner.callbacks.history_viewer import HistoryViewer, HistoryViewers
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class RunnerConfig:
-    # --- memory
-    #: None : not change
-    #: <=0  : auto
-    #: int  : 指定サイズで設定
-    memory_limit: Optional[int] = -1
-
-    def to_dict(self) -> dict:
-        dat: dict = convert_for_json(self.__dict__)
-        return dat
-
-    def copy(self) -> "RunnerConfig":
-        return copy.deepcopy(self)
 
 
 @dataclass
@@ -56,7 +39,6 @@ class RunnerBase:
     #: RLConfigを指定, Noneの場合、dummyアルゴリズムが使われます
     rl_config: Optional[RLConfig] = None  # type: ignore , type
 
-    config: Optional[RunnerConfig] = None  # type: ignore , type
     context: Optional[RunContext] = None  # type: ignore , type
 
     # --- private(static class instance)
@@ -71,8 +53,6 @@ class RunnerBase:
             self.env_config: EnvConfig = self.name_or_env_config
         if self.rl_config is None:
             self.rl_config: RLConfig = DummyRLConfig()
-        if self.config is None:
-            self.config: RunnerConfig = RunnerConfig()
         if self.context is None:
             self.context: RunContext = RunContext(self.env_config, self.rl_config)
 
@@ -81,6 +61,8 @@ class RunnerBase:
         self._memory: Optional[RLMemory] = None
         self._trainer: Optional[RLTrainer] = None
         self._workers: Optional[List[WorkerRun]] = None
+        self._main_worker_idx: Optional[int] = None
+        self.state: Optional[Union[RunStateActor, RunStateTrainer]] = None
 
         self._history_on_file_kwargs: Optional[dict] = None
         self._history_on_memory_kwargs: Optional[dict] = None
@@ -106,12 +88,13 @@ class RunnerBase:
         return self.make_memory()
 
     @property
-    def trainer(self) -> Optional[RLTrainer]:
-        return self._trainer
+    def trainer(self) -> RLTrainer:
+        return self.make_trainer()
 
     @property
-    def workers(self) -> Optional[List[WorkerRun]]:
-        return self._workers
+    def workers(self) -> List[WorkerRun]:
+        workers, _ = self.make_workers()
+        return workers
 
     # ------------------------------
     # set config
@@ -228,20 +211,17 @@ class RunnerBase:
         self,
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
-        use_cache: bool = False,
     ) -> RLTrainer:
         self._setup_process()
-        if use_cache and self._trainer is not None:
-            return self._trainer
-        if parameter is None:
-            parameter = self.make_parameter()
-        if memory is None:
-            memory = self.make_memory()
-        if not self.rl_config._is_setup:
-            self.rl_config.setup(self.make_env())
-        trainer = make_trainer(self.rl_config, parameter, memory)
-        self._trainer = trainer
-        return trainer
+        if self._trainer is None:
+            if parameter is None:
+                parameter = self.make_parameter()
+            if memory is None:
+                memory = self.make_memory()
+            if not self.rl_config._is_setup:
+                self.rl_config.setup(self.make_env())
+            self._trainer = make_trainer(self.rl_config, parameter, memory)
+        return self._trainer
 
     def make_worker(
         self,
@@ -261,26 +241,21 @@ class RunnerBase:
         self,
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
-        use_cache: bool = False,
     ) -> Tuple[List[WorkerRun], int]:
-        if use_cache and self._workers is not None:
-            return self._workers, self._main_worker_idx
-
-        if parameter is None:
-            parameter = self.make_parameter()
-        if memory is None:
-            memory = self.make_memory()
-        workers, main_worker_idx = make_workers(
-            self.context.players,
-            self.make_env(),
-            self.rl_config,
-            parameter,
-            memory,
-        )
-
-        self._workers = workers
-        self._main_worker_idx = main_worker_idx
-        return workers, main_worker_idx
+        if self._workers is None:
+            if parameter is None:
+                parameter = self.make_parameter()
+            if memory is None:
+                memory = self.make_memory()
+            self._workers, self._main_worker_idx = make_workers(
+                self.context.players,
+                self.make_env(),
+                self.rl_config,
+                parameter,
+                memory,
+            )
+        assert self._main_worker_idx is not None
+        return self._workers, self._main_worker_idx
 
     # ------------------------------
     # process
@@ -288,13 +263,8 @@ class RunnerBase:
     def _setup_process(self):
         if RunnerBase.__setup_process:
             return
-
-        # memory
-        set_memory_limit(self.config.memory_limit)
-
-        # device
+        self.context.set_memory_limit()
         self.context.set_device()
-
         RunnerBase.__setup_process = True
 
     # ------------------------------
@@ -352,7 +322,6 @@ class RunnerBase:
         runner = RunnerBase(
             self.env_config.copy(),
             self.rl_config.copy(),
-            self.config.copy(),
             self.context.copy(),
         )
         if env_share:
@@ -595,64 +564,46 @@ class RunnerBase:
     # ---------------------------------------------
     # run
     # ---------------------------------------------
-    def _base_run_before(
-        self,
-        enable_progress: bool,
-        enable_progress_eval: bool,
-        enable_checkpoint: bool,
-        enable_history_on_memory: bool,
-        enable_history_on_file: bool,
-        callbacks: List[CallbackType],
-    ):
-        # --- progress ---
-        if enable_progress:
-            from srl.runner.callbacks.print_progress import PrintProgress
+    def apply_progress(self, callbacks: list, enable_eval: bool):
+        from srl.runner.callbacks.print_progress import PrintProgress
 
-            if enable_progress_eval:
-                callbacks.append(PrintProgress(**self._progress_kwargs))
-            else:
-                _kwargs = self._progress_kwargs.copy()
-                _kwargs["enable_eval"] = False
-                callbacks.append(PrintProgress(**_kwargs))
-            logger.info("add callback PrintProgress")
-        # ----------------
+        if enable_eval:
+            callbacks.append(PrintProgress(**self._progress_kwargs))
+        else:
+            _kwargs = self._progress_kwargs.copy()
+            _kwargs["enable_eval"] = False
+            callbacks.append(PrintProgress(**_kwargs))
+        logger.info("add callback PrintProgress")
 
-        # --- checkpoint ---
-        if self._checkpoint_kwargs is not None:
-            if enable_checkpoint:
-                from srl.runner.callbacks.checkpoint import Checkpoint
+    def apply_checkpoint(self, callbacks: list):
+        if self._checkpoint_kwargs is None:
+            return
+        from srl.runner.callbacks.checkpoint import Checkpoint
 
-                callbacks.append(Checkpoint(**self._checkpoint_kwargs))
-                logger.info(f"add callback Checkpoint: {self._checkpoint_kwargs['save_dir']}")
-            else:
-                logger.info("Checkpoint is disabled.")
-        # -------------------
+        callbacks.append(Checkpoint(**self._checkpoint_kwargs))
+        logger.info(f"add callback Checkpoint: {self._checkpoint_kwargs['save_dir']}")
 
-        # --- history ---
+    def _apply_history(self, callbacks: list):
         self._callback_history_on_memory = None
         self._callback_history_on_file = None
         if self._history_on_memory_kwargs is not None:
-            if enable_history_on_memory:
+            if self.context.distributed:
+                logger.info("HistoryOnMemory is disabled.")
+            else:
                 from srl.runner.callbacks.history_on_memory import HistoryOnMemory
 
                 self._callback_history_on_memory = HistoryOnMemory(**self._history_on_memory_kwargs)
                 callbacks.append(self._callback_history_on_memory)
                 logger.info("add callback HistoryOnMemory")
-            else:
-                logger.info("HistoryOnMemory is disabled.")
 
         if self._history_on_file_kwargs is not None:
-            if enable_history_on_file:
-                from srl.runner.callbacks.history_on_file import HistoryOnFile
+            from srl.runner.callbacks.history_on_file import HistoryOnFile
 
-                self._callback_history_on_file = HistoryOnFile(**self._history_on_file_kwargs)
-                callbacks.append(self._callback_history_on_file)
-                logger.info(f"add callback HistoryOnFile: {self._history_on_file_kwargs['save_dir']}")
-            else:
-                logger.info("HistoryOnFile is disabled.")
-        # ---------------
+            self._callback_history_on_file = HistoryOnFile(**self._history_on_file_kwargs)
+            callbacks.append(self._callback_history_on_file)
+            logger.info(f"add callback HistoryOnFile: {self._history_on_file_kwargs['save_dir']}")
 
-    def _base_run_after(self):
+    def _after_history(self):
         if self._callback_history_on_memory is not None:
             from srl.runner.callbacks.history_viewer import HistoryViewer
 
@@ -668,16 +619,24 @@ class RunnerBase:
             if self._history_on_file_kwargs is not None:
                 self._history_on_file_kwargs["add_history"] = True
 
-    def _wrap_base_run(
+    def run_context(
         self,
-        parameter: Optional[RLParameter],
-        memory: Optional[RLMemory],
-        trainer: Optional[RLTrainer],
-        workers: Optional[List[WorkerRun]],
-        main_worker_idx: int,
-        callbacks: List[CallbackType],
-        logger_config: bool,
+        reset_workers: bool = True,
+        reset_trainer: bool = True,
+        parameter: Optional[RLParameter] = None,
+        memory: Optional[RLMemory] = None,
+        trainer: Optional[RLTrainer] = None,
+        workers: Optional[List[WorkerRun]] = None,
+        main_worker_idx: int = 0,
+        callbacks: List[CallbackType] = [],
+        logger_config: bool = False,
     ):
+        if reset_workers:
+            self._workers = None
+            self._main_worker_idx = None
+        if reset_trainer:
+            self._trainer = None
+
         # --- make instance
         if workers is None:
             if parameter is None:
@@ -692,7 +651,7 @@ class RunnerBase:
                 memory = self.make_memory()
             trainer = self.make_trainer(parameter, memory)
 
-        return play.play(
+        self.state = play.play(
             self.context,
             self.make_env(),
             workers,
@@ -701,17 +660,26 @@ class RunnerBase:
             callbacks,
             logger_config=logger_config,
         )
+        return self.state
 
-    def _wrap_base_run_generator(
+    def run_context_generator(
         self,
-        parameter: Optional[RLParameter],
-        memory: Optional[RLMemory],
-        trainer: Optional[RLTrainer],
-        workers: Optional[List[WorkerRun]],
-        main_worker_idx: int,
-        callbacks: List[CallbackType],
-        logger_config: bool,
+        reset_workers: bool = True,
+        reset_trainer: bool = True,
+        parameter: Optional[RLParameter] = None,
+        memory: Optional[RLMemory] = None,
+        trainer: Optional[RLTrainer] = None,
+        workers: Optional[List[WorkerRun]] = None,
+        main_worker_idx: int = 0,
+        callbacks: List[CallbackType] = [],
+        logger_config: bool = False,
     ):
+        if reset_workers:
+            self._workers = None
+            self._main_worker_idx = None
+        if reset_trainer:
+            self._trainer = None
+
         # --- make instance
         if workers is None:
             if parameter is None:
@@ -736,14 +704,18 @@ class RunnerBase:
             logger_config=logger_config,
         )
 
-    def _wrap_base_run_trainer_only(
+    def run_context_trainer_only(
         self,
-        parameter: Optional[RLParameter],
-        memory: Optional[RLMemory],
-        trainer: Optional[RLTrainer],
-        callbacks: List[CallbackType],
-        logger_config: bool,
+        reset_trainer: bool = True,
+        parameter: Optional[RLParameter] = None,
+        memory: Optional[RLMemory] = None,
+        trainer: Optional[RLTrainer] = None,
+        callbacks: List[CallbackType] = [],
+        logger_config: bool = False,
     ):
+        if reset_trainer:
+            self._trainer = None
+
         # --- make instance
         if trainer is None:
             if parameter is None:
@@ -752,4 +724,10 @@ class RunnerBase:
                 memory = self.make_memory()
             trainer = self.make_trainer(parameter, memory)
 
-        return play.play_trainer_only(self.context, trainer, callbacks, logger_config=logger_config)
+        self.state = play.play_trainer_only(
+            self.context,
+            trainer,
+            callbacks,
+            logger_config=logger_config,
+        )
+        return self.state

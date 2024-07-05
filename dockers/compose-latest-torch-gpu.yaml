@@ -1,6 +1,4 @@
-version: "3.9"
-
-services:
+ervices:
   srl-latest-torch:
     build:
       dockerfile: ./dockerfile_latest_torch_gpu

@@ -6,6 +6,7 @@ from srl.runner.callbacks.mlflow_callback import MLFlowCallback
 
 # mlflow ui --backend-store-uri mlruns
 mlflow.set_tracking_uri("mlruns")
+mlflow.enable_system_metrics_logging()
 
 
 def train_ql():

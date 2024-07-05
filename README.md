@@ -57,11 +57,14 @@ pip install numpy
   + redis
   + pika
   + paho-mqtt
++ 学習を管理する場合
+  + mlflow
 
-Tensorflow,Torch,pika,paho-mqttを除いたライブラリを一括でインストールするコマンドは以下です。
+一括インストールコマンドは以下です。
+（Tensorflow、Torch、クラウド分散学習用ライブラリ、mlflowを除く）
 
 ``` bash
-pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml redis
+pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml
 ```
 
 ## Install
@@ -138,6 +141,11 @@ if __name__ == "__main__":
 その他の使い方は以下ドキュメントを見てください。
 
 + [How To Use](https://pocokhc.github.io/simple_distributed_rl/pages/howtouse.html)
+
+
+**(試験導入)MLFlowによる学習管理**
+
+"examples/sample_mlflow.py" にサンプルがあります。
 
 
 # 3. Framework Overview

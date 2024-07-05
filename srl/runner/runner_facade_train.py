@@ -193,7 +193,7 @@ class RunnerFacadeTrain(RunnerBase):
         self.apply_checkpoint(callbacks)
         self._apply_history(callbacks)
 
-        self.run_context(
+        self.run_context_trainer_only(
             parameter=parameter,
             memory=memory,
             trainer=trainer,

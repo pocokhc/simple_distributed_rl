@@ -12,6 +12,7 @@ from tests.algorithms_ import (
     base_r2d2,
     base_rainbow,
     base_sac,
+    base_snd,
     base_stochastic_muzero,
     base_world_models,
 )
@@ -71,6 +72,10 @@ class Test_rainbow(_CommonOption, base_rainbow.QuickCase):
 
 
 class Test_sac(_CommonOption, base_sac.QuickCase):
+    pass
+
+
+class Test_snd(_CommonOption, base_snd.QuickCase):
     pass
 
 

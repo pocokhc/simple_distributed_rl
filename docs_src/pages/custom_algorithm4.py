@@ -58,7 +58,7 @@ class Parameter(RLParameter[Config]):
         return self.Q[state]
 
 
-class Trainer(RLTrainer[Config, Parameter]):
+class Trainer(RLTrainer[Config, Parameter, Memory]):
     def __init__(self, *args):
         super().__init__(*args)
 

@@ -14,7 +14,7 @@ Make Original Algorithm
    + 2-4.Trainer
    + 2-5.Worker
 + 3.自作アルゴリズムの登録
-+ 4.型アノテーション
++ 4.型ヒント
 + 5.Q学習実装例
 
 
@@ -253,14 +253,13 @@ PriorityExperienceReplay
          # 以下の変数を持ちます。
          self.config: MyConfig
          self.parameter: MyParameter
-         self.memory: IRLMemoryTrainer
+         self.memory: MyMemory
 
       def train(self) -> None:
          """
          self.memory から batch を受け取り学習を定義します。
          self.memory は以下の関数が定義されています。
 
-         self.memory.is_warmup_needed() : warmup中かどうかを返します
          self.memory.sample()           : batchを返します
          self.memory.update()           : ProportionalMemory の場合 update で使います
 
@@ -403,32 +402,43 @@ Worker
    )
 
 
-4. 型アノテーション
+4. 型ヒント
 =========================
 
-動作に影響はないですが、ジェネリック型を追加し実装を簡単にしています。
-適用方法は以下です。
+動作に影響ないですが、可能な限り型ヒントが表示されるようにしています。（開発中の機能です）
+RLConfigとRLWorkerはimport先を変えることで型アノテーションが指定された状態になります。
+
+
+.. code-block:: python
+   
+   # from srl.rl.config import RLConfig
+   # from srl.rl.worker import RLWorker
+   # ↓
+   from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
+
+   # srl.base.rl.algorithms.base_XX の XX の部分を変更する事でアルゴリズムに合った型に変更できます
+   # XX の種類についてはソースコードを見てください。（開発中につき資料作成は後回し）
+
+
+また、ジェネリック型を追加する事で各クラスの型を追加できます。
 
 .. code-block:: python
 
-   @dataclass
-   class Config(RLConfig):
-      pass
-
    # RLParameter[TConfig]
-   #   TConfig : RLConfig型
+   #   TConfig : RLConfigを継承したクラス
    class Parameter(RLParameter[Config]):
       pass
 
-   # RLTrainer[TConfig, _TParameter]
-   #   TConfig    : RLConfig型
-   #   TParameter : RLParameter型
-   class Trainer(RLTrainer[Config, Parameter]):
+   # RLTrainer[TConfig, TParameter, TMemory]
+   #   TConfig    : RLConfigを継承したクラス
+   #   TParameter : RLParameterを継承したクラス
+   #   TMemory    : RLMemoryを継承したクラス
+   class Trainer(RLTrainer[Config, Parameter, Memory]):
       pass
 
-   # RLWorker[TConfig, _TParameter]
-   #   TConfig    : RLConfig型
-   #   TParameter : RLParameter型
+   # RLWorker[TConfig, TParameter]
+   #   TConfig    : RLConfigを継承したクラス
+   #   TParameter : RLParameterを継承したクラス
    class Worker(RLWorker[Config, Parameter]):
       pass
 

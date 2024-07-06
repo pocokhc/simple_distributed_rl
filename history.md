@@ -13,7 +13,7 @@
 1. Async-SGD
 1. (distribution)オリジナルrl/env対応
 
-[examples.baseline] update: gym.classic_control.pendulum を
+
 # v0.16.1
 
 **MainUpdates**
@@ -38,9 +38,6 @@
    1. [runner] update: RunnerからConfigを削除し、Parameter等の実行時の状態のみを持つようにリファクタリング
 1. [algorithms] new: SNDを追加
 
-
-[examples.baseline] update: gym.classic_control.pendulum を MLFlowに変更
-
 **OtherUpdates**
 
 1. [base.rl/env.processor] rename: 混同しないようにEnvProcessor,RLProcessorにrename
@@ -48,6 +45,9 @@
 1. [base.env.env_run] change: set_doneをend_episodeにrename
 1. [base.run.play] refactor: play_generatorを別ファイルにし、引数指定から別関数に変更
 1. [base.run.callbacks] update: on_start～on_endまでをfinallyで囲み、on_endが必ず実行されるように修正
+1. [utils.common] update: 使っていない関数削除と移動平均とラインスムース関数を追加
+1. [runner.callbacks.rendering] update: jshtmlの出力の仕方を更新
+1. [algorithms] new: SearchDynaQ_v2を追加
 
 
 # v0.16.0

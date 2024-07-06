@@ -40,6 +40,7 @@ Welcome to SimpleDistributedRL's documentation!
    pages/algorithms/ppo
    pages/algorithms/ddpg
    pages/algorithms/sac
+   pages/algorithms/snd
    pages/algorithms/mcts
    pages/algorithms/alphazero
    pages/algorithms/muzero

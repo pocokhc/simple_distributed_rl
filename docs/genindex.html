@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>索引 &mdash; SimpleDistributedRL 0.15.4.1 ドキュメント</title>
+  <title>索引 &mdash; SimpleDistributedRL 0.16.0.4 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
 
@@ -14,7 +14,7 @@
   
         <script src="_static/jquery.js?v=5d32c60e"></script>
         <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="_static/documentation_options.js?v=8adebd8b"></script>
+        <script src="_static/documentation_options.js?v=12124b9b"></script>
         <script src="_static/doctools.js?v=9a2dae69"></script>
         <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="_static/translations.js?v=4dbe4bdc"></script>
@@ -74,6 +74,7 @@
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/ppo.html">PPO(Proximal Policy Optimization)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/ddpg.html">DDPG(Deep Deterministic Policy Gradient)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/sac.html">SAC(Soft-Actor-Critic)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/snd.html">SND(Self-supervised Network Distillation)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/mcts.html">Monte Carlo tree search</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/alphazero.html">AlphaZero</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/muzero.html">MuZero</a></li>
@@ -190,9 +191,11 @@
 </li>
       <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.batch_length">batch_length (srl.algorithms.dreamer_v3.Config の属性)</a>
 </li>
-      <li><a href="pages/rl_config_memory.html#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.batch_size">batch_size (srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer の属性)</a>
+      <li><a href="pages/algorithms/snd.html#srl.algorithms.snd.Config.batch_size">batch_size (srl.algorithms.snd.Config の属性)</a>
 
       <ul>
+        <li><a href="pages/rl_config_memory.html#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.batch_size">(srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer の属性)</a>
+</li>
         <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.batch_size">(srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay の属性)</a>
 </li>
       </ul></li>
@@ -273,6 +276,8 @@
 </li>
         <li><a href="pages/algorithms/sac.html#srl.algorithms.sac.Config">(srl.algorithms.sac のクラス)</a>
 </li>
+        <li><a href="pages/algorithms/snd.html#srl.algorithms.snd.Config">(srl.algorithms.snd のクラス)</a>
+</li>
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -332,6 +337,8 @@
         <li><a href="pages/algorithms/rainbow.html#srl.algorithms.rainbow.rainbow.Config.discount">(srl.algorithms.rainbow.rainbow.Config の属性)</a>
 </li>
         <li><a href="pages/algorithms/sac.html#srl.algorithms.sac.Config.discount">(srl.algorithms.sac.Config の属性)</a>
+</li>
+        <li><a href="pages/algorithms/snd.html#srl.algorithms.snd.Config.discount">(srl.algorithms.snd.Config の属性)</a>
 </li>
       </ul></li>
   </ul></td>
@@ -440,10 +447,10 @@
 </li>
       <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.encoder_decoder_dist">encoder_decoder_dist (srl.algorithms.dreamer_v3.Config の属性)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.encoder_decoder_mlp">encoder_decoder_mlp (srl.algorithms.dreamer_v3.Config の属性)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="pages/algorithms/sac.html#srl.algorithms.sac.Config.entropy_alpha">entropy_alpha (srl.algorithms.sac.Config の属性)</a>
 </li>
       <li><a href="pages/algorithms/sac.html#srl.algorithms.sac.Config.entropy_alpha_auto_scale">entropy_alpha_auto_scale (srl.algorithms.sac.Config の属性)</a>
@@ -514,6 +521,8 @@
         <li><a href="pages/algorithms/ql.html#srl.algorithms.ql.Config.epsilon">(srl.algorithms.ql.Config の属性)</a>
 </li>
         <li><a href="pages/algorithms/rainbow.html#srl.algorithms.rainbow.rainbow.Config.epsilon">(srl.algorithms.rainbow.rainbow.Config の属性)</a>
+</li>
+        <li><a href="pages/algorithms/snd.html#srl.algorithms.snd.Config.epsilon">(srl.algorithms.snd.Config の属性)</a>
 </li>
         <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.epsilon">(srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory の属性)</a>
 </li>
@@ -587,6 +596,8 @@
 </li>
         <li><a href="pages/algorithms/rainbow.html#srl.algorithms.rainbow.rainbow.Config.hidden_block">(srl.algorithms.rainbow.rainbow.Config の属性)</a>
 </li>
+        <li><a href="pages/algorithms/snd.html#srl.algorithms.snd.Config.hidden_block">(srl.algorithms.snd.Config の属性)</a>
+</li>
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -629,6 +640,8 @@
 </li>
       </ul></li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.config.framework_config.RLConfigComponentFramework.input_value_block">input_value_block (srl.rl.models.config.framework_config.RLConfigComponentFramework の属性)</a>
+</li>
+      <li><a href="pages/algorithms/snd.html#srl.algorithms.snd.Config.int_reward_scale">int_reward_scale (srl.algorithms.snd.Config の属性)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -687,6 +700,8 @@
 </li>
         <li><a href="pages/algorithms/rainbow.html#srl.algorithms.rainbow.rainbow.Config.lr">(srl.algorithms.rainbow.rainbow.Config の属性)</a>
 </li>
+        <li><a href="pages/algorithms/snd.html#srl.algorithms.snd.Config.lr">(srl.algorithms.snd.Config の属性)</a>
+</li>
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -736,9 +751,11 @@
 </li>
       <li><a href="pages/env_config.html#srl.base.env.config.EnvConfig.max_episode_steps">max_episode_steps (srl.base.env.config.EnvConfig の属性)</a>
 </li>
-      <li><a href="pages/rl_config_memory.html#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.memory_capacity">memory_capacity (srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer の属性)</a>
+      <li><a href="pages/algorithms/snd.html#srl.algorithms.snd.Config.memory_capacity">memory_capacity (srl.algorithms.snd.Config の属性)</a>
 
       <ul>
+        <li><a href="pages/rl_config_memory.html#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.memory_capacity">(srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer の属性)</a>
+</li>
         <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.memory_capacity">(srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay の属性)</a>
 </li>
       </ul></li>
@@ -758,9 +775,11 @@
       </ul></li>
       <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.memory_path">memory_path (srl.base.rl.config.RLConfig の属性)</a>
 </li>
-      <li><a href="pages/rl_config_memory.html#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.memory_warmup_size">memory_warmup_size (srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer の属性)</a>
+      <li><a href="pages/algorithms/snd.html#srl.algorithms.snd.Config.memory_warmup_size">memory_warmup_size (srl.algorithms.snd.Config の属性)</a>
 
       <ul>
+        <li><a href="pages/rl_config_memory.html#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.memory_warmup_size">(srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer の属性)</a>
+</li>
         <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.memory_warmup_size">(srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay の属性)</a>
 </li>
       </ul></li>
@@ -962,8 +981,6 @@
 </li>
       <li><a href="pages/rl_config_memory.html#srl.rl.memories.sequence_memory.SequenceMemory">SequenceMemory (srl.rl.memories.sequence_memory のクラス)</a>
 </li>
-      <li><a href="pages/rl_config_memory.html#srl.rl.memories.sequence_memory.SequenceMemory.serialize_add_args">serialize_add_args() (srl.rl.memories.sequence_memory.SequenceMemory のメソッド)</a>
-</li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.config.mlp_block.MLPBlockConfig.set">set() (srl.rl.models.config.mlp_block.MLPBlockConfig のメソッド)</a>
 
       <ul>
@@ -1051,6 +1068,8 @@
 </li>
         <li><a href="pages/algorithms/rainbow.html#srl.algorithms.rainbow.rainbow.Config.target_model_update_interval">(srl.algorithms.rainbow.rainbow.Config の属性)</a>
 </li>
+        <li><a href="pages/algorithms/snd.html#srl.algorithms.snd.Config.target_model_update_interval">(srl.algorithms.snd.Config の属性)</a>
+</li>
       </ul></li>
       <li><a href="pages/algorithms/ddpg.html#srl.algorithms.ddpg.Config.target_policy_clip_range">target_policy_clip_range (srl.algorithms.ddpg.Config の属性)</a>
 </li>
@@ -1074,6 +1093,8 @@
         <li><a href="pages/algorithms/ql.html#srl.algorithms.ql.Config.test_epsilon">(srl.algorithms.ql.Config の属性)</a>
 </li>
         <li><a href="pages/algorithms/rainbow.html#srl.algorithms.rainbow.rainbow.Config.test_epsilon">(srl.algorithms.rainbow.rainbow.Config の属性)</a>
+</li>
+        <li><a href="pages/algorithms/snd.html#srl.algorithms.snd.Config.test_epsilon">(srl.algorithms.snd.Config の属性)</a>
 </li>
       </ul></li>
       <li><a href="pages/env_config.html#srl.base.env.config.EnvConfig.to_dict">to_dict() (srl.base.env.config.EnvConfig のメソッド)</a>

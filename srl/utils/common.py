@@ -112,70 +112,6 @@ def set_logger(
         logging.getLogger("h5py").setLevel(logging.INFO)
 
 
-def listdict_to_dictlist(data: List[Dict[str, Any]]) -> Dict[str, List[Any]]:
-    _info = {}
-    for h in data:
-        if h is None:
-            continue
-        for key, val in h.items():
-            if key not in _info:
-                _info[key] = []
-            _info[key].append(val)
-    return _info
-
-
-def listdictdict_to_dictlist(data: List[Dict[str, Dict[str, Any]]], key: str) -> Dict[str, List[Any]]:
-    _info = {}
-    for h in data:
-        if key not in h:
-            continue
-        if h[key] is None:
-            continue
-        for k, val in h[key].items():
-            if val is None:
-                continue
-            if k not in _info:
-                _info[k] = []
-            _info[k].append(val)
-    return _info
-
-
-def summarize_info_from_dictlist(info: Dict[str, List[Any]]) -> Dict[str, Union[float, str]]:
-    new_info = {}
-    for k, arr in info.items():
-        new_info[k] = summarize_info_from_list(arr)
-    return new_info
-
-
-def summarize_info_from_list(arr: List[Any]) -> Union[float, str, None]:
-    # 数字が入っていればそちらを優先、文字が入っていれば最後を反映
-    vals = []
-    last_str = ""
-    for v in arr:
-        if v is None:
-            continue
-        if isinstance(v, int):
-            vals.append(v)
-        elif isinstance(v, float):
-            vals.append(v)
-        elif isinstance(v, np.integer):
-            vals.append(v)
-        elif isinstance(v, np.floating):
-            vals.append(v)
-        elif isinstance(v, np.ndarray):
-            vals.append(np.mean(v))
-        else:
-            last_str = v
-    if len(vals) == 0:
-        last_str = str(last_str)
-        if last_str == "":
-            return None
-        else:
-            return last_str
-    else:
-        return float(np.mean(vals))
-
-
 def load_module(entry_point: str):
     if ":" not in entry_point:
         raise ValueError(f"entry_point must include ':'({entry_point})")
@@ -369,3 +305,25 @@ def is_available_pygame_video_device() -> bool:
             os.environ["SDL_VIDEODRIVER"] = SDL_VIDEODRIVER
 
     return flag
+
+
+def moving_average(data, rolling_size):
+    if rolling_size <= 0:
+        raise ValueError("rolling_size must be a positive integer")
+
+    b = np.ones(rolling_size) / rolling_size
+    y2 = np.convolve(data, b, mode="same")
+    return y2
+
+
+def line_smooth(
+    data,
+    window_size: int = 11,  # ウィンドウサイズ（奇数）
+    poly_order: int = 2,  # 多項式の次数
+):
+    from scipy.signal import savgol_filter
+
+    # サバン・ゴレイフィルタ
+    if window_size % 2 == 0:
+        window_size += 1
+    return savgol_filter(data, window_size, poly_order)

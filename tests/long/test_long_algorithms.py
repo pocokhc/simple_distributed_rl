@@ -1,4 +1,12 @@
-from tests.algorithms_ import base_dynaq, base_mcts, base_ql, base_ql_agent57, base_search_dynaq, base_vanilla_policy
+from tests.algorithms_ import (
+    base_dynaq,
+    base_mcts,
+    base_ql,
+    base_ql_agent57,
+    base_search_dynaq,
+    base_search_dynaq_v2,
+    base_vanilla_policy,
+)
 
 
 class _CommonOption:
@@ -29,6 +37,10 @@ class Test_ql_agent57_base(_CommonOption, base_ql_agent57.BaseCase):
 
 
 class Test_search_dynaq_base(_CommonOption, base_search_dynaq.BaseCase):
+    pass
+
+
+class Test_search_dynaq_v2_base(_CommonOption, base_search_dynaq_v2.BaseCase):
     pass
 
 

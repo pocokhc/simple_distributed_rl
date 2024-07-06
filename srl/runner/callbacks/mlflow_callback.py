@@ -1,4 +1,3 @@
-import datetime
 import logging
 import os
 import tempfile
@@ -20,6 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class MLFlowCallback(RunCallback, Evaluate):
     auto_start: bool = True
+    experiment_name: Optional[str] = None
     run_name: Optional[str] = None
     start_run_kwargs: dict = field(default_factory=dict)
     interval_episode: int = 1
@@ -31,7 +31,10 @@ class MLFlowCallback(RunCallback, Evaluate):
 
     def on_start(self, context: RunContext, **kwargs) -> None:
         if self.auto_start:
-            mlflow.set_experiment(context.env_config.name)
+            exp_name = self.experiment_name
+            if exp_name is None:
+                exp_name = context.env_config.name
+            mlflow.set_experiment(exp_name)
             run_name = self.run_name
             if run_name is None:
                 run_name = f"{context.rl_config.name}"

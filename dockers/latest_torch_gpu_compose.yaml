@@ -1,7 +1,7 @@
 services:
-  srl-tf215-gpu:
+  srl-latest-torch:
     build:
-      dockerfile: ./dockerfile_tf215_gpu
+      dockerfile: ./latest_torch_gpu_dockerfile
     volumes:
       - ../:/code/
     command: /bin/bash
@@ -13,3 +13,4 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    

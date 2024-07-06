@@ -6,5 +6,5 @@ RUN apt-get update
 RUN apt-get install -y python3-opencv
 
 ENV PYTHONPATH="/code"
-COPY ./requirements_gym_retro.txt requirements.txt
+COPY ./gym_retro_requirements.txt requirements.txt
 RUN pip install -U -r requirements.txt

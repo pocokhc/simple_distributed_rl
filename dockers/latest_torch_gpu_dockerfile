@@ -1,0 +1,23 @@
+# syntax=docker/dockerfile:1
+FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-runtime
+WORKDIR /code
+ENV PYTHONPATH="/code"
+
+# import cv2
+# ImportError: libGL.so.1: cannot open shared object file: No such file or directory
+RUN apt update
+RUN apt install -y libgl1-mesa-dev libglib2.0-0
+
+## libGL error: MESA-LOADER: failed to open swrast: /usr/lib/dri/swrast_dri.so: cannot open shared object file: No such file or directory (search paths /usr/lib/x86_64-linux-gnu/dri:\$${ORIGIN}/dri:/usr/lib/dri, suffix _dri)
+## libGL error: failed to load driver: swrast
+## X Error of failed request:  BadValue (integer parameter out of range for operation)
+##  Major opcode of failed request:  148 (GLX)
+##  Minor opcode of failed request:  3 (X_GLXCreateContext)
+##  Value in failed request:  0x0
+##  Serial number of failed request:  128
+##  Current serial number in output stream:  129
+#ENV LIBGL_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
+#ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6
+
+COPY ./latest_requirements.txt requirements.txt
+RUN pip install -U -r requirements.txt

@@ -1,8 +1,8 @@
 services:
   srl-low:
     build:
-      dockerfile: ./dockerfile_low
+      dockerfile: ./low_dockerfile
     volumes:
-      - ../../../:/code/
+      - ../:/code/
     command: /bin/bash
     tty: true

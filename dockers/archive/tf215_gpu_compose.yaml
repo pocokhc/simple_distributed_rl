@@ -1,9 +1,9 @@
 services:
-  srl-latest-tf:
+  srl-tf215-gpu:
     build:
-      dockerfile: ./dockerfile_latest_tf_gpu
+      dockerfile: ./tf215_gpu_dockerfile
     volumes:
-      - ../:/code/
+      - ../../:/code/
     command: /bin/bash
     tty: true
     deploy:
@@ -13,4 +13,3 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    

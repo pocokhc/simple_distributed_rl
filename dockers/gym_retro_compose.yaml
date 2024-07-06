@@ -1,7 +1,7 @@
 services:
   srl-gym-retro:
     build:
-      dockerfile: ./dockerfile_gym_retro
+      dockerfile: ./gym_retro_dockerfile
     volumes:
       - ../:/code/
     command: /bin/bash

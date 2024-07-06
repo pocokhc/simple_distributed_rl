@@ -13,6 +13,6 @@ RUN apt-get install -y libsm6 libxext6 libxrender-dev libglib2.0-0
 RUN apt-get install -y tk
 
 ENV PYTHONPATH="/code"
-COPY ./requirements_low.txt requirements.txt
+COPY ./low_requirements.txt requirements.txt
 RUN pip install -U -r requirements.txt
 RUN pip install pytest pytest-mock pytest-timeout

@@ -34,8 +34,7 @@ class MLFlowCallback(RunCallback, Evaluate):
             mlflow.set_experiment(context.env_config.name)
             run_name = self.run_name
             if run_name is None:
-                s = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-                run_name = f"{context.rl_config.name} {s}"
+                run_name = f"{context.rl_config.name}"
             mlflow.start_run(run_name=run_name, **self.start_run_kwargs)
         self.run_id = mlflow.active_run().info.run_id
         mlflow.set_tag("Version", srl.__version__)
@@ -125,7 +124,40 @@ class MLFlowCallback(RunCallback, Evaluate):
             self._render_runner = srl.Runner(context.env_config, context.rl_config)
             self._render_runner.make_memory(is_load=False)
         render = self._render_runner.run_render(parameter=state.parameter)
-        anime = render.create_anime()
+        html = render.to_jshtml()
         name = context.rl_config.name.replace(":", "_")
         fn = f"{name}_{state.total_step}_{self._render_runner.state.last_episode_rewards}.html"
-        mlflow.log_text(anime.to_jshtml(), fn, run_id=self.run_id)
+        mlflow.log_text(html, fn, run_id=self.run_id)
+
+    # ---------------
+
+    @staticmethod
+    def get_metrics(experiment_name: str, run_name: str, metric_name: str):
+        experiment_id = MLFlowCallback.get_experiment_id(experiment_name)
+        if experiment_id is None:
+            return None, None
+        run_id = MLFlowCallback.get_run_id(experiment_id, run_name)
+        if run_id is None:
+            return None, None
+
+        client = mlflow.tracking.MlflowClient()
+        metric_history = client.get_metric_history(run_id, metric_name)
+        values = [m.value for m in metric_history]
+        steps = [m.step for m in metric_history]
+        return steps, values
+
+    @staticmethod
+    def get_run_id(experiment_id: str, run_name: str):
+        client = mlflow.tracking.MlflowClient()
+        for run in client.search_runs([experiment_id]):
+            if run.data.tags.get("mlflow.runName") == run_name:
+                return run.info.run_id
+        return None
+
+    @staticmethod
+    def get_experiment_id(experiment_name: str):
+        client = mlflow.tracking.MlflowClient()
+        for experiment in client.search_experiments():
+            if experiment.name == experiment_name:
+                return experiment.experiment_id
+        return None

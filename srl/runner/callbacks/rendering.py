@@ -269,47 +269,6 @@ class Rendering(RunCallback):
         logger.info(f"image created(frames: {len(self.frames)}, create time {time.time() - t0:.1f}s)")
         return images
 
-    def create_anime(
-        self,
-        interval: float = -1,  # ms
-        scale: float = 1.0,
-        draw_info: bool = True,
-    ):
-        assert len(self.frames) > 0
-
-        import matplotlib.pyplot as plt
-        from matplotlib.animation import ArtistAnimation
-
-        images = self.create_images(draw_info)
-        maxw = images[0].shape[1]
-        maxh = images[0].shape[0]
-
-        t0 = time.time()
-
-        # --- interval
-        if interval <= 0:
-            interval = self.render_interval
-        if interval <= 0:
-            interval = 1000 / 60
-
-        # --- size (inch = pixel / dpi)
-        fig_dpi = 100
-        fig = plt.figure(
-            dpi=fig_dpi,
-            figsize=(scale * maxw / fig_dpi, scale * maxh / fig_dpi),
-            tight_layout=dict(pad=0),
-        )
-
-        # --- animation
-        ax = fig.add_subplot(1, 1, 1)
-        ax.axis("off")
-        images = [[ax.imshow(img, animated=True)] for img in images]
-        anime = ArtistAnimation(fig, images, interval=interval, repeat=False)
-        # plt.close(fig)  # notebook で画像が残るので出来ればcloseしたいけど、closeするとgym側でバグる
-
-        logger.info(f"animation created(interval: {interval:.1f}ms, create time {time.time() - t0:.1f}s)")
-        return anime
-
     def save_gif(
         self,
         path: str,
@@ -374,6 +333,54 @@ class Rendering(RunCallback):
             f"save animation: codec {codec}, interval {interval:.1f}ms, save time {time.time() - t0:.1f}s, {path}"
         )
 
+    def to_jshtml(
+        self,
+        interval: float = -1,  # ms
+        scale: float = 1.0,
+        draw_info: bool = True,
+    ):
+        assert len(self.frames) > 0
+
+        import matplotlib.pyplot as plt
+        from matplotlib.animation import ArtistAnimation
+
+        images = self.create_images(draw_info)
+        maxw = images[0].shape[1]
+        maxh = images[0].shape[0]
+
+        t0 = time.time()
+
+        # --- interval
+        if interval <= 0:
+            interval = self.render_interval
+        if interval <= 0:
+            interval = 1000 / 60
+
+        # --- size (inch = pixel / dpi)
+        plt.clf()
+        fig_dpi = 100
+        fig = plt.figure(
+            dpi=fig_dpi,
+            figsize=(scale * maxw / fig_dpi, scale * maxh / fig_dpi),
+            tight_layout=dict(pad=0),
+        )
+
+        # --- animation
+        ax = fig.add_subplot(1, 1, 1)
+        ax.axis("off")
+        images = [[ax.imshow(img, animated=True)] for img in images]
+        anime = ArtistAnimation(fig, images, interval=interval, repeat=False)
+        html = anime.to_jshtml()
+        logger.info(f"animation created(interval: {interval:.1f}ms, create time {time.time() - t0:.1f}s)")
+
+        # なぜか2回やらないとウィンドウが残る
+        plt.clf()
+        plt.close()
+        plt.clf()
+        plt.close()
+
+        return html
+
     def display(
         self,
         interval: float = -1,  # ms
@@ -385,7 +392,5 @@ class Rendering(RunCallback):
 
         from IPython import display  # type: ignore
 
-        t0 = time.time()
-        anime = self.create_anime(interval=interval, scale=scale, draw_info=draw_info)
-        display.display(display.HTML(data=anime.to_jshtml()))  # type: ignore
-        logger.info("display created({:.1f}s)".format(time.time() - t0))
+        html = self.to_jshtml(interval=interval, scale=scale, draw_info=draw_info)
+        display.display(display.HTML(data=html))  # type: ignore

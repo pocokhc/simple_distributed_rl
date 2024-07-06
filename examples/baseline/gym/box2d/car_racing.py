@@ -13,7 +13,7 @@ common.logger_print()
 ENV_NAME = "CarRacing-v2"
 BASE_LR = 0.0005
 BASE_TRAIN = 100_000
-BASE_BLOCK = (64, 64)
+BASE_BLOCK = (512,)
 
 
 def _run(rl_config, train):

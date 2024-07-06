@@ -1,7 +1,7 @@
-ervices:
-  srl-latest-torch:
+services:
+  srl-latest-tf:
     build:
-      dockerfile: ./dockerfile_latest_torch_gpu
+      dockerfile: ./latest_tf_gpu_dockerfile
     volumes:
       - ../:/code/
     command: /bin/bash

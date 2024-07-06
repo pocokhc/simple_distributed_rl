@@ -12,6 +12,6 @@ RUN apt install -y libgl1-mesa-dev libglib2.0-0
 # ERROR: Cannot uninstall 'blinker'. It is a distutils installed project and thus we cannot accurately determine which files belong to it which would lead to only a partial uninstall.
 RUN pip install --ignore-installed blinker==1.8.2
 
-COPY ./requirements_latest.txt requirements.txt
+COPY ./latest_requirements.txt requirements.txt
 RUN pip install tensorflow_probability[tf]==0.24.0
 RUN pip install -U -r requirements.txt

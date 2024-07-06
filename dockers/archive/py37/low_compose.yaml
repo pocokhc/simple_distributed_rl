@@ -1,7 +1,7 @@
 services:
-  srl-min:
+  srl-low:
     build:
-      dockerfile: ./dockerfile_min
+      dockerfile: ./low_dockerfile
     volumes:
       - ../../../:/code/
     command: /bin/bash

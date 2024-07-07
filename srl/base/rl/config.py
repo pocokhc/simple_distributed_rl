@@ -92,6 +92,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
     def __post_init__(self) -> None:
         self._is_setup = False
+        self._is_setup_env = ""
 
         # The device used by the framework.
         self._used_device_tf: str = "/CPU"
@@ -151,7 +152,15 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     # ----------------------------
     # setup
     # ----------------------------
+    def is_setup(self, env_name: str) -> bool:
+        if self._is_setup_env != env_name:
+            return False
+        return True
+
     def setup(self, env: EnvRun, enable_log: bool = True) -> None:
+        if self._is_setup_env != env.name:
+            self._is_setup = False
+            self._is_setup_env = ""
         if self._is_setup:
             return
         self._check_parameter = False
@@ -526,6 +535,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         # --- log
         self._check_parameter = True
         self._is_setup = True
+        self._is_setup_env = env.name
         if enable_log:
             logger.info(f"--- {env.config.name}, {self.get_name()}")
             logger.info(f"max_episode_steps      : {env.max_episode_steps}")
@@ -542,11 +552,6 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             logger.info(f" rl          : {self._rl_obs_space}")
 
     # --- setup property
-
-    @property
-    def is_setup(self) -> bool:
-        return self._is_setup
-
     @property
     def observation_processors_list(self) -> List[List["RLProcessor"]]:
         return self._obs_processors_list
@@ -577,7 +582,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         return self._env_act_space
 
     def __setattr__(self, name: str, value):
-        if name == "_is_setup":
+        if name in ["_is_setup", "_is_setup_env"]:
             object.__setattr__(self, name, value)
             return
 
@@ -632,8 +637,10 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
         if reset_env_config:
             config._is_setup = False
+            config._is_setup_env = ""
         else:
             config._is_setup = self._is_setup
+            config._is_setup_env = self._is_setup_env
         return config
 
     def make_memory(self, env: Optional[EnvRun] = None, is_load: bool = True):

@@ -192,7 +192,7 @@ class RunnerBase:
     def make_parameter(self, is_load: bool = True) -> RLParameter:
         self._setup_process()
         if self._parameter is None:
-            if not self.rl_config._is_setup:
+            if not self.rl_config.is_setup(self.env_config.name):
                 self.rl_config.setup(self.make_env())
             self._parameter = make_parameter(self.rl_config, is_load=is_load)
             logger.info(f"make parameter: {self._parameter}")
@@ -201,7 +201,7 @@ class RunnerBase:
     def make_memory(self, is_load: bool = True) -> RLMemory:
         self._setup_process()
         if self._memory is None:
-            if not self.rl_config._is_setup:
+            if not self.rl_config.is_setup(self.env_config.name):
                 self.rl_config.setup(self.make_env())
             self._memory = make_memory(self.rl_config, is_load=is_load)
             logger.info(f"make memory: {self._memory}")
@@ -218,7 +218,7 @@ class RunnerBase:
                 parameter = self.make_parameter()
             if memory is None:
                 memory = self.make_memory()
-            if not self.rl_config._is_setup:
+            if not self.rl_config.is_setup(self.env_config.name):
                 self.rl_config.setup(self.make_env())
             self._trainer = make_trainer(self.rl_config, parameter, memory)
         return self._trainer

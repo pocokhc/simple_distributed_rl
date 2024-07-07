@@ -1,5 +1,7 @@
 from tensorflow import keras
 
+from srl.rl.tf.model import KerasModelAddedSummary
+
 kl = keras.layers
 
 """
@@ -11,7 +13,7 @@ https://github.com/horoiwa/deep_reinforcement_learning_gallery
 """
 
 
-class MuZeroAtariBlock(keras.Model):
+class MuZeroAtariBlock(KerasModelAddedSummary):
     def __init__(
         self,
         filters: int = 128,
@@ -34,8 +36,8 @@ class MuZeroAtariBlock(keras.Model):
             kernel_initializer="he_normal",
             kernel_regularizer=keras.regularizers.l2(l2),
         )
-        self.resblock1 = _ResidualBlock(filters, kernel_size, l2, activation, use_layer_normalization)
-        self.resblock2 = _ResidualBlock(filters, kernel_size, l2, activation, use_layer_normalization)
+        self.resblock1 = ResidualBlock(filters, kernel_size, l2, activation, use_layer_normalization)
+        self.resblock2 = ResidualBlock(filters, kernel_size, l2, activation, use_layer_normalization)
         self.conv2 = kl.Conv2D(
             filters * 2,
             kernel_size=kernel_size,
@@ -46,13 +48,13 @@ class MuZeroAtariBlock(keras.Model):
             kernel_initializer="he_normal",
             kernel_regularizer=keras.regularizers.l2(l2),
         )
-        self.resblock3 = _ResidualBlock(filters * 2, kernel_size, l2, activation, use_layer_normalization)
-        self.resblock4 = _ResidualBlock(filters * 2, kernel_size, l2, activation, use_layer_normalization)
-        self.resblock5 = _ResidualBlock(filters * 2, kernel_size, l2, activation, use_layer_normalization)
+        self.resblock3 = ResidualBlock(filters * 2, kernel_size, l2, activation, use_layer_normalization)
+        self.resblock4 = ResidualBlock(filters * 2, kernel_size, l2, activation, use_layer_normalization)
+        self.resblock5 = ResidualBlock(filters * 2, kernel_size, l2, activation, use_layer_normalization)
         self.pool1 = kl.AveragePooling2D(pool_size=3, strides=2, padding="same")
-        self.resblock6 = _ResidualBlock(filters * 2, kernel_size, l2, activation, use_layer_normalization)
-        self.resblock7 = _ResidualBlock(filters * 2, kernel_size, l2, activation, use_layer_normalization)
-        self.resblock8 = _ResidualBlock(filters * 2, kernel_size, l2, activation, use_layer_normalization)
+        self.resblock6 = ResidualBlock(filters * 2, kernel_size, l2, activation, use_layer_normalization)
+        self.resblock7 = ResidualBlock(filters * 2, kernel_size, l2, activation, use_layer_normalization)
+        self.resblock8 = ResidualBlock(filters * 2, kernel_size, l2, activation, use_layer_normalization)
         self.pool2 = kl.AveragePooling2D(pool_size=3, strides=2, padding="same")
 
     def call(self, x, training=False):
@@ -71,7 +73,7 @@ class MuZeroAtariBlock(keras.Model):
         return x
 
 
-class _ResidualBlock(keras.Model):
+class ResidualBlock(KerasModelAddedSummary):
     def __init__(
         self,
         filters,

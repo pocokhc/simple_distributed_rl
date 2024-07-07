@@ -12,6 +12,7 @@ from srl.base.spaces.multi import MultiSpace
 from srl.base.spaces.space import SpaceBase
 from srl.rl.models.config.image_block import ImageBlockConfig
 from srl.rl.models.config.mlp_block import MLPBlockConfig
+from srl.rl.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
 
@@ -106,7 +107,7 @@ def create_in_block_out_image(
 # -------------
 
 
-class InputValueBlock(keras.Model):
+class InputValueBlock(KerasModelAddedSummary):
     def __init__(
         self,
         value_block_config: MLPBlockConfig,
@@ -189,7 +190,7 @@ def create_input_image_layers(obs_space: BoxSpace, enable_rnn: bool):
     return layers
 
 
-class InputImageBlock(keras.Model):
+class InputImageBlock(KerasModelAddedSummary):
     def __init__(
         self,
         image_block_config: ImageBlockConfig,
@@ -233,7 +234,7 @@ class InputImageBlock(keras.Model):
         return np.asarray(data)
 
 
-class InputMultiBlock(keras.Model):
+class InputMultiBlock(KerasModelAddedSummary):
     def __init__(
         self,
         value_block_config: Optional[MLPBlockConfig],

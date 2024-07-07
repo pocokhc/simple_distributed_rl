@@ -3,11 +3,12 @@ from typing import Tuple
 from tensorflow import keras
 
 from srl.rl.tf.layers.noisy_dense import NoisyDense
+from srl.rl.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
 
 
-class MLPBlock(keras.Model):
+class MLPBlock(KerasModelAddedSummary):
     def __init__(
         self,
         layer_sizes: Tuple[int, ...],

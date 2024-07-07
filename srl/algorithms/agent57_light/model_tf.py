@@ -9,6 +9,7 @@ from srl.base.rl.trainer import RLTrainer
 from srl.rl import functions as funcs
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.input_block import create_in_block_out_value
+from srl.rl.tf.model import KerasModelAddedSummary
 
 from .agent57_light import CommonInterfaceParameter, Config, Memory
 
@@ -16,7 +17,7 @@ kl = keras.layers
 logger = logging.getLogger(__name__)
 
 
-class QNetwork(keras.Model):
+class QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
         self.input_ext_reward = config.input_ext_reward
@@ -84,7 +85,7 @@ class QNetwork(keras.Model):
 # ------------------------------------------------------
 # エピソード記憶部(episodic_reward)
 # ------------------------------------------------------
-class EmbeddingNetwork(keras.Model):
+class EmbeddingNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
@@ -137,7 +138,7 @@ class EmbeddingNetwork(keras.Model):
 # ------------------------------------------------------
 # 生涯記憶部(life long novelty module)
 # ------------------------------------------------------
-class LifelongNetwork(keras.Model):
+class LifelongNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 

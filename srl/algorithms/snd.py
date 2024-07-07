@@ -18,6 +18,7 @@ from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.input_block import create_in_block_out_value
+from srl.rl.tf.model import KerasModelAddedSummary
 
 """
 Paper: https://arxiv.org/abs/2302.11563
@@ -110,7 +111,7 @@ class Memory(RLMemory[Config]):
         return self.memory_q.sample(self.config.batch_size)
 
 
-class SNDNetwork(keras.Model):
+class SNDNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
@@ -150,7 +151,7 @@ class SNDNetwork(keras.Model):
         return loss
 
 
-class QNetwork(keras.Model):
+class QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 

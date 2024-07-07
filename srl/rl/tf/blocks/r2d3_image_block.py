@@ -1,5 +1,7 @@
 from tensorflow import keras
 
+from srl.rl.tf.model import KerasModelAddedSummary
+
 kl = keras.layers
 
 """
@@ -8,7 +10,7 @@ https://arxiv.org/abs/1909.01387
 """
 
 
-class R2D3ImageBlock(keras.Model):
+class R2D3ImageBlock(KerasModelAddedSummary):
     def __init__(
         self,
         filters: int = 16,
@@ -20,9 +22,9 @@ class R2D3ImageBlock(keras.Model):
 
         # enable_rnnはmax_pooling2dで必要
 
-        self.res1 = _ResBlock(filters, activation, enable_rnn)
-        self.res2 = _ResBlock(filters * 2, activation, enable_rnn)
-        self.res3 = _ResBlock(filters * 2, activation, enable_rnn)
+        self.res1 = ResBlock(filters, activation, enable_rnn)
+        self.res2 = ResBlock(filters * 2, activation, enable_rnn)
+        self.res3 = ResBlock(filters * 2, activation, enable_rnn)
         self.act = kl.Activation(activation)
 
     def call(self, x, training=False):
@@ -33,7 +35,7 @@ class R2D3ImageBlock(keras.Model):
         return x
 
 
-class _ResBlock(keras.Model):
+class ResBlock(KerasModelAddedSummary):
     def __init__(
         self,
         filters,
@@ -45,8 +47,8 @@ class _ResBlock(keras.Model):
 
         self.conv = kl.Conv2D(filters, (3, 3), strides=(1, 1), padding="same")
         self.pool = kl.MaxPooling2D((3, 3), strides=(2, 2), padding="same")
-        self.res1 = _ResidualBlock(filters, activation, enable_rnn)
-        self.res2 = _ResidualBlock(filters, activation, enable_rnn)
+        self.res1 = ResidualBlock(filters, activation, enable_rnn)
+        self.res2 = ResidualBlock(filters, activation, enable_rnn)
 
         if enable_rnn:
             self.conv = kl.TimeDistributed(self.conv)
@@ -60,7 +62,7 @@ class _ResBlock(keras.Model):
         return x
 
 
-class _ResidualBlock(keras.Model):
+class ResidualBlock(KerasModelAddedSummary):
     def __init__(
         self,
         n_filter,

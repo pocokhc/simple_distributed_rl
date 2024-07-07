@@ -2,11 +2,18 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.rl.tf.layers.noisy_dense import NoisyDense
+from srl.rl.tf.model import KerasModelAddedSummary
+from srl.utils.common import compare_less_version
+
+v216_older = compare_less_version(tf.__version__, "2.16.0")
+if not v216_older:
+    from tensorflow.keras import ops
+
 
 kl = keras.layers
 
 
-class DuelingNetworkBlock(keras.Model):
+class DuelingNetworkBlock(KerasModelAddedSummary):
     def __init__(
         self,
         hidden_units: int,
@@ -64,18 +71,18 @@ class DuelingNetworkBlock(keras.Model):
             adv = layer(adv, training=training)
 
         if self.dueling_type == "average":
-            x = v + adv - tf.reduce_mean(adv, axis=-1, keepdims=True)
+            if v216_older:
+                x = v + adv - tf.math.reduce_mean(adv, axis=-1, keepdims=True)
+            else:
+                x = v + adv - ops.mean(adv, axis=-1, keepdims=True)
         elif self.dueling_type == "max":
-            x = v + adv - tf.reduce_max(adv, axis=-1, keepdims=True)
+            if v216_older:
+                x = v + adv - tf.math.reduce_max(adv, axis=-1, keepdims=True)
+            else:
+                x = v + adv - ops.max(adv, axis=-1, keepdims=True)
         elif self.dueling_type == "":  # naive
             x = v + adv
         else:
             raise ValueError("dueling_network_type is undefined")
 
         return x
-
-
-if __name__ == "__main__":
-    m = DuelingNetworkBlock(5, (128, 64))
-    m.build((None, 64))
-    m.summary()

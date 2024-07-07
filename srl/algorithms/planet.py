@@ -18,6 +18,7 @@ from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLC
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.rl.tf.model import KerasModelAddedSummary
 from srl.utils.common import compare_less_version
 
 kl = keras.layers
@@ -123,7 +124,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class RSSM(keras.Model):
+class RSSM(KerasModelAddedSummary):
     def __init__(self, stoch=30, deter=200, hidden=200, act=tf.nn.elu, **kwargs):
         super().__init__(**kwargs)
 
@@ -178,7 +179,7 @@ class RSSM(keras.Model):
         self.obs_step(in_stoch, in_deter, in_action, in_embed)
 
 
-class ConvEncoder(keras.Model):
+class ConvEncoder(KerasModelAddedSummary):
     def __init__(self, depth: int = 32, act=tf.nn.relu, **kwargs):
         super().__init__(**kwargs)
 
@@ -198,7 +199,7 @@ class ConvEncoder(keras.Model):
         return x
 
 
-class ConvDecoder(keras.Model):
+class ConvDecoder(KerasModelAddedSummary):
     def __init__(self, depth: int = 32, act=tf.nn.relu, **kwargs):
         super().__init__(**kwargs)
 
@@ -228,7 +229,7 @@ class ConvDecoder(keras.Model):
         )
 
 
-class DenseDecoder(keras.Model):
+class DenseDecoder(KerasModelAddedSummary):
     def __init__(self, out_shape, layers: int, units: int, dist: str = "normal", act=tf.nn.elu, **kwargs):
         super().__init__(**kwargs)
         self._out_shape = out_shape

@@ -20,6 +20,7 @@ from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.input_block import create_in_block_out_image
+from srl.rl.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
 logger = logging.getLogger(__name__)
@@ -142,7 +143,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class Network(keras.Model):
+class Network(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
         self.value_type = config.value_type

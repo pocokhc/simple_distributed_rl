@@ -23,6 +23,7 @@ from srl.rl.tf import functions as tf_funcs
 from srl.rl.tf.blocks.input_block import create_in_block_out_value
 from srl.rl.tf.distributions.categorical_dist_block import CategoricalDistBlock
 from srl.rl.tf.distributions.normal_dist_block import NormalDistBlock
+from srl.rl.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
 
@@ -169,7 +170,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class ActorCriticNetwork(keras.Model):
+class ActorCriticNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
         self.config = config

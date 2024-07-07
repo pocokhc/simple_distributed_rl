@@ -15,6 +15,7 @@ from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.input_block import create_in_block_out_value
+from srl.rl.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
 
@@ -108,7 +109,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class ActorNetwork(keras.Model):
+class ActorNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -144,7 +145,7 @@ class ActorNetwork(keras.Model):
         return loss
 
 
-class CriticNetwork(keras.Model):
+class CriticNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 

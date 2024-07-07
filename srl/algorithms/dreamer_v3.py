@@ -28,6 +28,7 @@ from srl.rl.tf.distributions.categorical_gumbel_dist_block import CategoricalGum
 from srl.rl.tf.distributions.linear_block import LinearBlock
 from srl.rl.tf.distributions.normal_dist_block import NormalDistBlock
 from srl.rl.tf.distributions.twohot_dist_block import TwoHotDistBlock
+from srl.rl.tf.model import KerasModelAddedSummary
 from srl.utils.common import compare_less_version
 
 kl = keras.layers
@@ -484,7 +485,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class RSSM(keras.Model):
+class RSSM(KerasModelAddedSummary):
     def __init__(
         self,
         deter: int,
@@ -705,7 +706,7 @@ class RSSM(keras.Model):
         return self.concat_layer([post["stoch"], deter])
 
 
-class ImageEncoder(keras.Model):
+class ImageEncoder(KerasModelAddedSummary):
     def __init__(
         self,
         img_shape: tuple,
@@ -824,7 +825,7 @@ class ImageEncoder(keras.Model):
             return x_out
 
 
-class ImageDecoder(keras.Model):
+class ImageDecoder(KerasModelAddedSummary):
     def __init__(
         self,
         encoder: ImageEncoder,
@@ -937,7 +938,7 @@ class ImageDecoder(keras.Model):
             raise UndefinedError(self.dist_type)
 
 
-class LinearEncoder(keras.Model):
+class LinearEncoder(KerasModelAddedSummary):
     def __init__(
         self,
         hidden_layer_sizes: Tuple[int, ...],

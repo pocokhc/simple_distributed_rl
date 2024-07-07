@@ -4,6 +4,7 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.rl.tf.functions import symexp, symlog
+from srl.rl.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
 
@@ -22,7 +23,7 @@ class Linear:
         return self.y
 
 
-class LinearBlock(keras.Model):
+class LinearBlock(KerasModelAddedSummary):
     def __init__(
         self,
         out_size: int,

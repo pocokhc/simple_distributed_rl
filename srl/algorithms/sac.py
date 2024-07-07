@@ -23,6 +23,7 @@ from srl.rl.tf import helper as helper_tf
 from srl.rl.tf.blocks.input_block import create_in_block_out_value
 from srl.rl.tf.distributions.categorical_dist_block import CategoricalDistBlock
 from srl.rl.tf.distributions.normal_dist_block import NormalDistBlock
+from srl.rl.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
 
@@ -130,7 +131,7 @@ class Memory(ExperienceReplayBuffer):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class PolicyNetwork(keras.Model):
+class PolicyNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
         self.config = config
@@ -191,7 +192,7 @@ class PolicyNetwork(keras.Model):
         return policy_loss, logpi
 
 
-class QNetwork(keras.Model):
+class QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 

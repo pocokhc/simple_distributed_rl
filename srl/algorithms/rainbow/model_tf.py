@@ -7,6 +7,7 @@ from tensorflow import keras
 from srl.base.rl.trainer import RLTrainer
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.input_block import create_in_block_out_value
+from srl.rl.tf.model import KerasModelAddedSummary
 
 from .rainbow import CommonInterfaceParameter, Config, Memory
 from .rainbow_nomultisteps import calc_target_q
@@ -17,7 +18,7 @@ kl = keras.layers
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class QNetwork(keras.Model):
+class QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 

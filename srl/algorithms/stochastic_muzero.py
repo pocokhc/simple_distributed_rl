@@ -23,6 +23,7 @@ from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.tf.blocks.input_block import create_in_block_out_image
+from srl.rl.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
 logger = logging.getLogger(__name__)
@@ -147,7 +148,7 @@ class Memory(PriorityExperienceReplay):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _RepresentationNetwork(keras.Model):
+class _RepresentationNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -180,7 +181,7 @@ class _RepresentationNetwork(keras.Model):
         return x
 
 
-class _DynamicsNetwork(keras.Model):
+class _DynamicsNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, as_shape):
         super().__init__()
         self.c_size = config.codebook_size
@@ -254,7 +255,7 @@ class _DynamicsNetwork(keras.Model):
         return x, reward_category
 
 
-class _PredictionNetwork(keras.Model):
+class _PredictionNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, hidden_shape):
         super().__init__()
         v_num = config.v_max - config.v_min + 1
@@ -316,7 +317,7 @@ class _PredictionNetwork(keras.Model):
         return policy, value
 
 
-class _AfterstateDynamicsNetwork(keras.Model):
+class _AfterstateDynamicsNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, hidden_shape):
         super().__init__()
         self.action_num = config.action_space.n
@@ -347,7 +348,7 @@ class _AfterstateDynamicsNetwork(keras.Model):
         return self.call(in_state, training=training)
 
 
-class _AfterstatePredictionNetwork(keras.Model):
+class _AfterstatePredictionNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, as_shape):
         super().__init__()
         v_num = config.v_max - config.v_min + 1
@@ -408,7 +409,7 @@ class _AfterstatePredictionNetwork(keras.Model):
         return code, q
 
 
-class _VQVAE(keras.Model):
+class _VQVAE(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 

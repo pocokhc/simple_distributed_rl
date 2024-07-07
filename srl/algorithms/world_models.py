@@ -20,6 +20,7 @@ from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.input_block import create_input_image_layers
+from srl.rl.tf.model import KerasModelAddedSummary
 from srl.utils.common import compare_less_version
 
 kl = keras.layers
@@ -188,7 +189,7 @@ class Memory(RLMemory):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class VAE(keras.Model):
+class VAE(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -273,7 +274,7 @@ class VAE(keras.Model):
         return self.decode(z), z
 
 
-class MDNRNN(keras.Model):
+class MDNRNN(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -365,7 +366,7 @@ class MDNRNN(keras.Model):
             return self.lstm_layer.cell.get_initial_state(batch_size)
 
 
-class Controller(keras.Model):
+class Controller(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 

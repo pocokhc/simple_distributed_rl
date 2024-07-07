@@ -4,6 +4,35 @@ from typing import Tuple
 import tensorflow as tf
 from tensorflow import keras
 
+from srl.utils.common import compare_less_version
+
+v216_older = compare_less_version(tf.__version__, "2.16.0")
+if v216_older:
+    _softmax = tf.nn.softmax
+    _ones_like = tf.ones_like
+    _argmax = tf.argmax
+    _squeeze = tf.squeeze
+    _expand_dims = tf.expand_dims
+    _one_hot = tf.one_hot
+    _clip = tf.clip_by_value
+    _sum = tf.reduce_sum
+    _mean = tf.reduce_mean
+    _log = tf.math.log
+else:
+    from tensorflow.keras import ops
+
+    _softmax = ops.softmax
+    _ones_like = ops.ones_like
+    _argmax = ops.argmax
+    _squeeze = ops.squeeze
+    _expand_dims = ops.expand_dims
+    _one_hot = ops.one_hot
+    _clip = ops.clip
+    _sum = ops.sum
+    _mean = ops.mean
+    _log = ops.log
+
+
 kl = keras.layers
 
 
@@ -11,13 +40,13 @@ class CategoricalDist:
     def __init__(self, logits) -> None:
         self.classes = logits.shape[-1]
         self.logits = logits
-        self._base_probs = tf.nn.softmax(self.logits, axis=-1)
+        self._base_probs = _softmax(self.logits, axis=-1)
         self._probs = self._base_probs
 
     def set_unimix(self, unimix: float):
         if unimix == 0:
             return
-        uniform = tf.ones_like(self._base_probs) / self._base_probs.shape[-1]
+        uniform = _ones_like(self._base_probs) / self._base_probs.shape[-1]
         self._probs = (1 - unimix) * self._base_probs + unimix * uniform
 
     def mean(self):
@@ -25,7 +54,7 @@ class CategoricalDist:
 
     @functools.lru_cache
     def mode(self):
-        return tf.argmax(self.logits, -1)
+        return _argmax(self.logits, -1)
 
     def variance(self):
         raise NotImplementedError()
@@ -34,33 +63,33 @@ class CategoricalDist:
         return self._probs
 
     def sample(self, onehot: bool = False):
-        a = tf.random.categorical(self.logits, num_samples=1)
+        a = keras.random.categorical(self.logits, num_samples=1)
         if onehot:
-            a = tf.squeeze(a, axis=1)
-            a = tf.one_hot(a, self.classes, dtype=tf.float32)
+            a = _squeeze(a, axis=1)
+            a = _one_hot(a, self.classes, dtype=tf.float32)
         return a
 
     def rsample(self, onehot: bool = True):
-        a = tf.random.categorical(self.logits, num_samples=1)
+        a = keras.random.categorical(self.logits, num_samples=1)
         if onehot:
-            a = tf.squeeze(a, axis=1)
-            a = tf.one_hot(a, self.classes, dtype=tf.float32)
+            a = _squeeze(a, axis=1)
+            a = _one_hot(a, self.classes, dtype=tf.float32)
         return self._probs + tf.stop_gradient(a - self._probs)
 
     def log_probs(self):
-        probs = tf.clip_by_value(self._probs, 1e-10, 1)  # log(0)回避用
-        return tf.math.log(probs)
+        probs = _clip(self._probs, 1e-10, 1)  # log(0)回避用
+        return _log(probs)
 
     def log_prob(self, a, onehot: bool = False):
         if onehot:
-            a = tf.squeeze(a, axis=-1)
-            a = tf.one_hot(a, self.classes, dtype=tf.float32)
-        a = tf.reduce_sum(self.log_probs() * a, axis=-1)
-        return tf.expand_dims(a, axis=-1)
+            a = _squeeze(a, axis=-1)
+            a = _one_hot(a, self.classes, dtype=tf.float32)
+        a = _sum(self.log_probs() * a, axis=-1)
+        return _expand_dims(a, axis=-1)
 
     def entropy(self):
         p_log_p = self._probs * self.log_probs()
-        return -tf.reduce_sum(p_log_p, axis=-1)
+        return -_sum(p_log_p, axis=-1)
 
 
 class CategoricalDistBlock(keras.Model):
@@ -92,6 +121,7 @@ class CategoricalDistBlock(keras.Model):
 
         # クロスエントロピーの最小化
         # -Σ p * log(q)
-        probs = tf.clip_by_value(probs, 1e-10, 1)  # log(0)回避用
-        loss = -tf.reduce_sum(y * tf.math.log(probs), axis=1)
-        return tf.reduce_mean(loss)
+        probs = _clip(probs, 1e-10, 1)  # log(0)回避用
+        loss = -_sum(y * _log(probs), axis=1)
+        loss = _mean(loss)
+        return loss

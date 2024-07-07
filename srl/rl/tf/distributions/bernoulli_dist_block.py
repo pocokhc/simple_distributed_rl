@@ -3,6 +3,8 @@ from typing import Tuple
 import tensorflow as tf
 from tensorflow import keras
 
+from srl.rl.tf.model import KerasModelAddedSummary
+
 kl = keras.layers
 
 
@@ -44,7 +46,7 @@ class BernoulliDist:
         raise NotImplementedError()  # TODO
 
 
-class BernoulliDistBlock(keras.Model):
+class BernoulliDistBlock(KerasModelAddedSummary):
     def __init__(
         self,
         hidden_layer_sizes: Tuple[int, ...] = (),
@@ -58,7 +60,7 @@ class BernoulliDistBlock(keras.Model):
             self.hidden_layers.append(kl.Dense(size, activation=activation))
         self.hidden_layers.append(kl.Dense(1))
 
-        self.loss_function = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+        self.loss_function = keras.losses.BinaryCrossentropy(from_logits=True)
 
     def call(self, x, training=False):
         for layer in self.hidden_layers:

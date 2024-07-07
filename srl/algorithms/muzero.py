@@ -23,6 +23,7 @@ from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.tf.blocks.input_block import create_in_block_out_image
+from srl.rl.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
 logger = logging.getLogger(__name__)
@@ -175,7 +176,7 @@ class Memory(PriorityExperienceReplay):
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class _RepresentationNetwork(keras.Model):
+class _RepresentationNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -209,7 +210,7 @@ class _RepresentationNetwork(keras.Model):
         return x
 
 
-class _DynamicsNetwork(keras.Model):
+class _DynamicsNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, input_shape):
         super().__init__()
         self.action_num = config.action_space.n
@@ -292,7 +293,7 @@ class _DynamicsNetwork(keras.Model):
         return x, reward_category
 
 
-class _PredictionNetwork(keras.Model):
+class _PredictionNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, input_shape):
         super().__init__()
         self._in_shape = input_shape

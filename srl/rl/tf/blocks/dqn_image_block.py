@@ -1,9 +1,11 @@
 from tensorflow import keras
 
+from srl.rl.tf.model import KerasModelAddedSummary
+
 kl = keras.layers
 
 
-class DQNImageBlock(keras.Model):
+class DQNImageBlock(KerasModelAddedSummary):
     def __init__(
         self,
         filters: int = 32,
@@ -31,5 +33,5 @@ class DQNImageBlock(keras.Model):
 
 if __name__ == "__main__":
     m = DQNImageBlock()
-    m.build((None, None, 64, 75, 19))
+    m.build((None, 64, 75, 19))
     m.summary()

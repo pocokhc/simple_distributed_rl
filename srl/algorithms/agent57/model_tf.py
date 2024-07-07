@@ -8,6 +8,7 @@ from srl.base.rl.trainer import RLTrainer
 from srl.rl.functions import create_beta_list, create_discount_list
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.input_block import create_in_block_out_value
+from srl.rl.tf.model import KerasModelAddedSummary
 from srl.utils.common import compare_less_version
 
 from .agent57 import CommonInterfaceParameter, Config, Memory
@@ -19,7 +20,7 @@ v216_older = compare_less_version(tf.__version__, "2.16.0")
 # ------------------------------------------------------
 # network
 # ------------------------------------------------------
-class QNetwork(keras.Model):
+class QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
         self.input_ext_reward = config.input_ext_reward
@@ -104,7 +105,7 @@ class QNetwork(keras.Model):
 # ------------------------------------------------------
 # エピソード記憶部(episodic_reward)
 # ------------------------------------------------------
-class EmbeddingNetwork(keras.Model):
+class EmbeddingNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -157,7 +158,7 @@ class EmbeddingNetwork(keras.Model):
 # ------------------------------------------------------
 # 生涯記憶部(life long novelty module)
 # ------------------------------------------------------
-class LifelongNetwork(keras.Model):
+class LifelongNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 

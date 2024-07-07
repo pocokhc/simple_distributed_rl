@@ -6,6 +6,8 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
+from srl.rl.tf.model import KerasModelAddedSummary
+
 kl = keras.layers
 
 
@@ -141,7 +143,7 @@ class NormalDistSquashed:
         return y, y_range
 
 
-class NormalDistBlock(keras.Model):
+class NormalDistBlock(KerasModelAddedSummary):
     def __init__(
         self,
         out_size: int,

@@ -362,7 +362,10 @@ class GymnasiumWrapper(EnvBase):
         return state, [float(reward)], done, info
 
     def close(self) -> None:
-        self.env.close()
+        try:
+            self.env.close()
+        except Exception as e:
+            logger.error(e)
 
     @property
     def unwrapped(self) -> object:

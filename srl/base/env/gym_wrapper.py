@@ -387,8 +387,10 @@ class GymWrapper(EnvBase):
     def close(self) -> None:
         # render 内で使われている pygame に対して close -> init をするとエラーになる
         # Fatal Python error: (pygame parachute) Segmentation Fault
-        self.env.close()
-        pass
+        try:
+            self.env.close()
+        except Exception as e:
+            logger.error(e)
 
     @property
     def unwrapped(self) -> object:

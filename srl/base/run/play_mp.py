@@ -178,16 +178,13 @@ def _run_actor(
             parameter.restore(pickle.loads(params), from_cpu=True)
 
         # --- memory
-        memory = cast(
-            RLMemory,
-            _ActorRLMemory(
-                remote_queue,
-                remote_qsize,
-                remote_q_capacity,
-                end_signal,
-                actor_id,
-                context.rl_config.make_memory(env=env, is_load=False),
-            ),
+        memory = _ActorRLMemory(
+            remote_queue,
+            remote_qsize,
+            remote_q_capacity,
+            end_signal,
+            actor_id,
+            context.rl_config.make_memory(env=env, is_load=False),
         )
 
         # --- callback
@@ -312,24 +309,33 @@ class _TrainerInterrupt(TrainCallback):
         share_dict: dict,
         memory_ps: threading.Thread,
         parameter_ps: threading.Thread,
+        actors_ps_list: List[mp.Process],
     ) -> None:
         self.end_signal = end_signal
         self.share_dict = share_dict
         self.memory_ps = memory_ps
         self.parameter_ps = parameter_ps
+        self.actors_ps_list = actors_ps_list
         self.t0_health = time.time()
 
     def on_train_after(self, context: RunContext, state: RunStateTrainer, **kwargs) -> bool:
         if not state.is_step_trained:
             time.sleep(1)  # warmupなら待機
+        state.sync_trainer = self.share_dict["sync_count"]
+        state.trainer_recv_q = self.share_dict["q_recv"]
         if time.time() - self.t0_health > 5:
             self.t0_health = time.time()
             if not self.memory_ps.is_alive():
                 return True
             if not self.parameter_ps.is_alive():
                 return True
-        state.sync_trainer = self.share_dict["sync_count"]
-        state.trainer_recv_q = self.share_dict["q_recv"]
+            n = 0
+            for w in self.actors_ps_list:
+                if w.is_alive():
+                    n += 1
+            if n == 0:
+                logger.info("all actor process dead.")
+                return True
         return self.end_signal.value
 
 
@@ -341,6 +347,7 @@ def _run_trainer(
     remote_qsize: sharedctypes.Synchronized,
     remote_board: Any,
     end_signal: Any,
+    actors_ps_list: List[mp.Process],
 ):
     try:
         logger.info("[trainer] start.")
@@ -384,6 +391,7 @@ def _run_trainer(
                 share_dict,
                 memory_ps,
                 parameter_ps,
+                actors_ps_list,
             )
         )
 
@@ -511,6 +519,7 @@ def train(
                     remote_qsize,
                     remote_board,
                     end_signal,
+                    actors_ps_list,
                 )
             finally:
                 if not end_signal.value:

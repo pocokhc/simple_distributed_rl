@@ -67,6 +67,8 @@ class RunnerFacadeDistribution(RunnerBase):
         # play info
         self.context.distributed = True
         self.context.training = True
+        self.context.train_only = False
+        self.context.rollout = False
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
         # thread

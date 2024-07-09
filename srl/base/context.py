@@ -48,6 +48,7 @@ class RunContext:
     distributed: bool = False
     training: bool = False
     train_only: bool = False
+    rollout: bool = False
     rendering: bool = False
     render_mode: Union[str, RenderModes] = RenderModes.none
 

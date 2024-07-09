@@ -97,16 +97,28 @@ class RLWorkerGeneric(
 
     # --- worker info (shortcut properties)
     @property
-    def training(self) -> bool:
-        return self.__worker_run.training
+    def context(self) -> "RunContext":
+        return self.__worker_run._context
 
     @property
     def distributed(self) -> bool:
-        return self.__worker_run.distributed
+        return self.__worker_run._context.distributed
+
+    @property
+    def training(self) -> bool:
+        return self.__worker_run._context.training
+
+    @property
+    def train_only(self) -> bool:
+        return self.__worker_run._context.train_only
+
+    @property
+    def rollout(self) -> bool:
+        return self.__worker_run._context.rollout
 
     @property
     def rendering(self) -> bool:
-        return self.__worker_run.rendering
+        return self.__worker_run._context.rendering
 
     @property
     def player_index(self) -> int:

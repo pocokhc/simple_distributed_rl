@@ -65,6 +65,8 @@ class RunnerFacadePlay(RunnerBase):
         # play info
         self.context.distributed = False
         self.context.training = False
+        self.context.train_only = False
+        self.context.rollout = False
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
         # thread
@@ -113,6 +115,8 @@ class RunnerFacadePlay(RunnerBase):
         # play info
         self.context.distributed = False
         self.context.training = False
+        self.context.train_only = False
+        self.context.rollout = False
         self.context.rendering = True
         self.context.render_mode = mode
         # thread
@@ -176,6 +180,8 @@ class RunnerFacadePlay(RunnerBase):
         # play info
         self.context.distributed = False
         self.context.training = False
+        self.context.train_only = False
+        self.context.rollout = False
         self.context.rendering = True
         self.context.render_mode = mode
         # thread
@@ -245,6 +251,8 @@ class RunnerFacadePlay(RunnerBase):
         # play info
         self.context.distributed = False
         self.context.training = False
+        self.context.train_only = False
+        self.context.rollout = False
         self.context.rendering = True
         self.context.render_mode = mode
         # thread
@@ -273,7 +281,7 @@ class RunnerFacadePlay(RunnerBase):
         self.run_context(parameter=parameter, memory=memory, callbacks=callbacks)
 
         state = cast(RunStateActor, self.state)
-        print(f"render step: {state.total_step}, reward: {state.episode_rewards_list[0]}")
+        logger.info(f"render step: {state.total_step}, reward: {state.episode_rewards_list[0]}")
         return render
 
     def animation_save_gif(
@@ -431,6 +439,8 @@ class RunnerFacadePlay(RunnerBase):
         # play info
         self.context.distributed = False
         self.context.training = False
+        self.context.train_only = False
+        self.context.rollout = False
         self.context.rendering = True
         self.context.render_mode = mode
         # thread
@@ -478,6 +488,8 @@ class RunnerFacadePlay(RunnerBase):
         # play info
         self.context.distributed = False
         self.context.training = False
+        self.context.train_only = False
+        self.context.rollout = False
         self.context.rendering = True
         self.context.render_mode = mode
         # thread
@@ -532,6 +544,8 @@ class RunnerFacadePlay(RunnerBase):
         # play info
         self.context.distributed = False
         self.context.training = enable_memory
+        self.context.train_only = False
+        self.context.rollout = enable_memory
         self.context.rendering = True
         self.context.render_mode = mode
         # thread

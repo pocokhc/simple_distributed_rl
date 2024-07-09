@@ -73,12 +73,20 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return self._context
 
     @property
+    def distributed(self) -> bool:
+        return self._context.distributed
+
+    @property
     def training(self) -> bool:
         return self._context.training
 
     @property
-    def distributed(self) -> bool:
-        return self._context.distributed
+    def train_only(self) -> bool:
+        return self._context.train_only
+
+    @property
+    def rollout(self) -> bool:
+        return self._context.rollout
 
     @property
     def rendering(self) -> bool:

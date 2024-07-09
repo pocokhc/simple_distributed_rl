@@ -46,7 +46,7 @@ def setup_device(
         logger.info(f"{log_prefix}[device] CUDA_VISIBLE_DEVICES is not define.")
 
     # --- CUDA_VISIBLE_DEVICES ---
-    # tf-gpuはCUDA_VISIBLE_DEVICESでGPUを消すと一定学習後プロセス自体が起こる
+    # tf-gpuはCUDA_VISIBLE_DEVICESでGPUを消すと一定学習後プロセス自体が落ちる
     # 初期化時に "failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected" の出力あり
     # なのでtf-gpuはCUDA_VISIBLE_DEVICESで制御せず、tf.device側に任せる
     v216_older = False
@@ -71,7 +71,7 @@ def setup_device(
     # -----------------------------
 
     # --- tf memory growth ---
-    # tf-gpuはCPUでもGPUがあるため実行
+    # tf-gpuはCPUでもGPUがあるため実行(上参照)
     # 新しいバージョンはCPUのみならエラーではなく[]がちゃんと返る
     if tf_enable_memory_growth and framework == "tensorflow":
         try:

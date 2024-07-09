@@ -1,5 +1,9 @@
 # TODO list
+1. keras3対応 → tfは@tf.functionが使えなくなるので遅くなる。torchはcpu()が必要になるっぽい、しばらく保留
+1. Async-SGD
+1. (distribution)オリジナルrl/env対応
 
+//// 中止(stopped)
 // (tensorboard) SRL上でいいI/Fの作成方法が思い浮かばず保留、tensorboardを愚直にいれると遅い
 // (SEED RL) 大量のActor向けなのでいったん見送り
 // (MARL) マルコフ過程みたいなモデルがある？Actor同士の通信方法の定義が見当たらずに保留
@@ -9,10 +13,30 @@
 // cached_propertyでちょっと高速化?→予想外のバグがでそうなので保留
 // RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
 // DemoMemory: 個別対応かな
-1. keras3対応？
-1. Async-SGD
-1. (distribution)オリジナルrl/env対応
 
+
+# v0.16.2
+
+**MainUpdates**
+
+1. [rl.tf] update: summaryでshapeが表示されない問題に対応（tfのversionで変化するので後回しにしていましたが、tf2.16.1でとりあえず表示するようにしました）
+
+
+**OtherUpdates**
+
+1. [base.rl.worker_run] new: context,rollout.train_onlyプロパティを追加
+   - [runner_facade] fix: 一部train_onlyプロパティが2回目反映されていない不具合修正
+1. [runner.callbacks.MLFlowCallback]
+   - update: start_runをactive_runによって自動判定し、ユーザ側でstart_runを実行できるように変更
+   - update: evalの実行時間によって自動でintervalを調整するように変更
+1. [dockers] rename: ファイル名ソートで見やすいように名前変更
+
+**Bug Fixes**
+
+1. [base.system.device] fix: tf-gpu(古いtfバージョン)に対してCPUに変更して実行するとpythonプロセス自体が落ちる不具合対応
+1. [base.rl_config] fix: rl_configに対して違う環境を入れた場合setupが働かない不具合修正
+1. [base.run.play_mp] update: Actorプロセスがすべて落ちた場合にTrainerが止まるように修正
+1. [base.env.gym] fix: close時にgym側でエラーが出た場合に終了しないように変更
 
 # v0.16.1
 

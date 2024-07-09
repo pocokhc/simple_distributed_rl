@@ -3,7 +3,6 @@ import os
 import tempfile
 import time
 from dataclasses import dataclass, field
-from typing import Optional
 
 import mlflow
 
@@ -18,28 +17,22 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class MLFlowCallback(RunCallback, Evaluate):
-    auto_start: bool = True
-    experiment_name: Optional[str] = None
-    run_name: Optional[str] = None
-    start_run_kwargs: dict = field(default_factory=dict)
     interval_episode: int = 1
-    interval_eval: int = 10
-    interval_checkpoint: int = 60 * 20
+    interval_eval: int = -1  # -1 is auto
+    interval_checkpoint: int = 60 * 30
     enable_checkpoint: bool = True
     enable_html: bool = True
     tags: dict = field(default_factory=dict)
 
     def on_start(self, context: RunContext, **kwargs) -> None:
-        if self.auto_start:
-            exp_name = self.experiment_name
-            if exp_name is None:
-                exp_name = context.env_config.name
-            mlflow.set_experiment(exp_name)
-            run_name = self.run_name
-            if run_name is None:
-                run_name = f"{context.rl_config.name}"
-            mlflow.start_run(run_name=run_name, **self.start_run_kwargs)
-        self.run_id = mlflow.active_run().info.run_id
+        self._auto_run = False
+        if mlflow.active_run() is None:
+            mlflow.set_experiment(context.env_config.name)
+            mlflow.start_run(run_name=context.rl_config.name + f"({context.flow_mode})")
+            self._auto_run = True
+        active_run = mlflow.active_run()
+        assert active_run is not None
+        self.run_id = active_run.info.run_id
         mlflow.set_tag("Version", srl.__version__)
         mlflow.set_tag("Env", context.env_config.name)
         mlflow.set_tag("RL", context.rl_config.name)
@@ -57,11 +50,11 @@ class MLFlowCallback(RunCallback, Evaluate):
         self._render_runner = None
 
     def on_end(self, context: RunContext, **kwargs) -> None:
-        if self.auto_start:
+        if self._auto_run:
             mlflow.end_run()
 
     def on_episodes_begin(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
-        # error check
+        # --- error check
         self._log_episode(context, state)
         self._log_eval(context, state)
         self._log_checkpoint(context, state)
@@ -75,9 +68,27 @@ class MLFlowCallback(RunCallback, Evaluate):
             self._log_episode(context, state)
             self.t0_episode = time.time()  # last
 
-        if time.time() - self.t0_eval > self.interval_eval:
-            self._log_eval(context, state)
-            self.t0_eval = time.time()  # last
+        if self.enable_eval:
+            if time.time() - self.t0_eval > self.interval_eval:
+                t0 = time.time()
+                self._log_eval(context, state)
+                eval_time = time.time() - t0
+                if self.interval_eval <= 120 and eval_time > 60:
+                    logger.info(f"set eval same checkpoint(eval time: {eval_time:.1f}s)")
+                    self.enable_eval = False
+                elif self.interval_eval <= 60 and eval_time > 10:
+                    logger.info(f"set eval interval: 120s (eval time: {eval_time:.1f}s)")
+                    self.interval_eval = 120
+                elif self.interval_eval <= 10 and eval_time > 5:
+                    logger.info(f"set eval interval: 60s (eval time: {eval_time:.1f}s)")
+                    self.interval_eval = 60
+                elif self.interval_eval <= 1 and eval_time > 0.1:
+                    logger.info(f"set eval interval: 10s (eval time: {eval_time:.1f}s)")
+                    self.interval_eval = 10
+                elif self.interval_eval < 1 and eval_time <= 0.1:
+                    logger.info(f"set eval interval: 1s (eval time: {eval_time:.1f}s)")
+                    self.interval_eval = 1
+                self.t0_eval = time.time()  # last
 
         if self.enable_checkpoint:
             if time.time() - self.t0_checkpoint > self.interval_checkpoint:
@@ -126,25 +137,31 @@ class MLFlowCallback(RunCallback, Evaluate):
         if self._render_runner is None:
             self._render_runner = srl.Runner(context.env_config, context.rl_config)
             self._render_runner.make_memory(is_load=False)
-        render = self._render_runner.run_render(parameter=state.parameter)
+        render = self._render_runner.run_render(parameter=state.parameter, enable_progress=False)
         html = render.to_jshtml()
         name = context.rl_config.name.replace(":", "_")
-        fn = f"{name}_{state.total_step}_{self._render_runner.state.last_episode_rewards}.html"
+        rewards = self._render_runner.state.last_episode_rewards
+        fn = f"{name}_{state.total_step}_{rewards}.html"
         mlflow.log_text(html, fn, run_id=self.run_id)
+        d = {f"eval_reward{i}": r for i, r in enumerate(rewards)}
+        mlflow.log_metrics(d, state.total_step, run_id=self.run_id)
 
     # ---------------
 
     @staticmethod
-    def get_metrics(experiment_name: str, run_name: str, metric_name: str):
+    def get_metrics(experiment_name: str, tags: dict, metric_name: str):
         experiment_id = MLFlowCallback.get_experiment_id(experiment_name)
         if experiment_id is None:
             return None, None
-        run_id = MLFlowCallback.get_run_id(experiment_id, run_name)
-        if run_id is None:
+
+        filter_string = " and ".join([f"tags.{key} = '{value}'" for key, value in tags.items()])
+        runs = mlflow.search_runs([experiment_id], filter_string=filter_string, order_by=["start_time DESC"])
+        if runs.empty:
             return None, None
+        latest_run_id = runs.iloc[0].run_id
 
         client = mlflow.tracking.MlflowClient()
-        metric_history = client.get_metric_history(run_id, metric_name)
+        metric_history = client.get_metric_history(latest_run_id, metric_name)
         values = [m.value for m in metric_history]
         steps = [m.step for m in metric_history]
         return steps, values
@@ -152,7 +169,8 @@ class MLFlowCallback(RunCallback, Evaluate):
     @staticmethod
     def get_run_id(experiment_id: str, run_name: str):
         client = mlflow.tracking.MlflowClient()
-        for run in client.search_runs([experiment_id]):
+
+        for run in client.search_runs([experiment_id], order_by=["start_time DESC"]):
             if run.data.tags.get("mlflow.runName") == run_name:
                 return run.info.run_id
         return None
@@ -160,7 +178,7 @@ class MLFlowCallback(RunCallback, Evaluate):
     @staticmethod
     def get_experiment_id(experiment_name: str):
         client = mlflow.tracking.MlflowClient()
-        for experiment in client.search_experiments():
+        for experiment in client.search_experiments(order_by=["creation_time DESC"]):
             if experiment.name == experiment_name:
                 return experiment.experiment_id
         return None

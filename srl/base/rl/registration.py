@@ -18,9 +18,9 @@ _registry = {"": ["", "", "", ""]}
 
 
 def _check_rl_config(rl_config: RLConfig, env: Optional[EnvRun]) -> None:
-    name = rl_config.get_name()
+    key = _create_registry_key(rl_config)
     if not isinstance(rl_config, DummyRLConfig):
-        assert name in _registry, f"{name} is not registered."
+        assert key in _registry, f"{key} is not registered."
     if env is None:
         assert rl_config.is_setup, "Run 'rl_config.reset(env)' first"
     else:
@@ -28,10 +28,19 @@ def _check_rl_config(rl_config: RLConfig, env: Optional[EnvRun]) -> None:
     rl_config.assert_params()
 
 
+def _create_registry_key(rl_config: RLConfig) -> str:
+    framework = rl_config.get_framework()
+    if framework == "":
+        key = rl_config.get_name()
+    else:
+        key = f"{rl_config.get_name()}:{framework}"
+    return key
+
+
 def make_memory(rl_config: RLConfig, env: Optional[EnvRun] = None, is_load: bool = True) -> RLMemory:
     _check_rl_config(rl_config, env)
 
-    entry_point = _registry[rl_config.get_name()][0]
+    entry_point = _registry[_create_registry_key(rl_config)][0]
     if entry_point == "":
         memory: RLMemory = DummyRLMemory(rl_config)
     else:
@@ -46,7 +55,7 @@ def make_memory(rl_config: RLConfig, env: Optional[EnvRun] = None, is_load: bool
 
 def make_memory_class(rl_config: RLConfig, env: Optional[EnvRun] = None) -> Type[RLMemory]:
     _check_rl_config(rl_config, env)
-    entry_point = _registry[rl_config.get_name()][0]
+    entry_point = _registry[_create_registry_key(rl_config)][0]
     if entry_point == "":
         memory_cls = DummyRLMemory
     else:
@@ -57,7 +66,7 @@ def make_memory_class(rl_config: RLConfig, env: Optional[EnvRun] = None) -> Type
 def make_parameter(rl_config: RLConfig, env: Optional[EnvRun] = None, is_load: bool = True) -> RLParameter:
     _check_rl_config(rl_config, env)
 
-    entry_point = _registry[rl_config.get_name()][1]
+    entry_point = _registry[_create_registry_key(rl_config)][1]
     if entry_point == "":
         parameter: RLParameter = DummyRLParameter(rl_config)
     else:
@@ -78,7 +87,7 @@ def make_trainer(
 ) -> RLTrainer:
     _check_rl_config(rl_config, env)
 
-    entry_point = _registry[rl_config.get_name()][2]
+    entry_point = _registry[_create_registry_key(rl_config)][2]
     if entry_point == "":
         return DummyRLTrainer(rl_config, parameter, memory)
     else:
@@ -115,7 +124,7 @@ def make_worker(
     if name_or_config == "dummy":
         worker: RLWorker = DummyRLWorker(rl_config, parameter, memory)
     else:
-        entry_point = _registry[rl_config.get_name()][3]
+        entry_point = _registry[_create_registry_key(rl_config)][3]
         if entry_point == "":
             worker: RLWorker = DummyRLWorker(rl_config, parameter, memory)
         else:
@@ -224,23 +233,24 @@ def make_workers(
 
 
 def register(
-    config: RLConfig,
+    rl_config: RLConfig,
     memory_entry_point: str,
     parameter_entry_point: str,
     trainer_entry_point: str,
     worker_entry_point: str,
-    enable_assert: bool = True,
+    check_duplicate: bool = True,
 ) -> None:
     global _registry
 
-    name = config.get_name()
-    if enable_assert:
-        assert name not in _registry, f"{name} was already registered."
-    elif name in _registry:
-        # 既にあれば上書き
-        logger.warning(f"{name} was already registered, but I overwrote it. entry_point={worker_entry_point}")
+    key = _create_registry_key(rl_config)
 
-    _registry[name] = [
+    if check_duplicate:
+        assert key not in _registry, f"{key} was already registered."
+    elif key in _registry:
+        # 既にあれば上書き
+        logger.warning(f"{key} was already registered, but I overwrote it. entry_point={worker_entry_point}")
+
+    _registry[key] = [
         memory_entry_point,
         parameter_entry_point,
         trainer_entry_point,
@@ -251,7 +261,7 @@ def register(
 def register_rulebase(
     name_or_config: Union[str, RLConfig],
     entry_point: str,
-    enable_assert: bool = True,
+    check_duplicate: bool = True,
 ) -> None:
     config: RLConfig = DummyRLConfig(name=name_or_config) if isinstance(name_or_config, str) else name_or_config
-    register(config, "", "", "", entry_point, enable_assert)
+    register(config, "", "", "", entry_point, check_duplicate)

@@ -102,7 +102,7 @@ class Config(
         return self.create_framework_str()
 
     def get_name(self) -> str:
-        return f"DQN:{self.get_framework()}"
+        return "DQN"
 
     def assert_params(self) -> None:
         super().assert_params()

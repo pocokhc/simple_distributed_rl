@@ -316,6 +316,26 @@ def moving_average(data, rolling_size):
     return y2
 
 
+def ema(data, alpha: float = 0.1):
+    """
+    指数移動平均を計算する関数
+
+    Parameters:
+    data (numpy.ndarray): データの配列
+    alpha (float): スムージング係数 (0 < alpha ≤ 1)
+
+    Returns:
+    numpy.ndarray: 指数移動平均の配列
+    """
+    ema_data = np.zeros_like(data)
+    ema_data[0] = data[0]
+
+    for i in range(1, len(data)):
+        ema_data[i] = alpha * data[i] + (1 - alpha) * ema_data[i - 1]
+
+    return ema_data
+
+
 def line_smooth(
     data,
     window_size: int = 11,  # ウィンドウサイズ（奇数）
@@ -327,3 +347,17 @@ def line_smooth(
     if window_size % 2 == 0:
         window_size += 1
     return savgol_filter(data, window_size, poly_order)
+
+
+def rolling(data, aggregation_num: int = 10):
+    import pandas as pd
+
+    if len(data) > aggregation_num * 1.2:
+        window = int(len(data) / aggregation_num)
+    else:
+        window = 0
+
+    if window > 1:
+        return pd.Series(data).rolling(window).mean()
+    else:
+        return data

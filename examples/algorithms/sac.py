@@ -23,7 +23,7 @@ def main_discrete():
 
     runner = srl.Runner(env_config, rl_config)
     runner.model_summary()
-    runner.set_progress_options(interval_limit=30)
+    runner.set_progress(interval_limit=30)
 
     # --- train
     runner.train(max_train_count=5000)

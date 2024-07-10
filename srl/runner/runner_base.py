@@ -70,7 +70,7 @@ class RunnerBase:
         self.history_viewer: Optional["HistoryViewer"] = None
 
         self._progress_kwargs: dict = {}
-        self.set_progress_options()
+        self.set_progress()
 
         self._is_setup_psutil: bool = False
         self._psutil_process: Optional["psutil.Process"] = None
@@ -347,7 +347,7 @@ class RunnerBase:
     # ------------------------------
     # progress
     # ------------------------------
-    def set_progress_options(
+    def set_progress(
         self,
         start_time: int = 1,
         interval_limit: int = 60 * 10,

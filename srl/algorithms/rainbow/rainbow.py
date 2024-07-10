@@ -156,9 +156,9 @@ class Config(
 
     def get_name(self) -> str:
         if self.multisteps == 1:
-            return f"Rainbow_no_multisteps:{self.get_framework()}"
+            return "Rainbow_no_multisteps"
         else:
-            return f"Rainbow:{self.get_framework()}"
+            return "Rainbow"
 
     def assert_params(self) -> None:
         super().assert_params()

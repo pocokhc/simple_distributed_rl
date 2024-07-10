@@ -188,7 +188,7 @@ class Config(
         return self.create_framework_str()
 
     def get_name(self) -> str:
-        return f"Agent57:{self.get_framework()}"
+        return "Agent57"
 
     def assert_params(self) -> None:
         super().assert_params()

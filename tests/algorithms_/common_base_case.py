@@ -54,6 +54,6 @@ class CommonBaseCase(ABC):
         runner.set_device(device)
         runner.set_seed(1)
         runner.disable_stats()
-        runner.set_progress_options(interval_limit=30)
+        runner.set_progress(interval_limit=30)
 
         return runner, TestRL()

@@ -165,7 +165,7 @@ def test_train():
     rl_config = ql_agent57.Config(batch_size=2)
     rl_config.memory_warmup_size = 10
     runner = srl.Runner("Grid", rl_config)
-    runner.set_progress_options(enable_eval=True)
+    runner.set_progress(enable_eval=True)
     runner.train_mp(
         actor_num=2,
         max_train_count=20_000,

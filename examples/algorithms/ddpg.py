@@ -1,4 +1,5 @@
 import numpy as np
+
 import srl
 from srl.algorithms import ddpg
 
@@ -13,7 +14,7 @@ def main():
     runner.model_summary()
 
     # --- train
-    runner.set_progress_options(interval_limit=30)
+    runner.set_progress(interval_limit=30)
     runner.train(max_train_count=200 * 50)
 
     # --- evaluate

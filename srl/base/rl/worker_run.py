@@ -113,6 +113,13 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return self._state
 
     @property
+    def state_one_step(self) -> TObsType:
+        if self._config.window_length > 1:
+            return self._recent_states[-1]
+        else:
+            return self._state
+
+    @property
     def prev_action(self) -> TActType:
         return self._prev_action
 

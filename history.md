@@ -19,24 +19,39 @@
 
 **MainUpdates**
 
-1. [rl.tf] update: summaryでshapeが表示されない問題に対応（tfのversionで変化するので後回しにしていましたが、tf2.16.1でとりあえず表示するようにしました）
+・MLFlowをRunnerに組み込みました
+・backup/restoreを整理し、関するいくつかのバグを修正
 
+1. [rl.tf] update: summaryでshapeが表示されない問題に対応（tfのversionで変化するので後回しにしていましたが、tf2.16.1でとりあえず表示するようにしました）
+1. [runner] change: set_progress_optionsをset_progressに名前変更
+1. [base.rl.registration] change: 登録名を"name"から"name:framework"に変更
+1. [runner] update: mlflowをrunnerに組み込み
+1. [examples.baseline] update: 暫定で一旦作成
 
 **OtherUpdates**
 
 1. [base.rl.worker_run] new: context,rollout.train_onlyプロパティを追加
    - [runner_facade] fix: 一部train_onlyプロパティが2回目反映されていない不具合修正
+1. [base.rl.worker_run] new: state_one_stepプロパティを追加
+1. [base.run] update: mpでworker側がtrain_countを見れるようにstateにtrain_count変数を追加
+1. [base.spaces] new: is_image,is_discrete,is_continuous関数を追加
+1. [base.spaces.continuous] update: encode_to_intでtableがない場合の挙動をassertからroundに変更
 1. [runner.callbacks.MLFlowCallback]
    - update: start_runをactive_runによって自動判定し、ユーザ側でstart_runを実行できるように変更
    - update: evalの実行時間によって自動でintervalを調整するように変更
 1. [dockers] rename: ファイル名ソートで見やすいように名前変更
+1. [utils.common] add: ema,rolling関数追加
+1. [algorithms] new: オリジナルアルゴリズムSearchDynaQ_v2を追加
+1. [base.env/rl.registration] rename: registerのenable_assert引数名を分かりやすいようにcheck_duplicateに変更
 
 **Bug Fixes**
 
+1. [base.run] fix: worker.on_step内でenv.abort_episode()を実行し、envを終わらせた後の挙動がおかしかったバグ修正
 1. [base.system.device] fix: tf-gpu(古いtfバージョン)に対してCPUに変更して実行するとpythonプロセス自体が落ちる不具合対応
 1. [base.rl_config] fix: rl_configに対して違う環境を入れた場合setupが働かない不具合修正
 1. [base.run.play_mp] update: Actorプロセスがすべて落ちた場合にTrainerが止まるように修正
 1. [base.env.gym] fix: close時にgym側でエラーが出た場合に終了しないように変更
+1. [rl.tf.distributions.categorical_dist_block] fix: categoricalのversion違いを修正
 
 # v0.16.1
 

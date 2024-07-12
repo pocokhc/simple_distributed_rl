@@ -1,4 +1,4 @@
-from srl.envs import igrid
+from srl.envs import igrid  # noqa F401
 from srl.test.env import TestEnv  # noqa F401
 
 

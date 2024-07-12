@@ -131,7 +131,8 @@ def test_max_steps():
     env.step(0)
     assert env.done
 
-    env.step(0)  # no error
+    with pytest.raises(SRLError):
+        env.step(0)
 
 
 def test_timeout():
@@ -144,7 +145,8 @@ def test_timeout():
     env.step(0)
     assert env.done
 
-    env.step(0)  # no error
+    with pytest.raises(SRLError):
+        env.step(0)
 
 
 def test_backup():

@@ -50,8 +50,8 @@ def test_no_division():
     # --- discrete
     with pytest.raises(AssertionError):
         _ = space.int_size
-    with pytest.raises(AssertionError):
-        _ = space.encode_to_int(1.2)
+    en = space.encode_to_int(1.2)
+    assert en == 1
     de = space.decode_from_int(2)
     assert de == 2.0
 
@@ -142,8 +142,8 @@ def test_inf():
 
     # --- discrete
     space.create_division_tbl(5)
-    with pytest.raises(AssertionError):
-        _ = space.encode_to_int(1.2)
+    en = space.encode_to_int(1.2)
+    assert en == 1
 
     # --- continuous list
     assert space.list_float_size == 1

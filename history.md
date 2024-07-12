@@ -43,6 +43,7 @@
 1. [utils.common] add: ema,rolling関数追加
 1. [algorithms] new: オリジナルアルゴリズムSearchDynaQ_v2を追加
 1. [base.env/rl.registration] rename: registerのenable_assert引数名を分かりやすいようにcheck_duplicateに変更
+1. [README] update: 日本語と英語を明示的に分けて作成
 
 **Bug Fixes**
 

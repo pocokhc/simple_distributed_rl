@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 registration.register(
     id="connectx",
     entry_point=__name__ + ":ConnectX",
-    enable_assert=False,
+    check_duplicate=False,
 )
 
 

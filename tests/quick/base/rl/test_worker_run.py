@@ -113,8 +113,8 @@ class StubRLWorker(RLWorker):
 
 @pytest.fixture(scope="function", autouse=True)
 def scope_function():
-    register_env(id="Stub", entry_point=__name__ + ":StubEnv", enable_assert=False)
-    register_rl(StubRLConfig(), "", "", "", __name__ + ":StubRLWorker", enable_assert=False)
+    register_env(id="Stub", entry_point=__name__ + ":StubEnv", check_duplicate=False)
+    register_rl(StubRLConfig(), "", "", "", __name__ + ":StubRLWorker", check_duplicate=False)
     yield
 
 

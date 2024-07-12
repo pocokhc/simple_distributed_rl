@@ -16,7 +16,7 @@ register(
     id="StoneTaking",
     entry_point=__name__ + ":StoneTaking",
     kwargs={},
-    enable_assert=False,
+    check_duplicate=False,
 )
 
 

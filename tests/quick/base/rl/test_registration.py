@@ -34,8 +34,8 @@ class StubWorker(RLWorker):
 
 @pytest.fixture(scope="function", autouse=True)
 def scope_function():
-    env_registration.register("StubEnv", entry_point=__name__ + ":StubEnv", enable_assert=False)
-    rl_registration.register_rulebase("StubWorker", entry_point=__name__ + ":StubWorker", enable_assert=False)
+    env_registration.register("StubEnv", entry_point=__name__ + ":StubEnv", check_duplicate=False)
+    rl_registration.register_rulebase("StubWorker", entry_point=__name__ + ":StubWorker", check_duplicate=False)
     yield
 
 

@@ -1,7 +1,9 @@
 import os
 
+import flappy_bird_gymnasium  # pip install flappy-bird-gymnasium
 import mlflow
 import numpy as np
+
 import srl
 from srl.utils import common
 
@@ -9,9 +11,8 @@ mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "mlruns"))
 common.logger_print()
 
 
-def _run(rl_config, train, continuous: bool):
-    env_config = srl.EnvConfig("CarRacing-v2", {"continuous": continuous})
-    runner = srl.Runner(env_config, rl_config)
+def _train(rl_config, train):
+    runner = srl.Runner("FlappyBird-v0", rl_config)
     runner.model_summary()
 
     runner.set_mlflow()
@@ -30,10 +31,9 @@ def main_dqn():
         memory_warmup_size=1000,
         memory_capacity=10_000,
         memory_compress=False,
-        window_length=4,
     )
-    rl_config.hidden_block.set((512,))
-    _run(rl_config, train=100_000, continuous=False)
+    rl_config.hidden_block.set((256, 256))
+    _train(rl_config, train=500_000)
 
 
 if __name__ == "__main__":

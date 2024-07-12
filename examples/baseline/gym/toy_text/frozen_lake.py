@@ -4,20 +4,22 @@ import mlflow
 import numpy as np
 
 import srl
-from srl.runner.callbacks.mlflow_callback import MLFlowCallback
 from srl.utils import common
 
-mlflow.set_tracking_uri("mlruns")
+mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "mlruns"))
 common.logger_print()
 
 ENV_NAME = "FrozenLake-v1"
-BASE_LR = 0.01
+BASE_LR = 0.1
 BASE_TRAIN = 1_000_000
 
 
 def _train(rl_config, train):
     runner = srl.Runner(ENV_NAME, rl_config)
-    runner.train(max_train_count=train, callbacks=[MLFlowCallback(interval_eval=1)])
+
+    runner.set_mlflow()
+    runner.train(max_train_count=train)
+
     rewards = runner.evaluate(max_episodes=1000)
     print(f"{rl_config.name}:{np.mean(rewards)} > 0.4")
 
@@ -46,8 +48,16 @@ def main_search_dynaq():
     _train(search_dynaq.Config(q_ext_lr=BASE_LR, q_int_lr=BASE_LR), BASE_TRAIN)
 
 
+def main_search_dynaq_v2():
+    from srl.algorithms import search_dynaq_v2
+
+    _train(search_dynaq_v2.Config(q_lr=BASE_LR), BASE_TRAIN)
+
+
 def compare():
     import matplotlib.pyplot as plt
+
+    from srl.runner.callbacks.mlflow_callback import MLFlowCallback
 
     metric_name = "eval_reward0"
 
@@ -59,13 +69,16 @@ def compare():
         "VanillaPolicy",
         "QL_Agent57",
         "SearchDynaQ",
+        "SearchDynaQ_v2",
     ]:
-        steps, values = MLFlowCallback.get_metrics(ENV_NAME, name, metric_name)
-        if steps is None:
+        history = MLFlowCallback.get_metric(ENV_NAME, name, metric_name)
+        if history is None:
             continue
-        if len(values) > 20:
-            values = common.moving_average(values, 10)
-        plt.plot(steps, values, label=name)
+        times = np.array([h.timestamp for h in history])
+        times -= times[0]
+        steps = [h.step for h in history]
+        vals = [h.value for h in history]
+        plt.plot(steps, common.ema(vals), label=name)
     plt.grid()
     plt.legend()
     plt.title(f"Train:{BASE_TRAIN}, lr={BASE_LR}")
@@ -79,4 +92,5 @@ if __name__ == "__main__":
     main_policy()
     main_ql_agent57()
     main_search_dynaq()
+    main_search_dynaq_v2()
     compare()

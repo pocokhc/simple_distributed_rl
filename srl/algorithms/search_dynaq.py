@@ -296,8 +296,6 @@ class Parameter(RLParameter[Config]):
 class Trainer(RLTrainer[Config, Parameter, Memory]):
     def __init__(self, *args):
         super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
 
         self.iteration_num = 0
 

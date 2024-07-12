@@ -2,6 +2,9 @@ import numpy as np
 
 import srl
 from srl.algorithms import ql  # algorithm load
+from srl.utils import common
+
+common.logger_print()
 
 # --- save parameter path
 _parameter_path = "_params.dat"

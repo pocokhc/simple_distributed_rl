@@ -336,7 +336,7 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
     # ----------------------------------
     # trainer
     # ----------------------------------
-    def on_trainer_start(self, context: RunContext, state: RunStateTrainer) -> None:
+    def on_trainer_start(self, context: RunContext, state: RunStateTrainer, **kwargs) -> None:
         # eval, 分散の場合はevalをしない
         if context.distributed:
             self.enable_eval = False

@@ -204,8 +204,6 @@ class EnvRun:
         frameskip: int = 0,
         frameskip_function: Optional[Callable[[], None]] = None,
     ) -> None:
-        if self._done in [DoneTypes.TRUNCATED, DoneTypes.TERMINATED]:
-            return
         if self._done != DoneTypes.NONE:
             raise SRLError(f"It is in the done state. Please execute reset(). ({self._done})")
         if self._is_direct_step and (not self.env.can_simulate_from_direct_step):

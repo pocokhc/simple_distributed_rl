@@ -261,19 +261,21 @@ def _play(
             state.workers[state.worker_idx].render()
             [c.on_step_action_after(context, state) for c in _calls_on_step_action_after]
 
-            # env step
-            [c.on_step_begin(context, state) for c in _calls_on_step_begin]
-            state.env.step(
-                state.action,
-                state.workers[state.worker_idx].config.frameskip,
-                __skip_func_arg,
-            )
+            # workerがenvを終了させた場合に対応
+            if not state.env.done:
+                # env step
+                [c.on_step_begin(context, state) for c in _calls_on_step_begin]
+                state.env.step(
+                    state.action,
+                    state.workers[state.worker_idx].config.frameskip,
+                    __skip_func_arg,
+                )
 
-            # rl step
-            [w.on_step() for w in state.workers]
+                # rl step
+                [w.on_step() for w in state.workers]
 
-            # step update
-            state.total_step += 1
+                # step update
+                state.total_step += 1
 
             # --- trainer
             if state.trainer is not None:

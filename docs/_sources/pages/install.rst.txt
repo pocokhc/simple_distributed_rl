@@ -42,7 +42,7 @@ Option Libraries
    + pika
    + paho-mqtt
 + 学習を管理する場合
-  + mlflow
+   + mlflow
 
 一括インストールコマンドは以下です。
 （Tensorflow、Torch、クラウド分散学習用ライブラリ、mlflowを除く）

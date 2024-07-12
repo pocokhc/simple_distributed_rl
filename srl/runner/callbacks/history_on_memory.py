@@ -11,7 +11,6 @@ from srl.base.run.callback import RunCallback, TrainCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.callbacks.evaluate import Evaluate
-from srl.runner.callbacks.history_viewer import HistoryViewer
 
 logger = logging.getLogger(__name__)
 

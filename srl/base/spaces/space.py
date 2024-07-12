@@ -78,6 +78,16 @@ class SpaceBase(ABC, Generic[_T]):
     def encode_stack(self, val: List[_T]):
         raise NotImplementedError()
 
+    # --- utils
+    def is_image(self) -> bool:
+        return SpaceTypes.is_image(self.stype)
+
+    def is_discrete(self) -> bool:
+        return SpaceTypes.DISCRETE == self.stype
+
+    def is_continuous(self) -> bool:
+        return SpaceTypes.CONTINUOUS == self.stype
+
     # --------------------------------------
     # action discrete
     # --------------------------------------

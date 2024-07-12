@@ -10,7 +10,7 @@ common.logger_print()
 
 
 def _run(rl_config, train, continuous: bool):
-    env_config = srl.EnvConfig("CarRacing-v2", {"continuous": continuous})
+    env_config = srl.EnvConfig("LunarLander-v2", {"continuous": continuous})
     runner = srl.Runner(env_config, rl_config)
     runner.model_summary()
 
@@ -30,10 +30,9 @@ def main_dqn():
         memory_warmup_size=1000,
         memory_capacity=10_000,
         memory_compress=False,
-        window_length=4,
     )
     rl_config.hidden_block.set((512,))
-    _run(rl_config, train=100_000, continuous=False)
+    _run(rl_config, train=50_000, continuous=False)
 
 
 if __name__ == "__main__":

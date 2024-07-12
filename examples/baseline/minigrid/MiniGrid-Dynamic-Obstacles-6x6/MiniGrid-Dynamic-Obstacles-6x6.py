@@ -4,12 +4,12 @@ import mlflow
 import numpy as np
 
 import srl
-from srl.runner.callbacks.mlflow_callback import MLFlowCallback
 from srl.utils import common
 
-mlflow.set_tracking_uri("mlruns")
+mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "mlruns"))
 common.logger_print()
 
+# MiniGrid Documentation https://minigrid.farama.org/
 ENV_NAME = "MiniGrid-Dynamic-Obstacles-6x6-v0"
 BASE_LR = 0.1
 BASE_TRAIN = 300_000
@@ -17,7 +17,10 @@ BASE_TRAIN = 300_000
 
 def _train(rl_config, train):
     runner = srl.Runner(ENV_NAME, rl_config)
-    runner.train(max_train_count=train, callbacks=[MLFlowCallback(interval_eval=1)])
+
+    runner.set_mlflow()
+    runner.train(max_train_count=train)
+
     rewards = runner.evaluate(max_episodes=100)
     print(f"{np.mean(rewards)} > 0.5")
 
@@ -47,8 +50,16 @@ def main_search_dynaq():
     )
 
 
+def main_search_dynaq_v2():
+    from srl.algorithms import search_dynaq_v2
+
+    _train(search_dynaq_v2.Config(q_lr=BASE_LR), BASE_TRAIN)
+
+
 def compare():
     import matplotlib.pyplot as plt
+
+    from srl.runner.callbacks.mlflow_callback import MLFlowCallback
 
     metric_name = "eval_reward0"
 
@@ -59,13 +70,16 @@ def compare():
         "QL",
         "VanillaPolicy",
         "SearchDynaQ",
+        "SearchDynaQ_v2",
     ]:
-        steps, values = MLFlowCallback.get_metrics(ENV_NAME, name, metric_name)
-        if steps is None:
+        history = MLFlowCallback.get_metric(ENV_NAME, name, metric_name)
+        if history is None:
             continue
-        if len(values) > 20:
-            values = common.moving_average(values, 10)
-        plt.plot(steps, values, label=name)
+        times = np.array([h.timestamp for h in history])
+        times -= times[0]
+        steps = [h.step for h in history]
+        vals = [h.value for h in history]
+        plt.plot(steps, common.rolling(vals), label=name)
     plt.grid()
     plt.legend()
     plt.title(f"Train:{BASE_TRAIN}, lr={BASE_LR}")
@@ -78,4 +92,5 @@ if __name__ == "__main__":
     main_ql()
     main_policy()
     main_search_dynaq()
+    main_search_dynaq_v2()
     compare()

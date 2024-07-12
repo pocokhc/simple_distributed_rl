@@ -4,10 +4,9 @@ import mlflow
 import numpy as np
 
 import srl
-from srl.runner.callbacks.mlflow_callback import MLFlowCallback
 from srl.utils import common
 
-mlflow.set_tracking_uri("mlruns")
+mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "mlruns"))
 common.logger_print()
 
 ENV_NAME = "Pendulum-v1"
@@ -22,14 +21,14 @@ def _run(rl_config, is_mp, is_image, train):
     runner = srl.Runner(ENV_NAME, rl_config)
     runner.model_summary()
 
-    callbacks: list = [MLFlowCallback(tags={"Image": is_image})]
+    runner.set_mlflow()
     if is_mp:
-        runner.train_mp(max_train_count=train, callbacks=callbacks)
+        runner.train_mp(max_train_count=train)
     else:
-        runner.train(max_train_count=train, callbacks=callbacks)
+        runner.train(max_train_count=train)
 
     rewards = runner.evaluate()
-    print(f"[{rl_config.name}] evaluate episodes: {np.mean(rewards)}")
+    print(f"[{rl_config.name}] {np.mean(rewards)}, {rewards}")
 
 
 def main_dqn(is_mp=False, is_image=False):
@@ -37,7 +36,7 @@ def main_dqn(is_mp=False, is_image=False):
 
     rl_config = dqn.Config(
         lr=BASE_LR,
-        target_model_update_interval=1000,
+        target_model_update_interval=2000,
         memory_warmup_size=1000,
         memory_capacity=10_000,
         memory_compress=False,
@@ -51,7 +50,7 @@ def main_rainbow(is_mp=False, is_image=False):
 
     rl_config = rainbow.Config(
         lr=BASE_LR,
-        target_model_update_interval=1000,
+        target_model_update_interval=2000,
         memory_warmup_size=1000,
         memory_capacity=10_000,
         memory_compress=False,
@@ -65,7 +64,7 @@ def main_r2d2(is_mp=False, is_image=False):
 
     rl_config = r2d2.Config(
         lr=BASE_LR,
-        target_model_update_interval=1000,
+        target_model_update_interval=2000,
         burnin=5,
         sequence_length=2,
         memory_warmup_size=1000,
@@ -82,7 +81,7 @@ def main_agent57(is_mp=False, is_image=False):
     rl_config = agent57.Config(
         lr_ext=BASE_LR,
         lr_int=BASE_LR,
-        target_model_update_interval=1000,
+        target_model_update_interval=2000,
         burnin=5,
         sequence_length=2,
         enable_intrinsic_reward=False,
@@ -165,27 +164,31 @@ def main_dreamer_v3(is_mp=False, is_image=False):
 def compare():
     import matplotlib.pyplot as plt
 
+    from srl.runner.callbacks.mlflow_callback import MLFlowCallback
+
     metric_name = "eval_reward0"
 
     plt.figure(figsize=(12, 6))
     plt.xlabel("train")
     plt.ylabel(metric_name)
     for name in [
-        "DQN:tensorflow",
-        "Rainbow:tensorflow",
+        "DQN",
+        "Rainbow",
         "R2D2",
-        "Agent57:tensorflow",
+        "Agent57",
         "PPO",
         "DDPG",
         "SAC",
         "DreamerV3",
     ]:
-        steps, values = MLFlowCallback.get_metrics(ENV_NAME, name, metric_name)
-        if steps is None:
+        history = MLFlowCallback.get_metric(ENV_NAME, name, metric_name)
+        if history is None:
             continue
-        if len(values) > 20:
-            values = common.moving_average(values, 10)
-        plt.plot(steps, values, label=name)
+        times = np.array([h.timestamp for h in history])
+        times -= times[0]
+        steps = [h.step for h in history]
+        vals = [h.value for h in history]
+        plt.plot(steps, common.rolling(vals), label=name)
     plt.grid()
     plt.legend()
     plt.title(f"Train:{BASE_TRAIN}, lr={BASE_LR}, Block={BASE_BLOCK}")
@@ -198,12 +201,12 @@ if __name__ == "__main__":
     is_mp = False
     is_image = False
 
-    # main_dqn(is_mp, is_image)
-    # main_rainbow(is_mp, is_image)
-    # main_r2d2(is_mp, is_image)
-    # main_agent57(is_mp, is_image)
+    main_dqn(is_mp, is_image)
+    main_rainbow(is_mp, is_image)
+    main_r2d2(is_mp, is_image)
+    main_agent57(is_mp, is_image)
     main_ppo(is_mp, is_image)
-    # main_ddpg(is_mp, is_image)
-    # main_sac(is_mp, is_image)
-    # main_dreamer_v3(is_mp, is_image)
+    main_ddpg(is_mp, is_image)
+    main_sac(is_mp, is_image)
+    main_dreamer_v3(is_mp, is_image)
     compare()

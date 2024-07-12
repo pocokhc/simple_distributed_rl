@@ -41,6 +41,7 @@ class RunStateActor:
     worker_idx: int = 0
     episode_seed: Optional[int] = None
     action: EnvActionType = 0
+    train_count: int = 0
 
     # train
     is_step_trained: bool = False
@@ -291,8 +292,8 @@ def _play(
                             run_data = cast(queue.Queue, state.thread_out_queue).get(timeout=1)
                             state.trainer.thread_train_teardown(run_data)
 
-                    state.is_step_trained = state.trainer.get_train_count() > t0_train_count
-                    t0_train_count = state.trainer.get_train_count()
+                    state.is_step_trained = state.trainer.train_count > t0_train_count
+                    t0_train_count = state.trainer.train_count
                 elif not state.trainer.implement_thread_train():
                     _prev_train = state.trainer.train_count
                     state.trainer.train()
@@ -304,6 +305,7 @@ def _play(
                         train_data = state.trainer.thread_train(setup_data)
                         state.trainer.thread_train_teardown(train_data)
                         state.is_step_trained = state.trainer.train_count > _prev_train
+                state.train_count = state.trainer.train_count
 
             _stop_flags = [c.on_step_end(context, state) for c in _calls_on_step_end]
             state.worker_idx = state.worker_indices[state.env.next_player_index]  # on_step_end の後

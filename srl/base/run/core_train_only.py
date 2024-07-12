@@ -24,6 +24,7 @@ class RunStateTrainer:
 
     elapsed_t0: float = 0
     end_reason: str = ""
+    train_count: int = 0  # actorと合わせる用
 
     # train
     is_step_trained: bool = False  # 非同期でタイミングを取るのに重要
@@ -125,7 +126,7 @@ def _play_trainer_only(
             ),
         )
         logger.info(f"[{context.run_name}] train thread start")
-        t0_train_count = state.trainer.get_train_count()
+        t0_train_count = state.trainer.train_count
         train_ps.start()
 
     # --- 3 loop
@@ -160,8 +161,8 @@ def _play_trainer_only(
                         run_data = cast(queue.Queue, state.thread_out_queue).get(timeout=1)
                         state.trainer.thread_train_teardown(run_data)
 
-                state.is_step_trained = state.trainer.get_train_count() > t0_train_count
-                t0_train_count = state.trainer.get_train_count()
+                state.is_step_trained = state.trainer.train_count > t0_train_count
+                t0_train_count = state.trainer.train_count
             elif not state.trainer.implement_thread_train():
                 _prev_train = state.trainer.train_count
                 state.trainer.train()
@@ -173,6 +174,7 @@ def _play_trainer_only(
                     train_data = state.trainer.thread_train(setup_data)
                     state.trainer.thread_train_teardown(train_data)
                     state.is_step_trained = state.trainer.train_count > _prev_train
+            state.train_count = state.trainer.train_count
 
             # callbacks
             _stop_flags = [c.on_train_after(context, state) for c in _calls_on_train_after]

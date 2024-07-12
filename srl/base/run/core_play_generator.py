@@ -172,6 +172,7 @@ def play_generator(
                     train_data = state.trainer.thread_train(setup_data)
                     state.trainer.thread_train_teardown(train_data)
                     state.is_step_trained = state.trainer.train_count > _prev_train
+            state.train_count = state.trainer.train_count
 
         _stop_flags = [c.on_step_end(context, state) for c in _calls_on_step_end]
         yield ("on_step_end", context, state)

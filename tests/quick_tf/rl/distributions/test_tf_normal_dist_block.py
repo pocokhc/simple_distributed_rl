@@ -123,7 +123,6 @@ def test_loss_grad(fixed_scale, enable_squashed):
 
 def test_dist():
     pytest.importorskip("tensorflow")
-    assert is_package_installed("tensorflow_probability")
     import tensorflow as tf
     from tensorflow_probability import distributions as tfd
 

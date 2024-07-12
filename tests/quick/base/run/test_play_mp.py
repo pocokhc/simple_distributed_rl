@@ -152,6 +152,7 @@ def test_trainer(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
         remote_qsize,
         remote_board,
         end_signal,
+        [],
     )
 
     assert end_signal.value

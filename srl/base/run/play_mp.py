@@ -146,10 +146,14 @@ class _ActorInterrupt(RunCallback):
         state.actor_send_q = cast(_ActorRLMemory, state.memory).q_send
 
         self.t0 = time.time()
-        params = self.remote_board.value
+        dat = self.remote_board.value
+        if dat is None:
+            return self.end_signal.value
+        train_count, params = pickle.loads(dat)
         if params is None:
             return self.end_signal.value
-        self.parameter.restore(pickle.loads(params), from_cpu=True)
+        self.parameter.restore(params, from_cpu=True)
+        state.train_count = train_count
         state.sync_actor += 1
         return self.end_signal.value
 
@@ -173,9 +177,11 @@ def _run_actor(
 
         # --- parameter
         parameter = context.rl_config.make_parameter(env=env, is_load=False)
-        params = remote_board.value
-        if params is not None:
-            parameter.restore(pickle.loads(params), from_cpu=True)
+        dat = remote_board.value
+        if dat is not None:
+            train_count, params = pickle.loads(dat)
+            if params is not None:
+                parameter.restore(params, from_cpu=True)
 
         # --- memory
         memory = _ActorRLMemory(
@@ -284,7 +290,7 @@ def _parameter_communicate(
             time.sleep(trainer_parameter_send_interval)
             params = parameter.backup(to_cpu=True)
             if params is not None:
-                remote_board.set(pickle.dumps(params))
+                remote_board.set(pickle.dumps((share_dict["train_count"], params)))
                 share_dict["sync_count"] += 1
     except MemoryError:
         import gc
@@ -321,6 +327,7 @@ class _TrainerInterrupt(TrainCallback):
     def on_train_after(self, context: RunContext, state: RunStateTrainer, **kwargs) -> bool:
         if not state.is_step_trained:
             time.sleep(1)  # warmupなら待機
+        self.share_dict["train_count"] = state.trainer.train_count
         state.sync_trainer = self.share_dict["sync_count"]
         state.trainer_recv_q = self.share_dict["q_recv"]
         if time.time() - self.t0_health > 5:
@@ -359,6 +366,7 @@ def _run_trainer(
         share_dict = {
             "sync_count": 0,
             "q_recv": 0,
+            "train_count": 0,
         }
         memory_ps = threading.Thread(
             target=_memory_communicate,
@@ -487,7 +495,7 @@ def train(
             # --- init remote_memory/parameter
             params = parameter.backup(to_cpu=True)
             if params is not None:
-                remote_board.set(pickle.dumps(params))
+                remote_board.set(pickle.dumps((0, params)))
 
             # --- actor ---
             actors_ps_list: List[mp.Process] = []

@@ -17,14 +17,14 @@ register(
     id="OX",
     entry_point=__name__ + ":OX",
     kwargs={},
-    enable_assert=False,
+    check_duplicate=False,
 )
 
 register(
     id="OX-layer",
     entry_point=__name__ + ":OX",
     kwargs={"obs_type": "layer"},
-    enable_assert=False,
+    check_duplicate=False,
 )
 
 

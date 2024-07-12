@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 registration.register(
     id="hungry_geese",
     entry_point=__name__ + ":HungryGeese",
-    enable_assert=False,
+    check_duplicate=False,
 )
 
 

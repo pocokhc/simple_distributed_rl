@@ -88,7 +88,7 @@ class StubEnv(EnvBase):
 
 @pytest.fixture(scope="function", autouse=True)
 def scope_function():
-    registration.register(id="base_StubEnv", entry_point=__name__ + ":StubEnv", enable_assert=False)
+    registration.register(id="base_StubEnv", entry_point=__name__ + ":StubEnv", check_duplicate=False)
     yield
 
 

@@ -114,18 +114,18 @@ def make(config: Union[str, EnvConfig]) -> EnvRun:
     return EnvRun(config)
 
 
-def register(id: str, entry_point: str, kwargs: Dict = {}, enable_assert: bool = True) -> None:
+def register(id: str, entry_point: str, kwargs: Dict = {}, check_duplicate: bool = True) -> None:
     """Register Env.
 
     Args:
         id (str): Identifier when calling Env. Must be unique.
         entry_point (str): Specify Env class. Must be a string that can be called with importlib.import_module.
         kwargs (Dict, optional): Arguments for Env instance. Defaults to {}.
-        enable_assert (bool, optional): Throw assert if there is same id. Defaults to True.
+        check_duplicate (bool, optional): Throw assert if there is same id. Defaults to True.
     """
     global _registry
 
-    if enable_assert:
+    if check_duplicate:
         assert id not in _registry, f"{id} was already registered. entry_point={entry_point}"
     elif id in _registry:
         # 既にあれば上書き

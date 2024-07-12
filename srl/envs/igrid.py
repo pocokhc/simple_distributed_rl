@@ -17,7 +17,7 @@ registration.register(
     kwargs={
         "N": 0,
     },
-    enable_assert=False,
+    check_duplicate=False,
 )
 
 

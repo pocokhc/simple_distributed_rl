@@ -81,6 +81,7 @@ class RunnerFacadeTrain(RunnerBase):
             self.apply_progress(callbacks, enable_eval=True)
         self.apply_checkpoint(callbacks)
         self._apply_history(callbacks)
+        self.apply_mlflow(callbacks)
 
         self.run_context(
             parameter=parameter,
@@ -139,6 +140,7 @@ class RunnerFacadeTrain(RunnerBase):
             self.apply_progress(callbacks, enable_eval=False)
         self.apply_checkpoint(callbacks)
         self._apply_history(callbacks)
+        self.apply_mlflow(callbacks)
 
         self.run_context(
             parameter=parameter,
@@ -197,6 +199,7 @@ class RunnerFacadeTrain(RunnerBase):
             self.apply_progress(callbacks, enable_eval=True)
         self.apply_checkpoint(callbacks)
         self._apply_history(callbacks)
+        self.apply_mlflow(callbacks)
 
         self.run_context_trainer_only(
             parameter=parameter,
@@ -265,6 +268,7 @@ class RunnerFacadeTrain(RunnerBase):
             self.apply_progress(callbacks, enable_eval=True)
         self.apply_checkpoint(callbacks)
         self._apply_history(callbacks)
+        self.apply_mlflow(callbacks)
 
         from srl.base.run.play_mp import MpData, train
 

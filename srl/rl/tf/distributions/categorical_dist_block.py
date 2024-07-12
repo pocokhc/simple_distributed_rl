@@ -18,6 +18,7 @@ if v216_older:
     _sum = tf.reduce_sum
     _mean = tf.reduce_mean
     _log = tf.math.log
+    _categorical = tf.random.categorical
 else:
     from tensorflow.keras import ops
 
@@ -31,6 +32,7 @@ else:
     _sum = ops.sum
     _mean = ops.mean
     _log = ops.log
+    _categorical = keras.random.categorical
 
 
 kl = keras.layers
@@ -63,14 +65,14 @@ class CategoricalDist:
         return self._probs
 
     def sample(self, onehot: bool = False):
-        a = keras.random.categorical(self.logits, num_samples=1)
+        a = _categorical(self.logits, num_samples=1)
         if onehot:
             a = _squeeze(a, axis=1)
             a = _one_hot(a, self.classes, dtype=tf.float32)
         return a
 
     def rsample(self, onehot: bool = True):
-        a = keras.random.categorical(self.logits, num_samples=1)
+        a = _categorical(self.logits, num_samples=1)
         if onehot:
             a = _squeeze(a, axis=1)
             a = _one_hot(a, self.classes, dtype=tf.float32)

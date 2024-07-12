@@ -7,38 +7,37 @@ from typing import Any
 
 import numpy as np
 
-from srl.base.define import DoneTypes
 from srl.base.exception import UndefinedError
 from srl.base.rl.algorithms.base_ql import RLConfig, RLWorker
+from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.rl import functions as funcs
-from srl.rl.memories.sequence_memory import SequenceMemory
 
 logger = logging.getLogger(__name__)
 
 
-# ------------------------------------------------------
-# config
-# ------------------------------------------------------
 @dataclass
 class Config(RLConfig):
-    #: 方策反復法におけるタイムアウト
-    iteration_timeout: float = 10
+
+    q_epsilon: float = 0.001
+    search_epsilon: float = 0.5
+    test_epsilon: float = 0.0001
+
+    search_rate: float = 0.5
+    ucb_scale: float = 0.1
+    q_target_policy_prob: float = 1.0
+    q_discount: float = 0.9
+    q_lr: float = 0.1
+    search_max_step: int = 10
+
     #: 方策反復法の学習完了の閾値
     iteration_threshold: float = 0.0001
-
-    #: 割引率
-    discount: float = 0.9
-
-    ucb_reward_scale: float = 0.1
-    cell_addition_step: int = 10
-    cell_policy_prob: float = 0.99
-    cell_iteration_threshold: float = 0.1
-
-    search_max_step: int = 20
-    backup_rate: float = 0.9
+    #: 方策反復法におけるタイムアウト
+    iteration_timeout: float = 10
+    #: 方策反復法を実行する間隔(学習回数)
+    iteration_interval: int = 10_000
 
     def get_framework(self) -> str:
         return ""
@@ -59,13 +58,35 @@ register(
 )
 
 
-class Memory(SequenceMemory):
-    pass
+class Memory(RLMemory[Config]):
+    def __init__(self, *args):
+        super().__init__(*args)
+
+        self.buffer_mdp = []
+        self.buffer_archive = []
+
+    def length(self) -> int:
+        return len(self.buffer_mdp) + len(self.buffer_archive)
+
+    def add(self, mode, batch) -> None:
+        if mode == "mdp":
+            self.buffer_mdp.append(batch)
+        elif mode == "archive":
+            self.buffer_archive.append(batch)
+        else:
+            raise UndefinedError(mode)
+
+    def sample_mdp(self):
+        b = self.buffer_mdp
+        self.buffer_mdp = []
+        return b
+
+    def sample_archive(self):
+        b = self.buffer_archive
+        self.buffer_archive = []
+        return b
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
 class Parameter(RLParameter[Config]):
     def __init__(self, *args):
         super().__init__(*args)
@@ -78,31 +99,27 @@ class Parameter(RLParameter[Config]):
         self.invalid_actions = {}
         self.mdp_size = 0  # for info
 
-        # [reset_state][dist_state + action]
+        # [dist_state + action]
         self.archive = {}
-        # [reset_state]
-        self.archive_count = {}
-        self.archive_size = 0  # for info
+        self.archive_total_visit = 0
 
-        self.rmin = np.inf
-        self.rmax = -np.inf
-
-        # --- cache
-        self.q_tbl_ext = {}
-        self.q_tbl_target = {}
+        # [state][action]
+        self.q_tbl = {}
+        self.q_min = np.inf
+        self.q_max = -np.inf
 
     def call_restore(self, data: Any, **kwargs) -> None:
         d = json.loads(data)
         self.trans = d[0]
         self.reward = d[1]
-        self.done = d[3]
-        self.invalid_actions = d[4]
-        self.mdp_size = d[5]
-        self.archive = d[6]
-        self.archive_count = d[7]
-        self.archive_size = d[8]
-        self.rmin = d[9]
-        self.rmax = d[10]
+        self.done = d[2]
+        self.invalid_actions = d[3]
+        self.mdp_size = d[4]
+        self.archive = d[5]
+        self.archive_total_visit = d[6]
+        self.q_tbl = d[7]
+        self.q_min = d[8]
+        self.q_max = d[9]
 
     def call_backup(self, **kwargs):
         return json.dumps(
@@ -113,10 +130,10 @@ class Parameter(RLParameter[Config]):
                 self.invalid_actions,
                 self.mdp_size,
                 self.archive,
-                self.archive_count,
-                self.archive_size,
-                self.rmin,
-                self.rmax,
+                self.archive_total_visit,
+                self.q_tbl,
+                self.q_min,
+                self.q_max,
             ]
         )
 
@@ -134,21 +151,18 @@ class Parameter(RLParameter[Config]):
             self.invalid_actions[n_state] = next_invalid_actions
             self.mdp_size += 1
 
+    def init_q(self, state):
+        if state not in self.q_tbl:
+            self.q_tbl[state] = [0 for _ in range(self.config.action_space.n)]
+
     def iteration_q(
         self,
-        mode: str,
         discount: float,
         policy_prob: float,
-        target_state: str = "",
         threshold: float = 0.0001,
         timeout: float = 1,
     ):
-        if mode == "ext":
-            q_tbl = self.q_tbl_ext
-        elif mode == "target":
-            q_tbl = self.q_tbl_target
-        else:
-            raise UndefinedError(mode)
+        q_tbl = self.q_tbl
 
         all_states = []
         for state in self.trans.keys():
@@ -166,34 +180,14 @@ class Parameter(RLParameter[Config]):
                         continue
                     if next_state not in q_tbl:
                         q_tbl[next_state] = [0.0 for _ in range(self.config.action_space.n)]
-                    if mode == "ext":
-                        _next_states.append(
-                            [
-                                next_state,
-                                self.trans[state][action][next_state] / N,
-                                self.reward[state][action][next_state],
-                                self.done[state][action][next_state],
-                            ]
-                        )
-                    elif mode == "target":
-                        # targetなら1、終了なら-1
-                        done = self.done[state][action][next_state]
-                        if state == target_state:
-                            reward = 1
-                            done = 1
-                        else:
-                            reward = -done
-                        _next_states.append(
-                            [
-                                next_state,
-                                self.trans[state][action][next_state] / N,
-                                reward,
-                                done,
-                            ]
-                        )
-                    else:
-                        raise UndefinedError(mode)
-
+                    _next_states.append(
+                        [
+                            next_state,
+                            self.trans[state][action][next_state] / N,
+                            self.reward[state][action][next_state],
+                            self.done[state][action][next_state],
+                        ]
+                    )
                 if len(_next_states) == 0:
                     continue
                 all_states.append([state, action, _next_states])
@@ -215,7 +209,7 @@ class Parameter(RLParameter[Config]):
             if delta < threshold:
                 break
         else:
-            logger.info(f"[{mode}] iteration timeout(delta={delta}, threshold={threshold}, count={count})")
+            logger.info(f"iteration timeout(delta={delta}, threshold={threshold}, count={count})")
         return q_tbl
 
     def calc_next_q(self, q_tbl, prob: float, invalid_actions):
@@ -243,11 +237,6 @@ class Parameter(RLParameter[Config]):
             n_q += p * q_tbl[a]
         return n_q
 
-    def calc_q_normalize(self, q: np.ndarray, q_min: float, q_max: float):
-        if q_min >= q_max:
-            return q
-        return (q - q_min) / (q_max - q_min)
-
     def sample_next_state(self, state: str, action: int):
         if state not in self.trans:
             return None
@@ -258,119 +247,84 @@ class Parameter(RLParameter[Config]):
         r_idx = funcs.random_choice_by_probs(weights)
         return n_s_list[r_idx]
 
-    def archive_update(self, reset_state, state, action, n_state, step, backup):
-        if reset_state not in self.archive:
-            self.archive[reset_state] = {}
-            self.archive_count[reset_state] = 0
-        self.archive_count[reset_state] += 1
+    # -------------------------------------------
 
-        cell_key = self._archive_init(reset_state, state, action)
-        self._archive_init(reset_state, n_state, action)
+    def archive_update(self, batch):
+        state, action, step, backup = batch
 
-        cell = self.archive[reset_state][cell_key]
-        cell["visit"] += 1
-        if (cell["step"] > step) and (backup is not None):
-            cell["step"] = step
-            cell["backup"] = backup
-            cell["select"] = 0
-
-    def is_archive_update(self, reset_state, state, action, step):
-        if reset_state not in self.archive:
-            return True
-        key = state + "_" + str(action)
-        if key not in self.archive[reset_state]:
-            return True
-        cell = self.archive[reset_state][key]
-        if cell["step"] > step:
-            return True
-        return False
-
-    def _archive_init(self, reset_state, state, action):
-        key = state + "_" + str(action)
-        if key not in self.archive[reset_state]:
+        key = state + "_" + str(0)
+        if key not in self.archive:
             for a in range(self.config.action_space.n):
-                self.archive[reset_state][state + "_" + str(a)] = {
+                akey = state + "_" + str(a)
+                self.archive[akey] = {
                     "state": state,
                     "action": a,
-                    "step": np.inf,
-                    "visit": 0,
                     "select": 0,
+                    "visit": 0,
+                    "step": step,
+                    "backup": backup,
                 }
-                self.archive_size += 1
-        return key
 
-    def archive_select(self, reset_state):
-        if reset_state not in self.archive:
+        if action is not None:
+            key = state + "_" + str(action)
+            cell = self.archive[key]
+            cell["visit"] += 1
+            self.archive_total_visit += 1
+            if cell["step"] > step:
+                cell["select"] = 0
+                cell["step"] = step
+                cell["backup"] = backup
+
+    def archive_select(self):
+        if len(self.archive):
+            return None
+        if self.archive_total_visit == 0:
             return None
 
-        # --- UCB
         max_ucb = -np.inf
         max_cells = []
-        N = self.archive_count[reset_state]
-        for cell in self.archive[reset_state].values():
-            n = cell["visit"] + cell["select"]
+        for cell in self.archive.values():
+            n = cell["visit"]
             if n == 0:
                 ucb = np.inf
             else:
-                # MDPで[state,action]の平均報酬
-                reward = self.get_reward(cell["state"], cell["action"], normalized=True)
-                ucb = self.config.ucb_reward_scale * reward + np.sqrt(2 * np.log(N) / n)
+                q = self.q_tbl[cell["state"]][cell["action"]]
+                if self.q_min < self.q_max:
+                    q = (q - self.q_min) / (self.q_max - self.q_min)
+                ucb = self.config.ucb_scale * q + np.sqrt(2 * np.log(self.archive_total_visit) / n)
             if max_ucb < ucb:
                 max_ucb = ucb
                 max_cells = [cell]
             elif max_ucb == ucb:
                 max_cells.append(cell)
         max_cell = random.choice(max_cells)
+        max_cell["select"] += 1
         return max_cell
 
-    def get_reward(self, state, action, normalized: bool):
-        if state not in self.trans:
-            return 0
-        N = sum(self.trans[state][action].values())
-        if N == 0:
-            return 0
-        reward = 0
-        for n_state, n in self.trans[state][action].items():
-            if n == 0:
-                continue
-            prob = n / N
-            r = self.reward[state][action][n_state]
-            if normalized:
-                if self.rmax > self.rmin:
-                    r = (r - self.rmin) / (self.rmax - self.rmin)
-            reward += r * prob
-        return reward
 
-
-# ------------------------------------------------------
-# Trainer
-# ------------------------------------------------------
 class Trainer(RLTrainer[Config, Parameter, Memory]):
     def __init__(self, *args):
         super().__init__(*args)
 
+        self.iteration_num = 0
+
     def train(self) -> None:
-        if self.memory.is_warmup_needed():
+        self._train_archive()
+        self._train_mdp()
+
+    def _train_archive(self):
+        if len(self.memory.buffer_archive) == 0:
             return
-        batchs = self.memory.sample()
+        for batch in self.memory.sample_archive():
+            self.parameter.archive_update(batch)
+        self.info["archive_size"] = len(self.parameter.archive)
 
-        for batch in batchs:
-            reset_state = batch["reset_state"]
-            state = batch["state"]
-            n_state = batch["next_state"]
-            action = batch["action"]
-            reward = batch["reward"]
-            done = batch["done"]
-            invalid_actions = batch["invalid_actions"]
-            next_invalid_actions = batch["next_invalid_actions"]
-            step = batch["step"]
-            backup = batch["backup"]
+    def _train_mdp(self):
+        if len(self.memory.buffer_mdp) == 0:
+            return
+        for batch in self.memory.sample_mdp():
+            state, n_state, action, reward, done, invalid_actions, next_invalid_actions = batch
 
-            # --- update reward
-            self.parameter.rmin = min(self.parameter.rmin, reward)
-            self.parameter.rmax = max(self.parameter.rmax, reward)
-
-            # --- update model
             self.parameter.init_model(state, action, n_state, invalid_actions, next_invalid_actions)
             self.parameter.trans[state][action][n_state] += 1
             c = self.parameter.trans[state][action][n_state]
@@ -381,13 +335,32 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
                 reward - self.parameter.reward[state][action][n_state]
             ) / c
 
-            # --- update archive
-            self.parameter.archive_update(reset_state, state, action, n_state, step, backup)
+            # --- q
+            self.parameter.init_q(state)
+            self.parameter.init_q(n_state)
+            n_q = self.parameter.calc_next_q(
+                self.parameter.q_tbl[n_state],
+                self.config.q_target_policy_prob,
+                next_invalid_actions,
+            )
+            target_q = reward + (1 - done) * self.config.q_discount * n_q
+            td_error = target_q - self.parameter.q_tbl[state][action]
+            self.parameter.q_tbl[state][action] += self.config.q_lr * td_error
 
+            self.parameter.q_min = min(self.parameter.q_min, self.parameter.q_tbl[state][action])
+            self.parameter.q_max = max(self.parameter.q_max, self.parameter.q_tbl[state][action])
+
+            if self.train_count % self.config.iteration_interval == 0:
+                self.parameter.iteration_q(
+                    self.config.q_discount,
+                    self.config.q_target_policy_prob,
+                    self.config.iteration_threshold,
+                    self.config.iteration_timeout,
+                )
+                self.iteration_num += 1
             self.train_count += 1
-
+        self.info["iteration"] = self.iteration_num
         self.info["mdp_size"] = self.parameter.mdp_size
-        self.info["archive_size"] = self.parameter.archive_size
 
 
 # ------------------------------------------------------
@@ -395,103 +368,92 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 # ------------------------------------------------------
 class Worker(RLWorker[Config, Parameter]):
     def on_start(self, worker, context):
-        self.q_tbl = self.parameter.iteration_q(
-            "ext",
-            discount=self.config.discount,
-            policy_prob=1.0,
+        self.parameter.iteration_q(
+            discount=self.config.q_discount,
+            policy_prob=self.config.q_target_policy_prob,
             threshold=self.config.iteration_threshold,
             timeout=self.config.iteration_timeout,
         )
 
     def on_reset(self, worker):
-        self.reset_state = self.config.observation_space.to_str(worker.state)
+        self.cell_action = None
+        self.mode = ""
 
-        if self.training:
-            self.cell_step = 0
-            self.search_step = 0
+        if not self.training:
+            return
 
-            cell = self.parameter.archive_select(self.reset_state)
-            if cell is None:
-                self.mode = "search"
-            elif ("backup" in cell) and (random.random() < self.config.backup_rate):
-                self.mode = "search"
-                cell["select"] += 1
-                worker.restore(cell["backup"])
-            else:
+        self.episode_step = 0
+        self.cell_step = 0
+
+        if random.random() < self.config.search_rate:
+            self.mode = "search"
+            cell = self.parameter.archive_select()
+            if cell is not None:
                 self.mode = "move"
-                cell["select"] += 1
-                self.cell_target = cell["state"]
+                self.episode_step = cell["step"]
                 self.cell_action = cell["action"]
-                self.cell_max_step = cell["step"] + self.config.cell_addition_step
-                self.cell_q_tbl = self.parameter.iteration_q(
-                    "target",
-                    target_state=self.cell_target,
-                    discount=0.9,
-                    policy_prob=self.config.cell_policy_prob,
-                    threshold=self.config.cell_iteration_threshold,
-                )
-                if self.distributed:
-                    assert False, "TODO"
-
-        self.state = self.config.observation_space.to_str(worker.state)
+                self.backup = cell["backup"]
+                worker.restore(self.backup)
+            else:
+                self.backup = worker.backup()
+        else:
+            self.mode = "q"
+            self.backup = worker.backup()
 
     def policy(self, worker) -> int:
         invalid_actions = worker.invalid_actions
 
-        if self.training:
-            if self.mode == "move":
-                if self.cell_target == self.state:
-                    action = self.cell_action
-                    self.mode = "search"
-                elif self.state in self.cell_q_tbl:
-                    q = self.cell_q_tbl[self.state]
-                    action = funcs.get_random_max_index(q, invalid_actions)
-                else:
-                    action = self.sample_action()
-                    self.mode = "search"
-            else:
-                action = self.sample_action()
+        if self.cell_action is not None:
+            action = self.cell_action
+            self.cell_action = None
         else:
-            if self.state in self.q_tbl:
-                action = int(np.argmax(self.q_tbl[self.state]))
+            if self.training:
+                if self.mode == "q":
+                    epsilon = self.config.q_epsilon
+                else:
+                    epsilon = self.config.search_epsilon
             else:
+                epsilon = self.config.test_epsilon
+
+            if random.random() < epsilon:
                 action = self.sample_action()
+            else:
+                state = self.config.observation_space.to_str(worker.state)
+                self.parameter.init_q(state)
+                q = self.parameter.q_tbl[state]
+                action = funcs.get_random_max_index(q, invalid_actions)
 
         return action
 
     def on_step(self, worker):
-        prev_state = self.state
-        self.state = self.config.observation_space.to_str(worker.state)
         if not self.training:
             return
+        state = self.config.observation_space.to_str(worker.prev_state)
+        n_state = self.config.observation_space.to_str(worker.state)
+
+        batch = [
+            state,
+            n_state,
+            worker.action,
+            worker.reward,
+            1 if self.worker.terminated else 0,
+            worker.prev_invalid_actions,
+            worker.invalid_actions,
+        ]
+        self.memory.add("mdp", batch)
+
+        # --- update archive
+        if not worker.done:
+            batch = [state, worker.action, self.episode_step, self.backup]
+            self.memory.add("archive", batch)
+            self.episode_step += 1
+            self.backup = worker.backup()
+            batch = [n_state, None, self.episode_step, self.backup]
+            self.memory.add("archive", batch)
+
         self.cell_step += 1
-
-        if self.parameter.is_archive_update(self.reset_state, prev_state, worker.action, self.cell_step):
-            backup = worker.backup()
-        else:
-            backup = None
-
-        batch = {
-            "reset_state": self.reset_state,
-            "state": prev_state,
-            "next_state": self.state,
-            "action": worker.action,
-            "reward": worker.reward,
-            "done": 1 if self.worker.done_type == DoneTypes.TERMINATED else 0,
-            "invalid_actions": worker.prev_invalid_actions,
-            "next_invalid_actions": worker.invalid_actions,
-            "step": self.cell_step,
-            "backup": backup,
-        }
-        self.memory.add(batch)
-
-        if self.mode == "move":
-            if self.cell_step > self.cell_max_step:
-                self.mode = "search"
-        else:
-            self.search_step += 1
-            if self.search_step > self.config.search_max_step:
-                worker.env.end_episode()
+        if self.cell_step > self.config.search_max_step:
+            worker.env.abort_episode()
 
     def render_terminal(self, worker, **kwargs) -> None:
         prev_state = self.config.observation_space.to_str(worker.prev_state)
@@ -499,20 +461,30 @@ class Worker(RLWorker[Config, Parameter]):
         state = self.config.observation_space.to_str(worker.state)
         self.parameter.init_model(prev_state, act, state, worker.prev_invalid_actions, worker.invalid_actions)
 
+        # --- archive
+        print(f"mode: {self.mode}, archive total: {self.parameter.archive_total_visit}")
+        key = state + "_" + str(act)
+        if key in self.parameter.archive:
+            cell = self.parameter.archive[key]
+            print(f"archive {key}")
+            print(f"  select:{cell['select']}")
+            print(f"  visit :{cell['visit']}")
+            print(f"  step  :{cell['step']}")
+
         # --- MDP
         N = sum(self.parameter.trans[prev_state][act].values())
         if N > 0:
             n = self.parameter.trans[prev_state][act][state]
-            print(f"trans {100 * n / N:.1}%({n}/{N})")
+            print(f"trans {100 * n / N:3.1f}%({n}/{N})")
         r = self.parameter.reward[prev_state][act][state]
         done = self.parameter.done[prev_state][act][state]
         s = f"reward {r:8.5f}"
         s += f", done {done:.1%}"
         print(s)
 
-        print(f"reward range: {self.parameter.rmin} - {self.parameter.rmax}")
-
-        q = np.array(self.q_tbl.get(state, [0] * self.config.action_space.n))
+        # --- q
+        self.parameter.init_q(state)
+        q = self.parameter.q_tbl[state]
         maxa = np.argmax(q)
 
         def _render_sub(a: int) -> str:

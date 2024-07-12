@@ -277,7 +277,7 @@ worker.render()
 |QL_agent57    |Discrete   |Discrete|ValueBase|-         |-    |80%|QL + Agent57|
 |Agent57_light |Continuous |Discrete|ValueBase|✔        |✔   |100%|Agent57 - (LSTM,MultiStep)|
 |SearchDynaQ   |Discrete   |Discrete|ModelBase|-         |-    |100%|original|
-|SearchDynaQ_v2|Discrete   |Discrete|ModelBase|-         |-    |50%|original|
+|SearchDynaQ_v2|Discrete   |Discrete|ModelBase|-         |-    |99%|original|
 
 
 

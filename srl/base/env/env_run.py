@@ -508,9 +508,9 @@ class EnvRun:
     def unwrapped(self) -> Any:
         return self.env.unwrapped
 
-    def end_episode(self):
+    def abort_episode(self):
         self._done = DoneTypes.TRUNCATED
-        self._done_reason = "call end_episode"
+        self._done_reason = "call truncate_episode()"
 
     # ------------------------------------
     # render

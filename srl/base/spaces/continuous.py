@@ -137,10 +137,12 @@ class ContinuousSpace(SpaceBase[float]):
         return len(self.division_tbl)
 
     def encode_to_int(self, val: float) -> int:
-        assert self.division_tbl is not None, "Call 'create_division_tbl(division_num)' first"
-        # 一番近いもの
-        d = np.abs(self.division_tbl - val)
-        return int(np.argmin(d))
+        if self.division_tbl is None:
+            return int(round(val))
+        else:
+            # 一番近いもの
+            d = np.abs(self.division_tbl - val)
+            return int(np.argmin(d))
 
     def decode_from_int(self, val: int) -> float:
         if self.division_tbl is None:

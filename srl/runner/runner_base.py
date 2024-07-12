@@ -68,6 +68,7 @@ class RunnerBase:
         self._history_on_memory_kwargs: Optional[dict] = None
         self._checkpoint_kwargs: Optional[dict] = None
         self.history_viewer: Optional["HistoryViewer"] = None
+        self._mlflow_kwargs: Optional[dict] = None
 
         self._progress_kwargs: dict = {}
         self.set_progress()
@@ -399,6 +400,17 @@ class RunnerBase:
             eval_players=eval_players,
         )
 
+    def apply_progress(self, callbacks: list, enable_eval: bool):
+        from srl.runner.callbacks.print_progress import PrintProgress
+
+        if enable_eval:
+            callbacks.append(PrintProgress(**self._progress_kwargs))
+        else:
+            _kwargs = self._progress_kwargs.copy()
+            _kwargs["enable_eval"] = False
+            callbacks.append(PrintProgress(**_kwargs))
+        logger.info("add callback PrintProgress")
+
     # ------------------------------
     # history
     # ------------------------------
@@ -503,6 +515,42 @@ class RunnerBase:
         self._history_on_memory_kwargs = None
         self._history_on_file_kwargs = None
 
+    def _apply_history(self, callbacks: list):
+        self._callback_history_on_memory = None
+        self._callback_history_on_file = None
+        if self._history_on_memory_kwargs is not None:
+            if self.context.distributed:
+                logger.info("HistoryOnMemory is disabled.")
+            else:
+                from srl.runner.callbacks.history_on_memory import HistoryOnMemory
+
+                self._callback_history_on_memory = HistoryOnMemory(**self._history_on_memory_kwargs)
+                callbacks.append(self._callback_history_on_memory)
+                logger.info("add callback HistoryOnMemory")
+
+        if self._history_on_file_kwargs is not None:
+            from srl.runner.callbacks.history_on_file import HistoryOnFile
+
+            self._callback_history_on_file = HistoryOnFile(**self._history_on_file_kwargs)
+            callbacks.append(self._callback_history_on_file)
+            logger.info(f"add callback HistoryOnFile: {self._history_on_file_kwargs['save_dir']}")
+
+    def _after_history(self):
+        if self._callback_history_on_memory is not None:
+            from srl.runner.callbacks.history_viewer import HistoryViewer
+
+            self.history_viewer = HistoryViewer()
+            self.history_viewer.set_history_on_memory(self._callback_history_on_memory, self)
+        elif self._callback_history_on_file is not None:
+            from srl.runner.callbacks.history_viewer import HistoryViewer
+
+            self.history_viewer = HistoryViewer()
+            self.history_viewer.load(self._callback_history_on_file._base.save_dir)
+
+            # 2回目以降は引き継ぐ
+            if self._history_on_file_kwargs is not None:
+                self._history_on_file_kwargs["add_history"] = True
+
     # ------------------------------
     # checkpoint
     # ------------------------------
@@ -561,20 +609,6 @@ class RunnerBase:
     def disable_checkpoint(self):
         self._checkpoint_kwargs = None
 
-    # ---------------------------------------------
-    # run
-    # ---------------------------------------------
-    def apply_progress(self, callbacks: list, enable_eval: bool):
-        from srl.runner.callbacks.print_progress import PrintProgress
-
-        if enable_eval:
-            callbacks.append(PrintProgress(**self._progress_kwargs))
-        else:
-            _kwargs = self._progress_kwargs.copy()
-            _kwargs["enable_eval"] = False
-            callbacks.append(PrintProgress(**_kwargs))
-        logger.info("add callback PrintProgress")
-
     def apply_checkpoint(self, callbacks: list):
         if self._checkpoint_kwargs is None:
             return
@@ -583,42 +617,63 @@ class RunnerBase:
         callbacks.append(Checkpoint(**self._checkpoint_kwargs))
         logger.info(f"add callback Checkpoint: {self._checkpoint_kwargs['save_dir']}")
 
-    def _apply_history(self, callbacks: list):
-        self._callback_history_on_memory = None
-        self._callback_history_on_file = None
-        if self._history_on_memory_kwargs is not None:
-            if self.context.distributed:
-                logger.info("HistoryOnMemory is disabled.")
-            else:
-                from srl.runner.callbacks.history_on_memory import HistoryOnMemory
+    # ------------------------------
+    # MLFlow
+    # ------------------------------
+    def set_mlflow(
+        self,
+        interval_episode: float = 1,
+        interval_eval: float = -1,
+        interval_checkpoint: float = 60 * 30,
+        enable_checkpoint: bool = True,
+        enable_html: bool = True,
+        tags: dict = {},
+        enable_eval: bool = True,
+        eval_episode: int = 1,
+        eval_timeout: float = -1,
+        eval_max_steps: int = -1,
+        eval_players: List[PlayerType] = [],
+        eval_shuffle_player: bool = False,
+    ):
+        self._mlflow_kwargs = dict(
+            interval_episode=interval_episode,
+            interval_eval=interval_eval,
+            interval_checkpoint=interval_checkpoint,
+            enable_checkpoint=enable_checkpoint,
+            enable_html=enable_html,
+            tags=tags,
+            enable_eval=enable_eval,
+            eval_episode=eval_episode,
+            eval_timeout=eval_timeout,
+            eval_max_steps=eval_max_steps,
+            eval_players=eval_players,
+            eval_shuffle_player=eval_shuffle_player,
+        )
 
-                self._callback_history_on_memory = HistoryOnMemory(**self._history_on_memory_kwargs)
-                callbacks.append(self._callback_history_on_memory)
-                logger.info("add callback HistoryOnMemory")
+    def load_parameter_from_mlflow(self, run_idx: int = -1, parameter_idx: int = -1):
+        from srl.runner.callbacks.mlflow_callback import MLFlowCallback
 
-        if self._history_on_file_kwargs is not None:
-            from srl.runner.callbacks.history_on_file import HistoryOnFile
+        MLFlowCallback.load_parameter(
+            self.env_config.name,
+            self.make_parameter(is_load=False),
+            run_idx,
+            parameter_idx,
+        )
 
-            self._callback_history_on_file = HistoryOnFile(**self._history_on_file_kwargs)
-            callbacks.append(self._callback_history_on_file)
-            logger.info(f"add callback HistoryOnFile: {self._history_on_file_kwargs['save_dir']}")
+    def disable_mlflow(self):
+        self._mlflow_kwargs = None
 
-    def _after_history(self):
-        if self._callback_history_on_memory is not None:
-            from srl.runner.callbacks.history_viewer import HistoryViewer
+    def apply_mlflow(self, callbacks: list):
+        if self._mlflow_kwargs is None:
+            return
+        from srl.runner.callbacks.mlflow_callback import MLFlowCallback
 
-            self.history_viewer = HistoryViewer()
-            self.history_viewer.set_history_on_memory(self._callback_history_on_memory, self)
-        elif self._callback_history_on_file is not None:
-            from srl.runner.callbacks.history_viewer import HistoryViewer
+        callbacks.append(MLFlowCallback(**self._mlflow_kwargs))
+        logger.info("add callback MLFlowCallback")
 
-            self.history_viewer = HistoryViewer()
-            self.history_viewer.load(self._callback_history_on_file._base.save_dir)
-
-            # 2回目以降は引き継ぐ
-            if self._history_on_file_kwargs is not None:
-                self._history_on_file_kwargs["add_history"] = True
-
+    # ---------------------------------------------
+    # run
+    # ---------------------------------------------
     def run_context(
         self,
         reset_workers: bool = True,

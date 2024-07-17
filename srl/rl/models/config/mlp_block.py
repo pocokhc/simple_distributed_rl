@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Tuple
 
 from srl.base.exception import UndefinedError
@@ -9,11 +9,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class MLPBlockConfig:
-    def __post_init__(self):
-        self._name: str = ""
-        self._kwargs: dict = {}
-
-        self.set()
+    _name: str = field(init=False, default="MLP")
+    _kwargs: dict = field(init=False, default_factory=dict)
 
     def set(
         self,

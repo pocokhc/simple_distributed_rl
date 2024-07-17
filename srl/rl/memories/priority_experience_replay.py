@@ -45,17 +45,17 @@ class RLConfigComponentPriorityExperienceReplay:
     #: memory(zlib)の圧縮レベル
     memory_compress_level: int = -1
 
+    memory_name: str = field(init=False, default="ReplayMemory")
+    memory_kwargs: dict = field(init=False, default_factory=dict)
+
     def assert_params_memory(self):
         assert self.batch_size > 0
         assert self.memory_warmup_size <= self.memory_capacity
         assert self.batch_size <= self.memory_warmup_size
 
-    _name: str = field(init=False, default="ReplayMemory")
-    _kwargs: dict = field(init=False, default_factory=dict)
-
     def set_replay_memory(self):
-        self._name = "ReplayMemory"
-        self._kwargs = {}
+        self.memory_name = "ReplayMemory"
+        self.memory_kwargs = {}
         return self
 
     def set_proportional_memory(
@@ -66,8 +66,8 @@ class RLConfigComponentPriorityExperienceReplay:
         has_duplicate: bool = True,
         epsilon: float = 0.0001,
     ):
-        self._name = "ProportionalMemory"
-        self._kwargs = dict(
+        self.memory_name = "ProportionalMemory"
+        self.memory_kwargs = dict(
             alpha=alpha,
             beta_initial=beta_initial,
             beta_steps=beta_steps,
@@ -82,8 +82,8 @@ class RLConfigComponentPriorityExperienceReplay:
         beta_initial: float = 0.4,
         beta_steps: int = 1_000_000,
     ):
-        self._name = "RankBaseMemory"
-        self._kwargs = dict(
+        self.memory_name = "RankBaseMemory"
+        self.memory_kwargs = dict(
             alpha=alpha,
             beta_initial=beta_initial,
             beta_steps=beta_steps,
@@ -96,8 +96,8 @@ class RLConfigComponentPriorityExperienceReplay:
         beta_initial: float = 0.4,
         beta_steps: int = 1_000_000,
     ):
-        self._name = "RankBaseMemoryLinear"
-        self._kwargs = dict(
+        self.memory_name = "RankBaseMemoryLinear"
+        self.memory_kwargs = dict(
             alpha=alpha,
             beta_initial=beta_initial,
             beta_steps=beta_steps,
@@ -105,8 +105,8 @@ class RLConfigComponentPriorityExperienceReplay:
         return self
 
     def set_custom_memory(self, entry_point: str, kwargs: dict):
-        self._name = "custom"
-        self._kwargs = dict(
+        self.memory_name = "custom"
+        self.memory_kwargs = dict(
             entry_point=entry_point,
             kwargs=kwargs,
         )
@@ -115,35 +115,37 @@ class RLConfigComponentPriorityExperienceReplay:
     # ---------------------
 
     def create_memory(self, capacity: int, dtype=np.float32) -> IPriorityMemory:
-        if self._name == "ReplayMemory":
+        if self.memory_name == "ReplayMemory":
             from .priority_memories.replay_memory import ReplayMemory
 
-            memory = ReplayMemory(capacity, dtype=dtype, **self._kwargs)
-        elif self._name == "ProportionalMemory":
+            memory = ReplayMemory(capacity, dtype=dtype, **self.memory_kwargs)
+        elif self.memory_name == "ProportionalMemory":
             from .priority_memories.proportional_memory import ProportionalMemory
 
-            memory = ProportionalMemory(capacity, dtype=dtype, **self._kwargs)
+            memory = ProportionalMemory(capacity, dtype=dtype, **self.memory_kwargs)
 
-        elif self._name == "RankBaseMemory":
+        elif self.memory_name == "RankBaseMemory":
             from .priority_memories.rankbase_memory import RankBaseMemory
 
-            memory = RankBaseMemory(capacity, dtype=dtype, **self._kwargs)
+            memory = RankBaseMemory(capacity, dtype=dtype, **self.memory_kwargs)
 
-        elif self._name == "RankBaseMemoryLinear":
+        elif self.memory_name == "RankBaseMemoryLinear":
             from .priority_memories.rankbase_memory_linear import RankBaseMemoryLinear
 
-            memory = RankBaseMemoryLinear(capacity, dtype=dtype, **self._kwargs)
-        elif self._name == "custom":
+            memory = RankBaseMemoryLinear(capacity, dtype=dtype, **self.memory_kwargs)
+        elif self.memory_name == "custom":
             from srl.utils.common import load_module
 
-            return load_module(self._kwargs["entry_point"])(capacity, dtype=dtype, **self._kwargs["kwargs"])
+            return load_module(self.memory_kwargs["entry_point"])(
+                capacity, dtype=dtype, **self.memory_kwargs["kwargs"]
+            )
         else:
-            raise UndefinedError(self._name)
+            raise UndefinedError(self.memory_name)
 
         return memory
 
     def requires_priority(self) -> bool:
-        name = self._name
+        name = self.memory_name
         if name == "ReplayMemory":
             return False
         elif name == "ProportionalMemory":

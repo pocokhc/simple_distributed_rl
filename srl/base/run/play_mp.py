@@ -445,7 +445,13 @@ def train(
     try:
         # --- log ---
         if logger_config:
-            logger.info("--- Context ---" + "\n" + pprint.pformat(context.to_dict()))
+            logger.info("--- EnvConfig ---" + "\n" + pprint.pformat(context.env_config.to_dict()))
+            logger.info("--- RLConfig ---" + "\n" + pprint.pformat(context.rl_config.to_dict()))
+            logger.info(
+                "--- Context ---"
+                + "\n"
+                + pprint.pformat(context.to_dict(include_env_config=False, include_rl_config=False))
+            )
         # ------------
 
         # mp を notebook で実行する場合はrlの定義をpyファイルにする必要あり TODO: それ以外でも動かないような

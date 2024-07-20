@@ -138,8 +138,13 @@ class MultiSpace(SpaceBase[list]):
             s += f"\n {str(p)}"
         return s
 
-    def create_division_tbl(self, division_num: int) -> None:
-        [s.create_division_tbl(division_num) for s in self.spaces]
+    def create_division_tbl(
+        self,
+        division_num: int,
+        max_size: int = 100_000,
+        max_byte: int = 1024 * 1024 * 1024,
+    ) -> None:
+        [s.create_division_tbl(division_num, max_size, max_byte) for s in self.spaces]
 
     # --- stack
     def create_stack_space(self, length: int):

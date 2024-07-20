@@ -116,7 +116,14 @@ class ContinuousSpace(SpaceBase[float]):
     # --------------------------------------
     # create_division_tbl
     # --------------------------------------
-    def create_division_tbl(self, division_num: int) -> None:
+    def create_division_tbl(
+        self,
+        division_num: int,
+        max_size: int = 100_000,
+        max_byte: int = 1024 * 1024 * 1024,
+    ) -> None:
+        if self.division_tbl is not None:
+            return
         if self._is_inf:  # infは定義できない
             return
         if division_num <= 0:

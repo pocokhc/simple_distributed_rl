@@ -133,27 +133,51 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
     # --------------------------------------
     # create_division_tbl
     # --------------------------------------
-    def create_division_tbl(self, division_num: int) -> None:
+    def create_division_tbl(
+        self,
+        division_num: int,
+        max_size: int = 100_000,
+        max_byte: int = 1024 * 1024 * 1024,
+    ) -> None:
+        if self.division_tbl is not None:
+            return
         if self._is_inf:  # infは定義できない
             return
         if division_num <= 0:
             return
 
+        # 各要素は分割後のデカルト積のサイズが division_num になるように分割
+        # ただし、各要素の最低は2
+        # division_num = division_num_one ** size
+        division_num_one = round(division_num ** (1 / self._size))
+        if division_num_one < 2:
+            division_num_one = 2
+
         import itertools
 
         t0 = time.time()
-        act_list = []
+        div_list = []
         for i in range(self._size):
             low = self._low[i]
             high = self._high[i]
-            diff = (high - low) / (division_num - 1)
-            act_list.append([float(low + diff * j) for j in range(division_num)])
+            diff = (high - low) / (division_num_one - 1)
+            div_list.append([float(low + diff * j) for j in range(division_num_one)])
 
-        act_list = list(itertools.product(*act_list))
-        self.division_tbl = np.array(act_list)
+        # --- 多いと時間がかかるので切り上げる
+        byte_size = -1
+        div_prods = []
+        for prod in itertools.product(*div_list):
+            if byte_size == -1:
+                byte_size = len(prod) * 4
+            div_prods.append(prod)
+            if len(div_prods) >= max_size:
+                break
+            if len(div_prods) * byte_size >= max_byte:
+                break
+        self.division_tbl = np.array(div_prods)
         n = len(self.division_tbl)
 
-        logger.info(f"created division: {division_num}(n={n})({time.time() - t0:.3f}s)")
+        logger.info(f"created division: size={n}, create time={time.time() - t0:.3f}s")
 
     # --------------------------------------
     # action discrete

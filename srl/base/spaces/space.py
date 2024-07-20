@@ -52,7 +52,12 @@ class SpaceBase(ABC, Generic[_T]):
         raise NotImplementedError()
 
     # --- option
-    def create_division_tbl(self, division_num: int) -> None:
+    def create_division_tbl(
+        self,
+        division_num: int,
+        max_size: int = 100_000,
+        max_byte: int = 1024 * 1024 * 1024,
+    ) -> None:
         pass
 
     def get_valid_actions(self, masks: List[_T] = []) -> List[_T]:

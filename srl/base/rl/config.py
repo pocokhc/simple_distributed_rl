@@ -43,14 +43,10 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     override_action_type: SpaceTypes = SpaceTypes.UNKNOWN
 
     #: 連続値から離散値に変換する場合の分割数です。-1の場合round変換で丸めます。
-    #: The number of divisions when converting from continuous to discrete values.
-    #: If -1, round by round transform.
-    action_division_num: int = 5
+    action_division_num: int = 10
 
     #: 連続値から離散値に変換する場合の分割数です。-1の場合round変換で丸めます。
-    #: The number of divisions when converting from continuous to discrete values.
-    #: If -1, round by round transform.
-    observation_division_num: int = -1
+    observation_division_num: int = 1000
 
     #: 1stepあたり、環境内で余分に進めるstep数
     #: 例えばframeskip=3の場合、1step実行すると、環境内では4frame進みます。
@@ -140,7 +136,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     def setup_from_actor(self, actor_num: int, actor_id: int) -> None:
         pass  # NotImplemented
 
-    def get_processors(self) -> List[Optional["RLProcessor"]]:
+    def get_processors(self) -> List["RLProcessor"]:
         return []  # NotImplemented
 
     def get_changeable_parameters(self) -> List[str]:

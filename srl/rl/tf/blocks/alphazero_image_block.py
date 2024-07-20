@@ -21,7 +21,6 @@ class AlphaZeroImageBlock(KerasModelAddedSummary):
         n_blocks: int = 19,
         filters: int = 256,
         activation: str = "relu",
-        enable_rnn: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)

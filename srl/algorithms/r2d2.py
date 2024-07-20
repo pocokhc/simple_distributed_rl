@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Union
+from typing import Any, List, Union
 
 import numpy as np
 import tensorflow as tf
@@ -17,10 +17,9 @@ from srl.rl.memories.priority_experience_replay import (
     PriorityExperienceReplay,
     RLConfigComponentPriorityExperienceReplay,
 )
-from srl.rl.models.config.framework_config import RLConfigComponentFramework
-from srl.rl.models.config.mlp_block import MLPBlockConfig
+from srl.rl.models.config.dueling_network import DuelingNetworkConfig
+from srl.rl.models.config.input_config import RLConfigComponentInput
 from srl.rl.schedulers.scheduler import SchedulerConfig
-from srl.rl.tf.blocks.input_block import create_in_block_out_value
 from srl.rl.tf.model import KerasModelAddedSummary
 from srl.utils.common import compare_less_version
 
@@ -65,11 +64,11 @@ Other
 class Config(
     RLConfig,
     RLConfigComponentPriorityExperienceReplay,
-    RLConfigComponentFramework,
+    RLConfigComponentInput,
 ):
     """
     <:ref:`RLConfigComponentPriorityExperienceReplay`>
-    <:ref:`RLConfigComponentFramework`>
+    <:ref:`RLConfigComponentInput`>
     """
 
     test_epsilon: float = 0
@@ -78,7 +77,7 @@ class Config(
     actor_alpha: float = 7.0
 
     lstm_units: int = 512
-    hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    hidden_block: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
 
     # lstm
     burnin: int = 5
@@ -134,8 +133,8 @@ class Config(
             beta_steps=1_000_000,
         )
 
-    def get_processors(self) -> List[Optional[RLProcessor]]:
-        return [self.input_image_block.get_processor()]
+    def get_processors(self) -> List[RLProcessor]:
+        return RLConfigComponentInput.get_processors(self)
 
     def get_framework(self) -> str:
         return "tensorflow"
@@ -146,7 +145,7 @@ class Config(
     def assert_params(self) -> None:
         super().assert_params()
         self.assert_params_memory()
-        self.assert_params_framework()
+        self.assert_params_input()
         assert self.burnin >= 0
         assert self.sequence_length >= 1
 
@@ -174,13 +173,7 @@ class QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
-        # --- in block
-        self.input_block = create_in_block_out_value(
-            config.input_value_block,
-            config.input_image_block,
-            config.observation_space,
-            enable_rnn=True,
-        )
+        self.in_block = config.create_input_block_tf(rnn=True)
 
         # --- lstm
         self.lstm_layer = kl.LSTM(
@@ -190,10 +183,7 @@ class QNetwork(KerasModelAddedSummary):
         )
 
         # out
-        self.hidden_block = config.hidden_block.create_block_tf(
-            config.action_space.n,
-            enable_rnn=True,
-        )
+        self.hidden_block = config.hidden_block.create_block_tf(config.action_space.n, rnn=True)
 
         # build
         self.build((None,) + (config.sequence_length,) + config.observation_space.shape)
@@ -203,7 +193,7 @@ class QNetwork(KerasModelAddedSummary):
         return self._call(x, hidden_states, training=training)
 
     def _call(self, x, hidden_state=None, training=False):
-        x = self.input_block(x, training=training)
+        x = self.in_block(x, training=training)
 
         # lstm
         x, h, c = self.lstm_layer(x, initial_state=hidden_state, training=training)

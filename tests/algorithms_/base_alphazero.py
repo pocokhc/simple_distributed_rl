@@ -1,6 +1,5 @@
 from typing import Tuple
 
-import srl
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_base_case import CommonBaseCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -12,7 +11,6 @@ class QuickCase(CommonQuickCase):
         from srl.algorithms import alphazero
 
         rl_config = alphazero.Config()
-        rl_config.set_tensorflow()
         rl_config.set_go_config()
 
         rl_config.num_simulations = 2

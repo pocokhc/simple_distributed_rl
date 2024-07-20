@@ -10,7 +10,6 @@ from srl.base.rl.trainer import RLTrainer
 from srl.rl.functions import create_beta_list, create_discount_list
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.torch_ import helper
-from srl.rl.torch_.blocks.input_block import create_in_block_out_value
 
 from .agent57 import CommonInterfaceParameter, Config, Memory
 
@@ -27,14 +26,10 @@ class QNetwork(nn.Module):
         if not config.enable_intrinsic_reward:
             self.input_int_reward = False
 
-        self.input_block = create_in_block_out_value(
-            config.input_value_block,
-            config.input_image_block,
-            config.observation_space,
-        )
+        self.in_block = config.create_input_block_torch()
 
         # --- UVFA
-        in_size = self.input_block.out_size
+        in_size = self.in_block.out_size
         if self.input_ext_reward:
             in_size += 1
         if self.input_int_reward:
@@ -67,7 +62,7 @@ class QNetwork(nn.Module):
 
         # input
         state, head_size1, head_size2 = helper.encode_sequence_batch(state)
-        state = self.input_block(state)
+        state = self.in_block(state)
         state = helper.decode_sequence_batch(state, head_size1, head_size2)
 
         # UVFA
@@ -103,15 +98,8 @@ class _EmbeddingNetwork(nn.Module):
     def __init__(self, config: Config):
         super().__init__()
 
-        # input
-        self.input_block = create_in_block_out_value(
-            config.input_value_block,
-            config.input_image_block,
-            config.observation_space,
-        )
-
-        # --- emb
-        self.emb_block = config.episodic_emb_block.create_block_torch(self.input_block.out_size)
+        self.in_block = config.create_input_block_torch()
+        self.emb_block = config.episodic_emb_block.create_block_torch(self.in_block.out_size)
 
         # --- out
         self.out_block = config.episodic_out_block.create_block_torch(self.emb_block.out_size * 2)
@@ -120,7 +108,7 @@ class _EmbeddingNetwork(nn.Module):
         self.out_block_out2 = nn.Softmax(dim=1)
 
     def _image_call(self, state):
-        x = self.input_block(state)
+        x = self.in_block(state)
         return self.emb_block(x)
 
     def forward(self, x):
@@ -145,19 +133,14 @@ class _LifelongNetwork(nn.Module):
     def __init__(self, config: Config):
         super().__init__()
 
-        # --- in block
-        self.input_block = create_in_block_out_value(
-            config.input_value_block,
-            config.input_image_block,
-            config.observation_space,
-        )
+        self.in_block = config.create_input_block_torch()
 
         # hidden
-        self.hidden_block = config.lifelong_hidden_block.create_block_torch(self.input_block.out_size)
+        self.hidden_block = config.lifelong_hidden_block.create_block_torch(self.in_block.out_size)
         self.hidden_normalize = nn.LayerNorm(self.hidden_block.out_size)
 
     def forward(self, x):
-        x = self.input_block(x)
+        x = self.in_block(x)
         x = self.hidden_block(x)
         x = self.hidden_normalize(x)
         return x

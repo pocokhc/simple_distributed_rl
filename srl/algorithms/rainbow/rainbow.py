@@ -1,7 +1,7 @@
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Optional, Union
+from typing import List, Union
 
 import numpy as np
 
@@ -14,8 +14,9 @@ from srl.rl.memories.priority_experience_replay import (
     PriorityExperienceReplay,
     RLConfigComponentPriorityExperienceReplay,
 )
+from srl.rl.models.config.dueling_network import DuelingNetworkConfig
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
-from srl.rl.models.config.mlp_block import MLPBlockConfig
+from srl.rl.models.config.input_config import RLConfigComponentInput
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 """
@@ -61,10 +62,12 @@ class Config(
     RLConfig,
     RLConfigComponentPriorityExperienceReplay,
     RLConfigComponentFramework,
+    RLConfigComponentInput,
 ):
     """
     <:ref:`RLConfigComponentPriorityExperienceReplay`>
     <:ref:`RLConfigComponentFramework`>
+    <:ref:`RLConfigComponentInput`>
     """
 
     #: ε-greedy parameter for Test
@@ -81,8 +84,8 @@ class Config(
     #: Learning rate
     lr: Union[float, SchedulerConfig] = 0.001
 
-    #: <:ref:`MLPBlock`> hidden layer
-    hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    #: <:ref:`DuelingNetworkConfig`> hidden layer
+    hidden_block: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
 
     #: Discount rate
     discount: float = 0.99
@@ -148,11 +151,11 @@ class Config(
         # other
         self.enable_rescale = False
 
-    def get_processors(self) -> List[Optional[RLProcessor]]:
-        return [self.input_image_block.get_processor()]
+    def get_processors(self) -> List[RLProcessor]:
+        return RLConfigComponentInput.get_processors(self)
 
     def get_framework(self) -> str:
-        return self.create_framework_str()
+        return RLConfigComponentFramework.get_framework(self)
 
     def get_name(self) -> str:
         if self.multisteps == 1:

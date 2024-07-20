@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass, field
-from typing import List, Optional, Union
+from typing import List, Union
 
 import numpy as np
 import tensorflow as tf
@@ -14,11 +14,13 @@ from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.rl import functions as funcs
 from srl.rl.memories.experience_replay_buffer import RandomMemory
-from srl.rl.models.config.framework_config import RLConfigComponentFramework
+from srl.rl.models.config.input_config import RLConfigComponentInput
 from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
-from srl.rl.tf.blocks.input_block import create_in_block_out_value
 from srl.rl.tf.model import KerasModelAddedSummary
+
+kl = keras.layers
+
 
 """
 Paper: https://arxiv.org/abs/2302.11563
@@ -33,10 +35,10 @@ SND-VIC : x
 @dataclass
 class Config(
     RLConfig,
-    RLConfigComponentFramework,
+    RLConfigComponentInput,
 ):
     """
-    <:ref:`RLConfigComponentFramework`>
+    <:ref:`RLConfigComponentInput`>
     """
 
     #: ε-greedy parameter for Test
@@ -64,8 +66,8 @@ class Config(
     #: <:ref:`MLPBlock`> hidden layer
     hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
-    def get_processors(self) -> List[Optional[RLProcessor]]:
-        return [self.input_image_block.get_processor()]
+    def get_processors(self) -> List[RLProcessor]:
+        return RLConfigComponentInput.get_processors(self)
 
     def get_framework(self) -> str:
         return "tensorflow"
@@ -75,7 +77,7 @@ class Config(
 
     def assert_params(self) -> None:
         super().assert_params()
-        self.assert_params_framework()
+        self.assert_params_input()
         assert self.batch_size % 2 == 0
 
 
@@ -115,21 +117,16 @@ class SNDNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
-        self.input_block = create_in_block_out_value(
-            config.input_value_block,
-            config.input_image_block,
-            config.observation_space,
-        )
-
-        self.hidden_block = config.hidden_block.create_block_tf(config.action_space.n)
+        self.in_block = config.create_input_block_tf()
+        self.hidden_block = config.hidden_block.create_block_tf()
 
         # build
-        self(np.zeros(self.input_block.create_batch_shape((1,)), config.dtype))
+        self(np.zeros(self.in_block.create_batch_shape((1,)), config.dtype))
 
         self.loss_mse = keras.losses.MeanSquaredError()
 
     def call(self, x, training=False):
-        x = self.input_block(x, training=training)
+        x = self.in_block(x, training=training)
         x = self.hidden_block(x, training=training)
         return x
 
@@ -155,22 +152,19 @@ class QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
-        self.input_block = create_in_block_out_value(
-            config.input_value_block,
-            config.input_image_block,
-            config.observation_space,
-        )
-
-        self.hidden_block = config.hidden_block.create_block_tf(config.action_space.n)
+        self.in_block = config.create_input_block_tf()
+        self.hidden_block = config.hidden_block.create_block_tf()
+        self.out_layer = kl.Dense(config.action_space.n, kernel_initializer="truncated_normal")
 
         # build
-        self(np.zeros(self.input_block.create_batch_shape((1,)), config.dtype))
+        self(np.zeros(self.in_block.create_batch_shape((1,)), config.dtype))
 
         self.loss_func = keras.losses.Huber()
 
     def call(self, x, training=False):
-        x = self.input_block(x, training=training)
+        x = self.in_block(x, training=training)
         x = self.hidden_block(x, training=training)
+        x = self.out_layer(x)
         return x
 
     @tf.function

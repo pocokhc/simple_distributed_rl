@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Union, cast
 
 import pytest
 
 import srl
 from srl.base.env.config import EnvConfig
 from srl.base.rl.config import RLConfig
+from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.test.rl import TestRL
 from srl.utils import common
 
@@ -42,10 +43,11 @@ class CommonBaseCase(ABC):
 
             device = "GPU"
 
-        if self.get_framework() == "tensorflow":
-            rl_config.set_tensorflow()
-        elif self.get_framework() == "torch":
-            rl_config.set_torch()
+        if issubclass(rl_config.__class__, RLConfigComponentFramework):
+            if self.get_framework() == "tensorflow":
+                cast(RLConfigComponentFramework, rl_config).set_tensorflow()
+            elif self.get_framework() == "torch":
+                cast(RLConfigComponentFramework, rl_config).set_torch()
 
         rl_config.memory_compress = False
         env_config.enable_sanitize = False

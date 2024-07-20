@@ -19,7 +19,7 @@ from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.rl import functions as funcs
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
-from srl.rl.models.config.framework_config import RLConfigComponentFramework
+from srl.rl.models.config.input_config import RLConfigComponentInput
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.distributions.bernoulli_dist_block import BernoulliDistBlock
@@ -51,11 +51,11 @@ ref: https://github.com/danijar/dreamerv3
 class Config(
     RLConfig,
     RLConfigComponentExperienceReplayBuffer,
-    RLConfigComponentFramework,
+    RLConfigComponentInput,
 ):
     """
     <:ref:`RLConfigComponentExperienceReplayBuffer`>
-    <:ref:`RLConfigComponentFramework`>
+    <:ref:`RLConfigComponentInput`>
     """
 
     # --- RSSM
@@ -463,6 +463,7 @@ class Config(
     def assert_params(self) -> None:
         super().assert_params()
         self.assert_params_memory()
+        self.assert_params_input()
         assert self.horizon >= 0
 
 

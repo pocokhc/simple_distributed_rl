@@ -16,10 +16,10 @@ from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import RLProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.rl.models.config.framework_config import RLConfigComponentFramework
+from srl.rl.models.config.input_config import RLConfigComponentInput
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
-from srl.rl.tf.blocks.input_block import create_input_image_layers
+from srl.rl.tf.blocks.input_block import create_image_reshape_layers
 from srl.rl.tf.model import KerasModelAddedSummary
 from srl.utils.common import compare_less_version
 
@@ -36,7 +36,10 @@ ref: https://github.com/zacwellmer/WorldModels
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(RLConfig, RLConfigComponentFramework):
+class Config(
+    RLConfig,
+    RLConfigComponentInput,
+):
     train_mode: int = 1
 
     lr: Union[float, SchedulerConfig] = 0.001
@@ -93,6 +96,7 @@ class Config(RLConfig, RLConfigComponentFramework):
 
     def assert_params(self) -> None:
         super().assert_params()
+        self.assert_params_input()
         assert self.memory_warmup_size <= self.capacity
         assert self.batch_size <= self.memory_warmup_size
         assert self.temperature >= 0
@@ -195,11 +199,11 @@ class VAE(KerasModelAddedSummary):
 
         self.z_size = config.z_size
         self.kl_tolerance = config.kl_tolerance
-        self.use_image_head = SpaceTypes.is_image(config.observation_space.stype)
+        self.use_image_head = config.observation_space.is_image()
 
         # --- encoder
         if self.use_image_head:
-            self.in_img_layers = create_input_image_layers(config.observation_space, enable_rnn=False)
+            self.in_reshape_layers = create_image_reshape_layers(config.observation_space, rnn=False)
 
             assert config.window_length == 1
             self.encoder_in_layers = [
@@ -245,7 +249,7 @@ class VAE(KerasModelAddedSummary):
 
     def encode(self, x, training=False):
         if self.use_image_head:
-            for h in self.in_img_layers:
+            for h in self.in_reshape_layers:
                 x = h(x, training=training)
         for layer in self.encoder_in_layers:
             x = layer(x, training=training)

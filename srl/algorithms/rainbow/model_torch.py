@@ -8,7 +8,6 @@ import torch.optim as optim
 
 from srl.base.rl.trainer import RLTrainer
 from srl.rl.schedulers.scheduler import SchedulerConfig
-from srl.rl.torch_.blocks.input_block import create_in_block_out_value
 
 from .rainbow import CommonInterfaceParameter, Config, Memory
 from .rainbow_nomultisteps import calc_target_q
@@ -21,20 +20,15 @@ class QNetwork(nn.Module):
     def __init__(self, config: Config):
         super().__init__()
 
-        self.input_block = create_in_block_out_value(
-            config.input_value_block,
-            config.input_image_block,
-            config.observation_space,
-        )
-
+        self.in_block = config.create_input_block_torch()
         self.hidden_block = config.hidden_block.create_block_torch(
-            self.input_block.out_size,
+            self.in_block.out_size,
             config.action_space.n,
             enable_noisy_dense=config.enable_noisy_dense,
         )
 
     def forward(self, x):
-        x = self.input_block(x)
+        x = self.in_block(x)
         x = self.hidden_block(x)
         return x
 
@@ -75,21 +69,21 @@ class Parameter(CommonInterfaceParameter):
 
     # ----------------------------------------------
     def pred_single_q(self, state) -> np.ndarray:
-        state = self.q_online.input_block.create_batch_single_data(state, self.device)
+        state = self.q_online.in_block.create_batch_single_data(state, self.device)
         with torch.no_grad():
             q = self.q_online(state)
             q = q.to("cpu").detach().numpy()
         return q[0]
 
     def pred_batch_q(self, state) -> np.ndarray:
-        state = self.q_online.input_block.create_batch_stack_data(state, self.device)
+        state = self.q_online.in_block.create_batch_stack_data(state, self.device)
         with torch.no_grad():
             q = self.q_online(state)
             q = q.to("cpu").detach().numpy()
         return q
 
     def pred_batch_target_q(self, state) -> np.ndarray:
-        state = self.q_online.input_block.create_batch_stack_data(state, self.device)
+        state = self.q_online.in_block.create_batch_stack_data(state, self.device)
         with torch.no_grad():
             q = self.q_target(state)
             q = q.to("cpu").detach().numpy()

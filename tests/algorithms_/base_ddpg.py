@@ -13,7 +13,6 @@ class QuickCase(CommonQuickCase):
         from srl.algorithms import ddpg
 
         rl_config = ddpg.Config()
-        rl_config.set_tensorflow()
         rl_config.batch_size = 2
         rl_config.memory_warmup_size = 2
 

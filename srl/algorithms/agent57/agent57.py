@@ -2,7 +2,7 @@ import collections
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Tuple, Union
 
 import numpy as np
 
@@ -15,7 +15,9 @@ from srl.rl.memories.priority_experience_replay import (
     PriorityExperienceReplay,
     RLConfigComponentPriorityExperienceReplay,
 )
+from srl.rl.models.config.dueling_network import DuelingNetworkConfig
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
+from srl.rl.models.config.input_config import RLConfigComponentInput
 from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -61,10 +63,12 @@ class Config(
     RLConfig,
     RLConfigComponentPriorityExperienceReplay,
     RLConfigComponentFramework,
+    RLConfigComponentInput,
 ):
     """
     <:ref:`RLConfigComponentPriorityExperienceReplay`>
     <:ref:`RLConfigComponentFramework`>
+    <:ref:`RLConfigComponentInput`>
     """
 
     #: ε-greedy parameter for Test
@@ -75,7 +79,7 @@ class Config(
     #:  Lstm units
     lstm_units: int = 512
     #: <:ref:`MLPBlock`> hidden layer
-    hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    hidden_block: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
 
     #: <:ref:`scheduler`> Learning rate
     lr_ext: Union[float, SchedulerConfig] = 0.0001
@@ -181,11 +185,11 @@ class Config(
 
         self.target_model_update_interval = 1500
 
-    def get_processors(self) -> List[Optional[RLProcessor]]:
-        return [self.input_image_block.get_processor()]
+    def get_processors(self) -> List[RLProcessor]:
+        return RLConfigComponentInput.get_processors(self)
 
     def get_framework(self) -> str:
-        return self.create_framework_str()
+        return RLConfigComponentFramework.get_framework(self)
 
     def get_name(self) -> str:
         return "Agent57"
@@ -194,6 +198,7 @@ class Config(
         super().assert_params()
         self.assert_params_memory()
         self.assert_params_framework()
+        self.assert_params_input()
         assert self.burnin >= 0
         assert self.sequence_length >= 1
 

@@ -19,10 +19,9 @@ from srl.rl.memories.priority_experience_replay import (
     PriorityExperienceReplay,
     RLConfigComponentPriorityExperienceReplay,
 )
-from srl.rl.models.config.framework_config import RLConfigComponentFramework
+from srl.rl.models.config.input_config import RLConfigComponentInput
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.alphazero_image_block import AlphaZeroImageBlock
-from srl.rl.tf.blocks.input_block import create_in_block_out_image
 from srl.rl.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
@@ -44,11 +43,11 @@ https://arxiv.org/src/1911.08265v2/anc/pseudocode.py
 class Config(
     RLConfig,
     RLConfigComponentPriorityExperienceReplay,
-    RLConfigComponentFramework,
+    RLConfigComponentInput,
 ):
     """
     <:ref:`RLConfigComponentPriorityExperienceReplay`>
-    <:ref:`RLConfigComponentFramework`>
+    <:ref:`RLConfigComponentInput`>
     """
 
     #: シミュレーション回数
@@ -121,8 +120,8 @@ class Config(
         self.weight_decay = 0.0001
         self.enable_rescale = True
 
-    def get_processors(self) -> List[Optional[RLProcessor]]:
-        return [self.input_image_block.get_processor()]
+    def get_processors(self) -> List[RLProcessor]:
+        return RLConfigComponentInput.get_processors(self)
 
     def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.IMAGE
@@ -136,6 +135,7 @@ class Config(
     def assert_params(self) -> None:
         super().assert_params()
         self.assert_params_memory()
+        self.assert_params_input()
         assert self.v_min < self.v_max
         assert self.unroll_steps > 0
 
@@ -180,11 +180,8 @@ class _RepresentationNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
-        # input
-        self.input_block = create_in_block_out_image(
-            config.input_image_block,
-            config.observation_space,
-        )
+        assert config.observation_space.is_image(), "The input supports only image format."
+        self.in_block = config.create_input_block_tf(image_flatten=False)
 
         # build & 出力shapeを取得
         dummy_state = np.zeros(shape=(1,) + config.observation_space.shape, dtype=np.float32)
@@ -192,7 +189,7 @@ class _RepresentationNetwork(KerasModelAddedSummary):
         self.hidden_state_shape = hidden_state.shape[1:]
 
     def call(self, state, training=False):
-        x = self.input_block(state, training=training)
+        x = self.in_block(state, training=training)
 
         # 隠れ状態はアクションとスケールを合わせるため0-1で正規化(一応batch毎)
         batch, h, w, d = x.shape

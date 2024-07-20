@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
-from typing import Tuple
+from typing import Tuple, cast
 
 import pytest
 
 import srl
 from srl.base.define import ObservationModes
 from srl.base.rl.config import RLConfig
+from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.test.rl import TestRL
 from srl.utils import common
 
@@ -34,12 +35,14 @@ class CommonQuickCase(ABC):
         common.logger_print()
 
         rl_config.memory_compress = False
-        if self.use_framework() == "tensorflow":
-            rl_config.set_tensorflow()
-        elif self.use_framework() == "torch":
-            rl_config.set_torch()
+        if issubclass(rl_config.__class__, RLConfigComponentFramework):
+            if self.use_framework() == "tensorflow":
+                cast(RLConfigComponentFramework, rl_config).set_tensorflow()
+            elif self.use_framework() == "torch":
+                cast(RLConfigComponentFramework, rl_config).set_torch()
 
     def test_simple(self, rl_param):
+        common.logger_print()
         self.check_skip()
         rl_config, test_kwargs = self.create_rl_config(rl_param)
         self._setup_rl_config(rl_config)
@@ -48,6 +51,7 @@ class CommonQuickCase(ABC):
         tester.test(rl_config, **test_kwargs)
 
     def test_simple_mp(self, rl_param):
+        common.logger_print()
         self.check_skip()
         rl_config, test_kwargs = self.create_rl_config(rl_param)
         self._setup_rl_config(rl_config)
@@ -58,6 +62,7 @@ class CommonQuickCase(ABC):
     def test_input_image(self, rl_param):
         pytest.importorskip("PIL")
         pytest.importorskip("pygame")
+        common.logger_print()
         self.check_skip()
         rl_config, test_kwargs = self.create_rl_config(rl_param)
         self._setup_rl_config(rl_config)
@@ -69,6 +74,7 @@ class CommonQuickCase(ABC):
     def test_input_multi(self, rl_param):
         self.check_skip()
         pytest.skip("TODO")
+        common.logger_print()
         rl_config, test_kwargs = self.create_rl_config(rl_param)
         self._setup_rl_config(rl_config)
 
@@ -77,6 +83,7 @@ class CommonQuickCase(ABC):
         tester.test(rl_config, **test_kwargs)
 
     def test_summary(self, rl_param):
+        common.logger_print()
         self.check_skip()
         rl_config, test_kwargs = self.create_rl_config(rl_param)
         self._setup_rl_config(rl_config)

@@ -1,20 +1,72 @@
-from dataclasses import dataclass
-from typing import Optional, Tuple
+from dataclasses import dataclass, field
+from typing import List, Optional, Tuple, cast
 
 from srl.base.define import SpaceTypes
-from srl.base.exception import UndefinedError
+from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import RLProcessor
+from srl.base.spaces.space import SpaceBase
+from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.processors.image_processor import ImageProcessor
 
 
 @dataclass
-class ImageBlockConfig:
-    def __post_init__(self):
-        self._name: str = ""
-        self._kwargs: dict = {}
-        self._processor: Optional[RLProcessor] = None
+class RLConfigComponentInput:
 
-        self.set_dqn_block()
+    #: <:ref:`MLPBlockConfig`>
+    input_value_block: "MLPBlockConfig" = field(init=False, default_factory=lambda: MLPBlockConfig().set(()))
+
+    #: <:ref:`InputImageBlockConfig`>
+    input_image_block: "InputImageBlockConfig" = field(init=False, default_factory=lambda: InputImageBlockConfig())
+
+    def get_processors(self) -> List[RLProcessor]:
+        return self.input_image_block.get_processors()
+
+    def assert_params_input(self):
+        pass
+
+    # ----------------------------------------------------------------
+
+    def create_input_block_tf(
+        self,
+        image_flatten: bool = True,
+        rnn: bool = False,
+        out_multi: bool = False,
+        in_space: Optional[SpaceBase] = None,
+        **kwargs,
+    ):
+        from srl.rl.tf.blocks.input_block import create_block_from_config
+
+        if in_space is None:
+            assert hasattr(self, "observation_space")
+            in_space = cast(SpaceBase, cast(RLConfig, self).observation_space)
+
+        return create_block_from_config(self, in_space, image_flatten, rnn, out_multi, **kwargs)
+
+    def create_input_block_torch(
+        self,
+        image_flatten: bool = True,
+        out_multi: bool = False,
+        in_space: Optional[SpaceBase] = None,
+        **kwargs,
+    ):
+        from srl.rl.torch_.blocks.input_block import create_block_from_config
+
+        if in_space is None:
+            assert hasattr(self, "observation_space")
+            in_space = cast(SpaceBase, cast(RLConfig, self).observation_space)
+
+        return create_block_from_config(self, in_space, image_flatten, out_multi, **kwargs)
+
+
+@dataclass
+class InputImageBlockConfig:
+    _name: str = ""
+    _kwargs: dict = field(default_factory=dict)
+    _processors: List[RLProcessor] = field(default_factory=list)
+
+    def __post_init__(self):
+        if self._name == "":
+            self.set_dqn_block()
 
     def set_dqn_block(
         self,
@@ -33,7 +85,7 @@ class ImageBlockConfig:
         """
         self._name = "DQN"
         self._kwargs = dict(filters=filters, activation=activation)
-        self._processor = ImageProcessor(image_type, resize, enable_norm=True)
+        self._processors = [ImageProcessor(image_type, resize, enable_norm=True)]
         return self
 
     def set_r2d3_block(
@@ -53,7 +105,7 @@ class ImageBlockConfig:
         """
         self._name = "R2D3"
         self._kwargs = dict(filters=filters, activation=activation)
-        self._processor = ImageProcessor(image_type, resize, enable_norm=True)
+        self._processors = [ImageProcessor(image_type, resize, enable_norm=True)]
         return self
 
     def set_alphazero_block(
@@ -76,7 +128,7 @@ class ImageBlockConfig:
             filters=filters,
             activation=activation,
         )
-        self._processor = None
+        self._processors = []
         return self
 
     def set_muzero_atari_block(
@@ -101,80 +153,16 @@ class ImageBlockConfig:
             activation=activation,
             use_layer_normalization=use_layer_normalization,
         )
-        self._processor = ImageProcessor(image_type, resize, enable_norm=True)
+        self._processors = [ImageProcessor(image_type, resize, enable_norm=True)]
         return self
 
-    def set_custom_block(self, entry_point: str, kwargs: dict, processor: Optional[RLProcessor] = None):
+    def set_custom_block(self, entry_point: str, kwargs: dict, processors: List[RLProcessor] = []):
         self._name = "custom"
         self._kwargs = dict(entry_point=entry_point, kwargs=kwargs)
-        self._processor = processor
+        self._processors = processors[:]
         return self
 
     # ----------------------------------------------------------------
 
-    def get_processor(self) -> Optional[RLProcessor]:
-        return self._processor
-
-    def create_block_tf(self, enable_rnn: bool = False):
-        # flatten TODO
-        if self._name == "DQN":
-            from srl.rl.tf.blocks.dqn_image_block import DQNImageBlock
-
-            return DQNImageBlock(
-                enable_rnn=enable_rnn,
-                **self._kwargs,
-            )
-        if self._name == "R2D3":
-            from srl.rl.tf.blocks.r2d3_image_block import R2D3ImageBlock
-
-            return R2D3ImageBlock(
-                enable_rnn=enable_rnn,
-                **self._kwargs,
-            )
-        if self._name == "AlphaZero":
-            from srl.rl.tf.blocks.alphazero_image_block import AlphaZeroImageBlock
-
-            return AlphaZeroImageBlock(
-                enable_rnn=enable_rnn,
-                **self._kwargs,
-            )
-        if self._name == "MuzeroAtari":
-            from srl.rl.tf.blocks.muzero_atari_block import MuZeroAtariBlock
-
-            return MuZeroAtariBlock(
-                enable_rnn=enable_rnn,
-                **self._kwargs,
-            )
-
-        if self._name == "custom":
-            from srl.utils.common import load_module
-
-            return load_module(self._kwargs["entry_point"])(enable_rnn=enable_rnn, **self._kwargs["kwargs"])
-
-        raise UndefinedError(self._name)
-
-    def create_block_torch(self, in_shape: Tuple[int, ...], flatten: bool = False):
-        if self._name == "DQN":
-            from srl.rl.torch_.blocks.dqn_image_block import DQNImageBlock
-
-            return DQNImageBlock(in_shape, flatten=flatten, **self._kwargs)
-        if self._name == "R2D3":
-            from srl.rl.torch_.blocks.r2d3_image_block import R2D3ImageBlock
-
-            return R2D3ImageBlock(in_shape, flatten=flatten, **self._kwargs)
-
-        if self._name == "AlphaZero":
-            from srl.rl.torch_.blocks.alphazero_image_block import AlphaZeroImageBlock
-
-            return AlphaZeroImageBlock(in_shape, flatten=flatten, **self._kwargs)
-        if self._name == "MuzeroAtari":
-            from srl.rl.torch_.blocks.muzero_atari_block import MuZeroAtariBlock
-
-            return MuZeroAtariBlock(in_shape, flatten=flatten, **self._kwargs)
-
-        if self._name == "custom":
-            from srl.utils.common import load_module
-
-            return load_module(self._kwargs["entry_point"])(in_shape, flatten=flatten, **self._kwargs["kwargs"])
-
-        raise UndefinedError(self._name)
+    def get_processors(self) -> List[RLProcessor]:
+        return self._processors

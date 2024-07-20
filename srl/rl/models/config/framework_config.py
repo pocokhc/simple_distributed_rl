@@ -1,26 +1,12 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from srl.base.exception import UndefinedError
-from srl.rl.models.config.image_block import ImageBlockConfig
-from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.utils.common import is_package_installed
 
 
 @dataclass
 class RLConfigComponentFramework:
     framework: str = "auto"
-
-    #: <:ref:`MLPBlock`> This layer is only used when the input is an value.
-    input_value_block: MLPBlockConfig = field(
-        init=False,
-        default_factory=lambda: MLPBlockConfig().set(()),
-    )
-
-    #: <:ref:`ImageBlock`> This layer is only used when the input is an image.
-    input_image_block: ImageBlockConfig = field(
-        init=False,
-        default_factory=lambda: ImageBlockConfig(),
-    )
 
     def set_tensorflow(self):
         """use tensorflow"""
@@ -40,7 +26,7 @@ class RLConfigComponentFramework:
         self.framework = "auto"
         return self
 
-    def create_framework_str(self) -> str:
+    def get_framework(self) -> str:
         if self.framework == "auto":
             if is_package_installed("tensorflow"):
                 return "tensorflow"

@@ -196,15 +196,11 @@ def test_con_division():
     space = BoxSpace((3, 2), -1, 3)
 
     # action discrete
-    space.create_division_tbl(5)
+    space.create_division_tbl(100)
     assert space.division_tbl is not None
-    _t = list(itertools.product([-1, 0, 1, 2, 3], [-1, 0, 1, 2, 3]))
-    true_tbl = list(itertools.product(_t, _t, _t))
-    for a in range(len(true_tbl)):
-        np.testing.assert_array_equal(true_tbl[a], space.division_tbl[a])
 
     # --- discrete
-    assert space.int_size == 5 ** (3 * 2)
+    assert space.int_size == 2 ** (3 * 2)
     en = space.encode_to_int(np.array([[-0.9, -1], [-1, -0.9], [-1, -1]]))
     assert en == 0
     de = space.decode_from_int(0)

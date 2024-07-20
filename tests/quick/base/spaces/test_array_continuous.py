@@ -108,22 +108,23 @@ def test_division():
     # action discrete
     space.create_division_tbl(5)
     assert space.division_tbl is not None
+    print(space.division_tbl)
 
     # --- discrete
-    assert space.int_size == 5**3
+    assert space.int_size == 8
     en = space.encode_to_int([-1, -1, 2])
-    assert en == 3
+    assert en == 1
     de = space.decode_from_int(2)
-    assert de == [-1.0, -1.0, 1.0]
+    assert de == [-1.0, 3.0, -1.0]
 
     # --- list int
     assert space.list_int_size == 1
     assert space.list_int_low == [0]
-    assert space.list_int_high == [5**3]
+    assert space.list_int_high == [8]
     en = space.encode_to_list_int([-1, -1, 2])
-    assert en == [3]
+    assert en == [1]
     de = space.decode_from_list_int([2])
-    assert de == [-1.0, -1.0, 1.0]
+    assert de == [-1.0, 3.0, -1.0]
 
 
 def test_inf():

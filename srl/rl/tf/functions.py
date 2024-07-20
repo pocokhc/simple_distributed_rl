@@ -74,6 +74,8 @@ def compute_kl_divergence_normal(mean1, stddev1, mean2, stddev2):
     """Kullback-Leibler divergence from Normal distribution"""
     import tensorflow_probability as tfp
 
+    # tf2.16からtensorflow_probabilityがサポートされなくなり、方向性が不明瞭なので一旦保留（TODO）
+
     p1 = tfp.distributions.Normal(loc=mean1, scale=stddev1)
     p2 = tfp.distributions.Normal(loc=mean2, scale=stddev2)
     return p1.kl_divergence(p2)

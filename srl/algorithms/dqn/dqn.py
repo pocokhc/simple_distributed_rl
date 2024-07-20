@@ -1,7 +1,7 @@
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Optional, Union
+from typing import List, Union
 
 import numpy as np
 
@@ -11,6 +11,7 @@ from srl.base.rl.processor import RLProcessor
 from srl.rl import functions as funcs
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
+from srl.rl.models.config.input_config import RLConfigComponentInput
 from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -47,10 +48,12 @@ class Config(
     RLConfig,
     RLConfigComponentExperienceReplayBuffer,
     RLConfigComponentFramework,
+    RLConfigComponentInput,
 ):
     """
     <:ref:`RLConfigComponentExperienceReplayBuffer`>
     <:ref:`RLConfigComponentFramework`>
+    <:ref:`RLConfigComponentInput`>
     """
 
     #: ε-greedy parameter for Test
@@ -95,11 +98,11 @@ class Config(
         self.enable_double_dqn = False
         self.enable_rescale = False
 
-    def get_processors(self) -> List[Optional[RLProcessor]]:
-        return [self.input_image_block.get_processor()]
+    def get_processors(self) -> List[RLProcessor]:
+        return RLConfigComponentInput.get_processors(self)
 
     def get_framework(self) -> str:
-        return self.create_framework_str()
+        return RLConfigComponentFramework.get_framework(self)
 
     def get_name(self) -> str:
         return "DQN"
@@ -108,9 +111,7 @@ class Config(
         super().assert_params()
         self.assert_params_memory()
         self.assert_params_framework()
-
-    def get_changeable_parameters(self) -> List[str]:
-        return ["test_epsilon"]
+        self.assert_params_input()
 
 
 # ------------------------------------------------------

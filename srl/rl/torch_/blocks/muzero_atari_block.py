@@ -14,7 +14,6 @@ class MuZeroAtariBlock(nn.Module):
         filters: int = 128,
         activation="ReLU",
         use_layer_normalization: bool = False,
-        flatten: bool = False,
     ):
         super().__init__()
 
@@ -57,10 +56,7 @@ class MuZeroAtariBlock(nn.Module):
         # --- out shape
         x = np.ones((1,) + in_shape, dtype=np.float32)
         y = self.forward(torch.tensor(x))
-        if flatten:
-            self.out_size = y.shape[-1]
-        else:
-            self.out_shape = y.shape[-3:]
+        self.out_shape = y.shape[-3:]
 
     def forward(self, x):
         for layer in self.h_layers:
@@ -74,9 +70,8 @@ class _ResidualBlock(nn.Module):
         filters: int,
         activation,
         use_layer_normalization: bool,
-        **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__()
 
         self.conv1 = nn.Conv2d(
             in_channels=filters,

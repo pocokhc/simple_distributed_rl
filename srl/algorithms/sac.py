@@ -16,11 +16,10 @@ from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.rl import functions as funcs
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
-from srl.rl.models.config.framework_config import RLConfigComponentFramework
+from srl.rl.models.config.input_config import RLConfigComponentInput
 from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf import helper as helper_tf
-from srl.rl.tf.blocks.input_block import create_in_block_out_value
 from srl.rl.tf.distributions.categorical_dist_block import CategoricalDistBlock
 from srl.rl.tf.distributions.normal_dist_block import NormalDistBlock
 from srl.rl.tf.model import KerasModelAddedSummary
@@ -52,11 +51,11 @@ SAC
 class Config(
     RLConfig,
     RLConfigComponentExperienceReplayBuffer,
-    RLConfigComponentFramework,
+    RLConfigComponentInput,
 ):
     """
     <:ref:`RLConfigComponentExperienceReplayBuffer`>
-    <:ref:`RLConfigComponentFramework`>
+    <:ref:`RLConfigComponentInput`>
     """
 
     #: <:ref:`MLPBlock`> policy layer
@@ -100,8 +99,8 @@ class Config(
     def get_framework(self) -> str:
         return "tensorflow"
 
-    def get_processors(self) -> List[Optional[RLProcessor]]:
-        return [self.input_image_block.get_processor()]
+    def get_processors(self) -> List[RLProcessor]:
+        return RLConfigComponentInput.get_processors(self)
 
     def get_name(self) -> str:
         return "SAC"
@@ -109,7 +108,7 @@ class Config(
     def assert_params(self) -> None:
         super().assert_params()
         self.assert_params_memory()
-        self.assert_params_framework()
+        self.assert_params_input()
 
 
 register(
@@ -136,14 +135,7 @@ class PolicyNetwork(KerasModelAddedSummary):
         super().__init__()
         self.config = config
 
-        # input
-        self.input_block = create_in_block_out_value(
-            config.input_value_block,
-            config.input_image_block,
-            config.observation_space,
-        )
-
-        # layers
+        self.in_block = config.create_input_block_tf()
         self.hidden_block = config.policy_hidden_block.create_block_tf()
 
         # out
@@ -163,7 +155,7 @@ class PolicyNetwork(KerasModelAddedSummary):
         self.build((None,) + config.observation_space.shape)
 
     def call(self, x, training=False) -> Any:
-        x = self.input_block(x, training=training)
+        x = self.in_block(x, training=training)
         x = self.hidden_block(x, training=training)
         return self.policy_dist_block(x)
 
@@ -196,12 +188,7 @@ class QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
-        # input
-        self.input_block = create_in_block_out_value(
-            config.input_value_block,
-            config.input_image_block,
-            config.observation_space,
-        )
+        self.in_block = config.create_input_block_tf()
 
         self.q_block = config.q_hidden_block.create_block_tf()
         self.q_out_layer = kl.Dense(1)
@@ -218,7 +205,7 @@ class QNetwork(KerasModelAddedSummary):
         state = x[0]
         onehot_action = x[1]
 
-        state = self.input_block(state, training=training)
+        state = self.in_block(state, training=training)
         x = tf.concat([state, onehot_action], axis=1)
 
         x = self.q_block(x, training=training)

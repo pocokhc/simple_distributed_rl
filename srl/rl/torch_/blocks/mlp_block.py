@@ -2,8 +2,22 @@ from typing import Tuple
 
 import torch.nn as nn
 
+from srl.base.exception import UndefinedError
+from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.torch_.converter import convert_activation_torch, set_initializer_torch
 from srl.rl.torch_.modules.noisy_linear import NoisyLinear
+
+
+def create_mlp_block_from_config(config: MLPBlockConfig, in_size: int):
+    if config._name == "MLP":
+        return MLPBlock(in_size, **config._kwargs)
+
+    if config._name == "custom":
+        from srl.utils.common import load_module
+
+        return load_module(config._kwargs["entry_point"])(in_size, **config._kwargs["kwargs"])
+
+    raise UndefinedError(config._name)
 
 
 class MLPBlock(nn.Module):

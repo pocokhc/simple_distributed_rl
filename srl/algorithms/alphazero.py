@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Union
+from typing import Any, List, Union
 
 import numpy as np
 import tensorflow as tf
@@ -16,10 +16,9 @@ from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.rl import functions as funcs
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
-from srl.rl.models.config.framework_config import RLConfigComponentFramework
+from srl.rl.models.config.input_config import RLConfigComponentInput
 from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
-from srl.rl.tf.blocks.input_block import create_in_block_out_image
 from srl.rl.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
@@ -43,11 +42,11 @@ https://github.com/AppliedDataSciencePartners/DeepReinforcementLearning
 class Config(
     RLConfig,
     RLConfigComponentExperienceReplayBuffer,
-    RLConfigComponentFramework,
+    RLConfigComponentInput,
 ):
     """
     <:ref:`RLConfigComponentExperienceReplayBuffer`>
-    <:ref:`RLConfigComponentFramework`>
+    <:ref:`RLConfigComponentInput`>
     """
 
     #: シミュレーション回数
@@ -103,8 +102,8 @@ class Config(
         self.value_block.set((256,))
         self.policy_block.set(())
 
-    def get_processors(self) -> List[Optional[RLProcessor]]:
-        return [self.input_image_block.get_processor()]
+    def get_processors(self) -> List[RLProcessor]:
+        return RLConfigComponentInput.get_processors(self)
 
     def get_base_observation_type(self) -> RLBaseTypes:
         return RLBaseTypes.IMAGE
@@ -118,7 +117,7 @@ class Config(
     def assert_params(self) -> None:
         super().assert_params()
         self.assert_params_memory()
-        self.assert_params_framework()
+        self.assert_params_input()
 
     def get_used_backup_restore(self) -> bool:
         return True
@@ -148,10 +147,8 @@ class Network(KerasModelAddedSummary):
         super().__init__()
         self.value_type = config.value_type
 
-        self.input_block = create_in_block_out_image(
-            config.input_image_block,
-            config.observation_space,
-        )
+        assert config.observation_space.is_image(), "The input supports only image format."
+        self.in_block = config.create_input_block_tf(image_flatten=False)
 
         # --- policy image
         self.input_image_policy_layers = [
@@ -204,7 +201,7 @@ class Network(KerasModelAddedSummary):
         self.build((None,) + config.observation_space.shape)
 
     def call(self, x, training=False):
-        x = self.input_block(x, training=training)
+        x = self.in_block(x, training=training)
 
         # --- policy image
         x1 = x

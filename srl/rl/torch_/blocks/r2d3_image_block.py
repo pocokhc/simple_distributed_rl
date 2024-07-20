@@ -13,7 +13,6 @@ class R2D3ImageBlock(nn.Module):
         in_shape: Tuple[int, ...],
         filters: int = 16,
         activation="ReLU",
-        flatten: bool = False,
     ):
         super().__init__()
 
@@ -28,16 +27,11 @@ class R2D3ImageBlock(nn.Module):
                 activation(inplace=True),
             ]
         )
-        if flatten:
-            self.h_layers.append(nn.Flatten())
 
         # --- out shape
         x = np.ones((1,) + in_shape, dtype=np.float32)
         y = self.forward(torch.tensor(x))
-        if flatten:
-            self.out_size = y.shape[-1]
-        else:
-            self.out_shape = y.shape[-3:]
+        self.out_shape = y.shape[-3:]
 
     def forward(self, x):
         for layer in self.h_layers:

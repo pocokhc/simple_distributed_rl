@@ -7,7 +7,6 @@ from tensorflow import keras
 from srl.base.rl.trainer import RLTrainer
 from srl.rl.functions import create_beta_list, create_discount_list
 from srl.rl.schedulers.scheduler import SchedulerConfig
-from srl.rl.tf.blocks.input_block import create_in_block_out_value
 from srl.rl.tf.model import KerasModelAddedSummary
 from srl.utils.common import compare_less_version
 
@@ -30,13 +29,7 @@ class QNetwork(KerasModelAddedSummary):
             self.input_int_reward = False
 
         # --- input
-        self.input_block = create_in_block_out_value(
-            config.input_value_block,
-            config.input_image_block,
-            config.observation_space,
-            enable_rnn=True,
-        )
-
+        self.in_block = config.create_input_block_tf(rnn=True)
         self.concat_layer = kl.Concatenate(axis=-1)
 
         # --- lstm
@@ -47,10 +40,7 @@ class QNetwork(KerasModelAddedSummary):
         )
 
         # --- out
-        self.hidden_block = config.hidden_block.create_block_tf(
-            config.action_space.n,
-            enable_rnn=True,
-        )
+        self.hidden_block = config.hidden_block.create_block_tf(config.action_space.n, rnn=True)
 
         # build
         self(
@@ -75,7 +65,7 @@ class QNetwork(KerasModelAddedSummary):
         onehot_actor = inputs[4]
 
         # input
-        state = self.input_block(state, training=training)
+        state = self.in_block(state, training=training)
 
         # UVFA
         uvfa_list = [state]
@@ -109,19 +99,11 @@ class EmbeddingNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
-        # input
-        self.input_block = create_in_block_out_value(
-            config.input_value_block,
-            config.input_image_block,
-            config.observation_space,
-        )
-
-        # emb_block
+        self.in_block = config.create_input_block_tf()
         self.emb_block = config.episodic_emb_block.create_block_tf()
 
-        self.concat_layer = kl.Concatenate(axis=-1)
-
         # out_block
+        self.concat_layer = kl.Concatenate(axis=-1)
         self.out_block = config.episodic_out_block.create_block_tf()
         self.out_block_normalize = kl.LayerNormalization()
         self.out_block_out = kl.Dense(config.action_space.n, activation="softmax")
@@ -131,7 +113,7 @@ class EmbeddingNetwork(KerasModelAddedSummary):
         self.loss_func = keras.losses.MeanSquaredError()
 
     def _emb_block_call(self, x, training=False):
-        x = self.input_block(x, training=training)
+        x = self.in_block(x, training=training)
         return self.emb_block(x, training=training)
 
     def call(self, x, training=False):
@@ -162,12 +144,7 @@ class LifelongNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
-        # input
-        self.input_block = create_in_block_out_value(
-            config.input_value_block,
-            config.input_image_block,
-            config.observation_space,
-        )
+        self.in_block = config.create_input_block_tf()
 
         # hidden
         self.hidden_block = config.lifelong_hidden_block.create_block_tf()
@@ -178,7 +155,7 @@ class LifelongNetwork(KerasModelAddedSummary):
         self.loss_func = keras.losses.MeanSquaredError()
 
     def call(self, x, training=False):
-        x = self.input_block(x, training=training)
+        x = self.in_block(x, training=training)
         x = self.hidden_block(x, training=training)
         x = self.hidden_normalize(x, training=training)
         return x

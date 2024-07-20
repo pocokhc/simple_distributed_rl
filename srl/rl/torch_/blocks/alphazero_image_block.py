@@ -14,7 +14,6 @@ class AlphaZeroImageBlock(nn.Module):
         n_blocks: int = 19,
         filters: int = 256,
         activation="ReLU",
-        flatten: bool = False,
     ):
         super().__init__()
 
@@ -36,16 +35,11 @@ class AlphaZeroImageBlock(nn.Module):
         )
         for _ in range(n_blocks):
             self.h_layers.append(_ResidualBlock(filters, filters, activation))
-        if flatten:
-            self.h_layers.append(nn.Flatten())
 
         # --- out shape
         x = np.ones((1,) + in_shape, dtype=np.float32)
         y = self.forward(torch.tensor(x))
-        if flatten:
-            self.out_size = y.shape[-1]
-        else:
-            self.out_shape = y.shape[-3:]
+        self.out_shape = y.shape[-3:]
 
     def forward(self, x):
         for layer in self.h_layers:

@@ -15,7 +15,7 @@ from srl.base.rl.processor import RLProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
-from srl.rl.models.config.framework_config import RLConfigComponentFramework
+from srl.rl.models.config.input_config import RLConfigComponentInput
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.model import KerasModelAddedSummary
@@ -39,11 +39,11 @@ ref: https://github.com/danijar/dreamer
 class Config(
     RLConfig,
     RLConfigComponentExperienceReplayBuffer,
-    RLConfigComponentFramework,
+    RLConfigComponentInput,
 ):
     """
     <:ref:`RLConfigComponentExperienceReplayBuffer`>
-    <:ref:`RLConfigComponentFramework`>
+    <:ref:`RLConfigComponentInput`>
     """
 
     #: <:ref:`scheduler`> Learning rate
@@ -81,7 +81,7 @@ class Config(
     def __post_init__(self):
         super().__post_init__()
 
-    def get_processors(self) -> List[Optional[RLProcessor]]:
+    def get_processors(self) -> List[RLProcessor]:
         return [
             ImageProcessor(
                 image_type=SpaceTypes.COLOR,
@@ -102,7 +102,7 @@ class Config(
     def assert_params(self) -> None:
         super().assert_params()
         self.assert_params_memory()
-        self.assert_params_framework()
+        self.assert_params_input()
 
 
 register(

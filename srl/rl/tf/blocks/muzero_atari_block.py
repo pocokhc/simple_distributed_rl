@@ -21,7 +21,6 @@ class MuZeroAtariBlock(KerasModelAddedSummary):
         l2: float = 0.0001,
         activation: str = "relu",
         use_layer_normalization: bool = True,
-        enable_rnn: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)

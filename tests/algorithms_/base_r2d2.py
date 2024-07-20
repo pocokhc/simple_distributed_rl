@@ -1,7 +1,5 @@
 from typing import Tuple
 
-import pytest
-
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_base_case import CommonBaseCase
 from tests.algorithms_.common_quick_case import CommonQuickCase

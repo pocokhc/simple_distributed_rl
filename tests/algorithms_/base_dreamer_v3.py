@@ -29,7 +29,6 @@ class QuickCase(CommonQuickCase):
         from srl.algorithms import dreamer_v3
 
         rl_config = dreamer_v3.Config()
-        rl_config.set_tensorflow()
 
         if rl_param[0] == "v1":
             rl_config.set_dreamer_v1()

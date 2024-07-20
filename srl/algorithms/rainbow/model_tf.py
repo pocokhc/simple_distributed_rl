@@ -6,7 +6,6 @@ from tensorflow import keras
 
 from srl.base.rl.trainer import RLTrainer
 from srl.rl.schedulers.scheduler import SchedulerConfig
-from srl.rl.tf.blocks.input_block import create_in_block_out_value
 from srl.rl.tf.model import KerasModelAddedSummary
 
 from .rainbow import CommonInterfaceParameter, Config, Memory
@@ -22,22 +21,16 @@ class QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
-        self.input_block = create_in_block_out_value(
-            config.input_value_block,
-            config.input_image_block,
-            config.observation_space,
-        )
-
-        # hidden
+        self.in_block = config.create_input_block_tf()
         self.hidden_block = config.hidden_block.create_block_tf(config.action_space.n)
 
         # build
-        self(np.zeros(self.input_block.create_batch_shape((1,)), config.dtype))
+        self(np.zeros(self.in_block.create_batch_shape((1,)), config.dtype))
 
         self.loss_func = keras.losses.Huber()
 
     def call(self, x, training=False):
-        x = self.input_block(x, training=training)
+        x = self.in_block(x, training=training)
         x = self.hidden_block(x, training=training)
         return x
 
@@ -74,15 +67,15 @@ class Parameter(CommonInterfaceParameter):
 
     # ----------------------------------------------
     def pred_single_q(self, state) -> np.ndarray:
-        state = self.q_online.input_block.create_batch_single_data(state)
+        state = self.q_online.in_block.create_batch_single_data(state)
         return self.q_online(state).numpy()[0]
 
     def pred_batch_q(self, state) -> np.ndarray:
-        state = self.q_online.input_block.create_batch_stack_data(state)
+        state = self.q_online.in_block.create_batch_stack_data(state)
         return self.q_online(state).numpy()
 
     def pred_batch_target_q(self, state) -> np.ndarray:
-        state = self.q_online.input_block.create_batch_stack_data(state)
+        state = self.q_online.in_block.create_batch_stack_data(state)
         return self.q_target(state).numpy()
 
 

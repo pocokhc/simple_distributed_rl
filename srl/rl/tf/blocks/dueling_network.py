@@ -1,6 +1,9 @@
 import tensorflow as tf
 from tensorflow import keras
 
+from srl.base.exception import UndefinedError
+from srl.rl.models.config.dueling_network import DuelingNetworkConfig
+from srl.rl.tf.blocks.mlp_block import MLPBlock
 from srl.rl.tf.layers.noisy_dense import NoisyDense
 from srl.rl.tf.model import KerasModelAddedSummary
 from srl.utils.common import compare_less_version
@@ -11,6 +14,41 @@ if not v216_older:
 
 
 kl = keras.layers
+
+
+def create_mlp_block_from_config(
+    config: DuelingNetworkConfig,
+    out_size: int,
+    rnn: bool = False,
+    enable_noisy_dense: bool = False,
+):
+    if config._name == "MLP":
+        block = MLPBlock(enable_noisy_dense=enable_noisy_dense, **config._kwargs)
+        block.add_layer(kl.Dense(out_size, kernel_initializer="truncated_normal"))
+        return block
+
+    if config._name == "DuelingNetwork":
+        layer_sizes = config._kwargs["layer_sizes"]
+        dueling_units = layer_sizes[-1]
+        layer_sizes = layer_sizes[:-1]
+
+        block = MLPBlock(layer_sizes, enable_noisy_dense=enable_noisy_dense, **config._kwargs["mlp_kwargs"])
+        block.add_layer(
+            DuelingNetworkBlock(
+                dueling_units,
+                out_size,
+                enable_noisy_dense=enable_noisy_dense,
+                **config._kwargs["dueling_kwargs"],
+            )
+        )
+        return block
+
+    if config._name == "custom":
+        from srl.utils.common import load_module
+
+        return load_module(config._kwargs["entry_point"])(out_size, rnn=rnn, **config._kwargs["kwargs"])
+
+    raise UndefinedError(config._name)
 
 
 class DuelingNetworkBlock(KerasModelAddedSummary):
@@ -41,7 +79,6 @@ class DuelingNetworkBlock(KerasModelAddedSummary):
             kl.Dense(
                 1,
                 kernel_initializer="truncated_normal",
-                bias_initializer="truncated_normal",
                 name="v",
             ),
         ]
@@ -56,7 +93,6 @@ class DuelingNetworkBlock(KerasModelAddedSummary):
             kl.Dense(
                 out_layer_units,
                 kernel_initializer="truncated_normal",
-                bias_initializer="truncated_normal",
                 name="adv",
             ),
         ]

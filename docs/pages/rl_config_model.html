@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Framework &mdash; SimpleDistributedRL 0.16.2 ドキュメント</title>
+  <title>Framework &mdash; SimpleDistributedRL 0.16.2.0 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -15,10 +15,10 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=77722b09"></script>
+        <script src="../_static/documentation_options.js?v=0dc9c58e"></script>
         <script src="../_static/doctools.js?v=9a2dae69"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
-        <script src="../_static/translations.js?v=4dbe4bdc"></script>
+        <script src="../_static/translations.js?v=91613774"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="索引" href="../genindex.html" />
     <link rel="search" title="検索" href="../search.html" />
@@ -65,8 +65,6 @@
 <li class="toctree-l2"><a class="reference internal" href="rl_config_memory.html">Memory</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Framework</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#srl.rl.models.config.framework_config.RLConfigComponentFramework"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentFramework</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.config.framework_config.RLConfigComponentFramework.input_value_block"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentFramework.input_value_block</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.config.framework_config.RLConfigComponentFramework.input_image_block"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentFramework.input_image_block</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.config.framework_config.RLConfigComponentFramework.set_tensorflow"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentFramework.set_tensorflow()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.config.framework_config.RLConfigComponentFramework.set_torch"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentFramework.set_torch()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.config.framework_config.RLConfigComponentFramework.set_auto"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentFramework.set_auto()</span></code></a></li>
@@ -74,20 +72,25 @@
 </li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="#inputimageblock">InputImageBlock</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#srl.rl.models.config.input_config.RLConfigComponentInput"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentInput</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.config.input_config.RLConfigComponentInput.input_value_block"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentInput.input_value_block</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.config.input_config.RLConfigComponentInput.input_image_block"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentInput.input_image_block</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#mlpblock">MLPBlock</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#srl.rl.models.config.mlp_block.MLPBlockConfig"><code class="docutils literal notranslate"><span class="pre">MLPBlockConfig</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.config.mlp_block.MLPBlockConfig.set"><code class="docutils literal notranslate"><span class="pre">MLPBlockConfig.set()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.config.mlp_block.MLPBlockConfig.set_dueling_network"><code class="docutils literal notranslate"><span class="pre">MLPBlockConfig.set_dueling_network()</span></code></a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#imageblock">ImageBlock</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#srl.rl.models.config.image_block.ImageBlockConfig"><code class="docutils literal notranslate"><span class="pre">ImageBlockConfig</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.config.image_block.ImageBlockConfig.set_dqn_block"><code class="docutils literal notranslate"><span class="pre">ImageBlockConfig.set_dqn_block()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.config.image_block.ImageBlockConfig.set_r2d3_block"><code class="docutils literal notranslate"><span class="pre">ImageBlockConfig.set_r2d3_block()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.config.image_block.ImageBlockConfig.set_alphazero_block"><code class="docutils literal notranslate"><span class="pre">ImageBlockConfig.set_alphazero_block()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.config.image_block.ImageBlockConfig.set_muzero_atari_block"><code class="docutils literal notranslate"><span class="pre">ImageBlockConfig.set_muzero_atari_block()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#duelingnetwork">DuelingNetwork</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#srl.rl.models.config.dueling_network.DuelingNetworkConfig"><code class="docutils literal notranslate"><span class="pre">DuelingNetworkConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.config.dueling_network.DuelingNetworkConfig.set"><code class="docutils literal notranslate"><span class="pre">DuelingNetworkConfig.set()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#srl.rl.models.config.dueling_network.DuelingNetworkConfig.set_dueling_network"><code class="docutils literal notranslate"><span class="pre">DuelingNetworkConfig.set_dueling_network()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -148,18 +151,6 @@
 <dt class="sig sig-object py" id="srl.rl.models.config.framework_config.RLConfigComponentFramework">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.models.config.framework_config.</span></span><span class="sig-name descname"><span class="pre">RLConfigComponentFramework</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">framework</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'auto'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.models.config.framework_config.RLConfigComponentFramework" title="Link to this definition"></a></dt>
 <dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="srl.rl.models.config.framework_config.RLConfigComponentFramework.input_value_block">
-<span class="sig-name descname"><span class="pre">input_value_block</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#srl.rl.models.config.mlp_block.MLPBlockConfig" title="srl.rl.models.config.mlp_block.MLPBlockConfig"><span class="pre">MLPBlockConfig</span></a></em><a class="headerlink" href="#srl.rl.models.config.framework_config.RLConfigComponentFramework.input_value_block" title="Link to this definition"></a></dt>
-<dd><p>&lt;<a class="reference internal" href="#mlpblock"><span class="std std-ref">MLPBlock</span></a>&gt; This layer is only used when the input is an value.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="srl.rl.models.config.framework_config.RLConfigComponentFramework.input_image_block">
-<span class="sig-name descname"><span class="pre">input_image_block</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#srl.rl.models.config.image_block.ImageBlockConfig" title="srl.rl.models.config.image_block.ImageBlockConfig"><span class="pre">ImageBlockConfig</span></a></em><a class="headerlink" href="#srl.rl.models.config.framework_config.RLConfigComponentFramework.input_image_block" title="Link to this definition"></a></dt>
-<dd><p>&lt;<a class="reference internal" href="#imageblock"><span class="std std-ref">ImageBlock</span></a>&gt; This layer is only used when the input is an image.</p>
-</dd></dl>
-
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.models.config.framework_config.RLConfigComponentFramework.set_tensorflow">
 <span class="sig-name descname"><span class="pre">set_tensorflow</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.models.config.framework_config.RLConfigComponentFramework.set_tensorflow" title="Link to this definition"></a></dt>
@@ -183,15 +174,36 @@
 </dd></dl>
 
 </section>
+<section id="inputimageblock">
+<span id="inputimageblockconfig"></span><h1>InputImageBlock<a class="headerlink" href="#inputimageblock" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="srl.rl.models.config.input_config.RLConfigComponentInput">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.models.config.input_config.</span></span><span class="sig-name descname"><span class="pre">RLConfigComponentInput</span></span><a class="headerlink" href="#srl.rl.models.config.input_config.RLConfigComponentInput" title="Link to this definition"></a></dt>
+<dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.models.config.input_config.RLConfigComponentInput.input_value_block">
+<span class="sig-name descname"><span class="pre">input_value_block</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#srl.rl.models.config.mlp_block.MLPBlockConfig" title="srl.rl.models.config.mlp_block.MLPBlockConfig"><span class="pre">MLPBlockConfig</span></a></em><a class="headerlink" href="#srl.rl.models.config.input_config.RLConfigComponentInput.input_value_block" title="Link to this definition"></a></dt>
+<dd><p>&lt;<a class="reference internal" href="#mlpblockconfig"><span class="std std-ref">MLPBlock</span></a>&gt;</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.models.config.input_config.RLConfigComponentInput.input_image_block">
+<span class="sig-name descname"><span class="pre">input_image_block</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">InputImageBlockConfig</span></em><a class="headerlink" href="#srl.rl.models.config.input_config.RLConfigComponentInput.input_image_block" title="Link to this definition"></a></dt>
+<dd><p>&lt;<a class="reference internal" href="#inputimageblockconfig"><span class="std std-ref">InputImageBlock</span></a>&gt;</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
 <section id="mlpblock">
-<span id="id1"></span><h1>MLPBlock<a class="headerlink" href="#mlpblock" title="Link to this heading"></a></h1>
+<span id="mlpblockconfig"></span><h1>MLPBlock<a class="headerlink" href="#mlpblock" title="Link to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.rl.models.config.mlp_block.MLPBlockConfig">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.models.config.mlp_block.</span></span><span class="sig-name descname"><span class="pre">MLPBlockConfig</span></span><a class="headerlink" href="#srl.rl.models.config.mlp_block.MLPBlockConfig" title="Link to this definition"></a></dt>
 <dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.models.config.mlp_block.MLPBlockConfig.set">
-<span class="sig-name descname"><span class="pre">set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">layer_sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(512,)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">activation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'relu'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_bias</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kernel_initializer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'he_normal'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias_initializer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'zeros'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.models.config.mlp_block.MLPBlockConfig.set" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">layer_sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(512,)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">activation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'relu'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.models.config.mlp_block.MLPBlockConfig.set" title="Link to this definition"></a></dt>
 <dd><p>Multi-layer Perceptron Block</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -203,14 +215,42 @@
 </dl>
 <p class="rubric">サンプル</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">mlp_conf</span> <span class="o">=</span> <span class="n">MLPBlockConfig</span><span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">mlp_conf</span><span class="o">.</span><span class="n">set_mlp</span><span class="p">((</span><span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">32</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mlp_conf</span><span class="o">.</span><span class="n">set</span><span class="p">((</span><span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">32</span><span class="p">))</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="duelingnetwork">
+<span id="duelingnetworkconfig"></span><h1>DuelingNetwork<a class="headerlink" href="#duelingnetwork" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="srl.rl.models.config.dueling_network.DuelingNetworkConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.models.config.dueling_network.</span></span><span class="sig-name descname"><span class="pre">DuelingNetworkConfig</span></span><a class="headerlink" href="#srl.rl.models.config.dueling_network.DuelingNetworkConfig" title="Link to this definition"></a></dt>
+<dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.rl.models.config.dueling_network.DuelingNetworkConfig.set">
+<span class="sig-name descname"><span class="pre">set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">layer_sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(512,)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">activation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'relu'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.models.config.dueling_network.DuelingNetworkConfig.set" title="Link to this definition"></a></dt>
+<dd><p>Multi-layer Perceptron Block</p>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>layer_sizes</strong> (<em>Tuple</em><em>[</em><em>int</em><em>, </em><em>...</em><em>]</em><em>, </em><em>optional</em>) -- 各レイヤーのユニット数. Defaults to (512,).</p></li>
+<li><p><strong>activation</strong> (<em>str</em><em>, </em><em>optional</em>) -- Activation function. Defaults to &quot;relu&quot;.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">サンプル</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">mlp_conf</span> <span class="o">=</span> <span class="n">DuelingNetworkConfig</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">mlp_conf</span><span class="o">.</span><span class="n">set</span><span class="p">((</span><span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">32</span><span class="p">))</span>
 </pre></div>
 </div>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="srl.rl.models.config.mlp_block.MLPBlockConfig.set_dueling_network">
-<span class="sig-name descname"><span class="pre">set_dueling_network</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">layer_sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(512,)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">activation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'relu'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_bias</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kernel_initializer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'he_normal'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias_initializer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'zeros'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dueling_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'average'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.models.config.mlp_block.MLPBlockConfig.set_dueling_network" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.rl.models.config.dueling_network.DuelingNetworkConfig.set_dueling_network">
+<span class="sig-name descname"><span class="pre">set_dueling_network</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">layer_sizes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(512,)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">activation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'relu'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dueling_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'average'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.models.config.dueling_network.DuelingNetworkConfig.set_dueling_network" title="Link to this definition"></a></dt>
 <dd><p>Multi-layer Perceptron Block + DuelingNetwork Block</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
@@ -218,79 +258,6 @@
 <li><p><strong>layer_sizes</strong> (<em>Tuple</em><em>[</em><em>int</em><em>, </em><em>...</em><em>]</em><em>, </em><em>optional</em>) -- 各レイヤーのユニット数. Defaults to (512,).</p></li>
 <li><p><strong>activation</strong> (<em>str</em><em>, </em><em>optional</em>) -- Activation function. Defaults to &quot;relu&quot;.</p></li>
 <li><p><strong>dueling_type</strong> (<em>str</em><em>, </em><em>optional</em>) -- select algorithm. Defaults to &quot;average&quot;.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-</section>
-<section id="imageblock">
-<span id="id2"></span><h1>ImageBlock<a class="headerlink" href="#imageblock" title="Link to this heading"></a></h1>
-<dl class="py class">
-<dt class="sig sig-object py" id="srl.rl.models.config.image_block.ImageBlockConfig">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.models.config.image_block.</span></span><span class="sig-name descname"><span class="pre">ImageBlockConfig</span></span><a class="headerlink" href="#srl.rl.models.config.image_block.ImageBlockConfig" title="Link to this definition"></a></dt>
-<dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<dl class="py method">
-<dt class="sig sig-object py" id="srl.rl.models.config.image_block.ImageBlockConfig.set_dqn_block">
-<span class="sig-name descname"><span class="pre">set_dqn_block</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">SpaceTypes</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">SpaceTypes.GRAY_2ch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resize</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(84,</span> <span class="pre">84)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filters</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">activation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'relu'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.models.config.image_block.ImageBlockConfig.set_dqn_block" title="Link to this definition"></a></dt>
-<dd><p>画像の入力に対してDQNで採用されたLayersを使用します。</p>
-<dl class="field-list simple">
-<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>image_type</strong> (<em>SpaceTypes</em>) -- 画像のタイプ. Defaults to SpaceTypes.GRAY_2ch</p></li>
-<li><p><strong>resize</strong> (<em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em>) -- 画像のサイズ. Defaults to (84, 84)</p></li>
-<li><p><strong>filters</strong> (<em>int</em>) -- 基準となるfilterの数です. Defaults to 32.</p></li>
-<li><p><strong>activation</strong> (<em>str</em>) -- activation function. Defaults to &quot;relu&quot;.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="srl.rl.models.config.image_block.ImageBlockConfig.set_r2d3_block">
-<span class="sig-name descname"><span class="pre">set_r2d3_block</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">SpaceTypes</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">SpaceTypes.COLOR</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resize</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(96,</span> <span class="pre">72)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filters</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">16</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">activation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'relu'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.models.config.image_block.ImageBlockConfig.set_r2d3_block" title="Link to this definition"></a></dt>
-<dd><p>画像の入力に対してR2D3で採用されたLayersを使用します。</p>
-<dl class="field-list simple">
-<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>image_type</strong> (<em>SpaceTypes</em>) -- 画像のタイプ. Defaults to SpaceTypes.COLOR</p></li>
-<li><p><strong>resize</strong> (<em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>]</em>) -- 画像のサイズ. Defaults to (96, 72)</p></li>
-<li><p><strong>filters</strong> (<em>int</em><em>, </em><em>optional</em>) -- 基準となるfilterの数です. Defaults to 32.</p></li>
-<li><p><strong>activation</strong> (<em>str</em><em>, </em><em>optional</em>) -- activation function. Defaults to &quot;relu&quot;.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="srl.rl.models.config.image_block.ImageBlockConfig.set_alphazero_block">
-<span class="sig-name descname"><span class="pre">set_alphazero_block</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_blocks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">19</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filters</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">activation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'relu'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.models.config.image_block.ImageBlockConfig.set_alphazero_block" title="Link to this definition"></a></dt>
-<dd><p>Alphaシリーズの画像レイヤーで使用する層を指定します。
-AlphaZeroで採用されている層です。</p>
-<dl class="field-list simple">
-<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>n_blocks</strong> (<em>int</em><em>, </em><em>optional</em>) -- ブロック数. Defaults to 19.</p></li>
-<li><p><strong>filters</strong> (<em>int</em><em>, </em><em>optional</em>) -- フィルター数. Defaults to 256.</p></li>
-<li><p><strong>activation</strong> (<em>str</em><em>, </em><em>optional</em>) -- activation function. Defaults to &quot;relu&quot;.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="srl.rl.models.config.image_block.ImageBlockConfig.set_muzero_atari_block">
-<span class="sig-name descname"><span class="pre">set_muzero_atari_block</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">SpaceTypes</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">SpaceTypes.GRAY_2ch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resize</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(96,</span> <span class="pre">96)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filters</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">128</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">activation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'relu'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_layer_normalization</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.models.config.image_block.ImageBlockConfig.set_muzero_atari_block" title="Link to this definition"></a></dt>
-<dd><p>Alphaシリーズの画像レイヤーで使用する層を指定します。
-MuZeroのAtari環境で採用されている層です。</p>
-<dl class="field-list simple">
-<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>filters</strong> (<em>int</em><em>, </em><em>optional</em>) -- フィルター数. Defaults to 128.</p></li>
-<li><p><strong>activation</strong> (<em>str</em><em>, </em><em>optional</em>) -- activation function. Defaults to &quot;relu&quot;.</p></li>
-<li><p><strong>use_layer_normalization</strong> (<em>str</em><em>, </em><em>optional</em>) -- use_layer_normalization. Defaults to True.</p></li>
 </ul>
 </dd>
 </dl>

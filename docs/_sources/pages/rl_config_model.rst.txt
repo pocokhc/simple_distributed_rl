@@ -6,8 +6,19 @@ Framework
    :members:
    :show-inheritance:
 
+.. _InputImageBlockConfig:
 
-.. _MLPBlock:
+
+InputImageBlock
+===============
+
+.. autoclass:: srl.rl.models.config.input_config.RLConfigComponentInput
+   :members:
+   :show-inheritance:
+
+
+.. _MLPBlockConfig:
+
 
 MLPBlock
 ===============
@@ -17,11 +28,13 @@ MLPBlock
    :show-inheritance:
 
 
-.. _ImageBlock:
+.. _DuelingNetworkConfig:
 
-ImageBlock
+
+DuelingNetwork
 ===============
 
-.. autoclass:: srl.rl.models.config.image_block.ImageBlockConfig
+.. autoclass:: srl.rl.models.config.dueling_network.DuelingNetworkConfig
    :members:
    :show-inheritance:
+

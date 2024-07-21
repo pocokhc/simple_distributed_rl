@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DreamerV3 &mdash; SimpleDistributedRL 0.16.2 ドキュメント</title>
+  <title>DreamerV3 &mdash; SimpleDistributedRL 0.16.2.0 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
 
@@ -15,10 +15,10 @@
   
         <script src="../../_static/jquery.js?v=5d32c60e"></script>
         <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=77722b09"></script>
+        <script src="../../_static/documentation_options.js?v=0dc9c58e"></script>
         <script src="../../_static/doctools.js?v=9a2dae69"></script>
         <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
-        <script src="../../_static/translations.js?v=4dbe4bdc"></script>
+        <script src="../../_static/translations.js?v=91613774"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="索引" href="../../genindex.html" />
     <link rel="search" title="検索" href="../../search.html" />
@@ -80,7 +80,72 @@
 <li class="toctree-l1"><a class="reference internal" href="mcts.html">Monte Carlo tree search</a></li>
 <li class="toctree-l1"><a class="reference internal" href="alphazero.html">AlphaZero</a></li>
 <li class="toctree-l1"><a class="reference internal" href="muzero.html">MuZero</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">DreamerV3</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">DreamerV3</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.rssm_deter_size"><code class="docutils literal notranslate"><span class="pre">Config.rssm_deter_size</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.rssm_stoch_size"><code class="docutils literal notranslate"><span class="pre">Config.rssm_stoch_size</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.rssm_classes"><code class="docutils literal notranslate"><span class="pre">Config.rssm_classes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.rssm_hidden_units"><code class="docutils literal notranslate"><span class="pre">Config.rssm_hidden_units</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.rssm_use_norm_layer"><code class="docutils literal notranslate"><span class="pre">Config.rssm_use_norm_layer</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.rssm_use_categorical_distribution"><code class="docutils literal notranslate"><span class="pre">Config.rssm_use_categorical_distribution</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.rssm_activation"><code class="docutils literal notranslate"><span class="pre">Config.rssm_activation</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.rssm_unimix"><code class="docutils literal notranslate"><span class="pre">Config.rssm_unimix</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.reward_type"><code class="docutils literal notranslate"><span class="pre">Config.reward_type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.reward_twohot_bins"><code class="docutils literal notranslate"><span class="pre">Config.reward_twohot_bins</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.reward_twohot_low"><code class="docutils literal notranslate"><span class="pre">Config.reward_twohot_low</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.reward_twohot_high"><code class="docutils literal notranslate"><span class="pre">Config.reward_twohot_high</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.reward_layer_sizes"><code class="docutils literal notranslate"><span class="pre">Config.reward_layer_sizes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.cont_layer_sizes"><code class="docutils literal notranslate"><span class="pre">Config.cont_layer_sizes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.critic_layer_sizes"><code class="docutils literal notranslate"><span class="pre">Config.critic_layer_sizes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.actor_layer_sizes"><code class="docutils literal notranslate"><span class="pre">Config.actor_layer_sizes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.dense_act"><code class="docutils literal notranslate"><span class="pre">Config.dense_act</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.use_symlog"><code class="docutils literal notranslate"><span class="pre">Config.use_symlog</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.encoder_decoder_mlp"><code class="docutils literal notranslate"><span class="pre">Config.encoder_decoder_mlp</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.encoder_decoder_dist"><code class="docutils literal notranslate"><span class="pre">Config.encoder_decoder_dist</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.cnn_depth"><code class="docutils literal notranslate"><span class="pre">Config.cnn_depth</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.cnn_blocks"><code class="docutils literal notranslate"><span class="pre">Config.cnn_blocks</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.cnn_activation"><code class="docutils literal notranslate"><span class="pre">Config.cnn_activation</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.cnn_normalization_type"><code class="docutils literal notranslate"><span class="pre">Config.cnn_normalization_type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.cnn_resize_type"><code class="docutils literal notranslate"><span class="pre">Config.cnn_resize_type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.cnn_resized_image_size"><code class="docutils literal notranslate"><span class="pre">Config.cnn_resized_image_size</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.cnn_use_sigmoid"><code class="docutils literal notranslate"><span class="pre">Config.cnn_use_sigmoid</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.free_nats"><code class="docutils literal notranslate"><span class="pre">Config.free_nats</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.loss_scale_pred"><code class="docutils literal notranslate"><span class="pre">Config.loss_scale_pred</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.loss_scale_kl_dyn"><code class="docutils literal notranslate"><span class="pre">Config.loss_scale_kl_dyn</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.loss_scale_kl_rep"><code class="docutils literal notranslate"><span class="pre">Config.loss_scale_kl_rep</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.warmup_world_model"><code class="docutils literal notranslate"><span class="pre">Config.warmup_world_model</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.critic_target_update_interval"><code class="docutils literal notranslate"><span class="pre">Config.critic_target_update_interval</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.critic_target_soft_update"><code class="docutils literal notranslate"><span class="pre">Config.critic_target_soft_update</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.critic_type"><code class="docutils literal notranslate"><span class="pre">Config.critic_type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.critic_twohot_bins"><code class="docutils literal notranslate"><span class="pre">Config.critic_twohot_bins</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.critic_twohot_low"><code class="docutils literal notranslate"><span class="pre">Config.critic_twohot_low</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.critic_twohot_high"><code class="docutils literal notranslate"><span class="pre">Config.critic_twohot_high</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.actor_discrete_type"><code class="docutils literal notranslate"><span class="pre">Config.actor_discrete_type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.actor_discrete_unimix"><code class="docutils literal notranslate"><span class="pre">Config.actor_discrete_unimix</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.actor_continuous_enable_normal_squashed"><code class="docutils literal notranslate"><span class="pre">Config.actor_continuous_enable_normal_squashed</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.horizon"><code class="docutils literal notranslate"><span class="pre">Config.horizon</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.horizon_policy"><code class="docutils literal notranslate"><span class="pre">Config.horizon_policy</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.critic_estimation_method"><code class="docutils literal notranslate"><span class="pre">Config.critic_estimation_method</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.horizon_ewa_disclam"><code class="docutils literal notranslate"><span class="pre">Config.horizon_ewa_disclam</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.horizon_h_return"><code class="docutils literal notranslate"><span class="pre">Config.horizon_h_return</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.discount"><code class="docutils literal notranslate"><span class="pre">Config.discount</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.enable_train_model"><code class="docutils literal notranslate"><span class="pre">Config.enable_train_model</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.enable_train_critic"><code class="docutils literal notranslate"><span class="pre">Config.enable_train_critic</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.enable_train_actor"><code class="docutils literal notranslate"><span class="pre">Config.enable_train_actor</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.batch_length"><code class="docutils literal notranslate"><span class="pre">Config.batch_length</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.lr_model"><code class="docutils literal notranslate"><span class="pre">Config.lr_model</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.lr_critic"><code class="docutils literal notranslate"><span class="pre">Config.lr_critic</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.lr_actor"><code class="docutils literal notranslate"><span class="pre">Config.lr_actor</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.actor_loss_type"><code class="docutils literal notranslate"><span class="pre">Config.actor_loss_type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.actor_reinforce_rate"><code class="docutils literal notranslate"><span class="pre">Config.actor_reinforce_rate</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.entropy_rate"><code class="docutils literal notranslate"><span class="pre">Config.entropy_rate</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.reinforce_baseline"><code class="docutils literal notranslate"><span class="pre">Config.reinforce_baseline</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.epsilon"><code class="docutils literal notranslate"><span class="pre">Config.epsilon</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.dreamer_v3.Config.clip_rewards"><code class="docutils literal notranslate"><span class="pre">Config.clip_rewards</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 
         </div>
@@ -109,6 +174,460 @@
              
   <section id="dreamerv3">
 <h1>DreamerV3<a class="headerlink" href="#dreamerv3" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.algorithms.dreamer_v3.</span></span><span class="sig-name descname"><span class="pre">Config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_capacity:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_warmup_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_compress:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_compress_level:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">observation_mode:</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">~srl.base.define.ObservationModes</span> <span class="pre">=</span> <span class="pre">&lt;ObservationModes.ENV:</span> <span class="pre">1&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override_observation_type:</span> <span class="pre">~srl.base.define.SpaceTypes</span> <span class="pre">=</span> <span class="pre">SpaceTypes.UNKNOWN</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override_action_type:</span> <span class="pre">~srl.base.define.SpaceTypes</span> <span class="pre">=</span> <span class="pre">SpaceTypes.UNKNOWN</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action_division_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">observation_division_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frameskip:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extend_worker:</span> <span class="pre">~typing.Type[ExtendWorker]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameter_path:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_path:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_rl_processor:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">processors:</span> <span class="pre">~typing.List[RLProcessor]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_state_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_action_decode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_reward_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_done_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_length:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_sanitize:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_assertion:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rssm_deter_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">4096</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rssm_stoch_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rssm_classes:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rssm_hidden_units:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rssm_use_norm_layer:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rssm_use_categorical_distribution:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rssm_activation:</span> <span class="pre">~typing.Any</span> <span class="pre">=</span> <span class="pre">'silu'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rssm_unimix:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reward_type:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'twohot'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reward_twohot_bins:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">255</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reward_twohot_low:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reward_twohot_high:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reward_layer_sizes:</span> <span class="pre">~typing.Tuple[int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">...]</span> <span class="pre">=</span> <span class="pre">(1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">1024)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cont_layer_sizes:</span> <span class="pre">~typing.Tuple[int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">...]</span> <span class="pre">=</span> <span class="pre">(1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">1024)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">critic_layer_sizes:</span> <span class="pre">~typing.Tuple[int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">...]</span> <span class="pre">=</span> <span class="pre">(1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">1024)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">actor_layer_sizes:</span> <span class="pre">~typing.Tuple[int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">...]</span> <span class="pre">=</span> <span class="pre">(1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">1024)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dense_act:</span> <span class="pre">~typing.Any</span> <span class="pre">=</span> <span class="pre">'silu'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_symlog:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">encoder_decoder_mlp:</span> <span class="pre">~typing.Tuple[int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">...]</span> <span class="pre">=</span> <span class="pre">(1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">1024)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">encoder_decoder_dist:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'linear'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cnn_depth:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">96</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cnn_blocks:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cnn_activation:</span> <span class="pre">~typing.Any</span> <span class="pre">=</span> <span class="pre">'silu'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cnn_normalization_type:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'layer'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cnn_resize_type:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'stride'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cnn_resized_image_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cnn_use_sigmoid:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">free_nats:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loss_scale_pred:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loss_scale_kl_dyn:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loss_scale_kl_rep:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">warmup_world_model:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">critic_target_update_interval:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">critic_target_soft_update:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.02</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">critic_type:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'twohot'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">critic_twohot_bins:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">255</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">critic_twohot_low:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">critic_twohot_high:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">actor_discrete_type:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'categorical'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">actor_discrete_unimix:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">actor_continuous_enable_normal_squashed:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">horizon:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">15</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">horizon_policy:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'actor'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">critic_estimation_method:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'h-return'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">horizon_ewa_disclam:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">horizon_h_return:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discount:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.997</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_train_model:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_train_critic:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_train_actor:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_length:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">64</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr_model:</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">~srl.rl.schedulers.scheduler.SchedulerConfig</span> <span class="pre">=</span> <span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr_critic:</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">~srl.rl.schedulers.scheduler.SchedulerConfig</span> <span class="pre">=</span> <span class="pre">3e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr_actor:</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">~srl.rl.schedulers.scheduler.SchedulerConfig</span> <span class="pre">=</span> <span class="pre">3e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">actor_loss_type:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'dreamer_v3'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">actor_reinforce_rate:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">entropy_rate:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0003</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reinforce_baseline:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'v'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epsilon:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clip_rewards:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'none'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config" title="Link to this definition"></a></dt>
+<dd><p>&lt;<a class="reference internal" href="../rl_config_memory.html#rlconfigcomponentexperiencereplaybuffer"><span class="std std-ref">ExperienceReplayBuffer</span></a>&gt;
+&lt;<span class="xref std std-ref">RLConfigComponentInput</span>&gt;</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.rssm_deter_size">
+<span class="sig-name descname"><span class="pre">rssm_deter_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">4096</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.rssm_deter_size" title="Link to this definition"></a></dt>
+<dd><p>決定的な遷移のユニット数、内部的にはGRUのユニット数</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.rssm_stoch_size">
+<span class="sig-name descname"><span class="pre">rssm_stoch_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.rssm_stoch_size" title="Link to this definition"></a></dt>
+<dd><p>確率的な遷移のユニット数</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.rssm_classes">
+<span class="sig-name descname"><span class="pre">rssm_classes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.rssm_classes" title="Link to this definition"></a></dt>
+<dd><p>確率的な遷移のクラス数（rssm_use_categorical_distribution=Trueの場合有効）</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.rssm_hidden_units">
+<span class="sig-name descname"><span class="pre">rssm_hidden_units</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1024</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.rssm_hidden_units" title="Link to this definition"></a></dt>
+<dd><p>隠れ状態のユニット数</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.rssm_use_norm_layer">
+<span class="sig-name descname"><span class="pre">rssm_use_norm_layer</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.rssm_use_norm_layer" title="Link to this definition"></a></dt>
+<dd><p>Trueの場合、LayerNormalization層が追加されます</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.rssm_use_categorical_distribution">
+<span class="sig-name descname"><span class="pre">rssm_use_categorical_distribution</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.rssm_use_categorical_distribution" title="Link to this definition"></a></dt>
+<dd><p>Falseの場合、確率的な遷移をガウス分布、Trueの場合カテゴリカル分布で表現します</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.rssm_activation">
+<span class="sig-name descname"><span class="pre">rssm_activation</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Any</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'silu'</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.rssm_activation" title="Link to this definition"></a></dt>
+<dd><p>RSSM Activation</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.rssm_unimix">
+<span class="sig-name descname"><span class="pre">rssm_unimix</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.01</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.rssm_unimix" title="Link to this definition"></a></dt>
+<dd><p>カテゴリカル分布で保証する最低限の確率（rssm_use_categorical_distribution=Trueの場合有効）</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.reward_type">
+<span class="sig-name descname"><span class="pre">reward_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'twohot'</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.reward_type" title="Link to this definition"></a></dt>
+<dd><p>学習する報酬の分布のタイプ</p>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>&quot;linear&quot;</strong> -- MSEで学習（use_symlogの影響を受けます）</p></li>
+<li><p><strong>&quot;normal&quot;</strong> -- ガウス分布による学習（use_symlogの影響はうけません）</p></li>
+<li><p><strong>&quot;normal_fixed_scale&quot;</strong> -- ガウス分布による学習ですが、分散は1で固定（use_symlogの影響はうけません）</p></li>
+<li><p><strong>&quot;twohot&quot;</strong> -- TwoHotエンコーディングによる学習（use_symlogの影響を受けます）</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.reward_twohot_bins">
+<span class="sig-name descname"><span class="pre">reward_twohot_bins</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">255</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.reward_twohot_bins" title="Link to this definition"></a></dt>
+<dd><p>reward_typeが&quot;twohot&quot;の時のみ有効、bins</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.reward_twohot_low">
+<span class="sig-name descname"><span class="pre">reward_twohot_low</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">-20</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.reward_twohot_low" title="Link to this definition"></a></dt>
+<dd><p>reward_typeが&quot;twohot&quot;の時のみ有効、low</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.reward_twohot_high">
+<span class="sig-name descname"><span class="pre">reward_twohot_high</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">20</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.reward_twohot_high" title="Link to this definition"></a></dt>
+<dd><p>reward_typeが&quot;twohot&quot;の時のみ有効、high</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.reward_layer_sizes">
+<span class="sig-name descname"><span class="pre">reward_layer_sizes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">(1024,</span> <span class="pre">1024,</span> <span class="pre">1024,</span> <span class="pre">1024)</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.reward_layer_sizes" title="Link to this definition"></a></dt>
+<dd><p>reward modelの隠れ層</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.cont_layer_sizes">
+<span class="sig-name descname"><span class="pre">cont_layer_sizes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">(1024,</span> <span class="pre">1024,</span> <span class="pre">1024,</span> <span class="pre">1024)</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.cont_layer_sizes" title="Link to this definition"></a></dt>
+<dd><p>continue modelの隠れ層</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.critic_layer_sizes">
+<span class="sig-name descname"><span class="pre">critic_layer_sizes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">(1024,</span> <span class="pre">1024,</span> <span class="pre">1024,</span> <span class="pre">1024)</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.critic_layer_sizes" title="Link to this definition"></a></dt>
+<dd><p>critic modelの隠れ層</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.actor_layer_sizes">
+<span class="sig-name descname"><span class="pre">actor_layer_sizes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">(1024,</span> <span class="pre">1024,</span> <span class="pre">1024,</span> <span class="pre">1024)</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.actor_layer_sizes" title="Link to this definition"></a></dt>
+<dd><p>actor modelの隠れ層</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.dense_act">
+<span class="sig-name descname"><span class="pre">dense_act</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Any</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'silu'</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.dense_act" title="Link to this definition"></a></dt>
+<dd><p>各層のactivation</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.use_symlog">
+<span class="sig-name descname"><span class="pre">use_symlog</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.use_symlog" title="Link to this definition"></a></dt>
+<dd><p>symlogを使用するか</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.encoder_decoder_mlp">
+<span class="sig-name descname"><span class="pre">encoder_decoder_mlp</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">(1024,</span> <span class="pre">1024,</span> <span class="pre">1024,</span> <span class="pre">1024)</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.encoder_decoder_mlp" title="Link to this definition"></a></dt>
+<dd><p>入力がIMAGE以外の場合の隠れ層</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.encoder_decoder_dist">
+<span class="sig-name descname"><span class="pre">encoder_decoder_dist</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'linear'</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.encoder_decoder_dist" title="Link to this definition"></a></dt>
+<dd><p>decoder出力層の分布</p>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>&quot;linear&quot;</strong> -- mse</p></li>
+<li><p><strong>&quot;normal&quot;</strong> -- 正規分布</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.cnn_depth">
+<span class="sig-name descname"><span class="pre">cnn_depth</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">96</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.cnn_depth" title="Link to this definition"></a></dt>
+<dd><p>[入力がIMAGEの場合] Conv2Dのユニット数</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.cnn_blocks">
+<span class="sig-name descname"><span class="pre">cnn_blocks</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.cnn_blocks" title="Link to this definition"></a></dt>
+<dd><p>[入力がIMAGEの場合] ResBlockの数</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.cnn_activation">
+<span class="sig-name descname"><span class="pre">cnn_activation</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Any</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'silu'</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.cnn_activation" title="Link to this definition"></a></dt>
+<dd><p>[入力がIMAGEの場合] activation</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.cnn_normalization_type">
+<span class="sig-name descname"><span class="pre">cnn_normalization_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'layer'</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.cnn_normalization_type" title="Link to this definition"></a></dt>
+<dd><p>[入力がIMAGEの場合] 正規化層を追加するか</p>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>&quot;none&quot;</strong> -- 何もしません</p></li>
+<li><p><strong>&quot;layer&quot;</strong> -- LayerNormalization層が追加されます</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.cnn_resize_type">
+<span class="sig-name descname"><span class="pre">cnn_resize_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'stride'</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.cnn_resize_type" title="Link to this definition"></a></dt>
+<dd><p>[入力がIMAGEの場合] 画像を縮小する際のアルゴリズム</p>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>&quot;stride&quot;</strong> -- Conv2Dのスライドで縮小します</p></li>
+<li><p><strong>&quot;stride3&quot;</strong> -- Conv2Dの3スライドで縮小します</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.cnn_resized_image_size">
+<span class="sig-name descname"><span class="pre">cnn_resized_image_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">4</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.cnn_resized_image_size" title="Link to this definition"></a></dt>
+<dd><p>[入力がIMAGEの場合] 画像縮小後のサイズ</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.cnn_use_sigmoid">
+<span class="sig-name descname"><span class="pre">cnn_use_sigmoid</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.cnn_use_sigmoid" title="Link to this definition"></a></dt>
+<dd><p>[入力がIMAGEの場合] Trueの場合、画像の出力層をsigmoidにします。Falseの場合はLinearです。</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.free_nats">
+<span class="sig-name descname"><span class="pre">free_nats</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.free_nats" title="Link to this definition"></a></dt>
+<dd><p>free bit</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.loss_scale_pred">
+<span class="sig-name descname"><span class="pre">loss_scale_pred</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.loss_scale_pred" title="Link to this definition"></a></dt>
+<dd><p>reconstruction loss rate</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.loss_scale_kl_dyn">
+<span class="sig-name descname"><span class="pre">loss_scale_kl_dyn</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.5</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.loss_scale_kl_dyn" title="Link to this definition"></a></dt>
+<dd><p>dynamics kl loss rate</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.loss_scale_kl_rep">
+<span class="sig-name descname"><span class="pre">loss_scale_kl_rep</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.1</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.loss_scale_kl_rep" title="Link to this definition"></a></dt>
+<dd><p>rep kl loss rate</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.warmup_world_model">
+<span class="sig-name descname"><span class="pre">warmup_world_model</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.warmup_world_model" title="Link to this definition"></a></dt>
+<dd><p>序盤はworld modelのみ学習します</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.critic_target_update_interval">
+<span class="sig-name descname"><span class="pre">critic_target_update_interval</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.critic_target_update_interval" title="Link to this definition"></a></dt>
+<dd><p>critic target update interval</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.critic_target_soft_update">
+<span class="sig-name descname"><span class="pre">critic_target_soft_update</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.02</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.critic_target_soft_update" title="Link to this definition"></a></dt>
+<dd><p>critic target soft update tau</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.critic_type">
+<span class="sig-name descname"><span class="pre">critic_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'twohot'</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.critic_type" title="Link to this definition"></a></dt>
+<dd><p>critic model type</p>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>&quot;linear&quot;</strong> -- MSEで学習（use_symlogの影響を受けます）</p></li>
+<li><p><strong>&quot;normal&quot;</strong> -- 正規分布（use_symlogの影響は受けません）</p></li>
+<li><p><strong>&quot;normal_fixed_scale&quot;</strong> -- 分散1固定の正規分布（use_symlogの影響は受けません）</p></li>
+<li><p><strong>&quot;twohot&quot;</strong> -- TwoHotカテゴリカル分布（use_symlogの影響を受けます）</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.critic_twohot_bins">
+<span class="sig-name descname"><span class="pre">critic_twohot_bins</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">255</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.critic_twohot_bins" title="Link to this definition"></a></dt>
+<dd><p>critic_typeが&quot;dreamer_v3&quot;の時のみ有効、bins</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.critic_twohot_low">
+<span class="sig-name descname"><span class="pre">critic_twohot_low</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">-20</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.critic_twohot_low" title="Link to this definition"></a></dt>
+<dd><p>critic_typeが&quot;dreamer_v3&quot;の時のみ有効、low</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.critic_twohot_high">
+<span class="sig-name descname"><span class="pre">critic_twohot_high</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">20</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.critic_twohot_high" title="Link to this definition"></a></dt>
+<dd><p>critic_typeが&quot;dreamer_v3&quot;の時のみ有効、high</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.actor_discrete_type">
+<span class="sig-name descname"><span class="pre">actor_discrete_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'categorical'</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.actor_discrete_type" title="Link to this definition"></a></dt>
+<dd><p>actor model type</p>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>&quot;categorical&quot;</strong> -- カテゴリカル分布</p></li>
+<li><p><strong>&quot;gumbel_categorical&quot;</strong> -- Gumbelカテゴリ分布</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.actor_discrete_unimix">
+<span class="sig-name descname"><span class="pre">actor_discrete_unimix</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.01</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.actor_discrete_unimix" title="Link to this definition"></a></dt>
+<dd><p>カテゴリカル分布で保証する最低限の確率（actionタイプがDISCRETEの時のみ有効）</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.actor_continuous_enable_normal_squashed">
+<span class="sig-name descname"><span class="pre">actor_continuous_enable_normal_squashed</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.actor_continuous_enable_normal_squashed" title="Link to this definition"></a></dt>
+<dd><p>actionが連続値の時、正規分布をtanhで-1～1に丸めるか</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.horizon">
+<span class="sig-name descname"><span class="pre">horizon</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">15</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.horizon" title="Link to this definition"></a></dt>
+<dd><p>horizonのstep数</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.horizon_policy">
+<span class="sig-name descname"><span class="pre">horizon_policy</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'actor'</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.horizon_policy" title="Link to this definition"></a></dt>
+<dd><p>&quot;actor&quot; or &quot;random&quot;, random is debug.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.critic_estimation_method">
+<span class="sig-name descname"><span class="pre">critic_estimation_method</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'h-return'</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.critic_estimation_method" title="Link to this definition"></a></dt>
+<dd><p>horizon時の価値の計算方法</p>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>&quot;simple&quot;</strong> -- 単純な総和</p></li>
+<li><p><strong>&quot;discount&quot;</strong> -- 割引報酬</p></li>
+<li><p><strong>&quot;ewa&quot;</strong> -- EWA</p></li>
+<li><p><strong>&quot;h-return&quot;</strong> -- λ-return</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.horizon_ewa_disclam">
+<span class="sig-name descname"><span class="pre">horizon_ewa_disclam</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.1</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.horizon_ewa_disclam" title="Link to this definition"></a></dt>
+<dd><p>EWAの係数、小さいほど最近の値を反映（&quot;ewa&quot;の時のみ有効）</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.horizon_h_return">
+<span class="sig-name descname"><span class="pre">horizon_h_return</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.95</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.horizon_h_return" title="Link to this definition"></a></dt>
+<dd><p>λ-returnの係数（&quot;h-return&quot;の時のみ有効）</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.discount">
+<span class="sig-name descname"><span class="pre">discount</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.997</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.discount" title="Link to this definition"></a></dt>
+<dd><p>割引率</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.enable_train_model">
+<span class="sig-name descname"><span class="pre">enable_train_model</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.enable_train_model" title="Link to this definition"></a></dt>
+<dd><p>dynamics model training flag</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.enable_train_critic">
+<span class="sig-name descname"><span class="pre">enable_train_critic</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.enable_train_critic" title="Link to this definition"></a></dt>
+<dd><p>critic model training flag</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.enable_train_actor">
+<span class="sig-name descname"><span class="pre">enable_train_actor</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.enable_train_actor" title="Link to this definition"></a></dt>
+<dd><p>actor model training flag</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.batch_length">
+<span class="sig-name descname"><span class="pre">batch_length</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">64</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.batch_length" title="Link to this definition"></a></dt>
+<dd><p>batch length</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.lr_model">
+<span class="sig-name descname"><span class="pre">lr_model</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig" title="srl.rl.schedulers.scheduler.SchedulerConfig"><span class="pre">SchedulerConfig</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0001</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.lr_model" title="Link to this definition"></a></dt>
+<dd><p>&lt;<a class="reference internal" href="../rl_config_scheduler.html#scheduler"><span class="std std-ref">Scheduler</span></a>&gt; dynamics model learning rate</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.lr_critic">
+<span class="sig-name descname"><span class="pre">lr_critic</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig" title="srl.rl.schedulers.scheduler.SchedulerConfig"><span class="pre">SchedulerConfig</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3e-05</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.lr_critic" title="Link to this definition"></a></dt>
+<dd><p>&lt;<a class="reference internal" href="../rl_config_scheduler.html#scheduler"><span class="std std-ref">Scheduler</span></a>&gt; critic model learning rate</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.lr_actor">
+<span class="sig-name descname"><span class="pre">lr_actor</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig" title="srl.rl.schedulers.scheduler.SchedulerConfig"><span class="pre">SchedulerConfig</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3e-05</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.lr_actor" title="Link to this definition"></a></dt>
+<dd><p>&lt;<a class="reference internal" href="../rl_config_scheduler.html#scheduler"><span class="std std-ref">Scheduler</span></a>&gt;actor model learning rate</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.actor_loss_type">
+<span class="sig-name descname"><span class="pre">actor_loss_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'dreamer_v3'</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.actor_loss_type" title="Link to this definition"></a></dt>
+<dd><p>loss計算の方法</p>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>&quot;dreamer_v1&quot;</strong> -- Vの最大化</p></li>
+<li><p><strong>&quot;dreamer_v2&quot;</strong> -- Vとエントロピーの最大化</p></li>
+<li><p><strong>&quot;dreamer_v3&quot;</strong> -- V2 + パーセンタイルによる正規化</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.actor_reinforce_rate">
+<span class="sig-name descname"><span class="pre">actor_reinforce_rate</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.actor_reinforce_rate" title="Link to this definition"></a></dt>
+<dd><p>actionがCONTINUOUSの場合のReinforceとDynamics backpropの比率</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.entropy_rate">
+<span class="sig-name descname"><span class="pre">entropy_rate</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0003</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.entropy_rate" title="Link to this definition"></a></dt>
+<dd><p>entropy rate</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.reinforce_baseline">
+<span class="sig-name descname"><span class="pre">reinforce_baseline</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'v'</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.reinforce_baseline" title="Link to this definition"></a></dt>
+<dd><p>baseline</p>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>&quot;v&quot;</strong> -- -v</p></li>
+<li><p><strong>other</strong> -- none</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.epsilon">
+<span class="sig-name descname"><span class="pre">epsilon</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.epsilon" title="Link to this definition"></a></dt>
+<dd><p>action ε-greedy(for debug)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.dreamer_v3.Config.clip_rewards">
+<span class="sig-name descname"><span class="pre">clip_rewards</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'none'</span></em><a class="headerlink" href="#srl.algorithms.dreamer_v3.Config.clip_rewards" title="Link to this definition"></a></dt>
+<dd><p>報酬の前処理</p>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>&quot;none&quot;</strong> -- なし</p></li>
+<li><p><strong>&quot;tanh&quot;</strong> -- tanh</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 
 

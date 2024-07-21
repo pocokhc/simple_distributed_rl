@@ -15,18 +15,46 @@
 // DemoMemory: 個別対応かな
 
 
-# v0.16.2
+# v0.16.3
 
 **MainUpdates**
 
+1. [rl.models.config] change: RLConfigComponentFrameworkからinputブロックを切り離し、ImageBlockConfigを統合し、新しくRLConfigComponentInputを作成。  
+これは画像の前処理が入力に対してのみ対象となるため（途中で使う場合はアルゴリズム毎に独自で実装される）
+   - [rl.tf/torch/blocks.input_block] リファクタリングし、使う場合はconfigからcreate_input_blockを呼び出す形に変更
+   - [rl.tf/torch/blocks] update: 各引数名やflatten等の有無などを見直して修正
+   - [rl.tf/torch/blocks.dueling_network] change: MLPから切り離し、個別に実装
+   - [algorithms] update: この更新に合わせて修正
+1. [base.spaces] change: create_division_tblの分割数を個別の分割数ではなく、最終的に分割された数に変更
+   - create_division_tblに個数上限（100_000）とサイズ上限（1GB）を追加
+   - configのaction_division_numのデフォルト値を5から10に変更
+   - configのobservation_division_numのデフォルト値を-1から1000に変更
+1. [algorithms] new: Go-Exploreを追加
+
+**OtherUpdates**
+
+1. [algorithms] update: search_dynaq_v2を更新
+
+**Bug Fixes**
+
+1. [rl] fix: configをprintする際に@dataclassでmemoryやmodelの変数がいくつか表示されない不具合対応
+1. [README] fix: 細かい間違いを修正
+
+
+# v0.16.2
+
 ・MLFlowをRunnerに組み込みました
 ・backup/restoreを整理し、関するいくつかのバグを修正
+・READMEを日本語と英語に分けて作成
+
+**MainUpdates**
 
 1. [rl.tf] update: summaryでshapeが表示されない問題に対応（tfのversionで変化するので後回しにしていましたが、tf2.16.1でとりあえず表示するようにしました）
 1. [runner] change: set_progress_optionsをset_progressに名前変更
 1. [base.rl.registration] change: 登録名を"name"から"name:framework"に変更
 1. [runner] update: mlflowをrunnerに組み込み
 1. [examples.baseline] update: 暫定で一旦作成
+1. [README] update: 日本語と英語を明示的に分けて作成
 
 **OtherUpdates**
 
@@ -43,7 +71,6 @@
 1. [utils.common] add: ema,rolling関数追加
 1. [algorithms] new: オリジナルアルゴリズムSearchDynaQ_v2を追加
 1. [base.env/rl.registration] rename: registerのenable_assert引数名を分かりやすいようにcheck_duplicateに変更
-1. [README] update: 日本語と英語を明示的に分けて作成
 
 **Bug Fixes**
 
@@ -53,6 +80,7 @@
 1. [base.run.play_mp] update: Actorプロセスがすべて落ちた場合にTrainerが止まるように修正
 1. [base.env.gym] fix: close時にgym側でエラーが出た場合に終了しないように変更
 1. [rl.tf.distributions.categorical_dist_block] fix: categoricalのversion違いを修正
+
 
 # v0.16.1
 

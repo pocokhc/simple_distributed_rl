@@ -1,5 +1,5 @@
-import json
 import logging
+import pickle
 import random
 import time
 from dataclasses import dataclass
@@ -22,15 +22,18 @@ logger = logging.getLogger(__name__)
 class Config(RLConfig):
 
     q_epsilon: float = 0.001
-    search_epsilon: float = 0.5
     test_epsilon: float = 0.0001
 
-    search_rate: float = 0.5
     ucb_scale: float = 0.1
-    q_target_policy_prob: float = 1.0
+    q_policy_prob: float = 1.0
     q_discount: float = 0.9
     q_lr: float = 0.1
-    search_max_step: int = 10
+
+    explore_rate: float = 0.5
+    move_discount: float = 0.9
+    move_policy_prob: float = 0.9
+    explore_action_change_rate: float = 0.1
+    explore_max_step: int = 10
 
     #: 方策反復法の学習完了の閾値
     iteration_threshold: float = 0.0001
@@ -105,11 +108,9 @@ class Parameter(RLParameter[Config]):
 
         # [state][action]
         self.q_tbl = {}
-        self.q_min = np.inf
-        self.q_max = -np.inf
 
     def call_restore(self, data: Any, **kwargs) -> None:
-        d = json.loads(data)
+        d = pickle.loads(data)
         self.trans = d[0]
         self.reward = d[1]
         self.done = d[2]
@@ -118,11 +119,9 @@ class Parameter(RLParameter[Config]):
         self.archive = d[5]
         self.archive_total_visit = d[6]
         self.q_tbl = d[7]
-        self.q_min = d[8]
-        self.q_max = d[9]
 
     def call_backup(self, **kwargs):
-        return json.dumps(
+        return pickle.dumps(
             [
                 self.trans,
                 self.reward,
@@ -132,8 +131,6 @@ class Parameter(RLParameter[Config]):
                 self.archive,
                 self.archive_total_visit,
                 self.q_tbl,
-                self.q_min,
-                self.q_max,
             ]
         )
 
@@ -157,12 +154,17 @@ class Parameter(RLParameter[Config]):
 
     def iteration_q(
         self,
+        mode: str,
+        target_state,
         discount: float,
         policy_prob: float,
         threshold: float = 0.0001,
         timeout: float = 1,
     ):
-        q_tbl = self.q_tbl
+        if mode == "move":
+            q_tbl = {}
+        else:
+            q_tbl = self.q_tbl
 
         all_states = []
         for state in self.trans.keys():
@@ -180,14 +182,30 @@ class Parameter(RLParameter[Config]):
                         continue
                     if next_state not in q_tbl:
                         q_tbl[next_state] = [0.0 for _ in range(self.config.action_space.n)]
-                    _next_states.append(
-                        [
-                            next_state,
-                            self.trans[state][action][next_state] / N,
-                            self.reward[state][action][next_state],
-                            self.done[state][action][next_state],
-                        ]
-                    )
+
+                    done = self.done[state][action][next_state]
+                    if mode == "move":
+                        if target_state == next_state:
+                            reward = 1
+                        else:
+                            reward = -done
+                        _next_states.append(
+                            [
+                                next_state,
+                                self.trans[state][action][next_state] / N,
+                                reward,
+                                done,
+                            ]
+                        )
+                    else:
+                        _next_states.append(
+                            [
+                                next_state,
+                                self.trans[state][action][next_state] / N,
+                                self.reward[state][action][next_state],
+                                done,
+                            ]
+                        )
                 if len(_next_states) == 0:
                     continue
                 all_states.append([state, action, _next_states])
@@ -250,7 +268,7 @@ class Parameter(RLParameter[Config]):
     # -------------------------------------------
 
     def archive_update(self, batch):
-        state, action, step, backup = batch
+        state, action, step, total_reward = batch
 
         key = state + "_" + str(0)
         if key not in self.archive:
@@ -261,8 +279,8 @@ class Parameter(RLParameter[Config]):
                     "action": a,
                     "select": 0,
                     "visit": 0,
-                    "step": step,
-                    "backup": backup,
+                    "step": -np.inf,
+                    "total_reward": -np.inf,
                 }
 
         if action is not None:
@@ -270,10 +288,15 @@ class Parameter(RLParameter[Config]):
             cell = self.archive[key]
             cell["visit"] += 1
             self.archive_total_visit += 1
-            if cell["step"] > step:
+            _update = False
+            if cell["total_reward"] < total_reward:
+                _update = True
+            elif (cell["total_reward"] == total_reward) and (cell["step"] > step):
+                _update = True
+            if _update:
                 cell["select"] = 0
                 cell["step"] = step
-                cell["backup"] = backup
+                cell["total_reward"] = total_reward
 
     def archive_select(self):
         if len(self.archive):
@@ -284,13 +307,17 @@ class Parameter(RLParameter[Config]):
         max_ucb = -np.inf
         max_cells = []
         for cell in self.archive.values():
-            n = cell["visit"]
+            n = cell["visit"] + cell["select"]
             if n == 0:
                 ucb = np.inf
             else:
+                # --- 状態のQ値で正規化
+                self.init_q(cell["state"])
+                qmin = min(self.q_tbl["state"])
+                qmax = max(self.q_tbl["state"])
                 q = self.q_tbl[cell["state"]][cell["action"]]
-                if self.q_min < self.q_max:
-                    q = (q - self.q_min) / (self.q_max - self.q_min)
+                if qmin < qmax:
+                    q = (q - qmin) / (qmax - qmin)
                 ucb = self.config.ucb_scale * q + np.sqrt(2 * np.log(self.archive_total_visit) / n)
             if max_ucb < ucb:
                 max_ucb = ucb
@@ -340,20 +367,19 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             self.parameter.init_q(n_state)
             n_q = self.parameter.calc_next_q(
                 self.parameter.q_tbl[n_state],
-                self.config.q_target_policy_prob,
+                self.config.q_policy_prob,
                 next_invalid_actions,
             )
             target_q = reward + (1 - done) * self.config.q_discount * n_q
             td_error = target_q - self.parameter.q_tbl[state][action]
             self.parameter.q_tbl[state][action] += self.config.q_lr * td_error
 
-            self.parameter.q_min = min(self.parameter.q_min, self.parameter.q_tbl[state][action])
-            self.parameter.q_max = max(self.parameter.q_max, self.parameter.q_tbl[state][action])
-
             if self.train_count % self.config.iteration_interval == 0:
                 self.parameter.iteration_q(
+                    "q",
+                    None,
                     self.config.q_discount,
-                    self.config.q_target_policy_prob,
+                    self.config.q_policy_prob,
                     self.config.iteration_threshold,
                     self.config.iteration_timeout,
                 )
@@ -368,61 +394,73 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 # ------------------------------------------------------
 class Worker(RLWorker[Config, Parameter]):
     def on_start(self, worker, context):
+        assert not self.distributed
         self.parameter.iteration_q(
+            "q",
+            None,
             discount=self.config.q_discount,
-            policy_prob=self.config.q_target_policy_prob,
+            policy_prob=self.config.q_policy_prob,
             threshold=self.config.iteration_threshold,
             timeout=self.config.iteration_timeout,
         )
 
     def on_reset(self, worker):
-        self.cell_action = None
         self.mode = ""
-
         if not self.training:
             return
 
         self.episode_step = 0
-        self.cell_step = 0
+        self.episode_reward = 0
+        self.explore_step = 0
 
-        if random.random() < self.config.search_rate:
-            self.mode = "search"
+        if random.random() < self.config.explore_rate:
             cell = self.parameter.archive_select()
             if cell is not None:
+                # Q tbl を作成し、ターゲットの状態まで移動する
                 self.mode = "move"
-                self.episode_step = cell["step"]
-                self.cell_action = cell["action"]
-                self.backup = cell["backup"]
-                worker.restore(self.backup)
+                self.target_state = cell["state"]
+                self.target_action = cell["action"]
+                self.target_q_tbl = self.parameter.iteration_q(
+                    "move",
+                    self.target_state,
+                    discount=self.config.move_discount,
+                    policy_prob=self.config.move_policy_prob,
+                    threshold=0.1,
+                )
             else:
-                self.backup = worker.backup()
+                self.mode = "explore"
+            self.explore_action = self.sample_action()
         else:
             self.mode = "q"
-            self.backup = worker.backup()
 
     def policy(self, worker) -> int:
         invalid_actions = worker.invalid_actions
+        state = self.config.observation_space.to_str(worker.state)
 
-        if self.cell_action is not None:
-            action = self.cell_action
-            self.cell_action = None
+        if self.mode == "move":
+            if self.target_state == state:
+                self.mode = "explore"
+                return self.target_action
+            if state in self.target_q_tbl:
+                q = self.target_q_tbl[state]
+                return funcs.get_random_max_index(q, invalid_actions)
+            self.mode = "explore"
+            return self.explore_action
+        elif self.mode == "explore":
+            if random.random() < self.config.explore_action_change_rate:
+                self.explore_action = self.sample_action()
+            return self.explore_action
+        elif self.mode == "q":
+            epsilon = self.config.q_epsilon
         else:
-            if self.training:
-                if self.mode == "q":
-                    epsilon = self.config.q_epsilon
-                else:
-                    epsilon = self.config.search_epsilon
-            else:
-                epsilon = self.config.test_epsilon
+            epsilon = self.config.test_epsilon
 
-            if random.random() < epsilon:
-                action = self.sample_action()
-            else:
-                state = self.config.observation_space.to_str(worker.state)
-                self.parameter.init_q(state)
-                q = self.parameter.q_tbl[state]
-                action = funcs.get_random_max_index(q, invalid_actions)
-
+        if random.random() < epsilon:
+            action = self.sample_action()
+        else:
+            self.parameter.init_q(state)
+            q = self.parameter.q_tbl[state]
+            action = funcs.get_random_max_index(q, invalid_actions)
         return action
 
     def on_step(self, worker):
@@ -443,17 +481,28 @@ class Worker(RLWorker[Config, Parameter]):
         self.memory.add("mdp", batch)
 
         # --- update archive
+        batch = [
+            state,
+            worker.action,
+            self.episode_step,
+            self.episode_reward,
+        ]
+        self.memory.add("archive", batch)
         if not worker.done:
-            batch = [state, worker.action, self.episode_step, self.backup]
-            self.memory.add("archive", batch)
             self.episode_step += 1
-            self.backup = worker.backup()
-            batch = [n_state, None, self.episode_step, self.backup]
+            self.episode_reward += worker.reward
+            batch = [
+                n_state,
+                None,
+                self.episode_step,
+                self.episode_reward,
+            ]
             self.memory.add("archive", batch)
 
-        self.cell_step += 1
-        if self.cell_step > self.config.search_max_step:
-            worker.env.abort_episode()
+            if self.mode == "explore":
+                self.explore_step += 1
+                if self.explore_step > self.config.explore_max_step:
+                    worker.env.abort_episode()
 
     def render_terminal(self, worker, **kwargs) -> None:
         prev_state = self.config.observation_space.to_str(worker.prev_state)

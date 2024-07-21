@@ -226,7 +226,7 @@ worker.render()
 |Rainbow   |Continuous |Discrete|✔        |✔|100%||
 |R2D2      |Continuous |Discrete|✔        |- |100%||
 |Agent57   |Continuous |Discrete|✔        |✔|100%||
-|SND       |Continuous |Discrete|✔        |✔|100%||
+|Go-Explore|Continuous |Discrete|✔        |- |100%|DQN base, R2D3 memory base|
 
 
 ### 方策ベース/ActorCritic

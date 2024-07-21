@@ -50,12 +50,6 @@ def main_search_dynaq():
     )
 
 
-def main_search_dynaq_v2():
-    from srl.algorithms import search_dynaq_v2
-
-    _train(search_dynaq_v2.Config(q_lr=BASE_LR), BASE_TRAIN)
-
-
 def compare():
     import matplotlib.pyplot as plt
 
@@ -70,7 +64,6 @@ def compare():
         "QL",
         "VanillaPolicy",
         "SearchDynaQ",
-        "SearchDynaQ_v2",
     ]:
         history = MLFlowCallback.get_metric(ENV_NAME, name, metric_name)
         if history is None:
@@ -92,5 +85,4 @@ if __name__ == "__main__":
     main_ql()
     main_policy()
     main_search_dynaq()
-    main_search_dynaq_v2()
     compare()

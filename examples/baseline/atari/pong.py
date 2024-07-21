@@ -2,6 +2,7 @@ import os
 
 import mlflow
 import numpy as np
+
 import srl
 from srl.rl.processors.atari_processor import AtariPongProcessor
 from srl.utils import common
@@ -14,8 +15,8 @@ def _train(rl_config, train):
     env_config = srl.EnvConfig(
         "ALE/Pong-v5",
         kwargs=dict(frameskip=7, repeat_action_probability=0, full_action_space=False),
+        processors=[AtariPongProcessor()],
     )
-    env_config.processors = [AtariPongProcessor()]
 
     runner = srl.Runner(env_config, rl_config)
     runner.model_summary()

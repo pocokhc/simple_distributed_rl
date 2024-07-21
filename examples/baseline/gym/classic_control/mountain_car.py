@@ -2,6 +2,7 @@ import os
 
 import mlflow
 import numpy as np
+
 import srl
 from srl.utils import common
 
@@ -20,6 +21,13 @@ def run(rl_config, train):
     print(f"[{rl_config.name}] {np.mean(rewards)}, {rewards}")
 
 
+def main_ql():
+    from srl.algorithms import ql
+
+    rl_config = ql.Config()
+    run(rl_config, train=1_000_000)
+
+
 def main_dqn():
     from srl.algorithms import dqn
 
@@ -36,4 +44,5 @@ def main_dqn():
 
 
 if __name__ == "__main__":
+    main_ql()
     main_dqn()

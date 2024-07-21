@@ -160,7 +160,7 @@ if __name__ == "__main__":
 
 ![overview-mp.drawio.png](diagrams/overview-mp.drawio.png)
 
-+ 学習に疑似コード
++ 学習の疑似コード
 
 ``` python
 # 初期化
@@ -178,7 +178,7 @@ while not env.done:
     worker.on_step()
 
     # 学習
-    trainer.train(baths)  # パラメータを更新
+    trainer.train()  # パラメータを更新
 ```
 
 + renderの疑似コード
@@ -226,6 +226,7 @@ worker.render()
 |Rainbow   |Continuous |Discrete|✔        |✔|100%||
 |R2D2      |Continuous |Discrete|✔        |- |100%||
 |Agent57   |Continuous |Discrete|✔        |✔|100%||
+|SND       |Continuous |Discrete|✔        |- |100%||
 |Go-Explore|Continuous |Discrete|✔        |- |100%|DQN base, R2D3 memory base|
 
 

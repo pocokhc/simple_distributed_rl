@@ -171,18 +171,36 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
     # --------------------------------------
     # create_tbl
     # --------------------------------------
-    def _create_tbl(self) -> None:
+    def _create_tbl(
+        self,
+        max_size: int = 100_000,
+        max_byte: int = 1024 * 1024 * 1024,
+    ) -> None:
         if self.decode_tbl is not None:
             return
+
         import itertools
 
+        logger.info("create table start")
         t0 = time.time()
         arr_list = [[a for a in range(self.low[i], self.high[i] + 1)] for i in range(self._size)]
-        self.decode_tbl = list(itertools.product(*arr_list))
+
+        # --- 多いと時間がかかるので切り上げる
+        byte_size = -1
+        self.decode_tbl = []
+        for prod in itertools.product(*arr_list):
+            if byte_size == -1:
+                byte_size = len(prod) * 4
+            self.decode_tbl.append(prod)
+            if len(self.decode_tbl) >= max_size:
+                break
+            if len(self.decode_tbl) * byte_size >= max_byte:
+                break
+
         self.encode_tbl = {}
         for i, v in enumerate(self.decode_tbl):
             self.encode_tbl[v] = i
-        logger.info(f"create table time: {time.time() - t0:.1f}s")
+        logger.info(f"create table: size={len(self.decode_tbl)}, create time: {time.time() - t0:.3f}s")
 
     # --------------------------------------
     # action discrete

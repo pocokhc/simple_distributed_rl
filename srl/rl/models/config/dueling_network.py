@@ -4,7 +4,7 @@ from typing import Tuple
 
 @dataclass
 class DuelingNetworkConfig:
-    _name: str = field(init=False, default="DuelingNetwork")
+    _name: str = field(init=False, default="")
     _kwargs: dict = field(init=False, default_factory=dict)
 
     def set(
@@ -70,9 +70,15 @@ class DuelingNetworkConfig:
     def create_block_tf(self, out_size: int, rnn: bool = False, enable_noisy_dense: bool = False):
         from srl.rl.tf.blocks.dueling_network import create_mlp_block_from_config
 
+        if self._name == "":
+            self.set_dueling_network()
+
         return create_mlp_block_from_config(self, out_size, rnn, enable_noisy_dense)
 
     def create_block_torch(self, in_size: int, out_size: int, enable_noisy_dense: bool = False):
         from srl.rl.torch_.blocks.dueling_network import create_mlp_block_from_config
+
+        if self._name == "":
+            self.set_dueling_network()
 
         return create_mlp_block_from_config(self, in_size, out_size, enable_noisy_dense)

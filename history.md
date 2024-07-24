@@ -15,6 +15,34 @@
 // DemoMemory: 個別対応かな
 
 
+# v0.16.4
+
+**MainUpdates**
+
+1. runnerのインスタンス（主にenv）をcallbacks間で共有し、インスタン数を削減できる仕組みを追加
+   1. [base.run] add: RunStateにshared_varsを追加
+   1. [runner.callbacks] update: 評価用runnerをshared_varsで共有できるように変更
+   1. [runner.runner_base] update: worker/workers/trainerは基本インスタンスを使いまわさず都度生成するように変更（特にworkerがバグの原因になる事があったので）
+      - add: 学習終了後にworkerを保持するように変更
+      - add: 各インスタンス生成時にログを出力す量に変更
+   1. [runner.facade] update: context.run_name を呼び出し元で指定するように変更(主にevalとの実行を区別するため)
+   1. [runner.facade] update: eval用にいくつかlogの出力を抑制
+1. [runner.runner_base] change: set_playersを廃止し、playersの指定をtrain等各関数の引数で指定するように変更
+
+**OtherUpdates**
+
+1. [base.run.callbacks] update: callbacks呼び出し時の引数を辞書型に変更
+1. [examples.kaggle.connectx] update: 現行に合わせて修正、ただkaggle_environmentが上手くinstall出来ずにまだ動作確認があやしいかも
+   - [base.rl.algorithms.extend_worker] change: call関数を削除し、直接記述するように変更
+1. [dockers] update: latest_requirementsのversion更新
+
+**Bug Fixes**
+
+1. [base.spaces.array_discrete] fix: tableを作る際に個数上限（100_000）とサイズ上限（1GB）を追加
+1. [base.env.env_run] fix: next_player_indexが保持されていなかったので保持するように修正
+1. [rl.models.config.dueling_network] fix: default値でエラーが出たので修正
+1. [rl.tf.model] fix: summaryでbuildが呼び出されない場合にエラーが出ないように修正
+
 # v0.16.3
 
 **MainUpdates**

@@ -174,13 +174,13 @@ def _play(
     if len(_calls_on_skip_step) > 0:
 
         def __skip_func():
-            [c.on_skip_step(context, state) for c in _calls_on_skip_step]
+            [c.on_skip_step(context=context, state=state) for c in _calls_on_skip_step]
 
         __skip_func_arg = __skip_func
     else:
         __skip_func_arg = None
 
-    [c.on_episodes_begin(context, state) for c in callbacks]
+    [c.on_episodes_begin(context=context, state=state) for c in callbacks]
 
     # --- thread train
     if state.enable_train_thread:
@@ -252,7 +252,7 @@ def _play(
                 [w.on_reset(state.worker_indices[i], seed=state.episode_seed) for i, w in enumerate(state.workers)]
 
                 # callbacks
-                [c.on_episode_begin(context, state) for c in _calls_on_episode_begin]
+                [c.on_episode_begin(context=context, state=state) for c in _calls_on_episode_begin]
 
             # ------------------------
             # step
@@ -260,15 +260,15 @@ def _play(
 
             # action
             state.env.render()
-            [c.on_step_action_before(context, state) for c in _calls_on_step_action_before]
+            [c.on_step_action_before(context=context, state=state) for c in _calls_on_step_action_before]
             state.action = state.workers[state.worker_idx].policy()
             state.workers[state.worker_idx].render()
-            [c.on_step_action_after(context, state) for c in _calls_on_step_action_after]
+            [c.on_step_action_after(context=context, state=state) for c in _calls_on_step_action_after]
 
             # workerがenvを終了させた場合に対応
             if not state.env.done:
                 # env step
-                [c.on_step_begin(context, state) for c in _calls_on_step_begin]
+                [c.on_step_begin(context=context, state=state) for c in _calls_on_step_begin]
                 state.env.step(
                     state.action,
                     state.workers[state.worker_idx].config.frameskip,
@@ -310,7 +310,7 @@ def _play(
                         state.is_step_trained = state.trainer.train_count > _prev_train
                 state.train_count = state.trainer.train_count
 
-            _stop_flags = [c.on_step_end(context, state) for c in _calls_on_step_end]
+            _stop_flags = [c.on_step_end(context=context, state=state) for c in _calls_on_step_end]
             state.worker_idx = state.worker_indices[state.env.next_player_index]  # on_step_end の後
 
             if state.env.done:
@@ -334,7 +334,7 @@ def _play(
                 state.last_episode_step = state.env.step_num
                 state.last_episode_time = state.env.elapsed_time
                 state.last_episode_rewards = worker_rewards
-                [c.on_episode_end(context, state) for c in _calls_on_episode_end]
+                [c.on_episode_end(context=context, state=state) for c in _calls_on_episode_end]
 
             if True in _stop_flags:
                 state.end_reason = "callback.intermediate_stop"
@@ -364,7 +364,7 @@ def _play(
                 state.last_episode_rewards = worker_rewards
 
         # 8 callbacks
-        [c.on_episodes_end(context, state) for c in callbacks]
+        [c.on_episodes_end(context=context, state=state) for c in callbacks]
 
         if state.enable_train_thread:
             train_ps.join(timeout=10)

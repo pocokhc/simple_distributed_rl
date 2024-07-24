@@ -30,7 +30,7 @@ def play(
         List[RunCallback],
         [c for c in callbacks if issubclass(c.__class__, RunCallback)],
     )
-    [c.on_start(context) for c in callbacks_run]
+    [c.on_start(context=context) for c in callbacks_run]
     # -----------------
 
     try:
@@ -60,7 +60,7 @@ def play(
         )
     finally:
         # --- callbacks ---
-        [c.on_end(context) for c in callbacks_run]
+        [c.on_end(context=context) for c in callbacks_run]
         # -----------------
 
     return state
@@ -84,7 +84,7 @@ def play_generator(
         List[RunCallback],
         [c for c in callbacks if issubclass(c.__class__, RunCallback)],
     )
-    [c.on_start(context) for c in callbacks_run]
+    [c.on_start(context=context) for c in callbacks_run]
     # -----------------
 
     try:
@@ -108,7 +108,7 @@ def play_generator(
         )
     finally:
         # --- callbacks ---
-        [c.on_end(context) for c in callbacks_run]
+        [c.on_end(context=context) for c in callbacks_run]
         # -----------------
     return gen
 
@@ -128,7 +128,7 @@ def play_trainer_only(
         List[TrainCallback],
         [c for c in callbacks if issubclass(c.__class__, TrainCallback)],
     )
-    [c.on_start(context) for c in callbacks_run]
+    [c.on_start(context=context) for c in callbacks_run]
     # -----------------
 
     try:
@@ -148,7 +148,7 @@ def play_trainer_only(
 
     finally:
         # --- callbacks ---
-        [c.on_end(context) for c in callbacks_run]
+        [c.on_end(context=context) for c in callbacks_run]
         # -----------------
 
     return state

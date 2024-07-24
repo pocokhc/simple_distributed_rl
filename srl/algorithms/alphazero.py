@@ -271,7 +271,7 @@ class Parameter(RLParameter[Config]):
 
     def pred_PV(self, state, state_str):
         if state_str not in self.P:
-            p, v = self.network(np.asarray([state]))  # type:ignore , ignore check "None"
+            p, v = self.network(np.asarray([state]))
             self.P[state_str] = p[0].numpy()
             self.V[state_str] = v[0][0].numpy()
 

@@ -113,6 +113,12 @@ class Config(
         self.assert_params_framework()
         self.assert_params_input()
 
+    def get_changeable_parameters(self) -> List[str]:
+        return [
+            "test_epsilon",
+            "epsilon",
+        ]
+
 
 # ------------------------------------------------------
 # Memory

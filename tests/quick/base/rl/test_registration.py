@@ -48,7 +48,7 @@ def test_make_workers():
     memory = rl_config.make_memory()
 
     # --- non
-    workers, main_worker_idx = srl.make_workers([], env, rl_config, parameter, memory)
+    workers, main_worker_idx = rl_config.make_workers([], env, parameter, memory)
     assert len(workers) == 8
     assert main_worker_idx == 0
     assert workers[0].config.get_name() == "QL"
@@ -68,7 +68,7 @@ def test_make_workers():
         None,  # share param
         None,  # out of index
     ]
-    workers, main_worker_idx = srl.make_workers(players, env, rl_config, parameter, memory)
+    workers, main_worker_idx = rl_config.make_workers(players, env, parameter, memory)
     assert len(workers) == 8
     assert main_worker_idx == 5
     assert isinstance(workers[0].worker, StubEnvWorker)

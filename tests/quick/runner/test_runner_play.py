@@ -186,9 +186,8 @@ def test_gymnasium(tmp_path):
 def test_shuffle_player():
     runner = srl.Runner("OX")
     runner.set_seed(1)
-    runner.set_players(["cpu", "random"])
 
     # shuffle した状態でも報酬は元の順序を継続する
-    rewards = runner.evaluate(max_episodes=100, shuffle_player=True)
+    rewards = runner.evaluate(max_episodes=100, players=["cpu", "random"], shuffle_player=True)
     rewards = np.mean(rewards, axis=0)
     assert rewards[0] > 0.7  # CPUがまず勝つ

@@ -22,6 +22,7 @@ class RunnerFacadePlay(RunnerBase):
         timeout: float = -1,
         max_steps: int = -1,
         # --- play config
+        players: List[PlayerType] = [],
         shuffle_player: bool = True,
         # --- progress
         enable_progress: bool = True,
@@ -59,6 +60,7 @@ class RunnerFacadePlay(RunnerBase):
         self.context.max_train_count = 0
         self.context.max_memory = 0
         # play config
+        self.context.players = players
         self.context.shuffle_player = shuffle_player
         self.context.disable_trainer = True
         # play info
@@ -91,6 +93,8 @@ class RunnerFacadePlay(RunnerBase):
         # --- stop config
         timeout: float = -1,
         max_steps: int = -1,
+        # --- play config
+        players: List[PlayerType] = [],
         # --- other
         callbacks: List[CallbackType] = [],
         parameter: Optional[RLParameter] = None,
@@ -108,6 +112,7 @@ class RunnerFacadePlay(RunnerBase):
         self.context.max_train_count = 0
         self.context.max_memory = 0
         # play config
+        self.context.players = players
         self.context.shuffle_player = False
         self.context.disable_trainer = True
         # play info
@@ -152,6 +157,8 @@ class RunnerFacadePlay(RunnerBase):
         # --- stop config
         timeout: float = -1,
         max_steps: int = -1,
+        # --- play config
+        players: List[PlayerType] = [],
         # --- progress
         enable_progress: bool = True,
         # --- other
@@ -171,6 +178,7 @@ class RunnerFacadePlay(RunnerBase):
         self.context.max_train_count = 0
         self.context.max_memory = 0
         # play config
+        self.context.players = players
         self.context.shuffle_player = False
         self.context.disable_trainer = True
         # play info
@@ -221,6 +229,8 @@ class RunnerFacadePlay(RunnerBase):
         # --- stop config
         timeout: float = -1,
         max_steps: int = -1,
+        # --- play config
+        players: List[PlayerType] = [],
         # --- progress
         enable_progress: bool = True,
         # --- other
@@ -240,6 +250,7 @@ class RunnerFacadePlay(RunnerBase):
         self.context.max_train_count = 0
         self.context.max_memory = 0
         # play config
+        self.context.players = players
         self.context.shuffle_player = False
         self.context.disable_trainer = True
         # play info
@@ -295,6 +306,8 @@ class RunnerFacadePlay(RunnerBase):
         # --- stop config
         timeout: float = -1,
         max_steps: int = -1,
+        # --- play config
+        players: List[PlayerType] = [],
         # --- progress
         enable_progress: bool = True,
         # --- other
@@ -312,6 +325,7 @@ class RunnerFacadePlay(RunnerBase):
             font_size,
             timeout,
             max_steps,
+            players,
             enable_progress,
             callbacks,
             parameter,
@@ -337,6 +351,8 @@ class RunnerFacadePlay(RunnerBase):
         # --- stop config
         timeout: float = -1,
         max_steps: int = -1,
+        # --- play config
+        players: List[PlayerType] = [],
         # --- progress
         enable_progress: bool = True,
         # --- other
@@ -354,6 +370,7 @@ class RunnerFacadePlay(RunnerBase):
             font_size,
             timeout,
             max_steps,
+            players,
             enable_progress,
             callbacks,
             parameter,
@@ -378,6 +395,8 @@ class RunnerFacadePlay(RunnerBase):
         # --- stop config
         timeout: float = -1,
         max_steps: int = -1,
+        # --- play config
+        players: List[PlayerType] = [],
         # --- progress
         enable_progress: bool = True,
         # --- other
@@ -395,6 +414,7 @@ class RunnerFacadePlay(RunnerBase):
             font_size,
             timeout,
             max_steps,
+            players,
             enable_progress,
             callbacks,
             parameter,
@@ -409,6 +429,8 @@ class RunnerFacadePlay(RunnerBase):
         # --- stop config
         timeout: float = -1,
         max_steps: int = -1,
+        # --- play config
+        players: List[PlayerType] = [],
         # --- progress
         enable_progress: bool = True,
         # --- other
@@ -427,6 +449,7 @@ class RunnerFacadePlay(RunnerBase):
         self.context.max_train_count = 0
         self.context.max_memory = 0
         # play config
+        self.context.players = players
         self.context.shuffle_player = False
         self.context.disable_trainer = True
         # play info
@@ -464,7 +487,6 @@ class RunnerFacadePlay(RunnerBase):
     ):
         callbacks = callbacks[:]
         mode = RenderModes.terminal
-        self.context.players = players
 
         # --- set context
         self.context.flow_mode = "play_terminal"
@@ -475,6 +497,7 @@ class RunnerFacadePlay(RunnerBase):
         self.context.max_train_count = 0
         self.context.max_memory = 0
         # play config
+        self.context.players = players
         self.context.shuffle_player = False
         self.context.disable_trainer = True
         # play info
@@ -513,6 +536,8 @@ class RunnerFacadePlay(RunnerBase):
         # --- stop config
         timeout: float = -1,
         max_steps: int = -1,
+        # --- play config
+        players: List[PlayerType] = [],
         # other
         callbacks: List[CallbackType] = [],
         _is_test: bool = False,  # for test
@@ -529,6 +554,7 @@ class RunnerFacadePlay(RunnerBase):
         self.context.max_train_count = 0
         self.context.max_memory = 0
         # play config
+        self.context.players = players
         self.context.shuffle_player = False
         self.context.disable_trainer = True
         # play info

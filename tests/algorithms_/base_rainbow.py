@@ -104,13 +104,10 @@ class BaseCase(CommonBaseCase):
         rl_config.set_replay_memory()
 
         runner, tester = self.create_runner("OX", rl_config)
-        runner.set_players([None, "random"])
-        runner.train(max_train_count=10000)
+        runner.train(max_train_count=10000, players=[None, "random"])
 
-        runner.set_players([None, "random"])
-        tester.eval(runner, baseline=[0.4, None])
-        runner.set_players(["random", None])
-        tester.eval(runner, baseline=[None, 0.4])
+        tester.eval(runner, players=[None, "random"], baseline=[0.4, None])
+        tester.eval(runner, players=["random", None], baseline=[None, 0.4])
 
     def _create_pendulum_config(self):
         rl_config = self._create_rl_config()

@@ -10,8 +10,7 @@ def main():
     runner = srl.Runner(env_config, rl_config)
 
     # --- train
-    runner.set_players([None, "random"])
-    runner.train(max_episodes=10000)
+    runner.train(max_episodes=10000, players=[None, "random"])
 
     # --- evaluate
     for players in [
@@ -20,17 +19,14 @@ def main():
         [None, "cpu"],
         ["cpu", None],
     ]:
-        runner.set_players(players)
-        rewards = runner.evaluate(max_episodes=100)
+        rewards = runner.evaluate(max_episodes=100, players=players)
         print(f"Average reward for 100 episodes: {np.mean(rewards, axis=0)}, {players}")
 
     # --- rendering
-    runner.set_players([None, "cpu"])
-    runner.render_terminal()
+    runner.render_terminal(players=[None, "cpu"])
 
     # --- 対戦
-    runner.set_players([None, "human"])
-    runner.render_terminal()
+    runner.render_terminal(players=[None, "human"])
 
 
 if __name__ == "__main__":

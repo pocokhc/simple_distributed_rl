@@ -32,10 +32,10 @@ def main():
     env_config = srl.EnvConfig("Othello4x4", {"obs_type": "layer"})
 
     runner = srl.Runner(env_config, rl_config)
+    runner.model_summary()
 
-    # --- train
-    runner.set_players([None, None])  # self play
-    runner.train(max_episodes=1000)
+    # --- train(self play)
+    runner.train(players=[None, None], max_episodes=1000)
 
     # --- evaluate
     for players in [
@@ -46,18 +46,15 @@ def main():
         ["random", "cpu"],
         ["cpu", "random"],
     ]:
-        runner.set_players(players)
-        rewards = runner.evaluate(max_episodes=10)
+        rewards = runner.evaluate(max_episodes=10, players=players)
         print(f"Average reward for 100 episodes: {np.mean(rewards, axis=0)}, {players}")
 
     # --- rendering
-    runner.set_players([None, "cpu"])
     path = os.path.join(os.path.dirname(__file__), "_alphazero.gif")
-    runner.animation_save_gif(path)
+    runner.animation_save_gif(path, players=[None, "cpu"])
 
     # --- 対戦
-    runner.set_players([None, "human"])
-    runner.render_terminal()
+    runner.render_terminal(players=[None, "human"])
 
 
 if __name__ == "__main__":

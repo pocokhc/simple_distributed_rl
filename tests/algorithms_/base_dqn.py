@@ -79,7 +79,5 @@ class BaseCase(CommonBaseCase):
         runner.set_seed(2)
         runner.train(max_train_count=10_000)
 
-        runner.set_players([None, "random"])
-        tester.eval(runner, baseline=[0.4, None])
-        runner.set_players(["random", None])
-        tester.eval(runner, baseline=[None, 0.4])
+        tester.eval(runner, players=[None, "random"], baseline=[0.4, None])
+        tester.eval(runner, players=["random", None], baseline=[None, 0.4])

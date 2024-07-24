@@ -439,7 +439,7 @@ def train(
 
     # --- callbacks ---
     callbacks = mp_data.callbacks
-    [c.on_start(context) for c in callbacks]
+    [c.on_start(context=context) for c in callbacks]
     # ------------------
 
     try:
@@ -559,5 +559,5 @@ def train(
 
     finally:
         # --- callbacks ---
-        [c.on_end(context) for c in callbacks]
+        [c.on_end(context=context) for c in callbacks]
         # ------------------

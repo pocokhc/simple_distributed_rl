@@ -109,7 +109,7 @@ def _play_trainer_only(
     # 2 callbacks
     _calls_on_train_before: List[Any] = [c for c in callbacks if hasattr(c, "on_train_before")]
     _calls_on_train_after: List[Any] = [c for c in callbacks if hasattr(c, "on_train_after")]
-    [c.on_trainer_start(context, state) for c in callbacks]
+    [c.on_trainer_start(context=context, state=state) for c in callbacks]
 
     # --- thread
     if state.enable_train_thread:
@@ -149,7 +149,7 @@ def _play_trainer_only(
                 break
 
             # callbacks
-            [c.on_train_before(context, state) for c in _calls_on_train_before]
+            [c.on_train_before(context=context, state=state) for c in _calls_on_train_before]
 
             # --- train
             if state.enable_train_thread:
@@ -180,7 +180,7 @@ def _play_trainer_only(
             state.train_count = state.trainer.train_count
 
             # callbacks
-            _stop_flags = [c.on_train_after(context, state) for c in _calls_on_train_after]
+            _stop_flags = [c.on_train_after(context=context, state=state) for c in _calls_on_train_after]
             if True in _stop_flags:
                 state.end_reason = "callback.trainer_intermediate_stop"
                 break
@@ -194,5 +194,5 @@ def _play_trainer_only(
     state.trainer.on_end()
 
     # 5 callbacks
-    [c.on_trainer_end(context, state) for c in callbacks]
+    [c.on_trainer_end(context=context, state=state) for c in callbacks]
     return state

@@ -15,6 +15,9 @@ class KerasModelAddedSummary(keras.Model):
 
     def init_model_graph(self, name: str = ""):
         try:
+            if not hasattr(self, "_KerasModelAddedSummary__input_shape"):
+                return None
+
             for h in self.layers:
                 if hasattr(h, "init_model_graph"):
                     h.init_model_graph()

@@ -39,6 +39,9 @@ class RunStateTrainer:
     sync_trainer: int = 0
     trainer_recv_q: int = 0
 
+    # other
+    shared_vars: dict = field(default_factory=dict)
+
     def to_dict(self) -> dict:
         dat: dict = convert_for_json(self.__dict__)
         return dat

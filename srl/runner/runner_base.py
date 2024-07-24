@@ -60,6 +60,7 @@ class RunnerBase:
         self._parameter: Optional[RLParameter] = None
         self._memory: Optional[RLMemory] = None
         self._trainer: Optional[RLTrainer] = None
+        self._worker: Optional[WorkerRun] = None
         self._workers: Optional[List[WorkerRun]] = None
         self._main_worker_idx: Optional[int] = None
         self.state: Optional[Union[RunStateActor, RunStateTrainer]] = None
@@ -91,6 +92,10 @@ class RunnerBase:
     @property
     def trainer(self) -> RLTrainer:
         return self.make_trainer()
+
+    @property
+    def worker(self) -> WorkerRun:
+        return self.make_worker()
 
     @property
     def workers(self) -> List[WorkerRun]:
@@ -187,7 +192,9 @@ class RunnerBase:
     def make_env(self) -> EnvRun:
         if self._env is None:
             self._env = make_env(self.env_config)
-            logger.info(f"make env: {self._env.name}")
+            s = f"[{self.context.run_name}]({self.context.flow_mode})"
+            s += f" make: {self._env.env.__class__}(id:{id(self._env)})"
+            logger.info(s)
         return self._env
 
     def make_parameter(self, is_load: bool = True) -> RLParameter:
@@ -196,7 +203,7 @@ class RunnerBase:
             if not self.rl_config.is_setup(self.env_config.name):
                 self.rl_config.setup(self.make_env())
             self._parameter = make_parameter(self.rl_config, is_load=is_load)
-            logger.info(f"make parameter: {self._parameter}")
+            logger.info(f"[{self.context.run_name}]({self.context.flow_mode}) make: {repr(self._parameter)}")
         return self._parameter
 
     def make_memory(self, is_load: bool = True) -> RLMemory:
@@ -205,7 +212,7 @@ class RunnerBase:
             if not self.rl_config.is_setup(self.env_config.name):
                 self.rl_config.setup(self.make_env())
             self._memory = make_memory(self.rl_config, is_load=is_load)
-            logger.info(f"make memory: {self._memory}")
+            logger.info(f"[{self.context.run_name}]({self.context.flow_mode}) make: {repr(self._memory)}")
         return self._memory
 
     def make_trainer(
@@ -214,14 +221,14 @@ class RunnerBase:
         memory: Optional[RLMemory] = None,
     ) -> RLTrainer:
         self._setup_process()
-        if self._trainer is None:
-            if parameter is None:
-                parameter = self.make_parameter()
-            if memory is None:
-                memory = self.make_memory()
-            if not self.rl_config.is_setup(self.env_config.name):
-                self.rl_config.setup(self.make_env())
-            self._trainer = make_trainer(self.rl_config, parameter, memory)
+        if parameter is None:
+            parameter = self.make_parameter()
+        if memory is None:
+            memory = self.make_memory()
+        if not self.rl_config.is_setup(self.env_config.name):
+            self.rl_config.setup(self.make_env())
+        self._trainer = make_trainer(self.rl_config, parameter, memory)
+        logger.info(f"[{self.context.run_name}]({self.context.flow_mode}) make: {repr(self._trainer)}")
         return self._trainer
 
     def make_worker(
@@ -230,32 +237,33 @@ class RunnerBase:
         memory: Optional[RLMemory] = None,
     ) -> WorkerRun:
         self._setup_process()
-        env = self.make_env()
-        self.rl_config.setup(env)
+        # バグの元になる事が多いのでキャッシュしない
         if parameter is None:
             parameter = self.make_parameter()
         if memory is None:
             memory = self.make_memory()
-        return make_worker(self.rl_config, env, parameter, memory)
+        env = self.make_env()
+        self.rl_config.setup(env)
+        self._worker = make_worker(self.rl_config, env, parameter, memory)
+        logger.info(f"[{self.context.run_name}]({self.context.flow_mode}) make: {repr(self._worker._worker)}")
+        return self._worker
 
     def make_workers(
         self,
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
     ) -> Tuple[List[WorkerRun], int]:
-        if self._workers is None:
-            if parameter is None:
-                parameter = self.make_parameter()
-            if memory is None:
-                memory = self.make_memory()
-            self._workers, self._main_worker_idx = make_workers(
-                self.context.players,
-                self.make_env(),
-                self.rl_config,
-                parameter,
-                memory,
-            )
-        assert self._main_worker_idx is not None
+        if parameter is None:
+            parameter = self.make_parameter()
+        if memory is None:
+            memory = self.make_memory()
+        self._workers, self._main_worker_idx = make_workers(
+            self.context.players,
+            self.make_env(),
+            self.rl_config,
+            parameter,
+            memory,
+        )
         return self._workers, self._main_worker_idx
 
     # ------------------------------
@@ -676,8 +684,6 @@ class RunnerBase:
     # ---------------------------------------------
     def run_context(
         self,
-        reset_workers: bool = True,
-        reset_trainer: bool = True,
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
         trainer: Optional[RLTrainer] = None,
@@ -686,12 +692,6 @@ class RunnerBase:
         callbacks: List[CallbackType] = [],
         logger_config: bool = False,
     ):
-        if reset_workers:
-            self._workers = None
-            self._main_worker_idx = None
-        if reset_trainer:
-            self._trainer = None
-
         # --- make instance
         if workers is None:
             if parameter is None:
@@ -719,8 +719,6 @@ class RunnerBase:
 
     def run_context_generator(
         self,
-        reset_workers: bool = True,
-        reset_trainer: bool = True,
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
         trainer: Optional[RLTrainer] = None,
@@ -729,12 +727,6 @@ class RunnerBase:
         callbacks: List[CallbackType] = [],
         logger_config: bool = False,
     ):
-        if reset_workers:
-            self._workers = None
-            self._main_worker_idx = None
-        if reset_trainer:
-            self._trainer = None
-
         # --- make instance
         if workers is None:
             if parameter is None:
@@ -761,16 +753,12 @@ class RunnerBase:
 
     def run_context_trainer_only(
         self,
-        reset_trainer: bool = True,
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
         trainer: Optional[RLTrainer] = None,
         callbacks: List[CallbackType] = [],
         logger_config: bool = False,
     ):
-        if reset_trainer:
-            self._trainer = None
-
         # --- make instance
         if trainer is None:
             if parameter is None:

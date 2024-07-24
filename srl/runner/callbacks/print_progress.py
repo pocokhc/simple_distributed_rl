@@ -55,12 +55,12 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
         if self.progress_timeout > self.interval_limit:
             self.progress_timeout = self.interval_limit
 
-    def _eval_str(self, context: RunContext, parameter: RLParameter) -> str:
+    def _eval_str(self, context: RunContext, state) -> str:
         if not self.enable_eval:
             return ""
         if context.distributed:
             if context.actor_id == 0:
-                eval_rewards = self.run_eval(context.env_config, context.rl_config, parameter)
+                eval_rewards = self.run_eval(context, state)
                 if eval_rewards is None:
                     return " " * 12
                 else:
@@ -68,7 +68,7 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
             else:
                 return " " * 12
         else:
-            eval_rewards = self.run_eval(context.env_config, context.rl_config, parameter)
+            eval_rewards = self.run_eval(context, state)
             if eval_rewards is None:
                 return " " * 12
             else:
@@ -277,7 +277,7 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
             s += f"|{_r_min} {_r_mid} {_r_max} re"
 
             # [eval reward]
-            s += self._eval_str(context, state.parameter)
+            s += self._eval_str(context, state)
 
         # [info] 速度優先して一番最新の状態をそのまま表示
         s_info = ""
@@ -434,7 +434,7 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
             s += " 1train is not over."
         else:
             # [eval]
-            s += self._eval_str(context, state.parameter)
+            s += self._eval_str(context, state)
 
         # [info] , 速度優先して一番最新の状態をそのまま表示
         s_info = ""

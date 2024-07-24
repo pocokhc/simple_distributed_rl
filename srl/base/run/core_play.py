@@ -61,6 +61,9 @@ class RunStateActor:
     last_episode_time: float = 0
     last_episode_rewards: List[float] = field(default_factory=list)
 
+    # other
+    shared_vars: dict = field(default_factory=dict)
+
     def to_dict(self) -> dict:
         dat: dict = convert_for_json(self.__dict__)
         return dat

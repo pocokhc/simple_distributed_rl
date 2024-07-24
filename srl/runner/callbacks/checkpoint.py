@@ -5,10 +5,9 @@ import os
 import time
 import traceback
 from dataclasses import dataclass
+from typing import Union
 
 from srl.base.context import RunContext
-from srl.base.rl.parameter import RLParameter
-from srl.base.rl.trainer import RLTrainer
 from srl.base.run.callback import RunCallback, TrainCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
@@ -43,20 +42,18 @@ class Checkpoint(RunCallback, TrainCallback, Evaluate):
             os.makedirs(self.save_dir, exist_ok=True)
             logger.info(f"makedirs: {self.save_dir}")
 
-    def _save_parameter(self, context: RunContext, trainer: RLTrainer, parameter: RLParameter, is_last: bool):
-        train_count = trainer.get_train_count()
-
-        eval_rewards = self.run_eval(context.env_config, context.rl_config, parameter)
+    def _save_parameter(self, context: RunContext, state: Union[RunStateActor, RunStateTrainer], is_last: bool):
+        eval_rewards = self.run_eval(context, state)
         if eval_rewards is None:
             eval_rewards = "None"
 
         fn = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        fn += f"_{train_count}_{eval_rewards}"
+        fn += f"_{state.train_count}_{eval_rewards}"
         if is_last:
             fn += "_last"
         fn += ".pickle"
 
-        parameter.save(os.path.join(self.save_dir, fn))
+        state.parameter.save(os.path.join(self.save_dir, fn))
 
     # ---------------------------
     # actor
@@ -67,31 +64,31 @@ class Checkpoint(RunCallback, TrainCallback, Evaluate):
             return
 
         self.interval_t0 = time.time()
-        self._save_parameter(context, state.trainer, state.parameter, is_last=False)
+        self._save_parameter(context, state, is_last=False)
 
     def on_episode_end(self, context: RunContext, state: RunStateActor, **kwargs):
         if state.trainer is None:
             return
         if time.time() - self.interval_t0 > self.interval:
-            self._save_parameter(context, state.trainer, state.parameter, is_last=False)
+            self._save_parameter(context, state, is_last=False)
             self.interval_t0 = time.time()  # last
 
     def on_episodes_end(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         if state.trainer is None:
             return
-        self._save_parameter(context, state.trainer, state.parameter, is_last=True)
+        self._save_parameter(context, state, is_last=True)
 
     # ---------------------------
     # trainer
     # ---------------------------
     def on_trainer_start(self, context: RunContext, state: RunStateTrainer, **kwargs):
         self.interval_t0 = time.time()
-        self._save_parameter(context, state.trainer, state.parameter, is_last=False)
+        self._save_parameter(context, state, is_last=False)
 
     def on_train_before(self, context: RunContext, state: RunStateTrainer, **kwargs):
         if time.time() - self.interval_t0 > self.interval:
-            self._save_parameter(context, state.trainer, state.parameter, is_last=False)
+            self._save_parameter(context, state, is_last=False)
             self.interval_t0 = time.time()  # last
 
     def on_trainer_end(self, context: RunContext, state: RunStateTrainer, **kwargs):
-        self._save_parameter(context, state.trainer, state.parameter, is_last=True)
+        self._save_parameter(context, state, is_last=True)

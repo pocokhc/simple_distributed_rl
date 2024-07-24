@@ -2,8 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import List, Optional, Union, cast
 
-from srl.base.context import RunNameTypes
-from srl.base.define import RenderModes
+from srl.base.define import PlayerType, RenderModes
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.trainer import RLTrainer
@@ -55,7 +54,6 @@ class RunnerFacadeTrain(RunnerBase):
         callbacks = callbacks[:]
 
         # --- set context
-        self.context.run_name = RunNameTypes.main
         self.context.flow_mode = "train"
         # stop config
         self.context.max_episodes = max_episodes
@@ -115,7 +113,6 @@ class RunnerFacadeTrain(RunnerBase):
         callbacks = callbacks[:]
 
         # --- set context
-        self.context.run_name = RunNameTypes.main
         self.context.flow_mode = "rollout"
         # stop config
         self.context.max_episodes = max_episodes
@@ -173,7 +170,6 @@ class RunnerFacadeTrain(RunnerBase):
         callbacks = callbacks[:]
 
         # --- context
-        self.context.run_name = RunNameTypes.main
         self.context.flow_mode = "train_only"
         # stop config
         self.context.max_episodes = 0
@@ -242,7 +238,6 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.actor_devices = actor_devices
 
         # --- set context
-        self.context.run_name = RunNameTypes.main
         self.context.flow_mode = "train_mp"
         # stop config
         self.context.max_episodes = -1

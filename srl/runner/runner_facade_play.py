@@ -51,7 +51,6 @@ class RunnerFacadePlay(RunnerBase):
         callbacks = callbacks[:]
 
         # --- set context
-        self.context.run_name = RunNameTypes.main
         self.context.flow_mode = "evaluate"
         # stop config
         self.context.max_episodes = max_episodes
@@ -101,7 +100,6 @@ class RunnerFacadePlay(RunnerBase):
         mode = RenderModes.terminal
 
         # --- set context
-        self.context.run_name = RunNameTypes.main
         self.context.flow_mode = "render_terminal"
         # stop config
         self.context.max_episodes = 1
@@ -133,7 +131,6 @@ class RunnerFacadePlay(RunnerBase):
                 render_skip_step=render_skip_step,
             )
         )
-        logger.info("enable Rendering")
         # -----------------
 
         self.run_context(parameter=parameter, memory=memory, callbacks=callbacks)
@@ -166,7 +163,6 @@ class RunnerFacadePlay(RunnerBase):
         mode = RenderModes.window
 
         # --- context
-        self.context.run_name = RunNameTypes.main
         self.context.flow_mode = "render_window"
         # stop config
         self.context.max_episodes = 1
@@ -202,7 +198,6 @@ class RunnerFacadePlay(RunnerBase):
                 font_size=font_size,
             )
         )
-        logger.info("add callback Rendering")
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=False)
@@ -237,7 +232,6 @@ class RunnerFacadePlay(RunnerBase):
         mode = RenderModes.rgb_array
 
         # --- set context
-        self.context.run_name = RunNameTypes.main
         self.context.flow_mode = "run_render"
         # stop config
         self.context.max_episodes = 1
@@ -272,7 +266,6 @@ class RunnerFacadePlay(RunnerBase):
             font_size=font_size,
         )
         callbacks.append(render)
-        logger.info("add callback Rendering")
         # -----------------
 
         if enable_progress:
@@ -281,7 +274,8 @@ class RunnerFacadePlay(RunnerBase):
         self.run_context(parameter=parameter, memory=memory, callbacks=callbacks)
 
         state = cast(RunStateActor, self.state)
-        logger.info(f"render step: {state.total_step}, reward: {state.episode_rewards_list[0]}")
+        if self.context.run_name != RunNameTypes.eval:
+            logger.info(f"render step: {state.total_step}, reward: {state.episode_rewards_list[0]}")
         return render
 
     def animation_save_gif(
@@ -425,7 +419,6 @@ class RunnerFacadePlay(RunnerBase):
         mode = RenderModes.rgb_array
 
         # --- set context
-        self.context.run_name = RunNameTypes.main
         self.context.flow_mode = "replay_window"
         # stop config
         self.context.max_episodes = 1
@@ -474,7 +467,6 @@ class RunnerFacadePlay(RunnerBase):
         self.context.players = players
 
         # --- set context
-        self.context.run_name = RunNameTypes.main
         self.context.flow_mode = "play_terminal"
         # stop config
         self.context.max_episodes = 1
@@ -505,7 +497,6 @@ class RunnerFacadePlay(RunnerBase):
             render_skip_step=render_skip_step,
         )
         callbacks.append(rendering)
-        logger.info("add callback Rendering")
         # -----------------
 
         self.run_context(parameter=parameter, memory=memory, callbacks=callbacks)
@@ -530,7 +521,6 @@ class RunnerFacadePlay(RunnerBase):
         mode = RenderModes.rgb_array
 
         # --- set context
-        self.context.run_name = RunNameTypes.main
         self.context.flow_mode = "play_window"
         # stop config
         self.context.max_episodes = -1

@@ -102,7 +102,7 @@ def set_logger(
         warnings.simplefilter("ignore")
 
         # ライブラリ別にログレベルを調整
-        logging.getLogger("matplotlib").setLevel(logging.INFO)
+        logging.getLogger("matplotlib").setLevel(logging.WARNING)
         logging.getLogger("PIL").setLevel(logging.INFO)
         logging.getLogger("pika").setLevel(logging.ERROR)
 

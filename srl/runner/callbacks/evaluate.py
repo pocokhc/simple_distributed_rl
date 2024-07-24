@@ -1,18 +1,15 @@
 import logging
 import traceback
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, List, Optional
+from typing import List, Union
 
 import numpy as np
 
-from srl.base.context import RunNameTypes
+from srl.base.context import RunContext, RunNameTypes
 from srl.base.define import PlayerType
-from srl.base.env.config import EnvConfig
-from srl.base.rl.config import RLConfig
-from srl.base.rl.parameter import RLParameter
-
-if TYPE_CHECKING:
-    from srl.runner.runner import Runner
+from srl.base.run.core_play import RunStateActor
+from srl.base.run.core_train_only import RunStateTrainer
+from srl.runner.runner import Runner
 
 logger = logging.getLogger(__name__)
 
@@ -27,47 +24,37 @@ class Evaluate:
     eval_players: List[PlayerType] = field(default_factory=list)
     eval_shuffle_player: bool = False
 
-    _eval_runner: Optional["Runner"] = field(init=False, default=None)
+    def create_eval_runner_if_not_exists(
+        self, context: RunContext, state: Union[RunStateActor, RunStateTrainer]
+    ) -> Runner:
+        if "eval_runner" in state.shared_vars:
+            return state.shared_vars["eval_runner"]
 
-    def run_eval(self, env_config: EnvConfig, rl_config: RLConfig, parameter: RLParameter) -> Optional[np.ndarray]:
+        # --- make instance
+        runner = Runner(context.env_config, context.rl_config)
+        runner.context.run_name = RunNameTypes.eval
+        runner.context.seed = None  # mainと競合するのでNone
+        runner.make_memory(is_load=False)
+        state.shared_vars["eval_runner"] = runner
+        return runner
+
+    def run_eval(self, context, state: Union[RunStateActor, RunStateTrainer]):
         if not self.enable_eval:
             return None
-        if self._eval_runner is None:
-            from srl.runner.runner import Runner
-
-            self._eval_runner = Runner(env_config, rl_config)
-            c = self._eval_runner.context
-            c.players = self.eval_players
-            c.run_name = RunNameTypes.eval
-            c.flow_mode = "Evaluate"
-            # stop
-            c.max_episodes = self.eval_episode
-            c.timeout = self.eval_timeout
-            c.max_steps = self.eval_max_steps
-            c.max_train_count = -1
-            c.max_memory = -1
-            # play config
-            c.shuffle_player = self.eval_shuffle_player
-            c.disable_trainer = True
-            # play info
-            c.distributed = False
-            c.training = False
-            c.rendering = False
-            c.seed = None  # mainと競合するのでNone
-            # thread
-            c.enable_train_thread = False
-
-            # --- make instance
-            self._eval_runner.make_memory(is_load=False)
 
         try:
-            state = self._eval_runner.run_context(
-                reset_workers=False,
-                reset_trainer=False,
-                parameter=parameter,
+            runner = self.create_eval_runner_if_not_exists(context, state)
+            runner.evaluate(
+                self.eval_episode,
+                self.eval_timeout,
+                self.eval_max_steps,
+                players=self.eval_players,
+                shuffle_player=self.eval_shuffle_player,
+                parameter=state.parameter,
+                enable_progress=False,
             )
-            eval_rewards = np.mean(state.episode_rewards_list, axis=0)
+            eval_rewards = np.mean(runner.state.episode_rewards_list, axis=0)
             return eval_rewards
         except Exception:
             logger.error(traceback.format_exc())
-            return None
+        return None

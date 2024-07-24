@@ -174,7 +174,7 @@ class MLFlowCallback(RunCallback, TrainCallback, Evaluate):
             return
 
         t0 = time.time()
-        eval_rewards = self.run_eval(context.env_config, context.rl_config, state.parameter)
+        eval_rewards = self.run_eval(context, state)
         if eval_rewards is not None:
             d = {f"eval_reward{i}": r for i, r in enumerate(eval_rewards)}
             mlflow.log_metrics(d, self._get_step(context, state), run_id=self.run_id)
@@ -206,14 +206,12 @@ class MLFlowCallback(RunCallback, TrainCallback, Evaluate):
     def _log_html(self, context: RunContext, state):
         if not self.enable_html:
             return
-        if self._render_runner is None:
-            self._render_runner = srl.Runner(context.env_config, context.rl_config)
-            self._render_runner.make_memory(is_load=False)
         step = self._get_step(context, state)
-        render = self._render_runner.run_render(parameter=state.parameter, enable_progress=False)
+        runner = self.create_eval_runner_if_not_exists(context, state)
+        render = runner.run_render(parameter=state.parameter, enable_progress=False)
         html = render.to_jshtml()
         name = context.rl_config.name.replace(":", "_")
-        rewards = self._render_runner.state.last_episode_rewards
+        rewards = runner.state.last_episode_rewards
         fn = f"{name}_{step}_{rewards}.html"
         mlflow.log_text(html, fn, run_id=self.run_id)
         d = {f"eval_reward{i}": r for i, r in enumerate(rewards)}
@@ -247,6 +245,7 @@ class MLFlowCallback(RunCallback, TrainCallback, Evaluate):
         path_list.sort()
         path = path_list[parameter_idx][1]
 
+        logger.info(f"load artifact: run_id={run_id}, path={path}")
         with tempfile.TemporaryDirectory() as temp_dir:
             mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=path, dst_path=temp_dir)
             parameter.load(os.path.join(temp_dir, path))

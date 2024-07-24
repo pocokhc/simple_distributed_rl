@@ -2,8 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Union, cast
 
-from srl.base.context import RunNameTypes
-from srl.base.define import RenderModes
+from srl.base.define import PlayerType, RenderModes
 from srl.runner.runner_base import CallbackType, RunnerBase
 
 if TYPE_CHECKING:
@@ -53,7 +52,6 @@ class RunnerFacadeDistribution(RunnerBase):
         self.context.actor_num = actor_num
 
         # --- set context
-        self.context.run_name = RunNameTypes.main
         self.context.flow_mode = "train_distribution"
         # stop config
         self.context.max_episodes = -1
@@ -136,7 +134,6 @@ class RunnerFacadeDistribution(RunnerBase):
         self.context.actor_num = actor_num
 
         # --- set context
-        self.context.run_name = RunNameTypes.main
         self.context.flow_mode = "train_distribution_start"
         # stop config
         self.context.max_episodes = -1

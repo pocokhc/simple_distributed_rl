@@ -17,13 +17,13 @@ def train():
     if os.path.isfile(path):
         runner.load_parameter(path)  # 以前学習したパラメータをロード
 
-    # --- set players
-    runner.set_players([None, None])  # self play
-    # runner.set_players([None, "random"])
-    # runner.set_players([None, "alphabeta8"])
+    # --- players
+    players = [None, None]  # self play
+    # players = [None, "random"]
+    # players = [None, "alphabeta8"]
 
     # --- train
-    runner.train(timeout=10)  # change time: timeout=60 * 60 * 5
+    runner.train(timeout=10, players=players)  # change time: timeout=60 * 60 * 5
 
     # --- save parameter
     runner.save_parameter(path)
@@ -40,17 +40,14 @@ def eval():
         [None, "alphabeta7"],
         ["alphabeta7", None],
     ]:
-        runner.set_players(players)
-        rewards = runner.evaluate(max_episodes=5)
+        rewards = runner.evaluate(max_episodes=5, players=players)
         print(f"{np.mean(rewards, axis=0)}, {players}")
 
 
 def view():
     runner = create_runner()
     runner.load_parameter(path)
-
-    runner.set_players([None, "human"])
-    runner.render_terminal()
+    runner.render_terminal(players=[None, "human"])
 
 
 if __name__ == "__main__":

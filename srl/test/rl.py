@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple, Union, cast
 import numpy as np
 
 import srl
+from srl.base.define import PlayerType
 from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.config import DummyRLConfig, RLConfig
@@ -168,6 +169,7 @@ class TestRL:
         self,
         runner: srl.Runner,
         episode: Optional[int] = None,
+        players: List[PlayerType] = [],
         eval_kwargs: dict = {},
         baseline: Optional[BaseLineType] = None,
         check_restore: bool = True,
@@ -181,7 +183,7 @@ class TestRL:
             parameter.restore(parameter.backup())
 
         # --- eval
-        episode_rewards = runner.evaluate(max_episodes=episode, **eval_kwargs)
+        episode_rewards = runner.evaluate(max_episodes=episode, players=players, **eval_kwargs)
 
         # --- assert
         if not isinstance(baseline, list):
@@ -203,8 +205,8 @@ class TestRL:
         self,
         runner: srl.Runner,
         episode: Optional[int] = None,
-        eval_1p_players=[None, "random"],
-        eval_2p_players=["random", None],
+        eval_1p_players: List[PlayerType] = [None, "random"],
+        eval_2p_players: List[PlayerType] = ["random", None],
         eval_kwargs: dict = {},
         baseline: Optional[BaseLineType] = None,
         check_restore: bool = True,
@@ -214,11 +216,8 @@ class TestRL:
         episode, baseline = self._check_baseline(env, env.name, episode, baseline)
         assert isinstance(baseline, list)
 
-        runner.set_players(eval_1p_players)
-        self.eval(runner, episode, eval_kwargs, [baseline[0], None], check_restore)
-
-        runner.set_players(eval_2p_players)
-        self.eval(runner, episode, eval_kwargs, [None, baseline[1]], check_restore)
+        self.eval(runner, episode, eval_1p_players, eval_kwargs, [baseline[0], None], check_restore)
+        self.eval(runner, episode, eval_2p_players, eval_kwargs, [None, baseline[1]], check_restore)
 
     # ----------------------------------------------------
 
@@ -240,7 +239,7 @@ class TestRL:
         for _ in range(100):
             if env.done:
                 env.reset()
-                worker.on_reset(0, training=False)
+                worker.on_reset(0)
 
             # action
             pred_a = worker.policy()

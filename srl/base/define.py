@@ -51,6 +51,13 @@ KeyBindType = Dict[
 ]
 
 # --- workers
+#: multi player option
+#:    マルチプレイヤーゲームでのプレイヤーを指定します。
+#:    None                : use rl_config worker
+#:    str                 : Registered RuleWorker
+#:    Tuple[str, dict]    : Registered RuleWorker(Pass kwargs argument)
+#:    RLConfig            : use RLConfig worker
+#:    Tuple[RLConfig, Any]: use RLConfig worker(Parameter)
 PlayerType = Union[
     None,
     str,  # name

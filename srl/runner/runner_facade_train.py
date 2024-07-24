@@ -28,6 +28,7 @@ class RunnerFacadeTrain(RunnerBase):
         enable_train_thread: bool = False,
         thread_queue_capacity: int = 10,
         # --- play config
+        players: List[PlayerType] = [],
         shuffle_player: bool = True,
         # --- progress
         enable_progress: bool = True,
@@ -62,6 +63,7 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.max_train_count = max_train_count
         self.context.max_memory = max_memory
         # play config
+        self.context.players = players
         self.context.shuffle_player = shuffle_player
         self.context.disable_trainer = False
         # play info
@@ -100,6 +102,7 @@ class RunnerFacadeTrain(RunnerBase):
         max_steps: int = -1,
         max_memory: int = -1,
         # --- play config
+        players: List[PlayerType] = [],
         shuffle_player: bool = True,
         # --- progress
         enable_progress: bool = True,
@@ -121,6 +124,7 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.max_train_count = 0
         self.context.max_memory = max_memory
         # play config
+        self.context.players = players
         self.context.shuffle_player = shuffle_player
         self.context.disable_trainer = True
         # play info
@@ -223,6 +227,7 @@ class RunnerFacadeTrain(RunnerBase):
         enable_train_thread: bool = False,
         thread_queue_capacity: int = 10,
         # --- play config
+        players: List[PlayerType] = [],
         shuffle_player: bool = True,
         # --- progress
         enable_progress: bool = True,
@@ -246,6 +251,7 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.max_train_count = max_train_count
         self.context.max_memory = -1
         # play config
+        self.context.players = players
         self.context.shuffle_player = shuffle_player
         self.context.disable_trainer = False
         # play info

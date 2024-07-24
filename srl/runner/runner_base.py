@@ -105,22 +105,6 @@ class RunnerBase:
     # ------------------------------
     # set config
     # ------------------------------
-    def set_players(self, players: List[PlayerType] = []):
-        """multi player option
-        マルチプレイヤーゲームでのプレイヤーを指定します。
-
-        None                : use rl_config worker
-        str                 : Registered RuleWorker
-        Tuple[str, dict]    : Registered RuleWorker(Pass kwargs argument)
-        RLConfig            : use RLConfig worker
-        Tuple[RLConfig, Any]: use RLConfig worker(Parameter)
-
-        Args:
-            players: マルチプレイヤーゲームにおけるプレイヤーを表した配列
-
-        """
-        self.context.players = players
-
     def set_seed(
         self,
         seed: Optional[int] = None,

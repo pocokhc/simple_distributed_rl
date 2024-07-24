@@ -60,10 +60,8 @@ class BaseCase(CommonBaseCase):
         runner, tester = self.create_runner("OX-layer", rl_config)
         runner.train(max_train_count=200)
 
-        runner.set_players([None, "random"])
-        tester.eval(runner, baseline=[0.8, None])
-        runner.set_players(["random", None])
-        tester.eval(runner, baseline=[None, 0.6])
+        tester.eval(runner, players=[None, "random"], baseline=[0.8, None])
+        tester.eval(runner, players=["random", None], baseline=[None, 0.6])
 
     def test_OX_mp(self):
         self.check_skip()
@@ -73,10 +71,8 @@ class BaseCase(CommonBaseCase):
         runner.set_seed(2)
         runner.train_mp(max_train_count=300)
 
-        runner.set_players([None, "random"])
-        tester.eval(runner, baseline=[0.8, None])
-        runner.set_players(["random", None])
-        tester.eval(runner, baseline=[None, 0.65])
+        tester.eval(runner, players=[None, "random"], baseline=[0.8, None])
+        tester.eval(runner, players=["random", None], baseline=[None, 0.65])
 
     def test_Othello4x4(self):
         self.check_skip()
@@ -96,7 +92,5 @@ class BaseCase(CommonBaseCase):
         runner, tester = self.create_runner("Othello4x4-layer", rl_config)
         runner.train(max_train_count=20_000)
 
-        runner.set_players([None, "random"])
-        tester.eval(runner, baseline=[0.1, None])
-        runner.set_players(["random", None])
-        tester.eval(runner, baseline=[None, 0.5])
+        tester.eval(runner, players=[None, "random"], baseline=[0.1, None])
+        tester.eval(runner, players=["random", None], baseline=[None, 0.5])

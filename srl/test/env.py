@@ -142,7 +142,6 @@ class TestEnv:
         runner = srl.Runner(env_config, None)
 
         env = runner.make_env()
-        runner.set_players([(player, player_kwargs) for _ in range(env.player_num)])
-
-        runner.evaluate(max_episodes=1, timeout=timeout)
+        players = [(player, player_kwargs) for _ in range(env.player_num)]
+        runner.evaluate(max_episodes=1, timeout=timeout, players=players)
         return env

@@ -180,16 +180,11 @@ def make_workers(
     # --- make workers
     workers = []
     for worker_type in players:
-        # --- none はベース
+        # --- none はベース、複数ある場合はparameterとmemoryのみ共有
         if worker_type is None:
             assert rl_config is not None
-            worker = make_worker(
-                rl_config,
-                env,
-                parameter,
-                memory,
-            )
-            workers.append(worker)
+            w = rl_config.make_worker(env, parameter, memory)
+            workers.append(w)
             continue
 
         if isinstance(worker_type, tuple) or isinstance(worker_type, list):
@@ -202,13 +197,13 @@ def make_workers(
             if worker_kwargs is None:
                 worker_kwargs = {}
             worker_kwargs = cast(dict, worker_kwargs)
-            worker = env.make_worker(worker_type, worker_kwargs, enable_raise=False)
-            if worker is not None:
-                workers.append(worker)
+            w = env.make_worker(worker_type, worker_kwargs, enable_raise=False)
+            if w is not None:
+                workers.append(w)
                 continue
-            worker = make_worker(worker_type, env)
-            assert worker is not None, f"not registered: {worker_type}"
-            workers.append(worker)
+            w = make_worker(worker_type, env)
+            assert w is not None, f"not registered: {worker_type}"
+            workers.append(w)
             continue
 
         # --- RLConfigは専用のWorkerを作成
@@ -218,13 +213,13 @@ def make_workers(
             _parameter = make_parameter(_rl_config)
             if worker_kwargs is not None:
                 _parameter.restore(worker_kwargs)
-            worker = make_worker(
+            w = make_worker(
                 _rl_config,
                 env,
                 _parameter,
                 make_memory(_rl_config),
             )
-            workers.append(worker)
+            workers.append(w)
             continue
 
         raise ValueError(f"unknown worker: {worker_type}")

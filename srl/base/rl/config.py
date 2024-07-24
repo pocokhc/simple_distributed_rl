@@ -678,7 +678,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         """make_workers() と同じ動作"""
         from srl.base.rl.registration import make_workers
 
-        return make_workers(players, env, rl_config=self, parameter=parameter, memory=memory)
+        return make_workers(players, env, self, parameter, memory)
 
 
 @dataclass

@@ -1,11 +1,13 @@
 import logging
-from typing import Dict, Union
+from typing import TYPE_CHECKING, Dict, Union
 
 from srl.base.env.base import EnvBase
 from srl.base.env.config import EnvConfig
-from srl.base.env.env_run import EnvRun
 from srl.base.exception import UndefinedError
 from srl.utils.common import is_package_installed, load_module
+
+if TYPE_CHECKING:
+    from srl.base.env.env_run import EnvRun
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +110,9 @@ def make_base(config: Union[str, EnvConfig]) -> EnvBase:
     return env
 
 
-def make(config: Union[str, EnvConfig]) -> EnvRun:
+def make(config: Union[str, EnvConfig]) -> "EnvRun":
+    from srl.base.env.env_run import EnvRun
+
     if isinstance(config, str):
         config = EnvConfig(config)
     return EnvRun(config)

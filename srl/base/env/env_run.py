@@ -8,7 +8,9 @@ import numpy as np
 
 from srl.base.context import RunContext
 from srl.base.define import DoneTypes, EnvActionType, EnvObservationType, KeyBindType, RenderModes
+from srl.base.env.base import EnvBase
 from srl.base.env.config import EnvConfig
+from srl.base.env.registration import make_base
 from srl.base.exception import SRLError
 from srl.base.info import Info
 from srl.base.render import Render
@@ -22,10 +24,8 @@ class EnvRun:
     def __init__(self, config: EnvConfig) -> None:
         # restore/backup用に状態は意識して管理
 
-        from srl.base.env.registration import make_base
-
         self.config = config
-        self.env = make_base(self.config)
+        self.env: EnvBase = make_base(self.config)
 
         # --- processor
         self._processors = [c.copy() for c in self.config.processors]
@@ -57,6 +57,7 @@ class EnvRun:
         self._done: DoneTypes = DoneTypes.NONE
         self._done_reason: str = ""
         self._prev_player_index: int = 0
+        self._next_player_index: int = 0
         self._episode_rewards = np.zeros(self.player_num)
         self._step_rewards = np.zeros(self.player_num)
         self._invalid_actions_list: List[List[EnvActionType]] = [[] for _ in range(self.env.player_num)]
@@ -73,6 +74,7 @@ class EnvRun:
             self._done,
             self._done_reason,
             self._prev_player_index,
+            self._next_player_index,
             self._episode_rewards.copy(),
             self._step_rewards.copy(),
             [s[:] for s in self._invalid_actions_list],
@@ -95,18 +97,19 @@ class EnvRun:
         self._done = dat[2]
         self._done_reason = dat[3]
         self._prev_player_index = dat[4]
-        self._episode_rewards = dat[5].copy()
-        self._step_rewards = dat[6].copy()
-        self._invalid_actions_list = dat[7][:]
-        self._t0 = dat[8]
-        self._info = dat[9].copy()
+        self._next_player_index = dat[5]
+        self._episode_rewards = dat[6].copy()
+        self._step_rewards = dat[7].copy()
+        self._invalid_actions_list = dat[8][:]
+        self._t0 = dat[9]
+        self._info = dat[10].copy()
         # init val
-        self._is_direct_step = dat[10]
-        self._has_start = dat[11]
+        self._is_direct_step = dat[11]
+        self._has_start = dat[12]
         # processor
-        [p.restore(dat[12][i]) for i, p in enumerate(self._processors)]
+        [p.restore(dat[13][i]) for i, p in enumerate(self._processors)]
         # env
-        self.env.restore(dat[13])
+        self.env.restore(dat[14])
 
         # render
         self._render.cache_reset()
@@ -178,6 +181,8 @@ class EnvRun:
                 self._state, rewards, env_done, info = self.env.step(self.env.action_space.get_default())
                 assert not DoneTypes.done(env_done), "Terminated during noop step."
         self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
+        self._next_player_index = self.env.next_player_index
+        self._prev_player_index = self._next_player_index
 
         # --- processor
         for p in self._processors_reset:
@@ -218,23 +223,23 @@ class EnvRun:
             self.assert_action(action)
         elif self.config.enable_sanitize:
             action = self.sanitize_action(action, "The format of 'action' entered in 'env.step' was wrong.")
-        self._prev_player_index = self.env.next_player_index
-
         state, rewards, env_done, info = self._step1(action)
-        self._render.cache_reset()
         step_rewards = np.array(rewards)
+        self._render.cache_reset()
 
         # --- skip frame
         for _ in range(self.config.frameskip + frameskip):
             if DoneTypes.done(env_done):
                 break
             state, rewards, env_done, info = self._step1(action)
-
             step_rewards += np.array(rewards)
             self._render.cache_reset()
 
             if frameskip_function is not None:
                 frameskip_function()
+
+        self._prev_player_index = self._next_player_index
+        self._next_player_index = self.env.next_player_index
 
         return self._step2(state, step_rewards, env_done, info)
 
@@ -275,7 +280,7 @@ class EnvRun:
         for k, v in info.items():
             self._info.set_scalar(k, v)
 
-        invalid_actions = self.env.get_invalid_actions(self.next_player_index)
+        invalid_actions = self.env.get_invalid_actions(self._next_player_index)
         for p in self._processors_step_invalid_actions:
             invalid_actions = p.remap_step_invalid_actions(invalid_actions, self)
         if self.config.enable_assertion:
@@ -284,7 +289,7 @@ class EnvRun:
             invalid_actions = self.sanitize_invalid_actions(
                 invalid_actions, "invalid_actions in env.reset may not be SpaceType."
             )
-        self._invalid_actions_list[self.next_player_index] = invalid_actions
+        self._invalid_actions_list[self._next_player_index] = invalid_actions
         self._step_num += 1
         self._episode_rewards += self._step_rewards
 
@@ -420,7 +425,7 @@ class EnvRun:
 
     @property
     def next_player_index(self) -> int:
-        return self.env.next_player_index
+        return self._next_player_index
 
     @property
     def step_num(self) -> int:
@@ -457,17 +462,17 @@ class EnvRun:
     @property
     def reward(self) -> float:
         """直前のrewardを返す"""
-        return self.step_rewards[self.prev_player_index]
+        return self.step_rewards[self._prev_player_index]
 
     @property
     def invalid_actions(self) -> List[EnvActionType]:
         """現プレイヤーのinvalid actionsを返す"""
-        return self._invalid_actions_list[self.next_player_index]
+        return self._invalid_actions_list[self._next_player_index]
 
     # invalid actions
     def get_invalid_actions(self, player_index: int = -1) -> List[EnvActionType]:
         if player_index == -1:
-            player_index = self.next_player_index
+            player_index = self._next_player_index
         return self._invalid_actions_list[player_index]
 
     def get_valid_actions(self, player_index: int = -1) -> List[EnvActionType]:

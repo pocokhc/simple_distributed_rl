@@ -1,5 +1,5 @@
 import time
-from typing import Tuple, cast
+from typing import cast
 
 import numpy as np
 
@@ -21,26 +21,25 @@ class MyConnectXWorker(ExtendWorker):
         # MinMaxの探索数
         self.max_depth = 3
 
-    def call_on_reset(self, worker) -> dict:
+    def on_reset(self, worker):
         self.action_num = cast(connectx.ConnectX, worker.env.unwrapped).action_space.n
         self._is_rl = False
         self.scores = [0] * self.action_num
         self.minmax_time = 0
         self.minmax_count = 0
-        return {}
 
-    def call_policy(self, worker) -> Tuple[int, dict]:
+    def policy(self, worker) -> int:
         if worker.env.step_num == 0:
             # --- 先行1ターン目
             # DQNの探索率を0.5にして実行
             self.rl_config.epsilon = 0.5
-            action, info = self.base_worker.policy(worker)
+            action = self.base_worker.policy(worker)
             self._is_rl = True
-            return cast(int, action), info
+            return cast(int, action)
 
         # --- 2ターン目以降
         # DQNの探索率は0.1に戻す
-        self.rl_config.epsilon.set_constant(0.1)
+        self.rl_config.epsilon = 0.1
 
         # MinMaxを実施、環境は壊さないようにcopyで渡す
         self.minmax_count = 0
@@ -56,17 +55,17 @@ class MyConnectXWorker(ExtendWorker):
         if max_count == 1:
             self._is_rl = False
             action = int(np.argmax(self.scores))
-            return action, {}
+            return action
 
         # 最大値以外のアクションを選択しないようにする(invalid_actionsに追加)
         new_invalid_actions = [a for a in range(self.action_num) if self.scores[a] != max_score]
         worker.add_invalid_actions(new_invalid_actions)
 
         # rl実施
-        action, info = self.base_worker.policy(worker)
+        action = self.base_worker.policy(worker)
         self._is_rl = True
 
-        return cast(int, action), info
+        return cast(int, action)
 
     # --- MinMax
     # 探索にbackup/restoreを使っているので重い
@@ -129,10 +128,9 @@ class MyConnectXWorker(ExtendWorker):
 
 
 def create_runner():
-    env_config = srl.EnvConfig("connectx")
+    env_config = srl.EnvConfig("connectx", kwargs={"obs_type": "layer"})
 
     rl_config = dqn.Config()
-    rl_config.processors = [connectx.LayerProcessor()]
 
     # extend_workerに自作したクラスをいれます
     rl_config.extend_worker = MyConnectXWorker

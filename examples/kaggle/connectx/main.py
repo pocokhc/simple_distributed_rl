@@ -3,7 +3,6 @@ See also kaggle notebook
 https://www.kaggle.com/code/ngfkf1vv5ot6/connectx-alphazero-ab
 """
 
-
 import os
 
 from model import create_runner
@@ -30,7 +29,7 @@ def my_agent(observation, configuration):
     env.direct_step(observation, configuration)
 
     if env.is_start_episode:
-        worker.on_reset(env.next_player_index, training=False)
+        worker.on_reset(env.next_player_index)
     action = worker.policy()
 
     return env.decode_action(action)

@@ -119,7 +119,7 @@ class Config(
         self.assert_params_memory()
         self.assert_params_input()
 
-    def get_used_backup_restore(self) -> bool:
+    def use_backup_restore(self) -> bool:
         return True
 
 

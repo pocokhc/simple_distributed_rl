@@ -33,7 +33,7 @@ class Config(RLConfig):
     def get_name(self) -> str:
         return "MCTS"
 
-    def get_used_backup_restore(self) -> bool:
+    def use_backup_restore(self) -> bool:
         return True
 
 

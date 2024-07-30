@@ -142,7 +142,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     def get_changeable_parameters(self) -> List[str]:
         return []  # NotImplemented
 
-    def get_used_backup_restore(self) -> bool:
+    def use_backup_restore(self) -> bool:
         return False
 
     # ----------------------------

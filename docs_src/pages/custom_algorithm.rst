@@ -133,7 +133,7 @@ RLConfig で実装が必要な関数・プロパティは以下です。
          """ 前処理を追加したい場合設定してください """
          return []
 
-      def get_used_backup_restore(self) -> bool:
+      def use_backup_restore(self) -> bool:
          """ MCTSなど、envのbackup/restoreを使う場合はTrueを返してください"""
          return False
 

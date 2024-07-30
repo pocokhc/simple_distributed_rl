@@ -60,6 +60,9 @@ class RLWorkerGeneric(
     def on_start(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]", context: "RunContext") -> None:
         pass
 
+    def on_end(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]") -> None:
+        pass
+
     def on_reset(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]") -> None:
         pass
 
@@ -68,9 +71,6 @@ class RLWorkerGeneric(
         raise NotImplementedError()
 
     def on_step(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]") -> None:
-        pass
-
-    def on_end(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]") -> None:
         pass
 
     # --- IRender

@@ -123,10 +123,10 @@ class Memory(RLMemory[Config]):
             # (3) 255->8
             state = np.round(state * 8.0 / 255.0)
 
-            return "".join([str(int(n)) for n in state.flatten().tolist()])
+            return ",".join([str(int(n)) for n in state.flatten().tolist()])
         else:
             space.create_division_tbl(self.config.observation_division_num)
-            return str(space.encode_to_int(state))
+            return ",".join([str(n) for n in space.encode_to_list_int(state)])
 
     def archive_update(self, batch):
         state = batch[0]
@@ -437,7 +437,6 @@ class Worker(RLWorker[Config, Parameter]):
         # --- archive
         print(f"size: {len(self.memory.archive)}")
         key = self.memory.create_cell(worker.state)
-        print(key in self.memory.archive)
         if key in self.memory.archive:
             cell = self.memory.archive[key]
             print(f"step        : {cell['step']}")

@@ -158,6 +158,7 @@ def make_workers(
     rl_config: Optional[RLConfig] = None,
     parameter: Optional[RLParameter] = None,
     memory: Optional[IRLMemoryWorker] = None,
+    main_worker: Optional[WorkerRun] = None,
 ) -> Tuple[List[WorkerRun], int]:
     players = players[:]
 
@@ -179,12 +180,15 @@ def make_workers(
 
     # --- make workers
     workers = []
-    for worker_type in players:
+    for i, worker_type in enumerate(players):
         # --- none はベース、複数ある場合はparameterとmemoryのみ共有
         if worker_type is None:
-            assert rl_config is not None
-            w = rl_config.make_worker(env, parameter, memory)
-            workers.append(w)
+            if (i == main_worker_idx) and (main_worker is not None):
+                workers.append(main_worker)
+            else:
+                assert rl_config is not None
+                w = rl_config.make_worker(env, parameter, memory)
+                workers.append(w)
             continue
 
         if isinstance(worker_type, tuple) or isinstance(worker_type, list):

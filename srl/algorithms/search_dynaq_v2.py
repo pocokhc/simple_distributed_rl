@@ -279,7 +279,7 @@ class Parameter(RLParameter[Config]):
                     "action": a,
                     "select": 0,
                     "visit": 0,
-                    "step": -np.inf,
+                    "step": np.inf,
                     "total_reward": -np.inf,
                 }
 

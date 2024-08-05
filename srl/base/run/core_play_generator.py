@@ -58,6 +58,7 @@ def play_generator(
     # --- 3 start
     [w.on_start(context) for w in state.workers]
     if state.trainer is not None:
+        state.start_train_count = state.trainer.train_count
         state.trainer.on_start(context)
     state.env.setup(**context.to_dict())
 
@@ -98,7 +99,7 @@ def play_generator(
             break
 
         if state.trainer is not None:
-            if context.max_train_count > 0 and state.trainer.get_train_count() >= context.max_train_count:
+            if context.max_train_count > 0 and state.train_count >= context.max_train_count:
                 state.end_reason = "max_train_count over."
                 break
 
@@ -178,7 +179,7 @@ def play_generator(
                     train_data = state.trainer.thread_train(setup_data)
                     state.trainer.thread_train_teardown(train_data)
                     state.is_step_trained = state.trainer.train_count > _prev_train
-            state.train_count = state.trainer.train_count
+            state.train_count = state.trainer.train_count - state.start_train_count
 
         _stop_flags = [c.on_step_end(context=context, state=state) for c in _calls_on_step_end]
         yield ("on_step_end", context, state)

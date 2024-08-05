@@ -24,7 +24,8 @@ class RunStateTrainer:
 
     elapsed_t0: float = 0
     end_reason: str = ""
-    train_count: int = 0  # actorと合わせる用
+    start_train_count: int = 0
+    train_count: int = 0
 
     # train
     is_step_trained: bool = False  # 非同期でタイミングを取るのに重要
@@ -104,6 +105,7 @@ def _play_trainer_only(
         state.enable_train_thread = True
 
     # --- 1 start
+    state.start_train_count = state.trainer.train_count
     state.trainer.on_start(context)
 
     # 2 callbacks
@@ -144,7 +146,7 @@ def _play_trainer_only(
                 state.end_reason = "timeout."
                 break
 
-            if context.max_train_count > 0 and state.trainer.get_train_count() >= context.max_train_count:
+            if context.max_train_count > 0 and state.train_count >= context.max_train_count:
                 state.end_reason = "max_train_count over."
                 break
 
@@ -177,7 +179,7 @@ def _play_trainer_only(
                     train_data = state.trainer.thread_train(setup_data)
                     state.trainer.thread_train_teardown(train_data)
                     state.is_step_trained = state.trainer.train_count > _prev_train
-            state.train_count = state.trainer.train_count
+            state.train_count = state.trainer.train_count - state.start_train_count
 
             # callbacks
             _stop_flags = [c.on_train_after(context=context, state=state) for c in _calls_on_train_after]

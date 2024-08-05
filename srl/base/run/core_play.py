@@ -40,7 +40,8 @@ class RunStateActor:
     end_reason: str = ""
     worker_idx: int = 0
     episode_seed: Optional[int] = None
-    action: EnvActionType = 0
+    action: Any = None
+    start_train_count: int = 0
     train_count: int = 0
 
     # train
@@ -163,6 +164,7 @@ def _play(
     # --- 3 start
     [w.on_start(context) for w in state.workers]
     if state.trainer is not None:
+        state.start_train_count = state.trainer.train_count
         state.trainer.on_start(context)
     state.env.setup(**context.to_dict())
 
@@ -206,7 +208,7 @@ def _play(
             ),
         )
         logger.info(f"[{context.run_name}] train thread start")
-        t0_train_count = cast(RLTrainer, state.trainer).get_train_count()
+        t0_train_count = cast(RLTrainer, state.trainer).train_count
         train_ps.start()
 
     # --- 6 loop
@@ -225,7 +227,7 @@ def _play(
                 break
 
             if state.trainer is not None:
-                if context.max_train_count > 0 and state.trainer.get_train_count() >= context.max_train_count:
+                if context.max_train_count > 0 and state.train_count >= context.max_train_count:
                     state.end_reason = "max_train_count over."
                     break
 
@@ -314,7 +316,7 @@ def _play(
                         train_data = state.trainer.thread_train(setup_data)
                         state.trainer.thread_train_teardown(train_data)
                         state.is_step_trained = state.trainer.train_count > _prev_train
-                state.train_count = state.trainer.train_count
+                state.train_count = state.trainer.train_count - state.start_train_count
 
             _stop_flags = [c.on_step_end(context=context, state=state) for c in _calls_on_step_end]
             state.worker_idx = state.worker_indices[state.env.next_player]  # on_step_end の後

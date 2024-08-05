@@ -1,4 +1,3 @@
-import functools
 import math
 from typing import Tuple
 
@@ -41,11 +40,9 @@ class NormalDist:
     def mode(self):
         return self._loc
 
-    @functools.lru_cache
     def stddev(self):
         return torch.exp(self._log_scale)
 
-    @functools.lru_cache
     def variance(self):
         return self.stddev() ** 2
 
@@ -59,7 +56,6 @@ class NormalDist:
     def log_prob(self, x):
         return compute_normal_logprob(self._loc, self.stddev(), self._log_scale, x)
 
-    @functools.lru_cache
     def entropy(self):
         return 0.5 + 0.5 * math.log(2 * math.pi) + self._log_scale
 
@@ -86,11 +82,9 @@ class NormalDistSquashed:
         self._log_scale = log_scale
         self._scale = torch.exp(self._log_scale)
 
-    @functools.lru_cache
     def mean(self):
         return torch.tanh(self._loc)
 
-    @functools.lru_cache
     def mode(self):
         return torch.tanh(self._loc)
 
@@ -100,7 +94,6 @@ class NormalDistSquashed:
     def variance(self):
         return self.stddev() ** 2
 
-    @functools.lru_cache
     def sample(self):
         y = torch.normal(self._loc, self._scale)
         return torch.tanh(y)

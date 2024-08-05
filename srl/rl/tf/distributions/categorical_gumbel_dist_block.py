@@ -1,4 +1,3 @@
-import functools
 from typing import Tuple
 
 import tensorflow as tf
@@ -19,14 +18,12 @@ class CategoricalGumbelDist:
     def mean(self):
         raise NotImplementedError()
 
-    @functools.lru_cache
     def mode(self):
         return tf.argmax(self.logits, -1)
 
     def variance(self):
         raise NotImplementedError()
 
-    @functools.lru_cache
     def probs(self, temperature: float = 1):
         return tf.nn.softmax(self.logits / temperature)
 
@@ -45,7 +42,6 @@ class CategoricalGumbelDist:
         logits = self.logits + gumbel_inverse(rnd)
         return tf.nn.softmax(logits / temperature)
 
-    @functools.lru_cache
     def log_probs(self, temperature: float = 1):
         probs = self.probs(temperature)
         probs = tf.clip_by_value(probs, 1e-10, 1)  # log(0)回避用

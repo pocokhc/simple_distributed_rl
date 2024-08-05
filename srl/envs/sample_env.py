@@ -4,7 +4,7 @@ from typing import Any, Optional, Tuple
 
 from srl.base.define import KeyBindType
 from srl.base.env import registration
-from srl.base.env.genre.singleplay import SinglePlayEnv
+from srl.base.env.base import EnvBase
 from srl.base.spaces.discrete import DiscreteSpace
 
 registration.register(
@@ -23,7 +23,7 @@ class Action(enum.Enum):
 
 
 @dataclass
-class SampleEnv(SinglePlayEnv):
+class SampleEnv(EnvBase[int, int]):
     move_reward: float = -0.04
 
     def __post_init__(self):
@@ -38,15 +38,19 @@ class SampleEnv(SinglePlayEnv):
         return DiscreteSpace(len(self.field))
 
     @property
+    def player_num(self) -> int:
+        return 1
+
+    @property
     def max_episode_steps(self) -> int:
         return 20
 
-    def call_reset(self) -> Tuple[int, dict]:
+    def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
         self.player_pos = 4
-        return self.player_pos, {}
+        return self.player_pos
 
-    def call_step(self, action_: int) -> Tuple[int, float, bool, dict]:
-        action = Action(action_)
+    def step(self, action) -> Tuple[int, float, bool, bool]:
+        action = Action(action)
 
         if action == Action.LEFT:
             self.player_pos -= 1
@@ -54,12 +58,12 @@ class SampleEnv(SinglePlayEnv):
             self.player_pos += 1
 
         if self.field[self.player_pos] == -1:
-            return self.player_pos, -1.0, True, {}
+            return self.player_pos, -1.0, True, False
 
         if self.field[self.player_pos] == 1:
-            return self.player_pos, 1.0, True, {}
+            return self.player_pos, 1.0, True, False
 
-        return self.player_pos, self.move_reward, False, {}
+        return self.player_pos, self.move_reward, False, False
 
     def backup(self) -> Any:
         return self.player_pos

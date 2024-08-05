@@ -5,11 +5,13 @@ from typing import Any, List, Optional, Tuple, cast
 import numpy as np
 
 from srl.base.define import SpaceTypes
-from srl.base.env.env_run import EnvRun, SpaceBase
-from srl.base.env.genre import TurnBase2Player
+from srl.base.env.base import EnvBase
+from srl.base.env.env_run import EnvRun
 from srl.base.env.registration import register
 from srl.base.rl.algorithms.env_worker import EnvWorker
-from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
+from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.discrete import DiscreteSpace
 
 logger = logging.getLogger(__name__)
 
@@ -28,31 +30,33 @@ register(
 )
 
 
-class OX(TurnBase2Player):
+class OX(EnvBase):
     _scores_cache = {}
 
     def __init__(
         self,
         obs_type: str = "",  # "" or "layer"
     ):
+        self.screen = None
         self.obs_type = obs_type
 
         self.W = 3
         self.H = 3
-
-        self.screen = None
-        self._next_player_index = 0
 
     @property
     def action_space(self) -> DiscreteSpace:
         return DiscreteSpace(self.W * self.H)
 
     @property
-    def observation_space(self) -> SpaceBase:
+    def observation_space(self):
         if self.obs_type == "layer":
             return BoxSpace(low=0, high=1, shape=(3, 3, 2), dtype=np.float32, stype=SpaceTypes.IMAGE)
         else:
             return ArrayDiscreteSpace(self.H * self.W, low=-1, high=1)
+
+    @property
+    def player_num(self) -> int:
+        return 2
 
     @property
     def max_episode_steps(self) -> int:
@@ -66,27 +70,23 @@ class OX(TurnBase2Player):
             "baseline": (0, 0),
         }
 
-    @property
-    def next_player_index(self) -> int:
-        return self._next_player_index
-
-    def call_reset(self) -> Tuple[Any, dict]:
+    def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
         self.field = [0 for _ in range(self.W * self.H)]
-        self._next_player_index = 0
-        return self._create_obs(), {}
+        self.next_player = 0
+        return self._create_state()
 
     def backup(self) -> Any:
-        return [self.field[:], self._next_player_index]
+        return [self.field[:], self.next_player]
 
     def restore(self, data: Any) -> None:
         self.field = data[0][:]
-        self._next_player_index = data[1]
+        self.next_player = data[1]
 
-    def _create_obs(self):
+    def _create_state(self):
         if self.obs_type == "layer":
             # Layer0: player1 field (0 or 1)
             # Layer1: player2 field (0 or 1)
-            if self.next_player_index == 0:
+            if self.next_player == 0:
                 my_field = 1
                 enemy_field = -1
             else:
@@ -104,27 +104,27 @@ class OX(TurnBase2Player):
         else:
             return self.field
 
-    def call_step(self, action: int) -> Tuple[Any, float, float, bool, dict]:
+    def step(self, action) -> Tuple[Any, List[float], bool, bool]:
         reward1, reward2, done = self._step(action)
 
         if not done:
-            if self._next_player_index == 0:
-                self._next_player_index = 1
+            if self.next_player == 0:
+                self.next_player = 1
             else:
-                self._next_player_index = 0
+                self.next_player = 0
 
-        return self._create_obs(), reward1, reward2, done, {}
+        return self._create_state(), [reward1, reward2], done, False
 
     def _step(self, action):
         # error action
         if self.field[action] != 0:
-            if self._next_player_index == 0:
+            if self.next_player == 0:
                 return -1, 0.0, True
             else:
                 return 0.0, -1.0, True
 
         # update
-        if self._next_player_index == 0:
+        if self.next_player == 0:
             self.field[action] = 1
         else:
             self.field[action] = -1
@@ -185,7 +185,7 @@ class OX(TurnBase2Player):
                     s += "{:2d}|".format(a)
             print(s)
             print("-" * 10)
-        if self._next_player_index == 0:
+        if self.next_player == 0:
             print("next player: O")
         else:
             print("next player: X")
@@ -279,12 +279,12 @@ class OX(TurnBase2Player):
             a = cast(int, a)
             env.restore(env_dat)
 
-            _, r1, r2, done, _ = env.call_step(a)
+            _, rewards, done, _ = env.step(a)
             if done:
-                if env.next_player_index == 0:
-                    scores[a] = r1
+                if env.next_player == 0:
+                    scores[a] = rewards[0]
                 else:
-                    scores[a] = r2
+                    scores[a] = rewards[1]
             else:
                 # 次の状態へ
                 n_scores = self._negamax(env)

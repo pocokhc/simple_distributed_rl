@@ -12,7 +12,7 @@ def main(env_name):
     print(f"observation_space: {env.observation_space}")
     print(f"player_num       : {env.player_num}")
 
-    env.setup(srl.RunContext(render_mode="window"))  # "terminal" or "rgb_array" or "window"
+    env.setup(render_mode="window")  # "terminal" or "rgb_array" or "window"
     env.reset()
     env.render()
 
@@ -20,15 +20,15 @@ def main(env_name):
         action = env.sample_action()
         env.step(action)
 
-        print(f"action           : {action}")
-        print(f"step             : {env.step_num}")
-        print(f"next_player_index: {env.next_player_index}")
-        print(f"state            : {env.state}")
-        print(f"invalid_actions  : {env.get_invalid_actions()}")
-        print(f"reward [rewards] : {env.reward} {env.step_rewards}")
-        print(f"info             : {env.info}")
-        print(f"done             : {env.done}")
-        print(f"done_reason      : {env.done_reason}")
+        print(f"action          : {action}")
+        print(f"step            : {env.step_num}")
+        print(f"next_player     : {env.next_player}")
+        print(f"state           : {env.state}")
+        print(f"invalid_actions : {env.get_invalid_actions()}")
+        print(f"reward [rewards]: {env.reward} {env.rewards}")
+        print(f"info            : {env.info}")
+        print(f"done            : {env.done} ({env.done_type})")
+        print(f"done_reason     : {env.done_reason}")
 
         env.render()
 

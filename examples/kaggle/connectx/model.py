@@ -82,7 +82,7 @@ class MyConnectXWorker(ExtendWorker):
         # env復元用に今の状態を保存
         env_dat = env.backup()
 
-        if env.next_player_index == self.player_index:
+        if env.next_player == self.player_index:
             # 自分の番
             scores = [-9.0 for _ in range(self.action_num)]
             for a in valid_actions:

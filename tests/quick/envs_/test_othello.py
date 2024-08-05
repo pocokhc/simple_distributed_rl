@@ -56,7 +56,7 @@ def test_othello():
     env_run = srl.make_env("Othello")
     env = cast(othello.Othello, env_run.unwrapped)
 
-    env_run.setup(srl.RunContext(render_mode="terminal"))
+    env_run.setup(render_mode="terminal")
     env_run.reset()
     env_run.render()
 
@@ -135,10 +135,10 @@ def test_othello():
     env_run.step(3)
     env_run.step(2)
     env_run.render()
-    assert env.next_player_index == 0
+    assert env.next_player == 0
     env_run.step(1)
     env_run.render()
-    assert env.next_player_index == 0  # skip
+    assert env.next_player == 0  # skip
     env_run.step(10)
     env_run.step(18)
     env_run.step(9)
@@ -177,5 +177,5 @@ def test_othello():
     env_run.step(49)
     env_run.render()
     assert env_run.done
-    assert env_run.step_rewards[0] == 1
-    assert env_run.step_rewards[1] == -1
+    assert env_run.rewards[0] == 1
+    assert env_run.rewards[1] == -1

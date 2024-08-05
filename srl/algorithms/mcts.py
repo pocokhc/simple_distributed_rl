@@ -153,7 +153,7 @@ class Worker(RLWorker[Config, Parameter]):
             reward = self._rollout(env)
         else:
             # 1step実行
-            player_index = env.next_player_index
+            player_index = env.next_player
             n_state, rewards = self.worker.env_step(env, action)
             reward = rewards[player_index]
 
@@ -162,7 +162,7 @@ class Worker(RLWorker[Config, Parameter]):
             else:
                 n_state = self.config.observation_space.to_str(n_state)
 
-                enemy_turn = player_index != env.next_player_index
+                enemy_turn = player_index != env.next_player
 
                 # expansion
                 n_reward = self._simulation(env, n_state)

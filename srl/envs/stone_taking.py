@@ -1,14 +1,14 @@
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple, cast
+from typing import Any, List, Optional, Tuple, cast
 
 from srl.base.define import EnvActionType
+from srl.base.env.base import EnvBase
 from srl.base.env.env_run import EnvRun
-from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
 from srl.base.rl.algorithms.env_worker import EnvWorker
-from srl.base.spaces import DiscreteSpace
+from srl.base.spaces.discrete import DiscreteSpace
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ register(
 
 
 @dataclass
-class StoneTaking(TurnBase2Player):
+class StoneTaking(EnvBase[int, int]):
     stones: int = 10
     max_stones: int = 3
 
@@ -37,36 +37,35 @@ class StoneTaking(TurnBase2Player):
         return DiscreteSpace(self.stones + 1)
 
     @property
+    def player_num(self) -> int:
+        return 2
+
+    @property
     def max_episode_steps(self) -> int:
         return self.stones
 
-    @property
-    def next_player_index(self) -> int:
-        return self._next_player_index
-
-    def call_reset(self) -> Tuple[int, dict]:
+    def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
         self.field = self.stones
-        self._next_player_index = 0
-        return self.field, {}
+        self.next_player = 0
+        return self.field
 
     def backup(self) -> Any:
-        return [self.field, self._next_player_index]
+        return self.field
 
     def restore(self, data: Any) -> None:
-        self.field = data[0]
-        self._next_player_index = data[1]
+        self.field = data
 
-    def call_step(self, action: int) -> Tuple[int, float, float, bool, dict]:
+    def step(self, action) -> Tuple[int, List[float], bool, bool]:
         action += 1
 
         reward1, reward2, done = self._step(action)
 
-        if self._next_player_index == 0:
-            self._next_player_index = 1
+        if self.next_player == 0:
+            self.next_player = 1
         else:
-            self._next_player_index = 0
+            self.next_player = 0
 
-        return self.field, reward1, reward2, done, {}
+        return self.field, [reward1, reward2], done, False
 
     def _step(self, action):
         self.field -= action
@@ -75,7 +74,7 @@ class StoneTaking(TurnBase2Player):
         self.field = 0
 
         # 最後の石を取ったら負け
-        if self._next_player_index == 0:
+        if self.next_player == 0:
             return -1.0, 1.0, True
         else:
             return 1.0, -1.0, True
@@ -85,7 +84,7 @@ class StoneTaking(TurnBase2Player):
         for _ in range(self.field):
             s += "o"
         print(f"{self.field:3d}: {s}")
-        print(f"next player: {self._next_player_index}")
+        print(f"next player: {self.next_player}")
 
     @property
     def render_interval(self) -> float:

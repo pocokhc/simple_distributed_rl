@@ -5,7 +5,6 @@ from typing import cast
 import pytest
 
 import srl
-from srl.base.context import RunContext
 from srl.base.define import SpaceTypes
 from srl.base.env import registration
 from srl.base.env.base import EnvBase
@@ -55,19 +54,19 @@ class StubEnv(EnvBase):
     def next_player_index(self) -> int:
         return 0
 
-    def reset(self):
+    def reset(self, **kwargs):
         self._step = 0
         state = 0
-        info = {}
-        return state, info
+        return state
 
     def step(self, action):
         self._step += 1
         next_state = 1
         rewards = [1]
-        done = False
-        info = {"action": action}
-        return next_state, rewards, done, info
+        terminated = False
+        truncated = False
+        self.info["action"] = action
+        return next_state, rewards, terminated, truncated
 
     # backup/restore で現環境を復元できるように実装
     def backup(self):
@@ -122,7 +121,7 @@ def test_max_steps():
     env_config = srl.EnvConfig("base_StubEnv", max_episode_steps=10)
     env = env_config.make()
 
-    env.setup(RunContext())
+    env.setup()
     env.reset()
     for _ in range(10):
         env.step(0)
@@ -139,7 +138,7 @@ def test_timeout():
     env_config = srl.EnvConfig("base_StubEnv", episode_timeout=1)
     env = env_config.make()
 
-    env.setup(RunContext())
+    env.setup()
     env.reset()
     time.sleep(2)
     env.step(0)

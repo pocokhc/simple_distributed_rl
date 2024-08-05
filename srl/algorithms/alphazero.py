@@ -386,11 +386,11 @@ class Worker(RLWorker[Config, Parameter]):
         action = int(np.random.choice(np.where(puct_list == np.max(puct_list))[0]))
 
         # 1step
-        player_index = env.next_player_index
+        player_index = env.next_player
         n_state, rewards = self.worker.env_step(env, action)
         reward = rewards[player_index]
         n_state_str = self.config.observation_space.to_str(n_state)
-        enemy_turn = player_index != env.next_player_index
+        enemy_turn = player_index != env.next_player
 
         if env.done:
             n_value = 0

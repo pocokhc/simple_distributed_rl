@@ -9,8 +9,8 @@ import numpy as np
 
 from srl.base.define import KeyBindType, SpaceTypes
 from srl.base.env import registration
+from srl.base.env.base import EnvBase
 from srl.base.env.env_run import EnvRun, SpaceBase
-from srl.base.env.genre import SinglePlayEnv
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import RLProcessor
 from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
@@ -61,7 +61,7 @@ class Action(enum.Enum):
 
 
 @dataclass
-class Grid(SinglePlayEnv):
+class Grid(EnvBase):
     move_prob: float = 0.8
     move_reward: float = -0.04
     reward_baseline: float = 0.6
@@ -137,6 +137,10 @@ class Grid(SinglePlayEnv):
             return ArrayDiscreteSpace(2, low=0, high=[self.W, self.H])
 
     @property
+    def player_num(self) -> int:
+        return 1
+
+    @property
     def max_episode_steps(self) -> int:
         return 50
 
@@ -150,10 +154,10 @@ class Grid(SinglePlayEnv):
             "baseline": self.reward_baseline,
         }
 
-    def call_reset(self) -> Tuple[Any, dict]:
+    def reset(self, seed: Optional[int] = None, **kwargs) -> Any:
         self.player_pos = random.choice(self.start_pos_list)
         self.action = Action.DOWN
-        return self._create_obs(), {}
+        return self._create_state()
 
     def backup(self) -> Any:
         return self.player_pos
@@ -161,7 +165,7 @@ class Grid(SinglePlayEnv):
     def restore(self, data: Any) -> None:
         self.player_pos = data
 
-    def _create_obs(self):
+    def _create_state(self):
         if self.obs_type == "layer":
             px = self.player_pos[0]
             py = self.player_pos[1]
@@ -175,8 +179,8 @@ class Grid(SinglePlayEnv):
         else:
             return list(self.player_pos)
 
-    def call_step(self, action_: int) -> Tuple[Any, float, bool, dict]:
-        action = Action(action_)
+    def step(self, action) -> Tuple[Any, float, bool, bool]:
+        action = Action(action)
 
         items = self.action_probs[action].items()
         actions = [a for a, prob in items]
@@ -186,7 +190,7 @@ class Grid(SinglePlayEnv):
         self.player_pos = self._move(self.player_pos, self.action)
         reward, done = self.reward_done_func(self.player_pos)
 
-        return self._create_obs(), reward, done, {}
+        return self._create_state(), reward, done, False
 
     def render_terminal(self):
         for y in range(self.H):
@@ -502,7 +506,7 @@ class LayerProcessor(RLProcessor):
         )
         return observation_space
 
-    def remap_observation(self, state: np.ndarray, worker, env: EnvRun) -> np.ndarray:
+    def remap_observation(self, state, worker, env: EnvRun) -> np.ndarray:
         _env = cast(Grid, env.unwrapped)
 
         px = _env.player_pos[0]

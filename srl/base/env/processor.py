@@ -23,14 +23,14 @@ class EnvProcessor(ABC):
         pass
 
     # --- 実装されている場合に実行
-    # def remap_reset(self, state, info, env: "EnvRun") -> None:
-    #    return state, info
+    # def remap_reset(self, state, env: "EnvRun") -> None:
+    #    return state
 
     # def remap_step_action(self, action, env: "EnvRun"):
     #    return action
 
-    # def remap_step(self, state, rewards: List[float], done: Union[bool, DoneTypes], info: dict, env: "EnvRun"):
-    #    return state, rewards, done, info
+    # def remap_step(self, state, rewards: List[float], terminated: bool, truncated: bool, env: "EnvRun"):
+    #    return state, rewards, terminated, truncated
 
     # def remap_step_invalid_actions(self, invalid_actions, env: "EnvRun"):
     #    return invalid_actions

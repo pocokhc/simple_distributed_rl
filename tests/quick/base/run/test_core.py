@@ -41,11 +41,11 @@ class StubEnv(EnvBase):
     def next_player_index(self) -> int:
         return 0
 
-    def reset(self) -> Tuple[EnvObservationType, dict]:
-        return 1, {}
+    def reset(self, **kwargs):
+        return 1
 
-    def step(self, action: EnvActionType) -> Tuple[EnvObservationType, List[float], bool, dict]:
-        return 2, [10.0], False, {}
+    def step(self, action):
+        return 2, [10.0], False, False
 
 
 class StubWorker(RLWorker):

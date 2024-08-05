@@ -9,7 +9,7 @@ from gymnasium import spaces as gym_spaces
 from gymnasium.spaces import flatten, flatten_space
 
 from srl.base import spaces as srl_spaces
-from srl.base.define import DoneTypes, EnvActionType, KeyBindType, RenderModes, SpaceTypes
+from srl.base.define import EnvActionType, KeyBindType, RenderModes, SpaceTypes
 from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.config import EnvConfig
 
@@ -228,7 +228,6 @@ class GymnasiumWrapper(EnvBase):
 
     def __init__(self, config: EnvConfig):
         self.config = config
-        self.seed = None
 
         os.environ["SDL_VIDEODRIVER"] = "dummy"
         if GymnasiumWrapper.is_print_log:
@@ -249,26 +248,23 @@ class GymnasiumWrapper(EnvBase):
             self.fps = self.env.metadata.get("render_fps", 60)
             self.render_modes = self.env.metadata.get("render_modes", ["ansi", "human", "rgb_array"])
 
+        # --- wrapper
         act_space = None
         obs_space = None
+        self.use_wrapper_act = False
+        self.use_wrapper_obs = False
+        if config.gym_wrapper is not None:
+            act_space = config.gym_wrapper.remap_action_space(self.env)
+            obs_space = config.gym_wrapper.remap_observation_space(self.env)
+            self.use_wrapper_act = act_space is not None
+            self.use_wrapper_obs = obs_space is not None
 
-        # --- wrapper
-        for wrapper in config.gym_wrappers:
-            act_space = wrapper.action_space(act_space, self.env)
-            obs_space = wrapper.observation_space(obs_space, self.env)
-        self.use_wrapper_act = act_space is not None
-        self.use_wrapper_obs = obs_space is not None
-
-        # --- space action
+        # --- space
         if act_space is None:
             act_space = space_change_from_gym_to_srl(self.env.action_space)
-
-        # --- space obs
         if obs_space is None:
             obs_space = space_change_from_gym_to_srl(self.env.observation_space)
 
-        assert act_space is not None
-        assert obs_space is not None
         self._action_space: SpaceBase = act_space
         self._observation_space: SpaceBase = obs_space
 
@@ -313,53 +309,47 @@ class GymnasiumWrapper(EnvBase):
     def next_player_index(self) -> int:
         return 0
 
-    def reset(self) -> Tuple[np.ndarray, dict]:
-        if self.seed is None:
+    def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
+        if seed is None:
             state, info = self.env.reset()
         else:
-            # seed を最初のみ設定
-            state, info = self.env.reset(seed=self.seed)
-            self.env.action_space.seed(self.seed)
-            self.env.observation_space.seed(self.seed)
-            self.seed = None
+            state, info = self.env.reset(seed=seed)
+            self.env.action_space.seed(seed)
+            self.env.observation_space.seed(seed)
 
         if self.use_wrapper_obs:
-            for w in self.config.gym_wrappers:
-                state = w.observation(state, self.env)
+            assert self.config.gym_wrapper is not None
+            state = self.config.gym_wrapper.remap_observation(state, self.env)
         else:
             state = space_encode_from_gym_to_srl(self.env.observation_space, state)
 
         state = self.observation_space.sanitize(state)
-        return state, info
+        self.info.set_dict(info)
+        return state
 
-    def step(self, action: EnvActionType) -> Tuple[np.ndarray, List[float], Union[bool, DoneTypes], dict]:
+    def step(self, action: EnvActionType) -> Tuple[Any, List[float], bool, bool]:
         if self.use_wrapper_act:
-            for w in self.config.gym_wrappers:
-                action = w.action(action, self.env)
+            assert self.config.gym_wrapper is not None
+            action = self.config.gym_wrapper.remap_action(action, self.env)
         else:
             action = space_decode_to_srl_from_gym(self.env.action_space, self.action_space, action)
 
         # step
         state, reward, terminated, truncated, info = self.env.step(action)
-        if terminated:
-            done = DoneTypes.TERMINATED
-        elif truncated:
-            done = DoneTypes.TRUNCATED
-        else:
-            done = DoneTypes.NONE
 
         if self.use_wrapper_obs:
-            for w in self.config.gym_wrappers:
-                state = w.observation(state, self.env)
+            assert self.config.gym_wrapper is not None
+            state = self.config.gym_wrapper.remap_observation(state, self.env)
         else:
             state = space_encode_from_gym_to_srl(self.env.observation_space, state)
 
-        for w in self.config.gym_wrappers:
-            reward = w.reward(cast(float, reward), self.env)
-            done = w.done(cast(DoneTypes, done), self.env)
+        if self.config.gym_wrapper is not None:
+            reward = self.config.gym_wrapper.remap_reward(cast(float, reward), self.env)
+            terminated, truncated = self.config.gym_wrapper.remap_done(terminated, truncated, self.env)
 
         state = self.observation_space.sanitize(state)
-        return state, [float(reward)], done, info
+        self.info.set_dict(info)
+        return state, [float(reward)], terminated, truncated
 
     def close(self) -> None:
         try:
@@ -371,16 +361,13 @@ class GymnasiumWrapper(EnvBase):
     def unwrapped(self) -> object:
         return self.env
 
-    def set_seed(self, seed: Optional[int] = None) -> None:
-        self.seed = seed
-
     def setup(self, **kwargs):
         render_mode = kwargs.get("render_mode", RenderModes.none)
         render_mode = RenderModes.from_str(render_mode)
         # --- terminal
         # modeが違っていたら作り直す
         if (
-            (render_mode in [RenderModes.terminal, RenderModes.ansi])
+            (render_mode in [RenderModes.terminal])
             and (self.render_mode != RenderModes.terminal)
             and ("ansi" in self.render_modes)
         ):
@@ -407,41 +394,41 @@ class GymnasiumWrapper(EnvBase):
 
         # --- unwrapped function
         if hasattr(self.env.unwrapped, "setup"):
-            return self.env.unwrapped.setup(**kwargs)
+            return self.env.unwrapped.setup(**kwargs)  # type: ignore
 
     def backup(self) -> Any:
         if hasattr(self.env.unwrapped, "backup"):
-            return self.env.unwrapped.backup()
+            return self.env.unwrapped.backup()  # type: ignore
         else:
             return pickle.dumps(self.env)
 
     def restore(self, data: Any) -> None:
         if hasattr(self.env.unwrapped, "restore"):
-            return self.env.unwrapped.restore(data)
+            return self.env.unwrapped.restore(data)  # type: ignore
         else:
             self.env: gymnasium.Env = pickle.loads(data)
 
     def get_invalid_actions(self, player_index: int = -1) -> List[EnvActionType]:
         if hasattr(self.env.unwrapped, "get_invalid_actions"):
-            return self.env.unwrapped.get_invalid_actions()
+            return self.env.unwrapped.get_invalid_actions()  # type: ignore
         else:
             return []
 
     def action_to_str(self, action: Union[str, EnvActionType]) -> str:
         if hasattr(self.env.unwrapped, "action_to_str"):
-            return self.env.unwrapped.action_to_str(action)
+            return self.env.unwrapped.action_to_str(action)  # type: ignore
         else:
             return str(action)
 
     def get_key_bind(self) -> Optional[KeyBindType]:
         if hasattr(self.env.unwrapped, "get_key_bind"):
-            return self.env.unwrapped.get_key_bind()
+            return self.env.unwrapped.get_key_bind()  # type: ignore
         else:
             return None
 
     def make_worker(self, name: str, **kwargs) -> Optional["RLWorker"]:
         if hasattr(self.env.unwrapped, "make_worker"):
-            return self.env.unwrapped.make_worker(name, **kwargs)
+            return self.env.unwrapped.make_worker(name, **kwargs)  # type: ignore
         else:
             return None
 

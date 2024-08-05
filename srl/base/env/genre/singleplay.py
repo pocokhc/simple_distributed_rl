@@ -1,18 +1,15 @@
-from abc import abstractmethod
-from typing import List, Tuple
+from typing import Generic, List, Optional, Tuple
 
-from srl.base.define import EnvActionType, EnvObservationType, RLActionType
+from srl.base.define import RLActionType, TActType, TObsType
 from srl.base.env import EnvBase
 
 
-class SinglePlayEnv(EnvBase):
-    @abstractmethod
-    def call_reset(self) -> Tuple[EnvObservationType, dict]:
+class SinglePlayEnv(Generic[TActType, TObsType], EnvBase[TActType, TObsType]):
+    def call_reset(self) -> Tuple[TObsType, dict]:
         # state, info
         raise NotImplementedError()
 
-    @abstractmethod
-    def call_step(self, action: EnvActionType) -> Tuple[EnvObservationType, float, bool, dict]:
+    def call_step(self, action: TActType) -> Tuple[TObsType, float, bool, dict]:
         # state, reward, done, info
         raise NotImplementedError()
 
@@ -26,16 +23,15 @@ class SinglePlayEnv(EnvBase):
     def player_num(self) -> int:
         return 1
 
-    @property
-    def next_player_index(self) -> int:
-        return 0
+    def reset(self, *, seed: Optional[int] = None, **kwargs) -> TObsType:
+        state, info = self.call_reset()
+        self.info.set_dict(info)
+        return state
 
-    def reset(self) -> Tuple[EnvObservationType, dict]:
-        return self.call_reset()
-
-    def step(self, action: EnvActionType) -> Tuple[EnvObservationType, List[float], bool, dict]:
+    def step(self, action: TActType) -> Tuple[TObsType, List[float], bool, bool]:
         n_state, reward, done, info = self.call_step(action)
-        return n_state, [reward], done, info
+        self.info.set_dict(info)
+        return n_state, [reward], done, False
 
     def get_invalid_actions(self, player_index: int) -> List[RLActionType]:
         return self.call_get_invalid_actions()

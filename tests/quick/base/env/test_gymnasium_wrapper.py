@@ -8,7 +8,6 @@ import pytest
 
 import srl
 from srl.base import spaces as srl_spaces
-from srl.base.context import RunContext
 from srl.base.define import SpaceTypes
 from srl.base.env.gym_user_wrapper import GymUserWrapper
 from srl.base.spaces.space import SpaceBase
@@ -18,13 +17,15 @@ from srl.utils import common
 
 def test_play_FrozenLake():
     pytest.importorskip("gymnasium")
-    
+    import gymnasium
+
     # observation_space: Discrete(16)
     # action_space     : Discrete(4)
     tester = TestEnv()
     env = tester.play_test("FrozenLake-v1")
     assert env.observation_space == srl_spaces.DiscreteSpace(16)
     assert env.action_space == srl_spaces.DiscreteSpace(4)
+    assert issubclass(env.unwrapped.__class__, gymnasium.Env)
 
 
 def test_play_CartPole():
@@ -375,28 +376,28 @@ def test_wrapper():
     import gymnasium
 
     class MyWrapper(GymUserWrapper):
-        def action_space(self, action_space: Optional[SpaceBase], env: gymnasium.Env) -> Optional[SpaceBase]:
+        def remap_action_space(self, env: gymnasium.Env) -> Optional[SpaceBase]:
             return srl_spaces.DiscreteSpace(99)
 
-        def action(self, action: Any, env: gymnasium.Env) -> Any:
+        def remap_action(self, action: Any, env: gymnasium.Env) -> Any:
             return 0
 
-        def observation_space(self, observation_space: Optional[SpaceBase], env: gymnasium.Env) -> Optional[SpaceBase]:
+        def remap_observation_space(self, env: gymnasium.Env) -> Optional[SpaceBase]:
             return srl_spaces.DiscreteSpace(99)
 
-        def observation(self, observation: Any, env: gymnasium.Env) -> Any:
+        def remap_observation(self, observation: Any, env: gymnasium.Env) -> Any:
             return 1
 
-        def reward(self, reward: float, env: gymnasium.Env) -> float:
+        def remap_reward(self, reward: float, env: gymnasium.Env) -> float:
             return 9
 
-        def done(self, done: bool, env: gymnasium.Env) -> bool:
-            return True
+        def remap_done(self, terminated, truncated, env: gymnasium.Env):
+            return True, False
 
     wrapper = MyWrapper()
-    env_config = srl.EnvConfig("CliffWalking-v0", gym_wrappers=[wrapper])
+    env_config = srl.EnvConfig("CliffWalking-v0", gym_wrapper=wrapper)
     env = env_config.make()
-    env.setup(RunContext(render_mode="terminal"))
+    env.setup(render_mode="terminal")
 
     print(env.action_space)
     print(env.observation_space)

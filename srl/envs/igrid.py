@@ -2,11 +2,12 @@ import enum
 import json
 import logging
 from dataclasses import dataclass
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 
 from srl.base.env import registration
-from srl.base.env.genre import SinglePlayEnv
-from srl.base.spaces import ArrayDiscreteSpace, DiscreteSpace
+from srl.base.env.base import EnvBase
+from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+from srl.base.spaces.discrete import DiscreteSpace
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +30,11 @@ class Action(enum.Enum):
 
 
 @dataclass
-class IGrid(SinglePlayEnv):
+class IGrid(EnvBase[int, int]):
     """
     CXD
      X
-     S × N
+     S X N
      X
     AXB
 
@@ -59,10 +60,14 @@ class IGrid(SinglePlayEnv):
         return ArrayDiscreteSpace(2, 0, [self.W, self.H])
 
     @property
+    def player_num(self) -> int:
+        return 1
+
+    @property
     def max_episode_steps(self) -> int:
         return (self.length + 2) * 2 * 2
 
-    def call_reset(self) -> Tuple[List[int], dict]:
+    def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
         self.player_pos = (1, int((self.length + 2 - 1) / 2))
 
         self.field = [[1, 1, 1]]
@@ -70,7 +75,7 @@ class IGrid(SinglePlayEnv):
             self.field.append([0, 1, 0])
         self.field.append([2, 1, 3])
 
-        return list(self.player_pos), {}
+        return list(self.player_pos)
 
     def backup(self) -> Any:
         return json.dumps(
@@ -85,8 +90,8 @@ class IGrid(SinglePlayEnv):
         self.player_pos = d[0]
         self.field = d[1]
 
-    def call_step(self, action_: int) -> Tuple[List[int], float, bool, dict]:
-        action = Action(action_)
+    def step(self, action) -> Tuple[List[int], float, bool, bool]:
+        action = Action(action)
 
         x = self.player_pos[0]
         y = self.player_pos[1]
@@ -130,7 +135,7 @@ class IGrid(SinglePlayEnv):
             reward = -1.0
             done = True
 
-        return list(self.player_pos), reward, done, {}
+        return list(self.player_pos), reward, done, False
 
     def render_terminal(self):
         for y in range(self.H):

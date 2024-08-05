@@ -1,18 +1,15 @@
-from abc import abstractmethod
-from typing import List, Tuple
+from typing import Generic, List, Optional, Tuple
 
-from srl.base.define import EnvActionType, EnvObservationType
+from srl.base.define import TActType, TObsType
 from srl.base.env import EnvBase
 
 
-class TurnBase2Player(EnvBase):
-    @abstractmethod
-    def call_reset(self) -> Tuple[EnvObservationType, dict]:
+class TurnBase2Player(Generic[TActType, TObsType], EnvBase[TActType, TObsType]):
+    def call_reset(self) -> Tuple[TObsType, dict]:
         # state, info
         raise NotImplementedError()
 
-    @abstractmethod
-    def call_step(self, action: EnvActionType) -> Tuple[EnvObservationType, float, float, bool, dict]:
+    def call_step(self, action: TActType) -> Tuple[TObsType, float, float, bool, dict]:
         # state, reward1, reward2, done, info
         raise NotImplementedError()
 
@@ -23,10 +20,12 @@ class TurnBase2Player(EnvBase):
     def player_num(self) -> int:
         return 2
 
-    def reset(self) -> Tuple[EnvObservationType, dict]:
-        return self.call_reset()
+    def reset(self, *, seed: Optional[int] = None, **kwargs) -> TObsType:
+        state, info = self.call_reset()
+        self.info.set_dict(info)
+        return state
 
-    def step(self, action: EnvActionType) -> Tuple[EnvObservationType, List[float], bool, dict]:
+    def step(self, action: TActType) -> Tuple[TObsType, List[float], bool, bool]:
         n_s, reward1, reward2, done, info = self.call_step(action)
-
-        return n_s, [reward1, reward2], done, info
+        self.info.set_dict(info)
+        return n_s, [reward1, reward2], done, False

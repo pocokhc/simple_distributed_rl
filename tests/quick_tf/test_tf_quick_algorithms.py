@@ -6,6 +6,7 @@ from tests.algorithms_ import (
     base_ddpg,
     base_dqn,
     base_dreamer_v3,
+    base_go_explore,
     base_muzero,
     base_planet,
     base_ppo,
@@ -56,6 +57,10 @@ class Test_muzero(_CommonOption, base_muzero.QuickCase):
 
 
 class Test_planet(_CommonOption, base_planet.QuickCase):
+    pass
+
+
+class Test_go_explore(_CommonOption, base_go_explore.QuickCase):
     pass
 
 

@@ -628,12 +628,14 @@ class RunnerBase:
     # ------------------------------
     def set_mlflow(
         self,
+        experiment_name: str = "",
+        run_name: str = "",
+        tags: dict = {},
         interval_episode: float = 1,
         interval_eval: float = -1,
         interval_checkpoint: float = 60 * 30,
         enable_checkpoint: bool = True,
         enable_html: bool = True,
-        tags: dict = {},
         enable_eval: bool = True,
         eval_episode: int = 1,
         eval_timeout: float = -1,
@@ -642,12 +644,14 @@ class RunnerBase:
         eval_shuffle_player: bool = False,
     ):
         self._mlflow_kwargs = dict(
+            experiment_name=experiment_name,
+            run_name=run_name,
+            tags=tags,
             interval_episode=interval_episode,
             interval_eval=interval_eval,
             interval_checkpoint=interval_checkpoint,
             enable_checkpoint=enable_checkpoint,
             enable_html=enable_html,
-            tags=tags,
             enable_eval=enable_eval,
             eval_episode=eval_episode,
             eval_timeout=eval_timeout,

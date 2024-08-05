@@ -1,10 +1,10 @@
 from tests.algorithms_ import (
     base_dynaq,
+    base_go_dynaq,
     base_mcts,
     base_ql,
     base_ql_agent57,
     base_search_dynaq,
-    base_search_dynaq_v2,
     base_vanilla_policy,
 )
 
@@ -40,7 +40,7 @@ class Test_search_dynaq_quick(_CommonOption, base_search_dynaq.QuickCase):
     pass
 
 
-class Test_search_dynaq_v2_quick(_CommonOption, base_search_dynaq_v2.QuickCase):
+class Test_go_dynaq_quick(_CommonOption, base_go_dynaq.QuickCase):
     pass
 
 

@@ -269,6 +269,8 @@ class HistoryViewer:
         plt.grid()
         plt.tight_layout()
         plt.show()
+        plt.clf()
+        plt.close()
 
 
 class HistoryViewers:
@@ -358,3 +360,5 @@ class HistoryViewers:
         plt.tight_layout()
         if not _no_plot:
             plt.show()
+        plt.clf()
+        plt.close()

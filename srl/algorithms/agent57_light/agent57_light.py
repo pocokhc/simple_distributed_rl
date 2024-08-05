@@ -115,16 +115,16 @@ class Config(
     episodic_memory_capacity: int = 30000
     #: [episodic] 疑似カウント定数(c)
     episodic_pseudo_counts: float = 0.1
-    #: <:ref:`MLPBlock`> [episodic] emb block
+    #: <:ref:`MLPBlockConfig`> [episodic] emb block
     episodic_emb_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
-    #: <:ref:`MLPBlock`> [episodic] out block
+    #: <:ref:`MLPBlockConfig`> [episodic] out block
     episodic_out_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     #: <:ref:`scheduler`> Lifelong Learning rate
     lifelong_lr: Union[float, SchedulerConfig] = 0.0005
     #: [lifelong] L
     lifelong_max: float = 5.0
-    #: <:ref:`MLPBlock`> [lifelong] hidden block
+    #: <:ref:`MLPBlockConfig`> [lifelong] hidden block
     lifelong_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     #: [UVFA] input ext reward

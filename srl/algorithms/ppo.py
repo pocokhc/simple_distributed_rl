@@ -61,11 +61,11 @@ class Config(
     <:ref:`RLConfigComponentInput`>
     """
 
-    #: <:ref:`MLPBlock`> hidden layers
+    #: <:ref:`MLPBlockConfig`> hidden layers
     hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
-    #: <:ref:`MLPBlock`> value layers
+    #: <:ref:`MLPBlockConfig`> value layers
     value_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
-    #: <:ref:`MLPBlock`> policy layers
+    #: <:ref:`MLPBlockConfig`> policy layers
     policy_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     #: 割引報酬の計算方法

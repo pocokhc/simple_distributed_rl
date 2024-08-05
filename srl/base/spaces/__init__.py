@@ -4,3 +4,4 @@ from .box import BoxSpace  # noqa F402
 from .continuous import ContinuousSpace  # noqa F402
 from .discrete import DiscreteSpace  # noqa F402
 from .multi import MultiSpace  # noqa F402
+from .text import TextSpace  # noqa F402

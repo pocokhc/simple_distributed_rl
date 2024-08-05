@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from srl.base import spaces
 from srl.base.define import SpaceTypes
 from srl.base.spaces.text import TextSpace
 
@@ -33,7 +34,7 @@ def test_space_basic():
     assert v == "abc"
 
 
-def test_space():
+def test_space_encode():
     space = TextSpace(3)
     print(space)
 
@@ -104,3 +105,20 @@ def test_sanitize():
 
     assert not space.check_val(1)
     assert not space.check_val("abcd")
+
+
+@pytest.mark.parametrize(
+    "create_space, true_space, val, decode_val",
+    [
+        ["", spaces.DiscreteSpace(5, 0), 2, 3],
+        ["DiscreteSpace", spaces.DiscreteSpace(5, 0), 2, 3],
+        ["ArrayDiscreteSpace", spaces.ArrayDiscreteSpace(1, 0, 4), [2], 3],
+        ["ContinuousSpace", spaces.ContinuousSpace(0, 4), 2, 3],
+        ["ArrayContinuousSpace", spaces.ArrayContinuousSpace(1, 0, 4), [2], 3],
+        ["BoxSpace", spaces.BoxSpace((1,), 0, 4, np.int64), np.full((1,), 2), 3],
+        ["BoxSpace_float", spaces.BoxSpace((1,), 0, 4, np.float32), np.full((1,), 2), 3],
+        ["TextSpace", None, "2", 3],
+    ],
+)
+def test_space(create_space, true_space, val, decode_val):
+    pytest.skip("TODO")

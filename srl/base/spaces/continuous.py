@@ -5,8 +5,8 @@ from typing import Any, List, Tuple
 import numpy as np
 
 from srl.base.define import SpaceTypes
-
-from .box import SpaceBase
+from srl.base.exception import NotSupportedError
+from srl.base.spaces.space import SpaceBase
 
 logger = logging.getLogger(__name__)
 
@@ -182,8 +182,7 @@ class ContinuousSpace(SpaceBase[float]):
         if self.division_tbl is None:
             return [int(round(val))]
         else:
-            n = self.encode_to_int(val)
-            return [n]
+            return [self.encode_to_int(val)]
 
     def decode_from_list_int(self, val: List[int]) -> float:
         if self.division_tbl is None:
@@ -232,3 +231,92 @@ class ContinuousSpace(SpaceBase[float]):
 
     def decode_from_np(self, val: np.ndarray) -> float:
         return float(val[0])
+
+    # --------------------------------------
+    # spaces
+    # --------------------------------------
+    def create_encode_space(self, space_name: str) -> SpaceBase:
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+        from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+        from srl.base.spaces.box import BoxSpace
+        from srl.base.spaces.discrete import DiscreteSpace
+
+        if space_name == "":
+            return self.copy()
+        elif space_name == "DiscreteSpace":
+            return DiscreteSpace(self.int_size)
+        elif space_name == "ArrayDiscreteSpace":
+            return ArrayDiscreteSpace(self.list_int_size, self.list_int_low, self.list_int_high)
+        elif space_name == "ContinuousSpace":
+            return self.copy()
+        elif space_name == "ArrayContinuousSpace":
+            return ArrayContinuousSpace(self.list_float_size, self.list_float_low, self.list_float_high)
+        elif space_name == "BoxSpace":
+            return BoxSpace(self.np_shape, self.np_low, self.np_high, self._dtype)
+        elif space_name == "BoxSpace_float":
+            return BoxSpace(self.np_shape, self.np_low, self.np_high, np.float32)
+        elif space_name == "TextSpace":
+            raise NotSupportedError()
+        raise NotImplementedError(space_name)
+
+    def encode_to_space(self, val: float, space: SpaceBase) -> Any:
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+        from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+        from srl.base.spaces.box import BoxSpace
+        from srl.base.spaces.discrete import DiscreteSpace
+        from srl.base.spaces.multi import MultiSpace
+        from srl.base.spaces.text import TextSpace
+
+        if isinstance(space, DiscreteSpace):
+            if self.division_tbl is None:
+                return int(round(val))
+            else:
+                # 一番近いもの
+                d = np.abs(self.division_tbl - val)
+                return int(np.argmin(d))
+        elif isinstance(space, ArrayDiscreteSpace):
+            if self.division_tbl is None:
+                return [int(round(val))]
+            else:
+                return [self.encode_to_int(val)]
+        elif isinstance(space, ContinuousSpace):
+            return val
+        elif isinstance(space, ArrayContinuousSpace):
+            return [val]
+        elif isinstance(space, BoxSpace):
+            return np.array([val], space.dtype)
+        elif isinstance(space, TextSpace):
+            return str(val)
+        elif isinstance(space, MultiSpace):
+            return val
+        raise NotImplementedError()
+
+    def decode_from_space(self, val: Any, space: SpaceBase) -> float:
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+        from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+        from srl.base.spaces.box import BoxSpace
+        from srl.base.spaces.discrete import DiscreteSpace
+        from srl.base.spaces.multi import MultiSpace
+        from srl.base.spaces.text import TextSpace
+
+        if isinstance(space, DiscreteSpace):
+            if self.division_tbl is None:
+                return float(val)
+            else:
+                return float(self.division_tbl[val])
+        elif isinstance(space, ArrayDiscreteSpace):
+            if self.division_tbl is None:
+                return float(val[0])
+            else:
+                return float(self.division_tbl[val[0]])
+        elif isinstance(space, ContinuousSpace):
+            return float(val)
+        elif isinstance(space, ArrayContinuousSpace):
+            return float(val[0])
+        elif isinstance(space, BoxSpace):
+            return float(val[0])
+        elif isinstance(space, TextSpace):
+            return float(val)
+        elif isinstance(space, MultiSpace):
+            return val
+        raise NotImplementedError()

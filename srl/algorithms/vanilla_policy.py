@@ -4,7 +4,7 @@ from typing import Any, Union
 
 import numpy as np
 
-from srl.base.define import RLBaseTypes, SpaceTypes
+from srl.base.define import SpaceTypes
 from srl.base.rl.algorithms.base_vanilla_policy import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
@@ -27,12 +27,6 @@ class Config(RLConfig):
     update_max_mean: float = 1
     update_max_stddev: float = 5
     update_stddev_rate: float = 0.1
-
-    def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE | RLBaseTypes.CONTINUOUS
-
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
 
     def get_framework(self) -> str:
         return ""

@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Tuple
 
-from srl.base.define import EnvActionType, RLBaseTypes
+from srl.base.define import EnvActionType, RLBaseActTypes, RLBaseObsTypes
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register_rulebase
 from srl.base.rl.worker import RLWorker
@@ -13,11 +13,11 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Config(RLConfig):
-    def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
+    def get_base_action_type(self) -> RLBaseActTypes:
+        return RLBaseActTypes.DISCRETE
 
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.NONE
+    def get_base_observation_type(self) -> RLBaseObsTypes:
+        return RLBaseObsTypes.NONE
 
     def get_framework(self) -> str:
         return ""

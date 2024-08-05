@@ -2,7 +2,7 @@ import numpy as np
 
 import srl
 from srl.algorithms import vanilla_policy
-from srl.base.define import SpaceTypes
+from srl.base.define import RLBaseActTypes
 
 
 def main_discrete():
@@ -24,7 +24,7 @@ def main_discrete():
 def main_continuous():
     env_config = srl.EnvConfig("Grid")
     rl_config = vanilla_policy.Config()
-    rl_config.override_action_type = SpaceTypes.CONTINUOUS
+    rl_config.override_action_type = RLBaseActTypes.CONTINUOUS
     runner = srl.Runner(env_config, rl_config)
 
     # --- train

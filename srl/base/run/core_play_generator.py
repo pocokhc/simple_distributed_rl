@@ -4,6 +4,7 @@ import time
 from typing import Any, Generator, List, Optional, Tuple
 
 from srl.base.context import RunContext, RunNameTypes
+from srl.base.define import RenderModes
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun
@@ -39,6 +40,11 @@ def play_generator(
         main_worker.worker.parameter,
         trainer,
     )
+
+    # render
+    if context.rl_config.used_rgb_array:
+        logger.info(f"change render_mode: {context.render_mode} -> rgb_array")
+        context.render_mode = RenderModes.rgb_array
 
     # --- 1 setup_from_actor
     if context.distributed:

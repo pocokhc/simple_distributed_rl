@@ -71,17 +71,6 @@ class CommonQuickCase(ABC):
         tester = TestRL()
         tester.test(rl_config, **test_kwargs)
 
-    def test_input_multi(self, rl_param):
-        self.check_skip()
-        pytest.skip("TODO")
-        common.logger_print()
-        rl_config, test_kwargs = self.create_rl_config(rl_param)
-        self._setup_rl_config(rl_config)
-
-        rl_config.observation_mode = ObservationModes.ENV | ObservationModes.RENDER_IMAGE
-        tester = TestRL()
-        tester.test(rl_config, **test_kwargs)
-
     def test_summary(self, rl_param):
         common.logger_print()
         self.check_skip()

@@ -21,6 +21,9 @@ class RLConfigComponentInput:
     def get_processors(self) -> List[RLProcessor]:
         return self.input_image_block.get_processors()
 
+    def get_render_image_processors(self) -> List["RLProcessor"]:
+        return self.input_image_block.get_processors()
+
     def assert_params_input(self):
         pass
 

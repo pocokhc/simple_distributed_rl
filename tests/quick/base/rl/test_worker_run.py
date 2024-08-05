@@ -1,20 +1,21 @@
-from typing import Any, Optional, Tuple, cast
+from typing import Any, Optional, cast
 
 import numpy as np
 import pytest
 
 import srl
 from srl.base.context import RunContext
-from srl.base.define import ObservationModes, RLActionType, RLBaseTypes, SpaceTypes
-from srl.base.env.base import SpaceBase
-from srl.base.env.genre.singleplay import SinglePlayEnv
+from srl.base.define import ObservationModes, RLActionType, RLBaseActTypes, RLBaseObsTypes, SpaceTypes
+from srl.base.env.base import EnvBase, SpaceBase
 from srl.base.env.registration import register as register_env
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register as register_rl
 from srl.base.rl.worker import RLWorker
-from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
+from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.continuous import ContinuousSpace
+from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.multi import MultiSpace
 from srl.test.env import TestEnv
 from srl.utils import common
@@ -27,7 +28,7 @@ _B = BoxSpace
 _M = MultiSpace
 
 
-class StubEnv(SinglePlayEnv):
+class StubEnv(EnvBase):
     def __init__(self, action_space=DiscreteSpace(7), observation_space=DiscreteSpace(7)):
         self._action_space = action_space
         self._observation_space = observation_space
@@ -35,7 +36,6 @@ class StubEnv(SinglePlayEnv):
         self.s_state: Any = 0
         self.s_reward = 0.0
         self.s_done = True
-        self.s_info = {}
         self.s_action = 0
 
     @property
@@ -47,19 +47,19 @@ class StubEnv(SinglePlayEnv):
         return self._observation_space
 
     @property
-    def max_episode_steps(self) -> int:
-        return 0
-
-    @property
     def player_num(self) -> int:
         return 1
 
-    def call_reset(self) -> Tuple[int, dict]:
-        return self.s_state, {}
+    @property
+    def max_episode_steps(self) -> int:
+        return 0
 
-    def call_step(self, action):
+    def reset(self, **kwargs):
+        return self.s_state
+
+    def step(self, action):
         self.s_action = action
-        return self.s_state, self.s_reward, self.s_done, self.s_info
+        return self.s_state, self.s_reward, self.s_done, False
 
     def backup(self, **kwargs) -> Any:
         return None
@@ -77,20 +77,24 @@ class StubEnv(SinglePlayEnv):
 class StubRLConfig(RLConfig):
     def __init__(self) -> None:
         super().__init__()
-        self._action_type = RLBaseTypes.DISCRETE
-        self._observation_type = RLBaseTypes.DISCRETE
+        self._action_type = RLBaseActTypes.DISCRETE
+        self._observation_type = RLBaseObsTypes.DISCRETE
+        self._use_render_image_state = False
 
     def get_name(self) -> str:
         return "Stub"
 
-    def get_base_action_type(self) -> RLBaseTypes:
+    def get_base_action_type(self) -> RLBaseActTypes:
         return self._action_type
 
-    def get_base_observation_type(self) -> RLBaseTypes:
+    def get_base_observation_type(self) -> RLBaseObsTypes:
         return self._observation_type
 
     def get_framework(self) -> str:
         return ""
+
+    def use_render_image_state(self) -> bool:
+        return self._use_render_image_state
 
 
 class StubRLWorker(RLWorker):
@@ -128,8 +132,8 @@ def test_env_play():
 
 def _test_action(
     env_act_space: SpaceBase,
-    rl_act_type: RLBaseTypes,
-    rl_act_type_override: SpaceTypes,
+    rl_act_type: RLBaseActTypes,
+    rl_act_type_override: RLBaseActTypes,
     true_act_space: SpaceBase,
     rl_act,
     env_act,
@@ -146,7 +150,7 @@ def _test_action(
     worker = cast(StubRLWorker, worker_run.worker)
 
     context = RunContext()
-    env.setup(context)
+    env.setup()
     worker_run.on_start(context)
 
     # --- check act space
@@ -185,28 +189,14 @@ def _test_action(
         [_C(0, 1), 10, 2, 0.2222222222222222],
         [_AC(2, -1, 1), 9, 0, [-1.0, -1.0]],
         [_B((2, 1), -1, 1), 9, 0, np.array([[-1], [-1]], np.float32)],
-        [
-            MultiSpace(
-                [
-                    DiscreteSpace(2),
-                    ArrayDiscreteSpace(1, 0, 1),
-                    ContinuousSpace(0, 1),
-                    ArrayContinuousSpace(1, 0, 1),
-                    BoxSpace((1, 1), 0, 1),
-                ]
-            ),
-            2 * 2 * 10 * 10 * 10,
-            4,
-            [0, [0], 0.0, [0.0], np.array([[0.44444445]], np.float32)],
-        ],
     ],
 )
 def test_action_discrete(env_act_space, n, rl_act, env_act):
     # int, DiscreteSpace
     _test_action(
         env_act_space,
-        rl_act_type=RLBaseTypes.DISCRETE,
-        rl_act_type_override=SpaceTypes.UNKNOWN,
+        rl_act_type=RLBaseActTypes.DISCRETE,
+        rl_act_type_override=RLBaseActTypes.NONE,
         true_act_space=DiscreteSpace(n),
         rl_act=rl_act,
         env_act=env_act,
@@ -221,28 +211,14 @@ def test_action_discrete(env_act_space, n, rl_act, env_act):
         [_C(0, 1), [1, 0, 1], [1.0], 1.0],
         [_AC(2, -1, 1), [2, -1, 1], [1.0, 1.0], [1.0, 1.0]],
         [_B((2, 1), -1, 1), [2, -1, 1], [1.0, 1.0], np.array([[1.0], [1.0]], np.float32)],
-        [
-            MultiSpace(
-                [
-                    DiscreteSpace(3),
-                    ArrayDiscreteSpace(1, 0, 1),
-                    ContinuousSpace(0, 1),
-                    ArrayContinuousSpace(1, 0, 1),
-                    BoxSpace((1, 1), 0, 1),
-                ]
-            ),
-            [5, 0, [2, 1, 1, 1, 1]],
-            [0.0, 0.0, 0.0, 0.0, 0.5],
-            [0, [0], 0.0, [0.0], np.array([[0.5]], np.float32)],
-        ],
     ],
 )
 def test_action_continuous(env_act_space, true_space_args, rl_act, env_act):
     # list[float] ArrayContinuousSpace
     _test_action(
         env_act_space,
-        rl_act_type=RLBaseTypes.CONTINUOUS,
-        rl_act_type_override=SpaceTypes.UNKNOWN,
+        rl_act_type=RLBaseActTypes.CONTINUOUS,
+        rl_act_type_override=RLBaseActTypes.NONE,
         true_act_space=ArrayContinuousSpace(*true_space_args),
         rl_act=rl_act,
         env_act=env_act,
@@ -264,57 +240,9 @@ def test_action_image(env_act_space, true_space_args, env_act, rl_act):
     # NDArray[np.uint8] BoxSpace
     _test_action(
         env_act_space,
-        rl_act_type=RLBaseTypes.IMAGE,
-        rl_act_type_override=SpaceTypes.UNKNOWN,
+        rl_act_type=RLBaseActTypes.NONE,
+        rl_act_type_override=RLBaseActTypes.NONE,
         true_act_space=BoxSpace(*true_space_args),
-        rl_act=rl_act,
-        env_act=env_act,
-    )
-
-
-@pytest.mark.parametrize(
-    "env_act_space, rl_act_space, is_multi, env_act, rl_act",
-    [
-        [_D(5), _D(5), False, 2, [2]],
-        [_AD(2, -1, 1), _D(9), False, [1, 1], [8]],
-        [_C(0, 1), _AC(1, 0, 1), False, 1.0, [[1.0]]],
-        [_AC(2, -1, 1), _AC(2, -1, 1), False, [1.0, 1.0], [[1.0, 1.0]]],
-        [_B((2, 1), -1, 1), _AC(2, -1, 1), False, np.array([[1.0], [1.0]], np.float32), [[1.0, 1.0]]],
-        [
-            MultiSpace(
-                [
-                    DiscreteSpace(3),
-                    ArrayDiscreteSpace(1, 0, 1),
-                    ContinuousSpace(0, 1),
-                    ArrayContinuousSpace(1, 0, 1),
-                    BoxSpace((1, 1), 0, 1),
-                ]
-            ),
-            MultiSpace(
-                [
-                    DiscreteSpace(3),
-                    DiscreteSpace(2),
-                    ArrayContinuousSpace(1, 0, 1),
-                    ArrayContinuousSpace(1, 0, 1),
-                    ArrayContinuousSpace(1, 0, 1),
-                ]
-            ),
-            True,
-            [0, [0], 0.0, [0.0], np.array([[0.5]], np.float32)],
-            [0, 0, [0.0], [0.0], [0.5]],
-        ],
-    ],
-)
-def test_action_multi(env_act_space, rl_act_space, is_multi, env_act, rl_act):
-    if is_multi:
-        true_act_space = rl_act_space
-    else:
-        true_act_space = MultiSpace([rl_act_space])
-    _test_action(
-        env_act_space,
-        rl_act_type=RLBaseTypes.MULTI,
-        rl_act_type_override=SpaceTypes.UNKNOWN,
-        true_act_space=true_act_space,
         rl_act=rl_act,
         env_act=env_act,
     )
@@ -328,40 +256,13 @@ def test_action_multi(env_act_space, rl_act_space, is_multi, env_act, rl_act):
         [_C(0, 1), _AC(1, 0, 1), [1.0], 1.0],
         [_AC(2, -1, 1), _AC(2, -1, 1), [-1.0, -0.5], [-1.0, -0.5]],
         [_B((2, 1), -1, 1), _AC(2, -1, 1), [-1.0, -0.5], np.array([[-1], [-0.5]], np.float32)],
-        [
-            MultiSpace(
-                [
-                    DiscreteSpace(2),
-                    ArrayDiscreteSpace(1, 0, 1),
-                    ContinuousSpace(0, 1),
-                    ArrayContinuousSpace(1, 0, 1),
-                    BoxSpace((1, 1), 0, 1),
-                ]
-            ),
-            ArrayContinuousSpace(5, 0, 1),
-            [0.0, 0.0, 0.0, 0.0, 0.5],
-            [0, [0], 0.0, [0.0], np.array([[0.5]], np.float32)],
-        ],
-        # disc only
-        [
-            MultiSpace(
-                [
-                    DiscreteSpace(2),
-                    ArrayDiscreteSpace(1, 0, 1),
-                    BoxSpace((1, 1), 0, 1, np.uint8),
-                ]
-            ),
-            DiscreteSpace(8),
-            0,
-            [0, [0], np.array([[0]], np.uint8)],
-        ],
     ],
 )
 def test_action_disc_cont(env_act_space, true_act_space, rl_act, env_act):
     _test_action(
         env_act_space,
-        rl_act_type=RLBaseTypes.DISCRETE | RLBaseTypes.CONTINUOUS,
-        rl_act_type_override=SpaceTypes.UNKNOWN,
+        rl_act_type=RLBaseActTypes.DISCRETE | RLBaseActTypes.CONTINUOUS,
+        rl_act_type_override=RLBaseActTypes.NONE,
         true_act_space=true_act_space,
         rl_act=rl_act,
         env_act=env_act,
@@ -373,7 +274,7 @@ def test_action_disc_cont(env_act_space, true_act_space, rl_act, env_act):
 
 def _test_obs(
     env_obs_space: SpaceBase,
-    rl_obs_type: RLBaseTypes,
+    rl_obs_type: RLBaseObsTypes,
     rl_obs_mode: ObservationModes,
     rl_obs_type_override: SpaceTypes,
     rl_obs_div_num: int,
@@ -384,6 +285,7 @@ def _test_obs(
     env_state,
     true_state1,
     true_state2,
+    use_render_image_state=False,
 ):
     if rl_obs_mode == ObservationModes.RENDER_IMAGE:
         pytest.importorskip("PIL")
@@ -401,12 +303,13 @@ def _test_obs(
     rl_config.observation_mode = rl_obs_mode
     rl_config.override_observation_type = rl_obs_type_override
     rl_config.observation_division_num = rl_obs_div_num
+    rl_config._use_render_image_state = use_render_image_state
 
     worker_run = srl.make_worker(rl_config, env)
     worker = cast(StubRLWorker, worker_run.worker)
 
     context = RunContext()
-    env.setup(context)
+    env.setup()
     worker_run.on_start(context)
 
     # --- check obs space
@@ -426,30 +329,68 @@ def _test_obs(
     worker_run.on_reset(0)
     env_action = worker_run.policy()
 
-    print(worker.state)
+    if use_render_image_state:
+        true_img_space = BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR)
+        assert rl_config.obs_render_img_space_one_step == true_img_space
+        if window_length == 1:
+            assert (np.ones((64, 32, 3)) == worker_run.render_img_state).all()
+            assert rl_config.obs_render_img_space == true_img_space
+        else:
+            true_img_state = np.stack(
+                [
+                    np.zeros((64, 32, 3)),
+                    np.zeros((64, 32, 3)),
+                    np.zeros((64, 32, 3)),
+                    np.ones((64, 32, 3)),
+                ],
+                axis=0,
+            )
+            assert (true_img_state == worker_run.render_img_state).all()
+            assert rl_config.obs_render_img_space == BoxSpace((4, 64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR)
+
+    print(worker_run.state)
     print(true_state1)
-    assert true_obs_space.check_val(worker.state)
+    assert true_obs_space.check_val(worker_run.state)
     if isinstance(true_obs_space, MultiSpace):
         for i in range(true_obs_space.space_size):
-            assert (np.array(worker.state[i]) == np.array(true_state1[i])).all()
-    elif isinstance(worker.state, np.ndarray):
-        assert (worker.state == true_state1).all()
+            assert (np.array(worker_run.state[i]) == np.array(true_state1[i])).all()
+    elif isinstance(worker_run.state, np.ndarray):
+        assert (worker_run.state == true_state1).all()
     else:
-        assert worker.state == true_state1
+        assert worker_run.state == true_state1
 
     env.step(env_action)
     worker_run.on_step()
 
-    print(worker.state)
+    if use_render_image_state:
+        true_img_space = BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR)
+        assert rl_config.obs_render_img_space_one_step == true_img_space
+        if window_length == 1:
+            assert (np.ones((64, 32, 3)) == worker_run.render_img_state).all()
+            assert rl_config.obs_render_img_space == true_img_space
+        else:
+            true_img_state = np.stack(
+                [
+                    np.zeros((64, 32, 3)),
+                    np.zeros((64, 32, 3)),
+                    np.ones((64, 32, 3)),
+                    np.ones((64, 32, 3)),
+                ],
+                axis=0,
+            )
+            assert (true_img_state == worker_run.render_img_state).all()
+            assert rl_config.obs_render_img_space == BoxSpace((4, 64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR)
+
+    print(worker_run.state)
     print(true_state2)
-    assert true_obs_space.check_val(worker.state)
+    assert true_obs_space.check_val(worker_run.state)
     if isinstance(true_obs_space, MultiSpace):
         for i in range(true_obs_space.space_size):
-            assert (np.array(worker.state[i]) == np.array(true_state2[i])).all()
-    elif isinstance(worker.state, np.ndarray):
-        assert (worker.state == true_state2).all()
+            assert (np.array(worker_run.state[i]) == np.array(true_state2[i])).all()
+    elif isinstance(worker_run.state, np.ndarray):
+        assert (worker_run.state == true_state2).all()
     else:
-        assert worker.state == true_state2
+        assert worker_run.state == true_state2
 
 
 @pytest.mark.parametrize(
@@ -464,28 +405,13 @@ def _test_obs(
         [BoxSpace((2, 1), -1, 5), -1, [2, -1, 5], [[1.1], [2.1]], [1, 2]],
         [BoxSpace((2, 1), 0, 5, dtype=np.uint8), -1, [2, 0, 5], [[1], [2]], [1, 2]],
         [BoxSpace((2, 1), 0, 5), 6, [1, 0, 4], [[1.1], [2.1]], [0]],
-        [
-            MultiSpace(
-                [
-                    DiscreteSpace(5),
-                    ArrayDiscreteSpace(2, 0, 5),
-                    ContinuousSpace(0, 2),
-                    ArrayContinuousSpace(2, 0, 2),
-                    BoxSpace((2, 1), 0, 2),
-                ]
-            ),
-            3,
-            [6, [0, 0, 0, 0, 0, 0], [4, 5, 5, 3, 4, 4]],
-            [1, [1, 1], 1.1, [1.1, 1.1], np.array([[1], [1]])],
-            [1, 1, 1, 1, 3, 0],
-        ],
     ],
 )
 def test_obs_discrete(env_obs_space, rl_obs_div_num, env_state, true_space_args, true_state):
     # list[int], ArrayDiscreteSpace
     _test_obs(
         env_obs_space=env_obs_space,
-        rl_obs_type=RLBaseTypes.DISCRETE,
+        rl_obs_type=RLBaseObsTypes.DISCRETE,
         rl_obs_mode=ObservationModes.ENV,
         rl_obs_type_override=SpaceTypes.UNKNOWN,
         rl_obs_div_num=rl_obs_div_num,
@@ -507,22 +433,6 @@ def test_obs_discrete(env_obs_space, rl_obs_div_num, env_state, true_space_args,
         [_C(0, 5), [1, 0, 5], [2, 0, 5], 1.2, [0, 1], [1, 1]],
         [_AC(2, 0, 5), [2, 0, 5], [4, 0, 5], [1.1, 2.1], [0, 0, 1, 2], [1, 2, 1, 2]],
         [_B((2, 1), -1, 5), [2, -1, 5], [4, -1, 5], [[1.1], [2.1]], [0, 0, 1, 2], [1, 2, 1, 2]],
-        [
-            MultiSpace(
-                [
-                    DiscreteSpace(5),
-                    ArrayDiscreteSpace(1, 0, 5),
-                    ContinuousSpace(0, 2),
-                    ArrayContinuousSpace(1, 0, 2),
-                    BoxSpace((1, 1), 0, 2),
-                ]
-            ),
-            [5, [0, 0, 0, 0, 0], [4, 5, 2, 2, 2]],
-            [10, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [4, 5, 2, 2, 2, 4, 5, 2, 2, 2]],
-            [3, [1], 1.1, [1.1], np.array([[1]])],
-            [0, 0, 0, 0, 0, 3, 1, 1, 1, 1],
-            [3, 1, 1, 1, 1, 3, 1, 1, 1, 1],
-        ],
     ],
 )
 def test_obs_discrete_window(
@@ -536,7 +446,7 @@ def test_obs_discrete_window(
     # list[int], ArrayDiscreteSpace
     _test_obs(
         env_obs_space=env_obs_space,
-        rl_obs_type=RLBaseTypes.DISCRETE,
+        rl_obs_type=RLBaseObsTypes.DISCRETE,
         rl_obs_mode=ObservationModes.ENV,
         rl_obs_type_override=SpaceTypes.UNKNOWN,
         rl_obs_div_num=-1,
@@ -553,34 +463,20 @@ def test_obs_discrete_window(
 @pytest.mark.parametrize(
     "env_obs_space, true_space_args, env_state, true_state",
     [
-        [_D(5), [(1,), 0, 4], 1, [1]],
-        [_AD(2, 0, 5), [(2,), 0, 5], [0, 1], [0, 1]],
+        [_D(5), [(1,), 0, 4, np.float32, SpaceTypes.DISCRETE], 1, [1]],
+        [_AD(2, 0, 5), [(2,), 0, 5, np.float32, SpaceTypes.DISCRETE], [0, 1], [0, 1]],
         [_C(0, 5), [(1,), 0, 5], 1.2, [1.2]],
         [_AC(2, 0, 5), [(2,), 0, 5], [1.1, 2.1], [1.1, 2.1]],
         [_B((2, 1), -1, 5), [(2, 1), -1, 5], [[1.1], [2.1]], [[1.1], [2.1]]],
-        [_B((2, 1), 0, 5, np.uint8), [(2, 1), 0, 5, np.float32], [[1], [2]], [[1], [2]]],
-        [
-            MultiSpace(
-                [
-                    DiscreteSpace(5),
-                    ArrayDiscreteSpace(2, 0, 5),
-                    ContinuousSpace(0, 2),
-                    ArrayContinuousSpace(2, 0, 2),
-                    BoxSpace((2, 1), 0, 2),
-                ]
-            ),
-            [(1 + 2 + 1 + 2 + 2,), 0, [4.0, 5.0, 5.0, 2.0, 2.0, 2.0, 2.0, 2.0]],
-            [2, [1, 1], 1.1, [1.1, 1.1], np.array([[1], [1]])],
-            [2, 1, 1, 1.1, 1.1, 1.1, 1, 1],
-        ],
+        [_B((2, 1), 0, 5, np.uint8), [(2, 1), 0, 5, np.float32, SpaceTypes.DISCRETE], [[1], [2]], [[1], [2]]],
     ],
 )
-def test_obs_continuous(env_obs_space, env_state, true_space_args, true_state):
+def test_obs_box(env_obs_space, env_state, true_space_args, true_state):
     # NDArray[np.float32] BoxSpace
     true_state = np.array(true_state, np.float32)
     _test_obs(
         env_obs_space=env_obs_space,
-        rl_obs_type=RLBaseTypes.CONTINUOUS,
+        rl_obs_type=RLBaseObsTypes.BOX,
         rl_obs_mode=ObservationModes.ENV,
         rl_obs_type_override=SpaceTypes.UNKNOWN,
         rl_obs_div_num=-1,
@@ -597,30 +493,28 @@ def test_obs_continuous(env_obs_space, env_state, true_space_args, true_state):
 @pytest.mark.parametrize(
     "env_obs_space, true_one_space_args, true_space_args, env_state, true_state1, true_state2",
     [
-        [_D(5), [(1,), 0, 4], [(2, 1), 0, 4], 1, [[0], [1]], [[1], [1]]],
-        [_AD(2, 0, 5), [(2,), 0, 5], [(2, 2), 0, 5], [0, 1], [[0, 0], [0, 1]], [[0, 1], [0, 1]]],
+        [
+            _D(5),
+            [(1,), 0, 4, np.float32, SpaceTypes.DISCRETE],
+            [(2, 1), 0, 4, np.float32, SpaceTypes.DISCRETE],
+            1,
+            [[0], [1]],
+            [[1], [1]],
+        ],
+        [
+            _AD(2, 0, 5),
+            [(2,), 0, 5, np.float32, SpaceTypes.DISCRETE],
+            [(2, 2), 0, 5, np.float32, SpaceTypes.DISCRETE],
+            [0, 1],
+            [[0, 0], [0, 1]],
+            [[0, 1], [0, 1]],
+        ],
         [_C(0, 5), [(1,), 0, 5], [(2, 1), 0, 5], 1.2, [[0], [1.2]], [[1.2], [1.2]]],
         [_AC(2, 0, 5), [(2,), 0, 5], [(2, 2), 0, 5], [1.1, 2.1], [[0.0, 0.0], [1.1, 2.1]], [[1.1, 2.1], [1.1, 2.1]]],
         [_B((1, 1), -1, 5), [(1, 1), -1, 5], [(2, 1, 1), -1, 5], [[1.1]], [[[0.0]], [[1.1]]], [[[1.1]], [[1.1]]]],
-        [
-            MultiSpace(
-                [
-                    DiscreteSpace(5),
-                    ArrayDiscreteSpace(1, 0, 5),
-                    ContinuousSpace(0, 2),
-                    ArrayContinuousSpace(1, 0, 2),
-                    BoxSpace((1, 1), 0, 2),
-                ]
-            ),
-            [(1 + 1 + 1 + 1 + 1,), 0, [4.0, 5.0, 2.0, 2.0, 2.0]],
-            [(2, 1 + 1 + 1 + 1 + 1), 0, 5],
-            [2, [1], 1.1, [1.1], np.array([[1]])],
-            [[0, 0, 0, 0, 0], [2, 1, 1.1, 1.1, 1]],
-            [[2, 1, 1.1, 1.1, 1], [2, 1, 1.1, 1.1, 1]],
-        ],
     ],
 )
-def test_obs_continuous_window(
+def test_obs_box_window(
     env_obs_space,
     true_one_space_args,
     true_space_args,
@@ -633,7 +527,7 @@ def test_obs_continuous_window(
     true_state2 = np.array(true_state2, np.float32)
     _test_obs(
         env_obs_space=env_obs_space,
-        rl_obs_type=RLBaseTypes.CONTINUOUS,
+        rl_obs_type=RLBaseObsTypes.BOX,
         rl_obs_mode=ObservationModes.ENV,
         rl_obs_type_override=SpaceTypes.UNKNOWN,
         rl_obs_div_num=-1,
@@ -652,7 +546,7 @@ def test_obs_image(env_stype):
     # NDArray[np.float32] BoxSpace
     _test_obs(
         env_obs_space=BoxSpace((64,), stype=env_stype),
-        rl_obs_type=RLBaseTypes.IMAGE,
+        rl_obs_type=RLBaseObsTypes.BOX,
         rl_obs_mode=ObservationModes.ENV,
         rl_obs_type_override=SpaceTypes.UNKNOWN,
         rl_obs_div_num=-1,
@@ -669,7 +563,7 @@ def test_obs_image(env_stype):
 def test_obs_image_window_gray_2ch():
     _test_obs(
         env_obs_space=BoxSpace((64, 32), stype=SpaceTypes.GRAY_2ch),
-        rl_obs_type=RLBaseTypes.IMAGE,
+        rl_obs_type=RLBaseObsTypes.BOX,
         rl_obs_mode=ObservationModes.ENV,
         rl_obs_type_override=SpaceTypes.UNKNOWN,
         rl_obs_div_num=-1,
@@ -694,7 +588,7 @@ def test_obs_image_window_gray_2ch():
 def test_obs_image_window(env_stype):
     _test_obs(
         env_obs_space=BoxSpace((64,), stype=env_stype),
-        rl_obs_type=RLBaseTypes.IMAGE,
+        rl_obs_type=RLBaseObsTypes.BOX,
         rl_obs_mode=ObservationModes.ENV,
         rl_obs_type_override=SpaceTypes.UNKNOWN,
         rl_obs_div_num=-1,
@@ -708,193 +602,17 @@ def test_obs_image_window(env_stype):
     )
 
 
-@pytest.mark.parametrize(
-    "env_obs_space, rl_obs_space, is_multi, env_state, true_rl_state",
-    [
-        [_D(5), _AD(1, 0, 4), False, 1, [[1]]],
-        [_AD(2, 0, 5), _AD(2, 0, 5), False, [0, 1], [[0, 1]]],
-        [_C(0, 5), _B((1,), 0, 5), False, 1.2, [np.array([1.2], np.float32)]],
-        [_AC(2, 0, 5), _B((2,), 0, 5), False, [1.1, 2.1], [np.array([1.1, 2.1], np.float32)]],
-        [
-            _B((2, 1), -1, 5),
-            _B((2, 1), -1, 5),
-            False,
-            np.array([[1.1], [2.1]]),
-            [np.array([[1.1], [2.1]], np.float32)],
-        ],
-        [
-            MultiSpace(
-                [
-                    DiscreteSpace(5),
-                    ArrayDiscreteSpace(2, 0, 5),
-                    ContinuousSpace(0, 2),
-                    ArrayContinuousSpace(2, 0, 2),
-                    BoxSpace((2, 1), 0, 2),
-                ]
-            ),
-            MultiSpace(
-                [
-                    ArrayDiscreteSpace(1, 0, 4),
-                    ArrayDiscreteSpace(2, 0, 5),
-                    BoxSpace((1,), 0, 2),
-                    BoxSpace((2,), 0, 2),
-                    BoxSpace((2, 1), 0, 2),
-                ]
-            ),
-            True,
-            [2, [1, 1], 1.1, [1.1, 1.1], np.array([[1], [1]])],
-            [
-                [2],
-                [1, 1],
-                np.array([1.1], np.float32),
-                np.array([1.1, 1.1], np.float32),
-                np.array([[1], [1]], np.float32),
-            ],
-        ],
-    ],
-)
-def test_obs_multi(env_obs_space, rl_obs_space, is_multi, env_state, true_rl_state):
-    if is_multi:
-        true_obs_space = rl_obs_space
-    else:
-        true_obs_space = MultiSpace([rl_obs_space])
-    _test_obs(
-        env_obs_space=env_obs_space,
-        rl_obs_type=RLBaseTypes.MULTI,
-        rl_obs_mode=ObservationModes.ENV,
-        rl_obs_type_override=SpaceTypes.UNKNOWN,
-        rl_obs_div_num=-1,
-        true_obs_space=true_obs_space,
-        true_obs_env_space=env_obs_space,
-        window_length=1,
-        true_obs_space_one_step=None,
-        env_state=env_state,
-        true_state1=true_rl_state,
-        true_state2=true_rl_state,
-    )
-
-
-@pytest.mark.parametrize(
-    "env_obs_space, rl_one_obs_space, rl_obs_space, is_multi, env_state, true_rl_state1, true_rl_state2",
-    [
-        [_D(5), _AD(1, 0, 4), _AD(2, 0, 4), False, 1, [[[0, 1]]], [[[1, 1]]]],
-        [_AD(2, 0, 5), _AD(2, 0, 5), _AD(4, 0, 5), False, [0, 1], [[0, 0, 0, 1]], [[0, 1, 0, 1]]],
-        [
-            _C(0, 5),
-            _B((1,), 0, 5),
-            _B((2, 1), 0, 5),
-            False,
-            1.2,
-            [np.array([[0], [1.2]], np.float32)],
-            [np.array([[1.2], [1.2]], np.float32)],
-        ],
-        [
-            _AC(2, 0, 5),
-            _B((2,), 0, 5),
-            _B((2, 2), 0, 5),
-            False,
-            [1.1, 2.1],
-            [np.array([[0, 0], [1.1, 2.1]], np.float32)],
-            [np.array([[1.1, 2.1], [1.1, 2.1]], np.float32)],
-        ],
-        [
-            _B((2, 1), -1, 5),
-            _B((2, 1), -1, 5),
-            _B((2, 2, 1), -1, 5),
-            False,
-            np.array([[1.1], [2.1]]),
-            [np.array([[[0], [0]], [[1.1], [2.1]]], np.float32)],
-            [np.array([[[1.1], [2.1]], [[1.1], [2.1]]], np.float32)],
-        ],
-        [
-            MultiSpace(
-                [
-                    DiscreteSpace(5),
-                    ArrayDiscreteSpace(2, 0, 5),
-                    ContinuousSpace(0, 2),
-                    ArrayContinuousSpace(2, 0, 2),
-                    BoxSpace((2, 1), 0, 2),
-                ]
-            ),
-            MultiSpace(
-                [
-                    ArrayDiscreteSpace(1, 0, 4),
-                    ArrayDiscreteSpace(2, 0, 5),
-                    BoxSpace((1,), 0, 2),
-                    BoxSpace((2,), 0, 2),
-                    BoxSpace((2, 1), 0, 2),
-                ]
-            ),
-            MultiSpace(
-                [
-                    ArrayDiscreteSpace(1 * 2, 0, 4),
-                    ArrayDiscreteSpace(2 * 2, 0, 5),
-                    BoxSpace((2, 1), 0, 2),
-                    BoxSpace((2, 2), 0, 2),
-                    BoxSpace((2, 2, 1), 0, 2),
-                ]
-            ),
-            True,
-            [2, [1, 1], 1.1, [1.1, 1.1], np.array([[1], [1]])],
-            [
-                [0, 2],
-                [0, 0, 1, 1],
-                np.array([[0], [1.1]], np.float32),
-                np.array([[0, 0], [1.1, 1.1]], np.float32),
-                np.array([[[0], [0]], [[1], [1]]], np.float32),
-            ],
-            [
-                [2, 2],
-                [1, 1, 1, 1],
-                np.array([[1.1], [1.1]], np.float32),
-                np.array([[1.1, 1.1], [1.1, 1.1]], np.float32),
-                np.array([[[1], [1]], [[1], [1]]], np.float32),
-            ],
-        ],
-    ],
-)
-def test_obs_multi_window(
-    env_obs_space,
-    rl_one_obs_space,
-    rl_obs_space,
-    is_multi,
-    env_state,
-    true_rl_state1,
-    true_rl_state2,
-):
-    if is_multi:
-        true_obs_space = rl_obs_space
-        true_obs_space_one_step = rl_one_obs_space
-    else:
-        true_obs_space = MultiSpace([rl_obs_space])
-        true_obs_space_one_step = MultiSpace([rl_one_obs_space])
-    _test_obs(
-        env_obs_space=env_obs_space,
-        rl_obs_type=RLBaseTypes.MULTI,
-        rl_obs_mode=ObservationModes.ENV,
-        rl_obs_type_override=SpaceTypes.UNKNOWN,
-        rl_obs_div_num=-1,
-        true_obs_space=true_obs_space,
-        true_obs_env_space=env_obs_space,
-        window_length=2,
-        true_obs_space_one_step=true_obs_space_one_step,
-        env_state=env_state,
-        true_state1=true_rl_state1,
-        true_state2=true_rl_state2,
-    )
-
-
 # ---------------------------------------------------------
 
 
 def test_obs_render_image():
     _test_obs(
         env_obs_space=DiscreteSpace(1),
-        rl_obs_type=RLBaseTypes.NONE,
+        rl_obs_type=RLBaseObsTypes.NONE,
         rl_obs_mode=ObservationModes.RENDER_IMAGE,
         rl_obs_type_override=SpaceTypes.UNKNOWN,
         rl_obs_div_num=-1,
-        true_obs_space=BoxSpace((64, 32, 3), 0, 255, np.float32, stype=SpaceTypes.COLOR),
+        true_obs_space=BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR),
         true_obs_env_space=BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR),
         window_length=1,
         true_obs_space_one_step=None,
@@ -904,42 +622,11 @@ def test_obs_render_image():
     )
 
 
-def test_obs_env_render_image():
-    pytest.skip("PIL")
-    pytest.skip("pygame")
-    true_obs_space = MultiSpace(
-        [
-            ArrayDiscreteSpace(3, 0, 5),
-            BoxSpace((64, 32, 3), 0.0, 255.0, np.float32, stype=SpaceTypes.COLOR),
-        ]
-    )
-    true_obs_env_space = MultiSpace(
-        [
-            ArrayDiscreteSpace(3, 0, 5),
-            BoxSpace((64, 32, 3), 0.0, 255.0, np.uint8, stype=SpaceTypes.COLOR),
-        ]
-    )
-    _test_obs(
-        env_obs_space=ArrayDiscreteSpace(3, 0, 5),
-        rl_obs_type=RLBaseTypes.NONE,
-        rl_obs_mode=ObservationModes.ENV | ObservationModes.RENDER_IMAGE,
-        rl_obs_type_override=SpaceTypes.UNKNOWN,
-        rl_obs_div_num=-1,
-        true_obs_space=true_obs_space,
-        true_obs_env_space=true_obs_env_space,
-        window_length=1,
-        true_obs_space_one_step=None,
-        env_state=[0, 1, 2],
-        true_state1=[[0, 1, 2], np.ones((64, 32, 3))],
-        true_state2=[[0, 1, 2], np.ones((64, 32, 3))],
-    )
-
-
 def test_obs_render_terminal():
     pytest.skip("TODO")
     _test_obs(
         env_obs_space=DiscreteSpace(1),
-        rl_obs_type=RLBaseTypes.NONE,
+        rl_obs_type=RLBaseObsTypes.NONE,
         rl_obs_mode=ObservationModes.RENDER_TERMINAL,
         rl_obs_type_override=SpaceTypes.UNKNOWN,
         rl_obs_div_num=-1,
@@ -953,13 +640,56 @@ def test_obs_render_terminal():
     )
 
 
+@pytest.mark.parametrize(
+    "rl_obs_mode, window_length, true_obs_env_space, true_obs_space, env_state, true_state1, true_state2",
+    [
+        [ObservationModes.ENV, 1, DiscreteSpace(2), DiscreteSpace(2), 1, 1, 1],
+        [ObservationModes.ENV, 4, DiscreteSpace(2), ArrayDiscreteSpace(4, 0, 1), 1, [0, 0, 0, 1], [0, 0, 1, 1]],
+        [
+            ObservationModes.RENDER_IMAGE,
+            1,
+            BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR),
+            BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR),
+            np.ones((64, 32, 3)),
+            np.ones((64, 32, 3)),
+            np.ones((64, 32, 3)),
+        ],
+    ],
+)
+def test_obs_use_render_img_state(
+    rl_obs_mode,
+    window_length,
+    true_obs_env_space,
+    true_obs_space,
+    env_state,
+    true_state1,
+    true_state2,
+):
+    pytest.importorskip("pygame")
+    _test_obs(
+        env_obs_space=DiscreteSpace(2),
+        rl_obs_type=RLBaseObsTypes.NONE,
+        rl_obs_mode=rl_obs_mode,
+        rl_obs_type_override=SpaceTypes.UNKNOWN,
+        rl_obs_div_num=-1,
+        true_obs_space=true_obs_space,
+        true_obs_env_space=true_obs_env_space,
+        window_length=window_length,
+        true_obs_space_one_step=true_obs_env_space,
+        env_state=env_state,
+        true_state1=true_state1,
+        true_state2=true_state2,
+        use_render_image_state=True,
+    )
+
+
 # ---------------------------------------------------------
 
 
 def test_obs_override():
     _test_obs(
         env_obs_space=BoxSpace((64, 64), stype=SpaceTypes.CONTINUOUS),
-        rl_obs_type=RLBaseTypes.NONE,
+        rl_obs_type=RLBaseObsTypes.NONE,
         rl_obs_mode=ObservationModes.ENV,
         rl_obs_type_override=SpaceTypes.GRAY_3ch,
         rl_obs_div_num=-1,
@@ -979,13 +709,10 @@ def test_obs_override():
 @pytest.mark.parametrize(
     "rl_act_type",
     [
-        RLBaseTypes.DISCRETE,
-        RLBaseTypes.CONTINUOUS,
-        # RLBaseTypes.IMAGE,
-        RLBaseTypes.MULTI,
-        RLBaseTypes.DISCRETE | RLBaseTypes.CONTINUOUS,
-        RLBaseTypes.CONTINUOUS | RLBaseTypes.MULTI,
-        RLBaseTypes.DISCRETE | RLBaseTypes.CONTINUOUS | RLBaseTypes.MULTI,
+        RLBaseActTypes.NONE,
+        RLBaseActTypes.DISCRETE,
+        RLBaseActTypes.CONTINUOUS,
+        RLBaseActTypes.DISCRETE | RLBaseActTypes.CONTINUOUS,
     ],
 )
 @pytest.mark.parametrize(
@@ -998,18 +725,11 @@ def test_obs_override():
         _B((2, 1), -1, 1),
         _B((2, 1), -1, 1, np.int8),
         _B((2, 1), -1, 1, stype=SpaceTypes.COLOR),
-        _M(
-            [
-                DiscreteSpace(2),
-                ArrayDiscreteSpace(1, 0, 1),
-                ContinuousSpace(0, 1),
-                ArrayContinuousSpace(1, 0, 1),
-                BoxSpace((1, 1), 0, 1),
-            ]
-        ),
     ],
 )
 def test_sample_action(env_act_space, rl_act_type):
+    if env_act_space.is_image() and (rl_act_type & RLBaseActTypes.DISCRETE):
+        pytest.skip("intに変換できない")
     common.logger_print()
     env = srl.make_env(srl.EnvConfig("Stub", {"action_space": env_act_space}))
 

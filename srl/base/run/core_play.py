@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any, List, Optional, cast
 
 from srl.base.context import RunContext, RunNameTypes
-from srl.base.define import EnvActionType
+from srl.base.define import RenderModes
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.memory import IRLMemoryWorker
 from srl.base.rl.parameter import RLParameter
@@ -144,6 +144,12 @@ def _play(
     )
     if context.enable_train_thread and (state.trainer is not None) and state.trainer.implement_thread_train():
         state.enable_train_thread = True
+
+    # render
+    if context.rl_config is not None:
+        if context.rl_config.used_rgb_array and (context.render_mode != RenderModes.rgb_array):
+            logger.info(f"change render_mode: {context.render_mode} -> rgb_array")
+            context.render_mode = RenderModes.rgb_array
 
     # --- 1 setup_from_actor
     if context.distributed:

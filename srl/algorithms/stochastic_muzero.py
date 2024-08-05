@@ -7,7 +7,6 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import RLBaseTypes
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import RLProcessor
@@ -93,9 +92,6 @@ class Config(
 
     def get_processors(self) -> List[RLProcessor]:
         return RLConfigComponentInput.get_processors(self)
-
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.IMAGE
 
     def get_framework(self) -> str:
         return "tensorflow"

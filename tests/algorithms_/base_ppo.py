@@ -2,7 +2,7 @@ from typing import Tuple
 
 import pytest
 
-from srl.base.define import SpaceTypes
+from srl.base.define import RLBaseActTypes
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_base_case import CommonBaseCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -11,11 +11,11 @@ from tests.algorithms_.common_quick_case import CommonQuickCase
 class QuickCase(CommonQuickCase):
     @pytest.fixture(
         params=[
-            [SpaceTypes.DISCRETE, "MC", "", ""],
-            [SpaceTypes.DISCRETE, "MC", "ave", "clip"],
-            [SpaceTypes.DISCRETE, "GAE", "std", "kl"],
-            [SpaceTypes.CONTINUOUS, "GAE", "normal", "kl"],
-            [SpaceTypes.CONTINUOUS, "MC", "advantage", "clip"],
+            [RLBaseActTypes.DISCRETE, "MC", "", ""],
+            [RLBaseActTypes.DISCRETE, "MC", "ave", "clip"],
+            [RLBaseActTypes.DISCRETE, "GAE", "std", "kl"],
+            [RLBaseActTypes.CONTINUOUS, "GAE", "normal", "kl"],
+            [RLBaseActTypes.CONTINUOUS, "MC", "advantage", "clip"],
         ]
     )
     def rl_param(self, request):
@@ -120,7 +120,7 @@ class BaseCase(CommonBaseCase):
         rl_config.enable_value_clip = False
         rl_config.enable_state_normalized = False
         rl_config.entropy_weight = 1.0
-        rl_config.override_action_type = SpaceTypes.CONTINUOUS
+        rl_config.override_action_type = RLBaseActTypes.CONTINUOUS
         runner, tester = self.create_runner("Grid", rl_config)
         runner.train(max_train_count=40000)
         tester.eval(runner)

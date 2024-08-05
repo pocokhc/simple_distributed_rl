@@ -320,10 +320,8 @@ class RunnerBase:
             state = worker.state_encode(
                 state,
                 env,
-                create_env_sate=True,
-                enable_state_encode=True,
+                enable_encode=True,
                 append_recent_state=False,
-                is_dummy=False,
             )
         return state
 

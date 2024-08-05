@@ -1,7 +1,8 @@
 import numpy as np
+
 import srl
 from srl.algorithms import ppo
-from srl.base.define import SpaceTypes
+from srl.base.define import RLBaseActTypes
 from srl.utils import common
 
 common.logger_print()
@@ -26,7 +27,7 @@ def main(mode: str):
         TRAIN_COUNT = 50000
         rl_config.lr = 0.0005
         rl_config.entropy_weight = 1.0
-        rl_config.override_action_type = SpaceTypes.CONTINUOUS
+        rl_config.override_action_type = RLBaseActTypes.CONTINUOUS
     else:
         TRAIN_COUNT = 20000
 

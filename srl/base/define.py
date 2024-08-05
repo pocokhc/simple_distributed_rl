@@ -46,8 +46,16 @@ RLObservationType = Union[
 #   {match key list : [index, action]}
 #
 KeyBindType = Dict[
-    Union[str, int, Tuple[Union[str, int], ...], List[Union[str, int]]],
-    Union[EnvActionType, Tuple[int, EnvActionType]],
+    Union[
+        str,
+        int,
+        Tuple[Union[str, int], ...],
+        List[Union[str, int]],
+    ],
+    Union[
+        Any,
+        Tuple[int, Any],
+    ],
 ]
 
 # --- workers

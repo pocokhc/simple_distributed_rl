@@ -28,11 +28,10 @@ def test_train(enable_train_thread):
     assert state.total_step == 10
 
     state = runner.train(max_train_count=10, enable_train_thread=enable_train_thread)
-    assert state.trainer is not None
     if enable_train_thread:
-        assert state.trainer.get_train_count() >= 10
+        assert state.train_count >= 10
     else:
-        assert state.trainer.get_train_count() == 10
+        assert state.train_count == 10
 
 
 @pytest.mark.parametrize("enable_train_thread", [False, True])
@@ -69,7 +68,13 @@ def test_train_only(enable_train_thread):
     assert runner.memory.length() > 1000
 
     rl_config.memory_warmup_size = 1000
-    runner.train_only(max_train_count=50_000, enable_train_thread=enable_train_thread, thread_queue_capacity=1000)
+    state = runner.train_only(
+        max_train_count=50_000, enable_train_thread=enable_train_thread, thread_queue_capacity=1000
+    )
+    if enable_train_thread:
+        assert state.train_count >= 50_000
+    else:
+        assert state.train_count == 50_000
 
     rewards = runner.evaluate(max_episodes=100)
     reward = np.mean(rewards)
@@ -108,7 +113,7 @@ def test_render_window():
     runner.train(max_steps=20000)
 
     # render terminal
-    reward = runner.render_window(render_interval=1)
+    reward = runner.render_window()
     print(reward)
     assert reward[0] > 0.5
 
@@ -190,4 +195,4 @@ def test_shuffle_player():
     # shuffle した状態でも報酬は元の順序を継続する
     rewards = runner.evaluate(max_episodes=100, players=["cpu", "random"], shuffle_player=True)
     rewards = np.mean(rewards, axis=0)
-    assert rewards[0] > 0.7  # CPUがまず勝つ
+    assert rewards[0] > 0.7  # CPUが必ず勝つ

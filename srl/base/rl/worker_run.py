@@ -53,7 +53,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._on_reset_val(0)
 
         # --- processor
-        self._processors = [c.copy() for c in self.config.episode_processors]
+        self._processors = [c.copy() for c in self._config._episode_processors]
         self._processors_on_reset: Any = [c for c in self._processors if hasattr(c, "remap_on_reset")]
         self._processors_reward: Any = [c for c in self._processors if hasattr(c, "remap_reward")]
 

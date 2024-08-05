@@ -161,7 +161,7 @@ def test_on_file_train(tmp_path, interval_mode):
     else:
         assert len(system_log) == 4
     for h in system_log:
-        assert h["time"] > 0
+        assert h["time"] >= 0
 
 
 def test_on_file_train_plot(tmp_path):

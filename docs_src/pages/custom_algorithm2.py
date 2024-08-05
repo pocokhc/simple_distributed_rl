@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from srl.base.define import RLBaseTypes
+from srl.base.define import RLBaseActTypes, RLBaseObsTypes
 from srl.base.rl.config import RLConfig
 from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
 
@@ -16,11 +16,11 @@ class MyConfig(
     def get_name(self) -> str:
         return "MyConfig"
 
-    def get_base_action_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
+    def get_base_action_type(self) -> RLBaseActTypes:
+        return RLBaseActTypes.DISCRETE
 
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE
+    def get_base_observation_type(self) -> RLBaseObsTypes:
+        return RLBaseObsTypes.DISCRETE
 
     def get_framework(self) -> str:
         return ""

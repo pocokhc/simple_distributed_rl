@@ -63,7 +63,7 @@ class Config(
     #: int reward scale
     int_reward_scale: float = 0.5
 
-    #: <:ref:`MLPBlock`> hidden layer
+    #: <:ref:`MLPBlockConfig`> hidden layer
     hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     def get_processors(self) -> List[RLProcessor]:

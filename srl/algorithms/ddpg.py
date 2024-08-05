@@ -48,9 +48,9 @@ class Config(
     <:ref:`RLConfigComponentInput`>
     """
 
-    #: <:ref:`MLPBlock`> policy layers
+    #: <:ref:`MLPBlockConfig`> policy layers
     policy_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
-    #: <:ref:`MLPBlock`> q layers
+    #: <:ref:`MLPBlockConfig`> q layers
     q_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     #: <:ref:`scheduler`> Learning rate

@@ -1,24 +1,33 @@
 .. _RLConfigComponentFramework:
 
-Framework
-===============
+RLConfigComponentFramework
+==================================
 .. autoclass:: srl.rl.models.config.framework_config.RLConfigComponentFramework
    :members:
    :show-inheritance:
 
-.. _InputImageBlockConfig:
 
+.. _RLConfigComponentInput:
 
-InputImageBlock
-===============
+RLConfigComponentInput
+================================
 
 .. autoclass:: srl.rl.models.config.input_config.RLConfigComponentInput
    :members:
    :show-inheritance:
 
 
-.. _MLPBlockConfig:
+.. _InputImageBlockConfig:
 
+InputImageBlock
+=======================
+
+.. autoclass:: srl.rl.models.config.input_config.InputImageBlockConfig
+   :members:
+   :show-inheritance:
+
+
+.. _MLPBlockConfig:
 
 MLPBlock
 ===============
@@ -29,7 +38,6 @@ MLPBlock
 
 
 .. _DuelingNetworkConfig:
-
 
 DuelingNetwork
 ===============

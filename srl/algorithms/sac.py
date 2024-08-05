@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Union, cast
+from typing import Any, List, Union, cast
 
 import numpy as np
 import tensorflow as tf
@@ -58,9 +58,9 @@ class Config(
     <:ref:`RLConfigComponentInput`>
     """
 
-    #: <:ref:`MLPBlock`> policy layer
+    #: <:ref:`MLPBlockConfig`> policy layer
     policy_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
-    #: <:ref:`MLPBlock`>
+    #: <:ref:`MLPBlockConfig`>
     q_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     #: discount

@@ -69,9 +69,9 @@ class Config(
     #: PUCT
     c_init: float = 1.25
 
-    #: <:ref:`MLPBlock`> value block
+    #: <:ref:`MLPBlockConfig`> value block
     value_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
-    #: <:ref:`MLPBlock`> policy block
+    #: <:ref:`MLPBlockConfig`> policy block
     policy_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     #: "rate" or "linear"

@@ -76,7 +76,7 @@ class Config(
     #: enable rescaling
     enable_rescale: bool = False
 
-    #: <:ref:`MLPBlock`> hidden layer
+    #: <:ref:`MLPBlockConfig`> hidden layer
     hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
     def __post_init__(self):

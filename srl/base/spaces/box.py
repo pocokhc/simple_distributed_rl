@@ -117,7 +117,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
         return str(val.flatten().tolist()).replace(" ", "")[1:-1]
 
     def get_default(self) -> np.ndarray:
-        return np.zeros(self.shape)
+        return np.zeros(self.shape, self._dtype)
 
     def copy(self) -> "BoxSpace":
         o = BoxSpace(self._shape, self._low, self._high, self._dtype, self._stype)

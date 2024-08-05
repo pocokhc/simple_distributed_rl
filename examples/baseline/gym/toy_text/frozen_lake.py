@@ -48,10 +48,10 @@ def main_search_dynaq():
     _train(search_dynaq.Config(q_ext_lr=BASE_LR, q_int_lr=BASE_LR), BASE_TRAIN)
 
 
-def main_search_dynaq_v2():
-    from srl.algorithms import search_dynaq_v2
+def main_go_dynaq():
+    from srl.algorithms import go_dynaq
 
-    _train(search_dynaq_v2.Config(q_lr=BASE_LR), BASE_TRAIN)
+    _train(go_dynaq.Config(q_lr=BASE_LR), BASE_TRAIN)
 
 
 def compare():
@@ -69,7 +69,7 @@ def compare():
         "VanillaPolicy",
         "QL_Agent57",
         "SearchDynaQ",
-        "SearchDynaQ_v2",
+        "GoDynaQ",
     ]:
         history = MLFlowCallback.get_metric(ENV_NAME, name, metric_name)
         if history is None:
@@ -78,7 +78,7 @@ def compare():
         times -= times[0]
         steps = [h.step for h in history]
         vals = [h.value for h in history]
-        plt.plot(steps, common.ema(vals), label=name)
+        plt.plot(times, common.ema(vals), label=name)
     plt.grid()
     plt.legend()
     plt.title(f"Train:{BASE_TRAIN}, lr={BASE_LR}")
@@ -92,5 +92,5 @@ if __name__ == "__main__":
     main_policy()
     main_ql_agent57()
     main_search_dynaq()
-    main_search_dynaq_v2()
+    main_go_dynaq()
     compare()

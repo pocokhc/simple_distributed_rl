@@ -24,23 +24,29 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class MLFlowCallback(RunCallback, TrainCallback, Evaluate):
+    experiment_name: str = ""
+    run_name: str = ""
+    tags: dict = field(default_factory=dict)
+
     interval_episode: float = 1
     interval_eval: float = -1  # -1 is auto
     interval_checkpoint: float = 60 * 30
     enable_checkpoint: bool = True
     enable_html: bool = True
-    tags: dict = field(default_factory=dict)
 
     def on_start(self, context: RunContext, **kwargs) -> None:
         self._auto_run = False
         framework = context.rl_config.get_framework()
         if mlflow.active_run() is None:
-            mlflow.set_experiment(context.env_config.name)
-            run_name = context.rl_config.name
+            if self.experiment_name == "":
+                self.experiment_name = context.env_config.name
+            mlflow.set_experiment(self.experiment_name)
+            if self.run_name == "":
+                self.run_name = context.rl_config.name
             if framework != "":
-                run_name += f":{framework}"
-            run_name += f"({context.flow_mode})"
-            mlflow.start_run(run_name=run_name)
+                self.run_name += f":{framework}"
+            self.run_name += f"({context.flow_mode})"
+            mlflow.start_run(run_name=self.run_name)
             self._auto_run = True
         active_run = mlflow.active_run()
         assert active_run is not None

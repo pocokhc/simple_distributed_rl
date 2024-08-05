@@ -1,19 +1,22 @@
 @startuml class_rl
 
-enum RLBaseTypes {
+enum RLBaseActTypes {
+    NONE
     DISCRETE
     CONTINUOUS
-    IMAGE
-    TEXT
-    MULTI
 }
 
+enum RLBaseObsTypes {
+    NONE
+    DISCRETE
+    BOX
+}
 
 abstract RLConfig {
     .. abstract ..
     get_name() : str
-    get_base_action_type() : RLBaseTypes
-    get_base_observation_type() : RLBaseTypes
+    get_base_action_type() : RLBaseActTypes
+    get_base_observation_type() : RLBaseObsTypes
     get_framework() : str
     .. Runtime properties ..
     action_space : SpaceBase
@@ -26,18 +29,18 @@ abstract IRLMemoryWorker {
 }
 abstract RLMemory {
     config : RLConfig
-    UserFunctions()
     backup()
     restore()
+    Other user functions()
 }
 IRLMemoryWorker -|> RLMemory
 
 
 abstract RLParameter {
     config : RLConfig
-    UserFunctions()
     restore()
     backup()
+    Other user functions()
 }
 
 
@@ -74,7 +77,8 @@ class WorkerRun {
 note "Keeps run-time state.\nAbsorbs the difference with the environment." as WorkerRunMemo
 WorkerRun . WorkerRunMemo
 
-RLBaseTypes . RLConfig
+RLBaseActTypes . RLConfig
+RLBaseObsTypes . RLConfig
 
 RLConfig --- RLWorker
 RLConfig --- RLTrainer

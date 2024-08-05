@@ -13,14 +13,9 @@ enum SpaceTypes {
 
 abstract SpaceBase {
     stype : SpaceTypes
-    encode_to_int()
-    decode_from_int()
-    encode_to_list_int()
-    decode_from_list_int()
-    encode_to_list_float()
-    decode_from_list_float()
-    encode_to_np()
-    decode_from_np()
+    create_encode_space()
+    encode_to_space()
+    decode_from_space()
 }
 note as SpaceMemo
 - DiscreteSpace
@@ -37,8 +32,9 @@ abstract EnvBase {
     action_space : SpaceBase
     observation_space : SpaceBase
     player_num : int
-    next_player_index: int
-    reset()
+    next_player: int
+    setup()
+    reset(seed)
     step(action)
     render_terminal()
     render_rgb_array()
@@ -56,11 +52,11 @@ GymWrapper o-- gym.Env
 EnvBase -- GymnasiumWrapper
 EnvBase -- GymWrapper
 
-
 class EnvRun {
     config : EnvConfig
     env : EnvBase
-    reset(render_mode, seed)
+    setup(render_mode)
+    reset(seed)
     step(action)
     render()
 }

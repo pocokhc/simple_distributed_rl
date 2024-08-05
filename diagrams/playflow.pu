@@ -16,25 +16,33 @@ participant Memory
 
 activate User
 
-User -> EnvRun: reset()
-    EnvRun -> EnvBase: reset()
-    return state, next_player_index
-return
-
-User -> WorkerRun: on_reset(player_index)
-    note right: init episode parameter
-return
-
-User -> EnvRun: render()
-    EnvRun -> EnvBase: rendering
+User -> EnvRun: setup(render_mode)
+    EnvRun -> EnvBase: setup(render_mode)
     return
 return
 
+User -> WorkerRun: on_start(context)
+    WorkerRun -> Worker: on_start(context)
+    return
+return
+
+User -> EnvRun: reset(seed)
+    EnvRun -> EnvBase: reset(seed)
+    return state
+return
+
+User -> WorkerRun: on_reset(player_index, seed)
+return
+
 loop episode
+    User -> EnvRun: render()
+        EnvRun -> EnvBase: rendering
+        return
+    return
 
     User -> WorkerRun: policy()
         note right
-        worker_idx = env.next_player_index
+        worker_idx = env.next_player
         state = <color blue>encode(env.state)</color>
         end note
 
@@ -65,7 +73,7 @@ loop episode
     
     User -> EnvRun: step(action)
         EnvRun -> EnvBase: step(action)
-        return state, reward, done, next_player_index
+        return state, rewards, terminated, truncated
     return
 
     User -> WorkerRun: on_step()
@@ -85,12 +93,17 @@ loop episode
         return
     return
 
-    User -> EnvRun: render()
-        EnvRun -> EnvBase: rendering
-        return
-    return
-
 end
+
+User -> EnvRun: render()
+    EnvRun -> EnvBase: rendering
+    return
+return
+User -> WorkerRun: render()
+    WorkerRun -> Worker: rendering
+    return
+return
+
 deactivate User
 
 @enduml

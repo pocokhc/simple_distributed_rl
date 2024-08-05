@@ -15,6 +15,84 @@
 // DemoMemory: 個別対応かな
 
 
+# v0.17.0
+
+・Envクラスの実装を見直し、SinglePlayEnv/TurnBase2Playerを非推奨とし、基本はEnvBaseを直接実装する形に変更しました。
+・RLクラスでrenderの画像入力を明示的に分け、stateの入力をMultiSpaceを想定したlist[SpaceBase]からただのSpaceBaseだけにしました。これによりコードがかなり簡単になりました。
+・これに合わせてRender関係も見直して大幅に更新しました。
+
+
+**MainUpdates**
+
+1. [base.env] change: Envクラスの実装を見直し
+   1. [base.env.base]
+      - change: resetにseed引数を追加、後方互換用に**kwargsを追加
+      - change: stepの戻り値のdoneを terminated,truncated に変更（gymを参考）
+      - change: infoをEnvBaseで保持するように変更、これによりresetの戻り値とstepの戻り値からinfoを削除
+      - change: next_player,done_reason,info をEnvRunからEnvBaseで保持するように変更
+      - rename: next_player_indexをnext_playerに変数名変更
+   1. [base.env.env_run]
+      - change: setupの引数からcontextを削除しcontextに依存しないように変更(これでbase.env内だけで閉じているはず)
+      - change: 報酬をnp配列ではなく配列で保持するように変更（要素数がすくない場合は配列の方が早い(10～100ぐらいが境目?)）
+      - rename: step_rewardsをrewardsにプロパティ名変更
+   1. [base.env.gym]
+      - rename: GymUserWrapperをprocessorと合わせて関数の先頭にremap_を追加
+      - change: GymUserWrapperをprocessorみたいにlistを想定していたが複雑になるので1つだけの適用に変更、適用するとフレームワーク側の処理は入らずGymUserWrapperのみで変換
+   1. [base.env] update: Genericを追加
+1. [base.space] update: 値のencode/decodeをintやnp等決め打ちだったが、space-spaceの変換に変更（encode_to_int等は残しているが、フレームワーク内では同クラス内でしか使用しなくなった）
+   これによりRL側でMultiSpaceを意識しないくていいはず
+1. [base.render] update: 全体的に見直し
+   - remove: define.RenderModes からansiを削除(terminalと同じ扱いしかなかったので)
+   - update: define.RenderModes.window の扱いを弱くし、基本terminalとrgb_arrayだけを想定とする
+      - intervalを見直し
+         - intervalの扱いをrunnerからEnvConfig/RLConfigで指定する形を基本に変更
+         - [base.env.env_run] new: EnvRunにintervalを返すget_render_intervalを追加
+      - render関数のみ特別扱いとしてwindowなど汎用的に実施、それ以外は別関数を用意しそれぞれに特化
+         - render_ansiをrender_terminal_textに名前変更
+         - render_rgb_arrayにてEnvまたはRLでrender_rgb_arrayが実装されていない場合render_terminalの画像を用意したがそれを削除
+         - 代わりにrender_terminal_text_to_imageを新しく作成
+      - 画像生成できない場合Noneまたはdummy画像を返していたがNoneに統一
+      - [base.env.config] remove: override_render_modeが不要になったので削除
+   - [base.rl.worker_run] new: WorkerRunに新しくcreate_render_imageを追加。これは左上にenv画像、右側にRL情報の画像を作成する関数。元はcallbacksのrenderingやgame_windowが個別で作っていたがこちらに集約
+   - [utils.render_functions] new: draw_text, add_padding, vconcat, hconcat関数を追加
+   - [runner.callbacks.rendering] change: render関係の引数を変更、facadeの引数も伴って変更（render_interval,render_scale,font_name,font_size -> render_worker,render_add_rl_terminal,render_add_rl_rgb,render_add_rl_state,render_add_info_text）
+   - [runner.callbacks.rendering] update: stepのrenderタイミングをrlとenvで同時に変更(リアルタイム=windowじゃなければ問題なし)、これとworker_runの集約によりコードが大幅に簡略化
+   - [runner.game_windows] update: game_window, replay_windowも上と同じ理由でコードが大幅に簡略化
+1. [base.rl] update: renderの画像入力を明示的に分け、stateの入力をlist[SpaceBase]からSpaceBaseに変更
+   - これによりRLConfigとWorkerRunのコードがかなりシンプルに（特にlistがなくなったのが大きい）
+   - [base.define] change: RLBaseTypesをRLBaseActTypesとRLBaseObsTypesに分割、最終的にはActとObsの差はないが後方互換用に別定義
+      - RLBaseActTypesは画像やテキストや音声などの可能性が今後あるかも、現状はNoneを指定すれば変換されないので個別に実装可能
+   - [base.define] change: render画像を分けたので、stateはenvの状態 or render_rbgのみ指定できるように変更
+      - 具体的にはdefine.ObservationModesをflagからenumに変更
+      - RENDER_TERMINALを一旦削除（扱いに整理がつかなかったので）
+   - [base.rl.config] new: renderの画像を使うかどうかを表す use_render_image_state フラグ及び get_render_image_processors を追加（継承側が設定する関数）
+   - [base.rl.worker_run]
+       - new: renderの画像を表す、render_img_state,prev_render_img_state,render_img_state_one_step を追加
+       - update: stateの初期値をencodeして作っていたが、シンプルにspace.get_default()に変更
+       - update: doneの状態を持たずにenvの値をそのまま利用するように変更
+   - [base.rin.core_play] update: RLがrender画像を使う場合render_modeをrgb_arrayに変更する処理を追加
+1. [diagrams] update: 上記更新に合わせて更新
+1. [docs_src] update: 上記更新に合わせて更新、特にEnvの作成方法は大幅に更新
+
+
+**OtherUpdates**
+
+1. [runner.callbacks.mlflow] update: experiment_nameとrun_nameを指定できるように引数に追加
+1. [base.rl.config] rename: get_used_backup_restoreをuse_backup_restoreにより適した名前に変更
+1. [runner.runner_base] update: workerとtrainerのcache方法を見直して更新、logも整理
+1. [base.define.DoneTypes] update: boolだけではなくstrにも対応
+1. [base.info] new: set_dictを追加
+1. [algorithms] rename: search_dynaq_v2をgo_dynaqに名前変更し、更新
+
+
+**Bug Fixes**
+
+1. [base.run] fix: 2回目以降のtrainでtrainer_countが引き継がれてtrain_countの終了条件がおかしくなるバグ修正(v0.16.4で入ったバグです)
+1. [base.env/rl] fix: resetでrenderのcacheを初期化していなかったバグ修正
+1. [base.spaces.BoxSpace] fix: get_defaultでdtypeの指定がなかったバグ修正
+1. fix: functools.lru_cacheがクラスの関数に対して行うとおかしくなるらしいので削除
+1. update: plt.showの後に念のためplt.clf(),plt.close()を追加
+
 # v0.16.4
 
 **MainUpdates**

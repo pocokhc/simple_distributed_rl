@@ -93,7 +93,7 @@ class RLWorkerGeneric(
 
     def terminated(self) -> None:
         self.__worker_run._env._done = DoneTypes.TRUNCATED
-        self.__worker_run._env._done_reason = "rl"
+        self.__worker_run._env.env.done_reason = "rl"
 
     # --- worker info (shortcut properties)
     @property

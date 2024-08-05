@@ -38,5 +38,5 @@ class BaseCase:
         rl_config = mcts.Config(num_simulations=10, discount=0.9)
         runner = srl.Runner("Grid", rl_config)
         runner.set_seed(2)
-        runner.train(max_steps=50000)
+        runner.train(max_steps=10000)
         tester.eval(runner)

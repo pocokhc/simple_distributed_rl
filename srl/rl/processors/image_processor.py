@@ -5,11 +5,12 @@ from typing import Optional, Tuple, cast
 import numpy as np
 
 from srl.base.define import EnvObservationType, SpaceTypes
-from srl.base.env.env_run import EnvRun, SpaceBase
+from srl.base.env.env_run import EnvRun
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import RLProcessor
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.space import SpaceBase
 from srl.utils.common import is_package_installed
 
 logger = logging.getLogger(__name__)

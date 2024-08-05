@@ -8,7 +8,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 from tensorflow import keras
 
-from srl.base.define import RLBaseTypes, SpaceTypes
+from srl.base.define import SpaceTypes
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import RLProcessor
@@ -89,9 +89,6 @@ class Config(
                 enable_norm=True,
             )
         ]
-
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.IMAGE
 
     def get_framework(self) -> str:
         return "tensorflow"
@@ -264,6 +261,7 @@ class Parameter(RLParameter):
         super().__init__(*args)
         self.config: Config = self.config
 
+        assert self.config.observation_space.is_image(), "The input supports only image format."
         self.encode = ConvEncoder(self.config.cnn_depth, self.config.cnn_act)
         self.dynamics = RSSM(self.config.stoch_size, self.config.deter_size, self.config.deter_size)
         self.decode = ConvDecoder(self.config.cnn_depth, self.config.cnn_act)
@@ -560,6 +558,7 @@ class Worker(RLWorker):
         self.deter = self.parameter.dynamics.get_initial_state()
         self.stoch = tf.zeros((1, self.config.stoch_size), dtype=tf.float32)
         self.action = 0
+        self.feat = None
 
     def policy(self, worker) -> int:
         if self.training:
@@ -724,6 +723,8 @@ class Worker(RLWorker):
     def render_rgb_array(self, worker, **kwargs) -> Optional[np.ndarray]:
         if self.config.observation_space.stype != SpaceTypes.COLOR:
             return None
+        if self.feat is None:
+            return None
         from srl.utils import pygame_wrapper as pw
 
         state = worker.prev_state
@@ -742,10 +743,10 @@ class Worker(RLWorker):
         pw.draw_fill(self.screen, color=(0, 0, 0))
 
         # --- decode
-        pred_state = self.parameter.decode(self.feat).mode()[0].numpy()  # type:ignore , ignore check "None"
+        pred_state = self.parameter.decode(self.feat).mode()[0].numpy()
         rmse = np.sqrt(np.mean((state - pred_state) ** 2))
 
-        pred_reward = self.parameter.reward(self.feat).mode()[0][0].numpy()  # type:ignore , ignore check "None"
+        pred_reward = self.parameter.reward(self.feat).mode()[0][0].numpy()
 
         img1 = state * 255
         img2 = pred_state * 255

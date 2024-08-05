@@ -1,10 +1,8 @@
-from typing import List, Tuple
-
 import pytest
 
 import srl
 from srl.base.context import RunContext
-from srl.base.define import EnvActionType, EnvObservationType, RenderModes, RLActionType, SpaceTypes
+from srl.base.define import RenderModes, RLActionType, SpaceTypes
 from srl.base.env import registration as env_registration
 from srl.base.env.base import EnvBase
 from srl.base.rl.config import DummyRLConfig
@@ -13,6 +11,7 @@ from srl.base.rl.worker import RLWorker
 from srl.base.run.play import play
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.space import SpaceBase
+from srl.utils import common
 
 
 class StubEnv(EnvBase):
@@ -50,8 +49,8 @@ class StubEnv(EnvBase):
 
 class StubWorker(RLWorker):
     def on_reset(self, worker):
-        assert worker.prev_state == [0]
-        assert worker.state == [1]
+        assert worker.prev_state == 0
+        assert worker.state == 1
         assert worker.action == 0
         assert worker.prev_invalid_actions == []
         assert worker.invalid_actions == []
@@ -59,16 +58,16 @@ class StubWorker(RLWorker):
 
     def policy(self, worker) -> RLActionType:
         if self.step_c == 0:
-            assert worker.prev_state == [0]
-            assert worker.state == [1]
+            assert worker.prev_state == 0
+            assert worker.state == 1
             assert worker.action == 0
             assert worker.reward == 0
             assert not worker.done
             assert worker.prev_invalid_actions == []
             assert worker.invalid_actions == []
         else:
-            assert worker.prev_state == [1]
-            assert worker.state == [2]
+            assert worker.prev_state == 1
+            assert worker.state == 2
             assert worker.action == 2
             assert worker.reward == 10
             assert not worker.done
@@ -78,16 +77,16 @@ class StubWorker(RLWorker):
 
     def on_step(self, worker):
         if self.step_c == 0:
-            assert worker.prev_state == [1]
-            assert worker.state == [2]
+            assert worker.prev_state == 1
+            assert worker.state == 2
             assert worker.action == 2
             assert worker.reward == 10
             assert not worker.done
             assert worker.prev_invalid_actions == []
             assert worker.invalid_actions == []
         else:
-            assert worker.prev_state == [2]
-            assert worker.state == [2]
+            assert worker.prev_state == 2
+            assert worker.state == 2
             assert worker.action == 2
             assert worker.reward == 10
             assert not worker.done
@@ -97,16 +96,16 @@ class StubWorker(RLWorker):
 
     def render_terminal(self, worker, **kwargs) -> None:
         if self.step_c == 0:
-            assert worker.prev_state == [0]
-            assert worker.state == [1]
+            assert worker.prev_state == 0
+            assert worker.state == 1
             assert worker.action == 2
             assert worker.reward == 0
             assert not worker.done
             assert worker.prev_invalid_actions == []
             assert worker.invalid_actions == []
         else:
-            assert worker.prev_state == [1]
-            assert worker.state == [2]
+            assert worker.prev_state == 1
+            assert worker.state == 2
             assert worker.action == 2
             assert worker.reward == 10
             assert not worker.done
@@ -133,6 +132,7 @@ def scope_function():
 
 
 def test_play_worker():
+    common.logger_print()
 
     env_config = srl.EnvConfig("StubEnvCore", enable_assertion=True)
     rl_config = DummyRLConfig(name="StubWorker")

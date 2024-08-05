@@ -114,13 +114,35 @@ class SpaceTypes(enum.Enum):
         ]
 
 
-class RLBaseTypes(enum.Flag):
+class RLBaseActTypes(enum.Flag):
     NONE = enum.auto()
     DISCRETE = enum.auto()
     CONTINUOUS = enum.auto()
-    IMAGE = enum.auto()
-    TEXT = enum.auto()
-    MULTI = enum.auto()
+    # BOX = enum.auto()
+    # GRAY_2ch = enum.auto()  # (height, width)
+    # GRAY_3ch = enum.auto()  # (height, width, 1)
+    # COLOR = enum.auto()  # (height, width, 3)
+    # IMAGE = enum.auto()  # (height, width, ch)
+    # TEXT = enum.auto()
+
+    @staticmethod
+    def from_str(mode: Union[str, "RLBaseActTypes"]) -> "RLBaseActTypes":
+        if isinstance(mode, RLBaseActTypes):
+            return mode
+        elif isinstance(mode, str):
+            mode_upper = mode.upper()
+            if mode_upper in RLBaseActTypes.__members__:
+                return RLBaseActTypes[mode_upper]
+            else:
+                raise ValueError(f"Unknown mode: {mode}")
+        else:
+            raise TypeError(f"mode must be a str or RLBaseActTypes, not {type(mode).__name__}")
+
+
+class RLBaseObsTypes(enum.Enum):
+    NONE = enum.auto()
+    DISCRETE = enum.auto()
+    BOX = enum.auto()
 
 
 class RLMemoryTypes(enum.Enum):
@@ -130,10 +152,10 @@ class RLMemoryTypes(enum.Enum):
     PRIORITY = enum.auto()
 
 
-class ObservationModes(enum.Flag):
+class ObservationModes(enum.Enum):
     ENV = enum.auto()
     RENDER_IMAGE = enum.auto()
-    RENDER_TERMINAL = enum.auto()
+    # RENDER_TERMINAL = enum.auto()  # TODO
 
     @staticmethod
     def from_str(mode: Union[str, "ObservationModes"]) -> "ObservationModes":

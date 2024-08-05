@@ -91,14 +91,18 @@ class DoneTypes(enum.Enum):
     TRUNCATED = enum.auto()
 
     @staticmethod
-    def done(done: Union[bool, "DoneTypes"]) -> bool:
-        return done if isinstance(done, bool) else DoneTypes.NONE != done
-
-    @staticmethod
-    def from_bool(done: Union[bool, "DoneTypes"]) -> "DoneTypes":
+    def from_val(done: Union[bool, str, "DoneTypes"]) -> "DoneTypes":
         if isinstance(done, bool):
-            return DoneTypes.TERMINATED if done else DoneTypes.NONE
-        return done
+            return DoneTypes.NONE if not done else DoneTypes.TERMINATED
+        elif isinstance(done, str):
+            try:
+                return DoneTypes[done.upper()]
+            except KeyError:
+                raise ValueError(f"Invalid DoneType string: {done}")
+        elif isinstance(done, DoneTypes):
+            return done
+        else:
+            raise ValueError(f"Unsupported type for DoneType conversion: {type(done)}")
 
 
 class SpaceTypes(enum.Enum):

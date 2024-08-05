@@ -184,9 +184,9 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         self.env_player_num = env.player_num
 
         # --- backup/restore check
-        if self.get_used_backup_restore():
+        if self.use_backup_restore():
             try:
-                env.setup()
+                env.setup(**srl.RunContext().to_dict())
                 env.reset()
                 d = env.backup()
                 env.restore(d)

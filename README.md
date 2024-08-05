@@ -25,7 +25,7 @@
 <https://qiita.com/pocokhc/items/a2f1ba993c79fdbd4b4d>
 
 # 1. インストール
-## 1-2.関連ライブラリ
+## 1-1.関連ライブラリ
 
 **必須ライブラリ**
 
@@ -208,8 +208,8 @@ worker.render()
 
 自作の環境とアルゴリズムの作成に関しては以下ドキュメントを参考にしてください。
 
-+ [Make Original Environment](https://pocokhc.github.io/simple_distributed_rl/pages/custom_env.html)
-+ [Make Original Algorithm](https://pocokhc.github.io/simple_distributed_rl/pages/custom_algorithm.html)
++ [Making a Custom environment](https://pocokhc.github.io/simple_distributed_rl/pages/custom_env.html)
++ [Making a Custom algorithm](https://pocokhc.github.io/simple_distributed_rl/pages/custom_algorithm.html)
 
 
 # 5. アルゴリズム

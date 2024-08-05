@@ -27,7 +27,7 @@ The article will be explained in Japanese.
 <https://qiita.com/pocokhc/items/a2f1ba993c79fdbd4b4d>
 
 # 1. Install
-## 1-2.Related libraries
+## 1-1.Related libraries
 
 **Required library**
 
@@ -212,8 +212,8 @@ worker.render()
 Please refer to the following documents for creating original environments and algorithms.  
 (The contents are in Japanese)
 
-+ [Make Original Environment](https://pocokhc.github.io/simple_distributed_rl/pages/custom_env.html)
-+ [Make Original Algorithm](https://pocokhc.github.io/simple_distributed_rl/pages/custom_algorithm.html)
++ [Making a Custom environment](https://pocokhc.github.io/simple_distributed_rl/pages/custom_env.html)
++ [Making a Custom algorithm](https://pocokhc.github.io/simple_distributed_rl/pages/custom_algorithm.html)
 
 
 # 5. Algorithms

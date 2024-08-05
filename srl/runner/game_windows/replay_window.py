@@ -16,57 +16,43 @@ logger = logging.getLogger(__name__)
 class _GetRGBCallback(RunCallback):
     def on_episode_begin(self, context: RunContext, state: RunStateActor, **kwargs):
         self.steps = []
-
-    def on_step_action_before(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
-        self._tmp_step_env(context, state)
+        self.interval = state.env.get_render_interval()
 
     def on_step_begin(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
-        self._tmp_step_worker(context, state)
-        self._add_step()
+        self._read(context, state)
 
     def on_skip_step(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
-        self._tmp_step_env(context, state)
-        self._add_step(is_skip_step=True)
+        self._read(context, state, is_skip_step=True)
 
     def on_episode_end(self, context: RunContext, state: RunStateActor, **kwargs):
-        self._tmp_step_env(context, state)
-        self._tmp_step_worker(context, state)
-        self._add_step(is_skip_step=True)
+        self._read(context, state)
 
     # ---------------------------------
 
-    def _tmp_step_env(self, context: RunContext, state: RunStateActor):
+    def _read(self, context: RunContext, state: RunStateActor, is_skip_step: bool = False):
         env = state.env
         assert env is not None
+        # --- env
         d = {
             "step": env.step_num,
-            "next_player_index": env.next_player_index,
+            "next_player": env.next_player,
             "state": env.state,
             "invalid_actions": env.get_invalid_actions(),
-            "rewards": env.step_rewards,
+            "rewards": env.rewards,
             "done": env.done_type.name,
             "env_info": env.info,
-        }
-        # --- render info
-        d["env_rgb_array"] = env.render_rgb_array()
-
-        self.step_info_env: dict = d
-
-    def _tmp_step_worker(self, context: RunContext, state: RunStateActor):
-        d: dict = {
             "action": state.action,
+            "is_skip_step": is_skip_step,
         }
+        # --- worker
         for i, w in enumerate(state.workers):
             d[f"work{i}_info"] = w.info
             d[f"work{i}_rgb_array"] = w.render_rgb_array()
             d[f"work{i}_state_image"] = w.render_rl_image()
 
-        self.step_info_worker: dict = d
+        # --- render
+        d["rgb_array"] = state.workers[0].create_render_image()
 
-    def _add_step(self, is_skip_step=False):
-        d = {"is_skip_step": is_skip_step}
-        d.update(self.step_info_env)
-        d.update(self.step_info_worker)
         self.steps.append(d)
 
 
@@ -74,65 +60,64 @@ class RePlayableGame(GameWindow):
     def __init__(
         self,
         runner: RunnerBase,
-        view_state: bool = True,
+        print_state: bool = True,
         callbacks: List[CallbackType] = [],
         _is_test: bool = False,  # for test
     ) -> None:
         super().__init__(_is_test=_is_test)
         self.runner = runner
-        self.view_state = view_state
+        self.print_state = print_state
 
         self.history = _GetRGBCallback()
         self.callbacks = callbacks[:] + [self.history]
-        self.interval = self.runner.env.config.render_interval
+        self.interval = -1
         self.episodes_cache = {}
         self.episode = 0
-        self._init_episode()
+        self._run_episode()
 
-    def _init_episode(self):
+    def _run_episode(self):
         self.env_pause = True
         self.step = 0
 
         if self.episode in self.episodes_cache:
             cache = self.episodes_cache[self.episode]
             self.episode_info = cache[0]
-            self.episode_data = cache[1]
+            self.steps = cache[1]
         else:
             self.runner.context.disable_trainer = True
             self.runner.run_context(callbacks=self.callbacks)
 
-            total_rewards = 0
+            total_rewards = None
             if len(self.history.steps) > 0:
                 for h in self.history.steps:
                     if total_rewards is None:
                         total_rewards = h["rewards"]
                     else:
-                        total_rewards += h["rewards"]
+                        total_rewards = [total_rewards[i] + h["rewards"][i] for i in range(len(total_rewards))]
             self.episode_info = {"total_rewards": total_rewards}
-            self.episode_data = self.history.steps
+            self.steps = self.history.steps
             self.episodes_cache[self.episode] = [
                 self.episode_info,
-                self.episode_data,
+                self.steps,
             ]
             self._set_image(0)
 
+        if self.interval <= 0:
+            self.interval = self.history.interval
+
     def _set_image(self, step: int):
-        self.set_image(
-            env_image=self.episode_data[step]["env_rgb_array"],
-            rl_image=self.episode_data[step].get("work0_rgb_array", None),
-            rl_state_image=self.episode_data[step].get("work0_state_image", None),
-        )
+        self.set_image(self.steps[step]["rgb_array"])
 
     def on_loop(self, events: List[pygame.event.Event]):
         if self.get_key(pygame.K_UP) == KeyStatus.PRESSED:
             self.episode += 1
-            self._init_episode()
+            self._run_episode()
         elif self.get_key(pygame.K_DOWN) == KeyStatus.PRESSED:
             self.episode -= 1
             if self.episode < 0:
                 self.episode = 0
             else:
-                self._init_episode()
+                self._run_episode()
         elif self.get_key(pygame.K_RIGHT) == KeyStatus.PRESSED:
             self.step += 1
         elif self.get_key(pygame.K_LEFT) == KeyStatus.PRESSED:
@@ -163,26 +148,26 @@ class RePlayableGame(GameWindow):
         t.append(f"-+ : change speed ({self.interval:.0f}ms; {1000 / self.interval:.1f}fps)")
         self.add_hotkey_texts(t)
 
-        if len(self.episode_data) == 0:
+        if len(self.steps) == 0:
             return
 
         if self.step < 0:
             self.step = 0
             self.env_pause = True
-        if self.step >= len(self.episode_data):
-            self.step = len(self.episode_data) - 1
+        if self.step >= len(self.steps):
+            self.step = len(self.steps) - 1
             self.env_pause = True
 
-        step_data = self.episode_data[self.step]
+        step_data = self.steps[self.step]
         self._set_image(self.step)
 
         t = [
             "episode      : {}".format(self.episode),
             "total rewards: {}".format(self.episode_info["total_rewards"]),
-            "step         : {} / {}".format(step_data["step"], len(self.episode_data) - 1),
-            "state        : {}".format(str(step_data["state"])[:20] if self.view_state else "hidden"),
+            "step         : {} / {}".format(step_data["step"], len(self.steps) - 1),
+            "state        : {}".format(str(step_data["state"])[:20] if self.print_state else "hidden"),
             "action       : {}".format(step_data.get("action", None)),
-            "next_player_index: {}".format(step_data["next_player_index"]),
+            "next_player  : {}".format(step_data["next_player"]),
             "invalid_actions  : {}".format(step_data["invalid_actions"]),
             "rewards   : {}".format(step_data["rewards"]),
             "done      : {}".format(step_data["done"]),

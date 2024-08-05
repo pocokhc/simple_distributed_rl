@@ -50,6 +50,7 @@ class TestRL:
         for env_config in env_list:
             test_rl_config = rl_config.copy(reset_env_config=True)
             test_env_config = srl.EnvConfig(env_config) if isinstance(env_config, str) else env_config.copy()
+            test_env_config.render_interval = 1
 
             if use_layer_processor:
                 if test_env_config.name == "Grid":
@@ -72,7 +73,7 @@ class TestRL:
                     runner.render_terminal(max_steps=10)
                     if is_packages_installed(["cv2", "PIL", "pygame"]):
                         if is_available_pygame_video_device():
-                            runner.render_window(max_steps=2, render_interval=1)
+                            runner.render_window(max_steps=2)
                         runner.animation_save_gif("_tmp.gif", max_steps=2)
 
             else:
@@ -105,6 +106,7 @@ class TestRL:
 
         for env_config in env_list:
             env_config = srl.EnvConfig(env_config) if isinstance(env_config, str) else env_config.copy()
+            env_config.render_interval = 1
             rl_config: RLConfig = DummyRLConfig(name=name)
             rl_config.enable_assertion = True
 
@@ -131,7 +133,7 @@ class TestRL:
                     runner.render_terminal(max_steps=10)
                     if is_packages_installed(["cv2", "PIL", "pygame"]):
                         if is_available_pygame_video_device():
-                            runner.render_window(max_steps=10, render_interval=1)
+                            runner.render_window(max_steps=10)
                         runner.animation_save_gif("_tmp.gif", max_steps=10)
 
             else:

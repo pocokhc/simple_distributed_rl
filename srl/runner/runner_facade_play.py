@@ -150,10 +150,11 @@ class RunnerFacadePlay(RunnerBase):
         step_stop: bool = False,
         render_skip_step: bool = True,
         # render option
-        render_interval: float = -1,  # ms
-        render_scale: float = 1.0,
-        font_name: str = "",
-        font_size: int = 18,
+        render_worker: int = 0,
+        render_add_rl_terminal: bool = True,
+        render_add_rl_rgb: bool = True,
+        render_add_rl_state: bool = True,
+        render_add_info_text: bool = True,
         # --- stop config
         timeout: float = -1,
         max_steps: int = -1,
@@ -200,10 +201,11 @@ class RunnerFacadePlay(RunnerBase):
                 kwargs=render_kwargs,
                 step_stop=step_stop,
                 render_skip_step=render_skip_step,
-                render_interval=render_interval,
-                render_scale=render_scale,
-                font_name=font_name,
-                font_size=font_size,
+                render_worker=render_worker,
+                render_add_rl_terminal=render_add_rl_terminal,
+                render_add_rl_rgb=render_add_rl_rgb,
+                render_add_rl_state=render_add_rl_state,
+                render_add_info_text=render_add_info_text,
             )
         )
 
@@ -222,10 +224,11 @@ class RunnerFacadePlay(RunnerBase):
         step_stop: bool = False,
         render_skip_step: bool = True,
         # render option
-        render_interval: float = -1,  # ms
-        render_scale: float = 1.0,
-        font_name: str = "",
-        font_size: int = 18,
+        render_worker: int = 0,
+        render_add_rl_terminal: bool = True,
+        render_add_rl_rgb: bool = True,
+        render_add_rl_state: bool = True,
+        render_add_info_text: bool = True,
         # --- stop config
         timeout: float = -1,
         max_steps: int = -1,
@@ -271,10 +274,11 @@ class RunnerFacadePlay(RunnerBase):
             kwargs=render_kwargs,
             step_stop=step_stop,
             render_skip_step=render_skip_step,
-            render_interval=render_interval,
-            render_scale=render_scale,
-            font_name=font_name,
-            font_size=font_size,
+            render_worker=render_worker,
+            render_add_rl_terminal=render_add_rl_terminal,
+            render_add_rl_rgb=render_add_rl_rgb,
+            render_add_rl_state=render_add_rl_state,
+            render_add_info_text=render_add_info_text,
         )
         callbacks.append(render)
         # -----------------
@@ -299,10 +303,11 @@ class RunnerFacadePlay(RunnerBase):
         # render option
         render_interval: float = -1,  # ms
         render_scale: float = 1.0,
-        font_name: str = "",
-        font_size: int = 18,
-        #
-        draw_info: bool = True,
+        render_worker: int = 0,
+        render_add_rl_terminal: bool = True,
+        render_add_rl_rgb: bool = True,
+        render_add_rl_state: bool = True,
+        render_add_info_text: bool = True,
         # --- stop config
         timeout: float = -1,
         max_steps: int = -1,
@@ -319,10 +324,11 @@ class RunnerFacadePlay(RunnerBase):
             render_kwargs,
             step_stop,
             render_skip_step,
-            render_interval,
-            render_scale,
-            font_name,
-            font_size,
+            render_worker,
+            render_add_rl_terminal,
+            render_add_rl_rgb,
+            render_add_rl_state,
+            render_add_info_text,
             timeout,
             max_steps,
             players,
@@ -331,7 +337,7 @@ class RunnerFacadePlay(RunnerBase):
             parameter,
             memory,
         )
-        render.save_gif(path, render_interval, draw_info)
+        render.save_gif(path, render_interval, render_scale)
         return render
 
     def animation_save_avi(
@@ -344,9 +350,11 @@ class RunnerFacadePlay(RunnerBase):
         # render option
         render_interval: float = -1,  # ms
         render_scale: float = 1.0,
-        font_name: str = "",
-        font_size: int = 18,
-        draw_info: bool = True,
+        render_worker: int = 0,
+        render_add_rl_terminal: bool = True,
+        render_add_rl_rgb: bool = True,
+        render_add_rl_state: bool = True,
+        render_add_info_text: bool = True,
         codec: str = "XVID",
         # --- stop config
         timeout: float = -1,
@@ -364,10 +372,11 @@ class RunnerFacadePlay(RunnerBase):
             render_kwargs,
             step_stop,
             render_skip_step,
-            render_interval,
-            render_scale,
-            font_name,
-            font_size,
+            render_worker,
+            render_add_rl_terminal,
+            render_add_rl_rgb,
+            render_add_rl_state,
+            render_add_info_text,
             timeout,
             max_steps,
             players,
@@ -376,7 +385,7 @@ class RunnerFacadePlay(RunnerBase):
             parameter,
             memory,
         )
-        render.save_avi(path, render_interval, draw_info, codec=codec)
+        render.save_avi(path, render_interval, render_scale, codec=codec)
         return render
 
     def animation_display(
@@ -388,10 +397,11 @@ class RunnerFacadePlay(RunnerBase):
         # render option
         render_interval: float = -1,  # ms
         render_scale: float = 1.0,
-        font_name: str = "",
-        font_size: int = 18,
-        #
-        draw_info: bool = True,
+        render_worker: int = 0,
+        render_add_rl_terminal: bool = True,
+        render_add_rl_rgb: bool = True,
+        render_add_rl_state: bool = True,
+        render_add_info_text: bool = True,
         # --- stop config
         timeout: float = -1,
         max_steps: int = -1,
@@ -408,10 +418,11 @@ class RunnerFacadePlay(RunnerBase):
             render_kwargs,
             step_stop,
             render_skip_step,
-            render_interval,
-            render_scale,
-            font_name,
-            font_size,
+            render_worker,
+            render_add_rl_terminal,
+            render_add_rl_rgb,
+            render_add_rl_state,
+            render_add_info_text,
             timeout,
             max_steps,
             players,
@@ -420,12 +431,12 @@ class RunnerFacadePlay(RunnerBase):
             parameter,
             memory,
         )
-        render.display(render_interval, render_scale, draw_info)
+        render.display(render_interval, render_scale)
         return render
 
     def replay_window(
         self,
-        view_state: bool = True,
+        print_state: bool = True,
         # --- stop config
         timeout: float = -1,
         max_steps: int = -1,
@@ -467,7 +478,7 @@ class RunnerFacadePlay(RunnerBase):
 
         from srl.runner.game_windows.replay_window import RePlayableGame
 
-        window = RePlayableGame(self, view_state=view_state, callbacks=callbacks, _is_test=_is_test)
+        window = RePlayableGame(self, print_state=print_state, callbacks=callbacks, _is_test=_is_test)
         window.play()
 
     def play_terminal(

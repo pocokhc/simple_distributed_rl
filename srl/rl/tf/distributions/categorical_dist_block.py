@@ -1,4 +1,3 @@
-import functools
 from typing import Tuple
 
 import tensorflow as tf
@@ -54,7 +53,6 @@ class CategoricalDist:
     def mean(self):
         raise NotImplementedError()
 
-    @functools.lru_cache
     def mode(self):
         return _argmax(self.logits, -1)
 

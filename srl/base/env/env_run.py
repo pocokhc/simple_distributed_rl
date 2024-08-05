@@ -148,10 +148,7 @@ class EnvRun(Generic[TActType, TObsType]):
         self.env.done_reason = ""
 
         # --- render
-        render_mode = context.render_mode
-        if self.config.override_render_mode != RenderModes.none:
-            render_mode = self.config.override_render_mode
-        self._render.set_render_mode(render_mode)
+        self._render.set_render_mode(render_mode, self.get_render_interval())
 
         # --- processor
         [p.setup(self) for p in self._processors]
@@ -516,24 +513,28 @@ class EnvRun(Generic[TActType, TObsType]):
         scale: float = 1.0,
         font_name: str = "",
         font_size: int = 18,
-    ) -> float:
+    ):
+        self._render.set_render_options(self.get_render_interval(interval), scale, font_name, font_size)
+
+    def get_render_interval(self, interval: float = -1):  # ms
         if interval > 0:
             pass
         elif self.config.render_interval > 0:
             interval = self.config.render_interval
         else:
             interval = self.env.render_interval
-
-        self._render.set_render_options(interval, scale, font_name, font_size)
         return interval
 
     def render(self, **kwargs):
-        self._render.render(render_window=True, **kwargs)
+        return self._render.render(**kwargs)
 
-    def render_ansi(self, **kwargs) -> str:
-        return self._render.render_ansi(**kwargs)
+    def render_terminal_text(self, **kwargs) -> str:
+        return self._render.render_terminal_text(**kwargs)
 
-    def render_rgb_array(self, **kwargs) -> np.ndarray:
+    def render_terminal_text_to_image(self, **kwargs):
+        return self._render.render_terminal_text_to_image(**kwargs)
+
+    def render_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
         return self._render.render_rgb_array(**kwargs)
 
     # ------------------------------------

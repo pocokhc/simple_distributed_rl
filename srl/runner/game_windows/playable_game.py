@@ -75,7 +75,7 @@ class PlayableGame(GameWindow):
         # ---------------------------
 
         # 初期設定
-        self.set_image(self.env.render_rgb_array(), None, None)
+        self.set_image(self.run_worker.create_render_image())
         self.env_interval = self.env.config.render_interval
         self.scene = "START"
         self.mode = "Turn"  # "Turn" or "RealTime"
@@ -184,8 +184,8 @@ class PlayableGame(GameWindow):
             f"player_num       : {self.env.player_num}",
             f"step   : {self.env.step_num}",
             f"state  : {str(self.env.state)[:30] if self.view_state else 'hidden'}",
-            f"next   : {self.env.next_player_index}",
-            f"rewards: {self.env.step_rewards}",
+            f"next   : {self.env.next_player}",
+            f"rewards: {self.env.rewards}",
             f"info   : {self.env.info}",
             f"done   : {self.env.done}({self.env.done_reason})",
             f"time   : {self.step_time * 1000:.1f}ms",
@@ -201,7 +201,7 @@ class PlayableGame(GameWindow):
                     break
 
             self.env._render.cache_reset()
-            self.set_image(self.env.render_rgb_array(), None, None)
+            self.set_image(self.run_worker.create_render_image())
             self._set_cursor_action()
 
             self.step_t0 = time.time()
@@ -231,11 +231,7 @@ class PlayableGame(GameWindow):
                 break
         self.step_time = time.time() - t0
 
-        self.set_image(
-            self.env.render_rgb_array(),
-            self.run_worker.render_rgb_array(),
-            self.run_worker.render_rl_image(),
-        )
+        self.set_image(self.run_worker.create_render_image())
         self._set_cursor_action()
 
     def _on_loop_start(self):

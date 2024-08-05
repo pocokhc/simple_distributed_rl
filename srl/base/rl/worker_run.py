@@ -165,7 +165,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     def on_start(self, context: RunContext):
         self._on_start_val(context)
-        self._render.set_render_mode(context.render_mode)
+        self._render.set_render_mode(context.render_mode, enable_window=False)
         self._worker.on_start(self, context)
         self._has_start = True
 
@@ -519,19 +519,15 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._render.set_render_options(interval, scale, font_name, font_size)
 
     def render(self, **kwargs):
-        if not self._is_reset:
-            return
-        # workerはterminalのみ表示
-        self._render.render(render_window=False, worker=self, **kwargs)
+        return self._render.render(worker=self, **kwargs)
 
-    def render_ansi(self, **kwargs) -> str:
-        if not self._is_reset:
-            return ""  # dummy
-        return self._render.render_ansi(worker=self, **kwargs)
+    def render_terminal_text(self, **kwargs) -> str:
+        return self._render.render_terminal_text(worker=self, **kwargs)
 
-    def render_rgb_array(self, **kwargs) -> np.ndarray:
-        if not self._is_reset:
-            return np.zeros((4, 4, 3), dtype=np.uint8)  # dummy
+    def render_terminal_text_to_image(self, **kwargs):
+        return self._render.render_terminal_text_to_image(worker=self, **kwargs)
+
+    def render_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
         return self._render.render_rgb_array(worker=self, **kwargs)
 
     def render_rl_image(self) -> Optional[np.ndarray]:
@@ -558,6 +554,76 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         else:
             return None
         return img.astype(np.uint8)
+
+    def create_render_image(
+        self,
+        add_terminal: bool = True,
+        add_rgb_array: bool = True,
+        add_rl_state: bool = True,
+        info_text: str = "",
+    ) -> np.ndarray:
+        """
+        ---------------------------------
+        | BG white   | BG black         |
+        | [env]      | [info]           |
+        | [rl state] | [rl render text] |
+        |            | [rl render rgb]  |
+        ---------------------------------
+        """
+        padding = 1
+        color1 = (0, 0, 0)
+
+        # --- env image
+        env_img = self._env.render_rgb_array()
+        if env_img is None:
+            env_img = self._env.render_terminal_text_to_image()
+        assert env_img is not None
+        env_img = render_funcs.add_padding(env_img, padding, padding, padding, padding, (111, 175, 0))
+
+        # [rl state]
+        if add_rl_state:
+            # 同じ場合は省略
+            if self.env.observation_space != self.config._rl_obs_space_one_step:
+                rl_state_img = self.render_rl_image()
+                if rl_state_img is not None:
+                    rl_state_img = render_funcs.add_padding(
+                        rl_state_img, padding, padding, padding, padding, (111, 175, 0)
+                    )
+                    rl_state_img = render_funcs.draw_text(rl_state_img, 0, 12, "RL")
+                    env_img = render_funcs.hconcat(env_img, rl_state_img, color1)
+
+        # [info]
+        rl_img = None
+        if info_text != "":
+            info_img = render_funcs.text_to_rgb_array(info_text, self._render.font_name, self._render.font_size)
+            info_img = render_funcs.add_padding(info_img, padding, padding, padding, padding)
+            rl_img = info_img
+
+        # [rl render text]
+        if add_terminal:
+            t_img = self.render_terminal_text_to_image()
+            if t_img is not None:
+                t_img = render_funcs.add_padding(t_img, padding, padding, padding, padding)
+                if rl_img is None:
+                    rl_img = t_img
+                else:
+                    rl_img = render_funcs.hconcat(rl_img, t_img)
+
+        # [rl render rgb]
+        if add_rgb_array:
+            rl_render = self.render_rgb_array()
+            if rl_render is not None:
+                rl_render = render_funcs.add_padding(rl_render, padding, padding, padding, padding)
+                if rl_img is None:
+                    rl_img = rl_render
+                else:
+                    rl_img = render_funcs.hconcat(rl_img, rl_render)
+
+        # --- env + rl
+        if rl_img is not None:
+            env_img = render_funcs.vconcat(env_img, rl_img, color1, (0, 0, 0))
+
+        return env_img
 
     # ------------------------------------
     # utils

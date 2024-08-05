@@ -151,9 +151,8 @@ class ObservationModes(enum.Flag):
 class RenderModes(enum.Enum):
     none = 0
     terminal = enum.auto()
-    ansi = enum.auto()  # hidden mode
     window = enum.auto()
-    rgb_array = enum.auto()  # hidden mode
+    rgb_array = enum.auto()
 
     @staticmethod
     def get_names() -> List[str]:
@@ -171,7 +170,3 @@ class RenderModes(enum.Enum):
             )
             mode = RenderModes[mode]
         return mode
-
-    @staticmethod
-    def is_rendering(mode: Union[str, "RenderModes"]) -> bool:
-        return not (mode == "" or mode == RenderModes.none)

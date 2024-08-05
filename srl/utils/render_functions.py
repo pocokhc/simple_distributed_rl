@@ -80,6 +80,43 @@ def text_to_rgb_array(
     return img
 
 
+def draw_text(
+    img: np.ndarray,
+    x: int,
+    y: int,
+    text: str,
+    fontScale: float = 0.5,
+    color=(255, 255, 255),
+    thickness=1,
+    outline: bool = True,
+    outline_color=(0, 0, 0),
+):
+    import cv2
+
+    fontFace = cv2.FONT_HERSHEY_SIMPLEX
+
+    if outline:
+        img = cv2.putText(
+            img,
+            text,
+            (x, y),
+            fontFace,
+            fontScale,
+            color=outline_color,
+            thickness=thickness + 2,
+        )
+    img = cv2.putText(
+        img,
+        text,
+        (x, y),
+        fontFace,
+        fontScale,
+        color=color,
+        thickness=thickness,
+    )
+    return img
+
+
 def add_border(image: np.ndarray, border_width: int, border_color=(255, 255, 255)):
     height, width = image.shape[:2]
 
@@ -91,3 +128,27 @@ def add_border(image: np.ndarray, border_width: int, border_color=(255, 255, 255
     new_image[:, :border_width] = border_color
     new_image[:, -border_width:] = border_color
     return new_image
+
+
+def add_padding(img: np.ndarray, top: int, bottom: int, left: int, right: int, color=(0, 0, 0)):
+    import cv2
+
+    return cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)
+
+
+def vconcat(img1: np.ndarray, img2: np.ndarray, color1=(0, 0, 0), color2=(0, 0, 0)):
+    import cv2
+
+    maxh = max(img1.shape[0], img2.shape[0])
+    img1 = cv2.copyMakeBorder(img1, 0, maxh - img1.shape[0], 0, 0, cv2.BORDER_CONSTANT, value=color1)
+    img2 = cv2.copyMakeBorder(img2, 0, maxh - img2.shape[0], 0, 0, cv2.BORDER_CONSTANT, value=color2)
+    return cv2.hconcat([img1, img2])
+
+
+def hconcat(img1: np.ndarray, img2: np.ndarray, color1=(0, 0, 0), color2=(0, 0, 0)):
+    import cv2
+
+    maxw = max(img1.shape[1], img2.shape[1])
+    img1 = cv2.copyMakeBorder(img1, 0, 0, 0, maxw - img1.shape[1], cv2.BORDER_CONSTANT, value=color1)
+    img2 = cv2.copyMakeBorder(img2, 0, 0, 0, maxw - img2.shape[1], cv2.BORDER_CONSTANT, value=color2)
+    return cv2.vconcat([img1, img2])

@@ -2,9 +2,8 @@ import enum
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
-import numpy as np
 import pygame
 
 from srl.utils import pygame_wrapper as pw
@@ -32,10 +31,6 @@ class GameWindow(ABC):
 
         self.org_env_w = 0
         self.org_env_h = 0
-        self.rl_w = 0
-        self.rl_h = 0
-        self.rl_state_w = 0
-        self.rl_state_h = 0
         self.info_w = 100
         self.info_h = 100
         self.scale = 1
@@ -125,38 +120,24 @@ class GameWindow(ABC):
                         is_window_resize = True
 
             # --- window check
-            if self.org_env_w < self.env_image.shape[1]:
-                self.org_env_w = self.env_image.shape[1]
+            if self.org_env_w < self.env_img.shape[1]:
+                self.org_env_w = self.env_img.shape[1]
                 is_window_resize = True
-            if self.org_env_h < self.env_image.shape[0]:
-                self.org_env_h = self.env_image.shape[0]
-                is_window_resize = True
-            if self.rl_w < self.rl_image.shape[1]:
-                self.rl_w = self.rl_image.shape[1]
-                is_window_resize = True
-            if self.rl_h < self.rl_image.shape[0]:
-                self.rl_h = self.rl_image.shape[0]
-                is_window_resize = True
-            if self.rl_state_w < self.rl_state_image.shape[1]:
-                self.rl_state_w = self.rl_state_image.shape[1]
-                is_window_resize = True
-            if self.rl_state_h < self.rl_state_image.shape[0]:
-                self.rl_state_h = self.rl_state_image.shape[0]
+            if self.org_env_h < self.env_img.shape[0]:
+                self.org_env_h = self.env_img.shape[0]
                 is_window_resize = True
 
             self.screen.fill((0, 0, 0))
 
             # --- image
-            pw.draw_image_rgb_array(self.screen, self.base_rl_x, self.base_rl_y, self.rl_image)
-            pw.draw_image_rgb_array(self.screen, 0, self.env_h, self.rl_state_image)
             pw.draw_image_rgb_array(
                 self.screen,
                 0,
                 0,
-                self.env_image,
+                self.env_img,
                 resize=(
-                    int(self.env_image.shape[1] * self.scale),
-                    int(self.env_image.shape[0] * self.scale),
+                    int(self.env_img.shape[1] * self.scale),
+                    int(self.env_img.shape[0] * self.scale),
                 ),
             )
 
@@ -194,14 +175,8 @@ class GameWindow(ABC):
             if self._is_test:
                 self.pygame_done = True
 
-    def set_image(self, env_image: np.ndarray, rl_image: Optional[np.ndarray], rl_state_image: Optional[np.ndarray]):
-        self.env_image = add_border(env_image, 1)
-        self.rl_image = np.zeros((0, 0, 3), np.uint8) if rl_image is None else rl_image
-
-        if rl_state_image is not None:
-            self.rl_state_image = add_border(rl_state_image, 1)
-        else:
-            self.rl_state_image = np.zeros((0, 0, 3), np.uint8)
+    def set_image(self, env_image):
+        self.env_img = add_border(env_image, 1, border_color=(0, 0, 0))
 
     def add_hotkey_texts(self, texts: List[str]):
         self.hotkey_texts.extend(texts)
@@ -214,13 +189,11 @@ class GameWindow(ABC):
         self.env_w = self.org_env_w * scale
         self.env_h = self.org_env_h * scale
 
-        self.base_rl_x = self.env_w + self.padding
-        self.base_rl_y = self.padding
-        self.base_info_x = self.base_rl_x + self.rl_w + self.padding
+        self.base_info_x = self.env_w + self.padding
         self.base_info_y = self.padding
 
-        window_w = self.env_w + self.padding + self.rl_w + self.padding + self.info_w
-        window_h = max(max(self.env_h + self.rl_state_h, self.rl_h), self.info_h) + self.padding * 2
+        window_w = self.base_info_x + self.info_w
+        window_h = max(self.env_h, self.info_h) + self.padding * 2
 
         window_w = min(window_w, 1400)
         window_h = min(window_h, 900)

@@ -25,8 +25,25 @@ def test_render_terminal():
     text = "StubRender\nAAA"
     render.render(text=text)
 
-    text2 = render.render_ansi(text=text)
+    text2 = render.render_terminal_text(text=text)
     assert text2 == text + "\n"
+
+
+def test_render_terminal_to_image():
+    pytest.importorskip("PIL")
+    pytest.importorskip("pygame")
+
+    render = Render(StubRender())
+    render.set_render_mode(mode="rgb_array")
+
+    text = "StubRender\nAAA"
+    img = render.render_terminal_text_to_image(text=text)
+    assert img is not None
+    assert len(img.shape) == 3
+    assert img.shape[2] == 3
+    assert (img >= 0).all()
+    assert (img <= 255).all()
+    assert img.dtype == np.uint8
 
 
 @pytest.mark.parametrize(
@@ -44,12 +61,16 @@ def test_render_rgb_array(return_rgb):
 
     text = "StubRender\nAAA"
 
-    rgb_array = render.render_rgb_array(return_rgb=return_rgb, text=text)
-    assert len(rgb_array.shape) == 3
-    assert rgb_array.shape[2] == 3
-    assert (rgb_array >= 0).all()
-    assert (rgb_array <= 255).all()
-    assert rgb_array.dtype == np.uint8
+    img = render.render_rgb_array(return_rgb=return_rgb, text=text)
+    if return_rgb:
+        assert img is not None
+        assert len(img.shape) == 3
+        assert img.shape[2] == 3
+        assert (img >= 0).all()
+        assert (img <= 255).all()
+        assert img.dtype == np.uint8
+    else:
+        assert img is None
 
 
 def test_render_window():

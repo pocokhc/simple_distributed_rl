@@ -142,9 +142,16 @@ def draw_image_rgb_array(
     y: float,
     rgb_array: np.ndarray,
     resize: Optional[Tuple[int, int]] = None,
+    gray_to_color: bool = False,
 ):
     x = int(x)
     y = int(y)
+
+    if gray_to_color:
+        if len(rgb_array.shape) == 2:
+            rgb_array = np.stack((rgb_array,) * 3, axis=-1)
+        elif (len(rgb_array.shape) == 3) and (rgb_array.shape[-1] == 1):
+            rgb_array = np.tile(rgb_array, (1, 1, 3))
     rgb_array = rgb_array.swapaxes(0, 1)
     img = pygame.surfarray.make_surface(rgb_array)
     if resize is not None:

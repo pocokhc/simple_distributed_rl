@@ -84,9 +84,6 @@ class EnvConfig:
     #: enable_assertionが有効な場合は、enable_sanitizeは無効です。
     enable_assertion: bool = False
 
-    def __post_init__(self):
-        self.override_render_mode: RenderModes = RenderModes.none
-
     def make(self) -> "EnvRun":
         """環境を生成します。 make_env(env_config) と同じ動作です。"""
         from srl.base.env.registration import make

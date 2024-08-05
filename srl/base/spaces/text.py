@@ -5,8 +5,8 @@ from typing import Any, List, Tuple
 import numpy as np
 
 from srl.base.define import SpaceTypes
-
-from .space import SpaceBase
+from srl.base.exception import NotSupportedError
+from srl.base.spaces.space import SpaceBase
 
 alphanumeric = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
@@ -114,13 +114,13 @@ class TextSpace(SpaceBase[str]):
     # --------------------------------------
     @property
     def int_size(self) -> int:
-        raise NotImplementedError("TODO")
+        raise NotImplementedError()
 
     def encode_to_int(self, val: str) -> int:
-        raise NotImplementedError("TODO")
+        raise NotImplementedError()
 
     def decode_from_int(self, val: int) -> str:
-        raise NotImplementedError("TODO")
+        raise NotImplementedError()
 
     # --------------------------------------
     # observation discrete
@@ -186,3 +186,80 @@ class TextSpace(SpaceBase[str]):
 
     def decode_from_np(self, val: np.ndarray) -> str:
         return self.decode_from_list_float(val.tolist())
+
+    # --------------------------------------
+    # spaces
+    # --------------------------------------
+    def create_encode_space(self, space_name: str) -> SpaceBase:
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+        from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+        from srl.base.spaces.box import BoxSpace
+        from srl.base.spaces.discrete import DiscreteSpace
+
+        if space_name == "":
+            return self.copy()
+        elif space_name == "DiscreteSpace":
+            return DiscreteSpace(self.int_size)
+        elif space_name == "ArrayDiscreteSpace":
+            return ArrayDiscreteSpace(self.list_int_size, self.list_int_low, self.list_int_high)
+        elif space_name == "ContinuousSpace":
+            raise NotSupportedError()
+        elif space_name == "ArrayContinuousSpace":
+            return ArrayContinuousSpace(self.list_float_size, self.list_float_low, self.list_float_high)
+        elif space_name == "BoxSpace":
+            return BoxSpace(self.np_shape, self.np_low, self.np_high)
+        elif space_name == "BoxSpace_float":
+            return BoxSpace(self.np_shape, self.np_low, self.np_high, np.float32)
+        elif space_name == "TextSpace":
+            raise NotSupportedError()
+        raise NotImplementedError(space_name)
+
+    def encode_to_space(self, val: str, space: SpaceBase) -> Any:
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+        from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+        from srl.base.spaces.box import BoxSpace
+        from srl.base.spaces.continuous import ContinuousSpace
+        from srl.base.spaces.discrete import DiscreteSpace
+        from srl.base.spaces.multi import MultiSpace
+
+        if isinstance(space, DiscreteSpace):
+            raise NotImplementedError()
+        elif isinstance(space, ArrayDiscreteSpace):
+            val = val + self._padding * (self._max_length - len(val))
+            return [ord(c) for c in val]
+        elif isinstance(space, ContinuousSpace):
+            raise NotImplementedError()
+        elif isinstance(space, ArrayContinuousSpace):
+            val = val + self._padding * (self._max_length - len(val))
+            return [float(ord(c)) for c in val]
+        elif isinstance(space, BoxSpace):
+            return np.array(self.encode_to_list_float(val), dtype=space.dtype)
+        elif isinstance(space, TextSpace):
+            return val
+        elif isinstance(space, MultiSpace):
+            return val
+        raise NotImplementedError()
+
+    def decode_from_space(self, val: Any, space: SpaceBase) -> str:
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+        from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+        from srl.base.spaces.box import BoxSpace
+        from srl.base.spaces.continuous import ContinuousSpace
+        from srl.base.spaces.discrete import DiscreteSpace
+        from srl.base.spaces.multi import MultiSpace
+
+        if isinstance(space, DiscreteSpace):
+            raise NotImplementedError()
+        elif isinstance(space, ArrayDiscreteSpace):
+            return "".join([chr(n) for n in val])
+        elif isinstance(space, ContinuousSpace):
+            raise NotImplementedError()
+        elif isinstance(space, ArrayContinuousSpace):
+            return "".join([chr(int(n)) for n in val])
+        elif isinstance(space, BoxSpace):
+            return self.decode_from_list_float(val.tolist())
+        elif isinstance(space, TextSpace):
+            return val
+        elif isinstance(space, MultiSpace):
+            return val
+        raise NotImplementedError()

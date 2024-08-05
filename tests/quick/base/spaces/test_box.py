@@ -1,10 +1,10 @@
-import itertools
-
 import numpy as np
 import pytest
 
+from srl.base import spaces
 from srl.base.define import SpaceTypes
-from srl.base.spaces import BoxSpace
+from srl.base.exception import NotSupportedError
+from srl.base.spaces.box import BoxSpace
 
 
 def test_space_basic():
@@ -289,3 +289,128 @@ def test_valid_actions():
     )
     assert len(acts) == 1
     assert (acts[0] == [[0], [0]]).all()
+
+
+DB = BoxSpace((2, 1), -1, 0, np.int64)
+CB = BoxSpace((2, 1), -1, 0)
+
+
+@pytest.mark.parametrize(
+    "space, create_space, true_space, val, decode_val",
+    [
+        [DB, "", BoxSpace((2, 1), -1, 0, np.int64), np.array([[-1], [-1]]), [[-1], [-1]]],
+        [DB, "DiscreteSpace", spaces.DiscreteSpace(4), 0, [[-1], [-1]]],
+        [DB, "ArrayDiscreteSpace", spaces.ArrayDiscreteSpace(2, -1, 0), [-1, -1], [[-1], [-1]]],
+        [DB, "ContinuousSpace", None, 0, [[-1], [-1]]],
+        [DB, "ArrayContinuousSpace", spaces.ArrayContinuousSpace(2, -1, 0), [-1, -1], [[-1], [-1]]],
+        # box
+        [DB, "BoxSpace", BoxSpace((2, 1), -1, 0, np.int64, SpaceTypes.DISCRETE), np.array([[-1], [-1]]), [[-1], [-1]]],
+        [CB, "BoxSpace", BoxSpace((2, 1), -1, 0), np.array([[-1], [-1]]), [[-1], [-1]]],
+        [
+            BoxSpace((8, 4), 0, 255, np.int64, SpaceTypes.GRAY_2ch),
+            "BoxSpace",
+            BoxSpace((8, 4), 0, 255, np.int64, SpaceTypes.GRAY_2ch),
+            np.full((8, 4), 2),
+            np.full((8, 4), 2),
+        ],
+        [
+            BoxSpace((8, 4, 1), 0, 255, np.int64, SpaceTypes.GRAY_3ch),
+            "BoxSpace",
+            BoxSpace((8, 4, 1), 0, 255, np.int64, SpaceTypes.GRAY_3ch),
+            np.full((8, 4, 1), 2),
+            np.full((8, 4, 1), 2),
+        ],
+        [
+            BoxSpace((8, 4, 3), 0, 255, np.int64, SpaceTypes.COLOR),
+            "BoxSpace",
+            BoxSpace((8, 4, 3), 0, 255, np.int64, SpaceTypes.COLOR),
+            np.full((8, 4, 3), 2),
+            np.full((8, 4, 3), 2),
+        ],
+        [
+            BoxSpace((8, 4, 2), 0, 255, np.int64, SpaceTypes.IMAGE),
+            "BoxSpace",
+            BoxSpace((8, 4, 2), 0, 255, np.int64, SpaceTypes.IMAGE),
+            np.full((8, 4, 2), 2),
+            np.full((8, 4, 2), 2),
+        ],
+        # box float
+        [
+            DB,
+            "BoxSpace_float",
+            BoxSpace((2, 1), -1, 0, np.float32, SpaceTypes.DISCRETE),
+            np.array([[-1], [-1]]),
+            [[-1], [-1]],
+        ],
+        [
+            CB,
+            "BoxSpace_float",
+            BoxSpace((2, 1), -1, 0, np.float32, SpaceTypes.CONTINUOUS),
+            np.array([[-1], [-1]]),
+            [[-1], [-1]],
+        ],
+        [
+            BoxSpace((8, 4), 0, 255, np.int64, SpaceTypes.GRAY_2ch),
+            "BoxSpace_float",
+            BoxSpace((8, 4), 0, 255, np.float32, SpaceTypes.GRAY_2ch),
+            np.full((8, 4), 2),
+            np.full((8, 4), 2),
+        ],
+        [
+            BoxSpace((8, 4, 1), 0, 255, np.int64, SpaceTypes.GRAY_3ch),
+            "BoxSpace_float",
+            BoxSpace((8, 4, 1), 0, 255, np.float32, SpaceTypes.GRAY_3ch),
+            np.full((8, 4, 1), 2),
+            np.full((8, 4, 1), 2),
+        ],
+        [
+            BoxSpace((8, 4, 3), 0, 255, np.int64, SpaceTypes.COLOR),
+            "BoxSpace_float",
+            BoxSpace((8, 4, 3), 0, 255, np.float32, SpaceTypes.COLOR),
+            np.full((8, 4, 3), 2),
+            np.full((8, 4, 3), 2),
+        ],
+        [
+            BoxSpace((8, 4, 2), 0, 255, np.int64, SpaceTypes.IMAGE),
+            "BoxSpace_float",
+            BoxSpace((8, 4, 2), 0, 255, np.float32, SpaceTypes.IMAGE),
+            np.full((8, 4, 2), 2),
+            np.full((8, 4, 2), 2),
+        ],
+        [DB, "TextSpace", None, "0", [[-1], [-1]]],
+    ],
+)
+def test_space(space: BoxSpace, create_space, true_space, val, decode_val):
+    decode_val = np.array(decode_val)
+    print(space)
+
+    if true_space is None:
+        with pytest.raises(NotSupportedError):
+            space.create_encode_space(create_space)
+        return
+
+    target_space = space.create_encode_space(create_space)
+    print(target_space)
+    print(true_space)
+    assert target_space == true_space
+
+    de = space.decode_from_space(val, target_space)
+    print(de)
+    if isinstance(de, np.ndarray):
+        assert (de == decode_val).all()
+    else:
+        assert de == decode_val
+    assert space.check_val(de)
+    en = space.encode_to_space(decode_val, target_space)
+    if isinstance(en, np.ndarray):
+        assert (en == val).all()
+    else:
+        assert en == val
+    assert target_space.check_val(en)
+
+    de = space.decode_from_space(en, target_space)
+    if isinstance(de, np.ndarray):
+        assert (de == decode_val).all()
+    else:
+        assert de == decode_val
+    assert space.check_val(de)

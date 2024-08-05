@@ -6,8 +6,8 @@ from typing import Any, List, Tuple, Union, cast
 import numpy as np
 
 from srl.base.define import SpaceTypes
-
-from .space import SpaceBase
+from srl.base.exception import NotSupportedError
+from srl.base.spaces.space import SpaceBase
 
 logger = logging.getLogger(__name__)
 
@@ -283,3 +283,85 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
 
     def decode_from_np(self, val: np.ndarray) -> List[int]:
         return np.round(val).astype(np.int64).tolist()
+
+    # --------------------------------------
+    # spaces
+    # --------------------------------------
+    def create_encode_space(self, space_name: str) -> SpaceBase:
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+        from srl.base.spaces.box import BoxSpace
+        from srl.base.spaces.discrete import DiscreteSpace
+
+        if space_name == "":
+            return self.copy()
+        elif space_name == "DiscreteSpace":
+            return DiscreteSpace(self.int_size)
+        elif space_name == "ArrayDiscreteSpace":
+            return ArrayDiscreteSpace(self._size, self._low, self._high)
+        elif space_name == "ContinuousSpace":
+            raise NotSupportedError()
+        elif space_name == "ArrayContinuousSpace":
+            return ArrayContinuousSpace(
+                self._size,
+                cast(List[float], self._low),
+                cast(List[float], self._high),
+            )
+        elif space_name == "BoxSpace":
+            return BoxSpace(self.np_shape, self.np_low, self.np_high, np.int64)
+        elif space_name == "BoxSpace_float":
+            return BoxSpace(self.np_shape, self.np_low, self.np_high, np.float32, SpaceTypes.DISCRETE)
+        elif space_name == "TextSpace":
+            raise NotSupportedError()
+        raise NotImplementedError(space_name)
+
+    def encode_to_space(self, val: List[int], space: SpaceBase) -> Any:
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+        from srl.base.spaces.box import BoxSpace
+        from srl.base.spaces.continuous import ContinuousSpace
+        from srl.base.spaces.discrete import DiscreteSpace
+        from srl.base.spaces.multi import MultiSpace
+        from srl.base.spaces.text import TextSpace
+
+        if isinstance(space, DiscreteSpace):
+            self._create_tbl()
+            assert self.encode_tbl is not None
+            return self.encode_tbl[tuple(val)]
+        elif isinstance(space, ArrayDiscreteSpace):
+            return val
+        elif isinstance(space, ContinuousSpace):
+            raise NotImplementedError()
+        elif isinstance(space, ArrayContinuousSpace):
+            return [float(v) for v in val]
+        elif isinstance(space, BoxSpace):
+            return np.array(val, space.dtype)
+        elif isinstance(space, TextSpace):
+            return ",".join([str(v) for v in val])
+        elif isinstance(space, MultiSpace):
+            return val
+        raise NotImplementedError()
+
+    def decode_from_space(self, val: Any, space: SpaceBase) -> List[int]:
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+        from srl.base.spaces.box import BoxSpace
+        from srl.base.spaces.continuous import ContinuousSpace
+        from srl.base.spaces.discrete import DiscreteSpace
+        from srl.base.spaces.multi import MultiSpace
+        from srl.base.spaces.text import TextSpace
+
+        if isinstance(space, DiscreteSpace):
+            self._create_tbl()
+            assert self.decode_tbl is not None
+            return list(self.decode_tbl[val])
+        elif isinstance(space, ArrayDiscreteSpace):
+            return val
+        elif isinstance(space, ContinuousSpace):
+            raise NotImplementedError()
+        elif isinstance(space, ArrayContinuousSpace):
+            return [int(round(v)) for v in val]
+        elif isinstance(space, BoxSpace):
+            return np.round(val).astype(np.int64).tolist()
+        elif isinstance(space, TextSpace):
+            return [int(v) for v in val.split(",")]
+        elif isinstance(space, MultiSpace):
+            return val
+        raise NotImplementedError()

@@ -85,13 +85,18 @@ class SpaceBase(ABC, Generic[_T]):
 
     # --- utils
     def is_image(self) -> bool:
-        return SpaceTypes.is_image(self.stype)
+        return self.stype in [
+            SpaceTypes.GRAY_2ch,
+            SpaceTypes.GRAY_3ch,
+            SpaceTypes.COLOR,
+            SpaceTypes.IMAGE,
+        ]
 
     def is_discrete(self) -> bool:
-        return SpaceTypes.DISCRETE == self.stype
+        return self.stype == SpaceTypes.DISCRETE
 
     def is_continuous(self) -> bool:
-        return SpaceTypes.CONTINUOUS == self.stype
+        return self.stype == SpaceTypes.CONTINUOUS
 
     # --------------------------------------
     # action discrete
@@ -185,4 +190,17 @@ class SpaceBase(ABC, Generic[_T]):
 
     def decode_from_np(self, val: np.ndarray) -> _T:
         """np.ndarray -> SpaceVal"""
+        raise NotImplementedError()
+
+    # --------------------------------------
+    # spaces
+    # --------------------------------------
+    def create_encode_space(self, space_name: str) -> "SpaceBase":
+        raise NotImplementedError()
+
+    def encode_to_space(self, val: _T, space: "SpaceBase") -> Any:
+        # singledispatchmethodよりisinstanceの方が早い
+        raise NotImplementedError()
+
+    def decode_from_space(self, val: Any, space: "SpaceBase") -> _T:
         raise NotImplementedError()

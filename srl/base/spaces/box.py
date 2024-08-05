@@ -7,8 +7,7 @@ import numpy as np
 
 from srl.base.define import SpaceTypes
 from srl.base.exception import NotSupportedError
-
-from .space import SpaceBase
+from srl.base.spaces.space import SpaceBase
 
 logger = logging.getLogger(__name__)
 
@@ -290,30 +289,30 @@ class BoxSpace(SpaceBase[np.ndarray]):
     @property
     def list_int_size(self) -> int:
         if self._stype == SpaceTypes.DISCRETE:
-            return len(self.low.flatten())
+            return len(self._low.flatten())
         else:
             if self.division_tbl is None:
-                return len(self.low.flatten())
+                return len(self._low.flatten())
             else:
                 return 1
 
     @property
     def list_int_low(self) -> List[int]:
         if self._stype == SpaceTypes.DISCRETE:
-            return self.low.flatten().tolist()
+            return self._low.flatten().tolist()
         else:
             if self.division_tbl is None:
-                return np.round(self.low.flatten()).tolist()
+                return np.round(self._low.flatten()).tolist()
             else:
                 return [0]
 
     @property
     def list_int_high(self) -> List[int]:
         if self._stype == SpaceTypes.DISCRETE:
-            return self.high.flatten().tolist()
+            return self._high.flatten().tolist()
         else:
             if self.division_tbl is None:
-                return np.round(self.high.flatten()).tolist()
+                return np.round(self._high.flatten()).tolist()
             else:
                 return [self.int_size]
 
@@ -343,7 +342,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
     # --------------------------------------
     @property
     def list_float_size(self) -> int:
-        return len(self.low.flatten())
+        return len(self._low.flatten())
 
     @property
     def list_float_low(self) -> List[float]:
@@ -382,3 +381,117 @@ class BoxSpace(SpaceBase[np.ndarray]):
 
     def decode_from_np(self, val: np.ndarray) -> np.ndarray:
         return val.astype(self._dtype)
+
+    # --------------------------------------
+    # spaces
+    # --------------------------------------
+    def create_encode_space(self, space_name: str) -> SpaceBase:
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+        from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+        from srl.base.spaces.discrete import DiscreteSpace
+
+        if space_name == "":
+            return self.copy()
+        elif space_name == "DiscreteSpace":
+            return DiscreteSpace(self.int_size)
+        elif space_name == "ArrayDiscreteSpace":
+            return ArrayDiscreteSpace(self.list_int_size, self.list_int_low, self.list_int_high)
+        elif space_name == "ContinuousSpace":
+            raise NotSupportedError()
+        elif space_name == "ArrayContinuousSpace":
+            return ArrayContinuousSpace(
+                len(self._low.flatten()),
+                self.low.flatten(),
+                self.high.flatten(),
+            )
+        elif space_name == "BoxSpace":
+            return BoxSpace(self._shape, self._low, self._high, self._dtype, self._stype)
+        elif space_name == "BoxSpace_float":
+            return BoxSpace(self._shape, self._low, self._high, np.float32, self._stype)
+        elif space_name == "TextSpace":
+            raise NotSupportedError()
+        raise NotImplementedError(space_name)
+
+    def encode_to_space(self, val: np.ndarray, space: SpaceBase) -> Any:
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+        from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+        from srl.base.spaces.continuous import ContinuousSpace
+        from srl.base.spaces.discrete import DiscreteSpace
+        from srl.base.spaces.multi import MultiSpace
+        from srl.base.spaces.text import TextSpace
+
+        if isinstance(space, DiscreteSpace):
+            if self._stype == SpaceTypes.DISCRETE:
+                self._create_int_tbl()
+                assert self.encode_int_tbl is not None
+                key = val.flatten().tolist()
+                return self.encode_int_tbl[tuple(key)]
+            else:
+                assert self.division_tbl is not None, "Call 'create_division_tbl(division_num)' first"
+                # ユークリッド距離で一番近いものを選択
+                d = (self.division_tbl - val).reshape((self.division_tbl.shape[0], -1))
+                d = np.linalg.norm(d, axis=1)
+                return int(np.argmin(d))
+        elif isinstance(space, ArrayDiscreteSpace):
+            if self._stype == SpaceTypes.DISCRETE:
+                return [int(s) for s in val.flatten().tolist()]
+            else:
+                if self.division_tbl is None:
+                    # 分割してない場合は、roundで丸めるだけ
+                    return [int(s) for s in np.round(val).flatten().tolist()]
+                else:
+                    # 分割してある場合
+                    n = self.encode_to_int(val)
+                    return [n]
+        elif isinstance(space, ContinuousSpace):
+            raise NotSupportedError()
+        elif isinstance(space, ArrayContinuousSpace):
+            return [float(v) for v in val.flatten().tolist()]
+        elif isinstance(space, BoxSpace):
+            val = val.astype(space.dtype)
+            if val.shape == ():
+                val = val.reshape((1,))
+            return val
+        elif isinstance(space, TextSpace):
+            return ",".join([str(v) for v in val.flatten().tolist()])
+        elif isinstance(space, MultiSpace):
+            return val
+        raise NotImplementedError()
+
+    def decode_from_space(self, val: Any, space: SpaceBase) -> np.ndarray:
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+        from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+        from srl.base.spaces.continuous import ContinuousSpace
+        from srl.base.spaces.discrete import DiscreteSpace
+        from srl.base.spaces.multi import MultiSpace
+        from srl.base.spaces.text import TextSpace
+
+        if isinstance(space, DiscreteSpace):
+            if self._stype == SpaceTypes.DISCRETE:
+                self._create_int_tbl()
+                assert self.decode_int_tbl is not None
+                return np.array(self.decode_int_tbl[val], self._dtype).reshape(self._shape)
+            else:
+                if self.division_tbl is None:
+                    return np.full(self._shape, val, dtype=self._dtype)
+                else:
+                    return self.division_tbl[val]
+        elif isinstance(space, ArrayDiscreteSpace):
+            if self._stype == SpaceTypes.DISCRETE:
+                return np.array(val, self._dtype).reshape(self._shape)
+            else:
+                if self.division_tbl is None:
+                    return np.array(val, dtype=self._dtype).reshape(self._shape)
+                else:
+                    return self.division_tbl[val[0]]
+        elif isinstance(space, ContinuousSpace):
+            raise NotSupportedError()
+        elif isinstance(space, ArrayContinuousSpace):
+            return np.array(val, dtype=self._dtype).reshape(self._shape)
+        elif isinstance(space, BoxSpace):
+            return val.astype(self._dtype)
+        elif isinstance(space, TextSpace):
+            return np.array([float(v) for v in val.split(",")], self._dtype).reshape(self._shape)
+        elif isinstance(space, MultiSpace):
+            return val
+        raise NotImplementedError()

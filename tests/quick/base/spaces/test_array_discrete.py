@@ -1,7 +1,10 @@
 import numpy as np
+import pytest
 
+from srl.base import spaces
 from srl.base.define import SpaceTypes
-from srl.base.spaces import ArrayDiscreteSpace
+from srl.base.exception import NotSupportedError
+from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 
 
 def test_space_basic():
@@ -43,7 +46,7 @@ def test_space_get_default():
     assert space.get_default() == [-2, -2, -2]
 
 
-def test_space():
+def test_space_encode():
     space = ArrayDiscreteSpace(3, 0, [2, 5, 3])
     print(space)
 
@@ -160,3 +163,51 @@ def test_valid_actions():
     )
     assert len(acts) == 1
     assert acts[0] == [1, 1]
+
+
+@pytest.mark.parametrize(
+    "create_space, true_space, val, decode_val",
+    [
+        ["", spaces.ArrayDiscreteSpace(2, -1, 3), [1, 1], [1, 1]],
+        ["DiscreteSpace", spaces.DiscreteSpace(25), 2, [-1, 1]],
+        ["ArrayDiscreteSpace", spaces.ArrayDiscreteSpace(2, -1, 3), [1, 1], [1, 1]],
+        ["ContinuousSpace", None, 1.0, [1, 1]],
+        ["ArrayContinuousSpace", spaces.ArrayContinuousSpace(2, -1, 3), [1.0, 1.0], [1, 1]],
+        ["BoxSpace", spaces.BoxSpace((2,), -1, 3, np.int64, SpaceTypes.DISCRETE), np.full((2,), 2), [2, 2]],
+        ["BoxSpace_float", spaces.BoxSpace((2,), -1, 3, np.float32, SpaceTypes.DISCRETE), np.full((2,), 2), [2, 2]],
+        ["TextSpace", None, "2", 3],
+    ],
+)
+def test_space(create_space, true_space, val, decode_val):
+    space = ArrayDiscreteSpace(2, -1, 3)
+    print(space)
+
+    if true_space is None:
+        with pytest.raises(NotSupportedError):
+            space.create_encode_space(create_space)
+        return
+
+    target_space = space.create_encode_space(create_space)
+    print(target_space)
+    assert target_space == true_space
+
+    de = space.decode_from_space(val, target_space)
+    print(de)
+    if isinstance(de, np.ndarray):
+        assert (de == decode_val).all()
+    else:
+        assert de == decode_val
+    assert space.check_val(de)
+    en = space.encode_to_space(decode_val, target_space)
+    if isinstance(en, np.ndarray):
+        assert (en == val).all()
+    else:
+        assert en == val
+    assert target_space.check_val(en)
+
+    de = space.decode_from_space(en, target_space)
+    if isinstance(de, np.ndarray):
+        assert (de == decode_val).all()
+    else:
+        assert de == decode_val
+    assert space.check_val(de)

@@ -5,8 +5,8 @@ from typing import Any, List, Tuple
 import numpy as np
 
 from srl.base.define import SpaceTypes
-
-from .space import SpaceBase
+from srl.base.exception import NotSupportedError
+from srl.base.spaces.space import SpaceBase
 
 logger = logging.getLogger(__name__)
 
@@ -178,3 +178,103 @@ class DiscreteSpace(SpaceBase[int]):
 
     def decode_from_np(self, val: np.ndarray) -> int:
         return int(round(val[0])) + self._start
+
+    # --------------------------------------
+    # spaces
+    # --------------------------------------
+    def create_encode_space(self, space_name: str) -> SpaceBase:
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+        from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+        from srl.base.spaces.box import BoxSpace
+        from srl.base.spaces.continuous import ContinuousSpace
+
+        if space_name == "":
+            return DiscreteSpace(self.int_size)
+        elif space_name == "DiscreteSpace":
+            return DiscreteSpace(self.int_size)
+        elif space_name == "ArrayDiscreteSpace":
+            return ArrayDiscreteSpace(self.list_int_size, self.list_int_low, self.list_int_high)
+        elif space_name == "ContinuousSpace":
+            return ContinuousSpace(0, self._n - 1)
+        elif space_name == "ArrayContinuousSpace":
+            return ArrayContinuousSpace(self.list_float_size, self.list_float_low, self.list_float_high)
+        elif space_name == "BoxSpace":
+            return BoxSpace((1,), 0, self.n - 1, np.int64, SpaceTypes.DISCRETE)
+        elif space_name == "BoxSpace_float":
+            return BoxSpace((1,), 0, self.n - 1, np.float32, SpaceTypes.DISCRETE)
+        # elif stype == EncodeSpaceCreateTypes.GRAY_2ch:
+        #    return BoxSpace((1, 1), 0, self.n - 1, np.int64, SpaceTypes.GRAY_2ch)
+        # elif stype == EncodeSpaceCreateTypes.GRAY_3ch:
+        #    return BoxSpace((1, 1, 1), 0, self.n - 1, np.int64, SpaceTypes.GRAY_3ch)
+        # elif stype == EncodeSpaceCreateTypes.COLOR:
+        #    return BoxSpace((1, 1, 3), 0, self.n - 1, np.int64, SpaceTypes.COLOR)
+        # elif stype == EncodeSpaceCreateTypes.IMAGE:
+        #    return BoxSpace((1, 1, 1), 0, self.n - 1, np.int64, SpaceTypes.IMAGE)
+        elif space_name == "TextSpace":
+            raise NotSupportedError()
+        raise NotImplementedError(space_name)
+
+    def encode_to_space(self, val: int, space: SpaceBase) -> Any:
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+        from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+        from srl.base.spaces.box import BoxSpace
+        from srl.base.spaces.continuous import ContinuousSpace
+        from srl.base.spaces.multi import MultiSpace
+        from srl.base.spaces.text import TextSpace
+
+        if isinstance(space, DiscreteSpace):
+            return val - self._start
+        elif isinstance(space, ArrayDiscreteSpace):
+            return [val - self._start]
+        elif isinstance(space, ContinuousSpace):
+            return float(val - self._start)
+        elif isinstance(space, ArrayContinuousSpace):
+            return [float(val - self._start)]
+        elif isinstance(space, BoxSpace):
+            v = np.array([val - self._start], space.dtype)
+            if space.stype == SpaceTypes.GRAY_2ch:
+                v = v.reshape((1, 1))
+            elif space.stype == SpaceTypes.GRAY_3ch:
+                v = v.reshape((1, 1, 1))
+            elif space.stype == SpaceTypes.COLOR:
+                v = np.full((1, 1, 3), v[0], space.dtype)
+            elif space.stype == SpaceTypes.IMAGE:
+                v = v.reshape((1, 1, 1))
+            return v
+        elif isinstance(space, TextSpace):
+            return str(val - self._start)
+        elif isinstance(space, MultiSpace):
+            return val
+        raise NotImplementedError()
+
+    def decode_from_space(self, val: Any, space: SpaceBase) -> int:
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+        from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+        from srl.base.spaces.box import BoxSpace
+        from srl.base.spaces.continuous import ContinuousSpace
+        from srl.base.spaces.multi import MultiSpace
+        from srl.base.spaces.text import TextSpace
+
+        if isinstance(space, DiscreteSpace):
+            return val + self._start
+        elif isinstance(space, ArrayDiscreteSpace):
+            return val[0] + self._start
+        elif isinstance(space, ContinuousSpace):
+            return int(round(val)) + self._start
+        elif isinstance(space, ArrayContinuousSpace):
+            return int(round(val[0])) + self._start
+        elif isinstance(space, BoxSpace):
+            if space.stype == SpaceTypes.GRAY_2ch:
+                val = val.reshape(-1)
+            elif space.stype == SpaceTypes.GRAY_3ch:
+                val = val.reshape(-1)
+            elif space.stype == SpaceTypes.COLOR:
+                val = [np.mean(val)]
+            elif space.stype == SpaceTypes.IMAGE:
+                val = val.reshape(-1)
+            return int(round(val[0])) + self._start
+        elif isinstance(space, TextSpace):
+            return int(val) + self._start
+        elif isinstance(space, MultiSpace):
+            return val
+        raise NotImplementedError()

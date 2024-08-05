@@ -45,6 +45,10 @@ class Info:
         self._data[name] = data
         self._data_type[name] = data_type
 
+    def set_dict(self, d: dict):
+        for k, v in d.items():
+            self.set_scalar(k, v)
+
     # -------------------------
     def to_str(self) -> str:
         s = ""

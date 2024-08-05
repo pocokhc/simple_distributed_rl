@@ -158,7 +158,7 @@ def _play(
     [w.on_start(context) for w in state.workers]
     if state.trainer is not None:
         state.trainer.on_start(context)
-    state.env.setup(context)
+    state.env.setup(**context.to_dict())
 
     # --- 4 init
     state.worker_indices = [i for i in range(state.env.player_num)]
@@ -246,7 +246,7 @@ def _play(
                 # shuffle
                 if context.shuffle_player:
                     random.shuffle(state.worker_indices)
-                state.worker_idx = state.worker_indices[state.env.next_player_index]
+                state.worker_idx = state.worker_indices[state.env.next_player]
 
                 # worker reset
                 [w.on_reset(state.worker_indices[i], seed=state.episode_seed) for i, w in enumerate(state.workers)]
@@ -311,7 +311,7 @@ def _play(
                 state.train_count = state.trainer.train_count
 
             _stop_flags = [c.on_step_end(context=context, state=state) for c in _calls_on_step_end]
-            state.worker_idx = state.worker_indices[state.env.next_player_index]  # on_step_end の後
+            state.worker_idx = state.worker_indices[state.env.next_player]  # on_step_end の後
 
             if state.env.done:
                 state.env.render()

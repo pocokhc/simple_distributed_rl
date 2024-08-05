@@ -113,7 +113,7 @@ class LayerProcessor(RLProcessor):
         # Layer0: my player field (0 or 1)
         # Layer1: enemy player field (0 or 1)
         _field = np.zeros((_env.columns, _env.rows, 2))
-        if env.next_player_index == 0:
+        if env.next_player == 0:
             my_player = 1
             enemy_player = 2
         else:

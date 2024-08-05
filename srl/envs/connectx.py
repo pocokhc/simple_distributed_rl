@@ -7,10 +7,12 @@ import numpy as np
 
 from srl.base.define import EnvActionType, SpaceTypes
 from srl.base.env import registration
+from srl.base.env.base import EnvBase
 from srl.base.env.env_run import EnvRun
-from srl.base.env.genre import TurnBase2Player
 from srl.base.rl.algorithms.env_worker import EnvWorker
-from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
+from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.discrete import DiscreteSpace
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +35,7 @@ def board_reverse(board):
     return b
 
 
-class ConnectX(TurnBase2Player):
+class ConnectX(EnvBase):
     def __init__(
         self,
         obs_type: str = "",  # "" or "layer"
@@ -62,24 +64,34 @@ class ConnectX(TurnBase2Player):
             return ArrayDiscreteSpace(self.columns * self.rows, low=0, high=2)
 
     @property
+    def player_num(self) -> int:
+        return 2
+
+    @property
     def max_episode_steps(self) -> int:
         return self.columns * self.rows + 2
 
-    @property
-    def next_player_index(self) -> int:
-        return self._next_player_index
-
-    def call_reset(self) -> Tuple[List[int], dict]:
+    def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
         self.board = [0] * self.columns * self.rows
-        self._next_player_index = 0
-        return self._create_state(), {}
+        self.next_player = 0
+        return self._create_state()
+
+    def backup(self) -> Any:
+        return [
+            self.board[:],
+            self.next_player,
+        ]
+
+    def restore(self, data: Any) -> None:
+        self.board = data[0][:]
+        self.next_player = data[1]
 
     def _create_state(self):
         if self.obs_type == "layer":
             # Layer0: my player field (0 or 1)
             # Layer1: enemy player field (0 or 1)
             _field = np.zeros((self.columns, self.rows, 2))
-            if self._next_player_index == 0:
+            if self.next_player == 0:
                 my_player = 1
                 enemy_player = 2
             else:
@@ -96,39 +108,39 @@ class ConnectX(TurnBase2Player):
         else:
             return self.board
 
-    def call_step(self, action: int) -> Tuple[List[int], float, float, bool, dict]:
+    def step(self, action: int) -> Tuple[Any, List[float], bool, bool]:
         column = action
 
         # Mark the position.
         row = max([r for r in range(self.rows) if self.board[column + (r * self.columns)] == 0])
-        self.board[column + (row * self.columns)] = self.next_player_index + 1
+        self.board[column + (row * self.columns)] = self.next_player + 1
 
         # Check for a win.
         if self._is_win(column, row):
-            if self.next_player_index == 0:
+            if self.next_player == 0:
                 reward1 = 1.0
                 reward2 = -1.0
             else:
                 reward1 = -1.0
                 reward2 = 1.0
 
-            return self._create_state(), reward1, reward2, True, {}
+            return self._create_state(), [reward1, reward2], True, False
 
         # Check for a tie.
         if all(mark != 0 for mark in self.board):
-            return self._create_state(), 0.0, 0.0, True, {}
+            return self._create_state(), [0.0, 0.0], True, False
 
         # change player
-        if self._next_player_index == 0:
-            self._next_player_index = 1
+        if self.next_player == 0:
+            self.next_player = 1
         else:
-            self._next_player_index = 0
+            self.next_player = 0
 
-        return self._create_state(), 0.0, 0.0, False, {}
+        return self._create_state(), [0.0, 0.0], False, False
 
     def _is_win(self, column, row):
         inarow = 4 - 1
-        mark = self.next_player_index + 1
+        mark = self.next_player + 1
 
         def count(offset_row, offset_column):
             for i in range(1, inarow + 1):
@@ -164,23 +176,13 @@ class ConnectX(TurnBase2Player):
     def render_interval(self) -> float:
         return 1000 / 1
 
-    def backup(self) -> Any:
-        return [
-            self.board[:],
-            self._next_player_index,
-        ]
-
-    def restore(self, data: Any) -> None:
-        self.board = data[0][:]
-        self._next_player_index = data[1]
-
     def make_worker(self, name: str, **kwargs) -> Optional[EnvWorker]:
         for n in range(2, 12):
             if name == "alphabeta" + str(n):
                 return AlphaBeta(max_depth=n, **kwargs)
         return None
 
-    def direct_step(self, observation, configuration) -> Tuple[bool, List[int], int, dict]:
+    def direct_step(self, observation, configuration) -> Tuple[bool, Any, int]:
         """kaggle_environment を想定
         observation = {
             "remainingOverageTime": 60,
@@ -199,14 +201,14 @@ class ConnectX(TurnBase2Player):
             "timeout": 2,
         }
         """
-        self._next_player_index = observation.mark - 1
+        self.next_player = observation.mark - 1
         self.board = observation.board[:]
 
         # 先行なら step==0、後攻なら step==1 がエピソードの最初
         step = observation.step
         is_start_episode = step == 0 or step == 1
 
-        return is_start_episode, self.board, self.next_player_index, {}
+        return is_start_episode, self.board, self.next_player
 
     def decode_action(self, action):
         return action
@@ -260,7 +262,7 @@ class AlphaBeta(EnvWorker):
         random.shuffle(actions)
         select_action = 0
 
-        if env.next_player_index == 0:
+        if env.next_player == 0:
             # 自分の番
             scores = [-9.0 for _ in range(env.action_space.n)]
             for a in actions:
@@ -268,7 +270,7 @@ class AlphaBeta(EnvWorker):
                     continue
                 env.restore(env_dat)
 
-                _, r1, r2, done, _ = env.call_step(a)
+                _, (r1, r2), done, _ = env.step(a)
                 # print(np.array(env.board).reshape((6, 7)))
                 if done:
                     scores[a] = r1
@@ -294,7 +296,7 @@ class AlphaBeta(EnvWorker):
                     continue
                 env.restore(env_dat)
 
-                _, r1, r2, done, _ = env.call_step(a)
+                _, (r1, r2), done, _ = env.step(a)
                 # print(np.array(env.board).reshape((6, 7)))
                 if done:
                     scores[a] = r1

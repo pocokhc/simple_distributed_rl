@@ -3,11 +3,11 @@ import json
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any, Tuple
+from typing import Any, Optional, Tuple
 
 from srl.base.env import registration
-from srl.base.env.genre import SinglePlayEnv
-from srl.base.spaces import DiscreteSpace
+from srl.base.env.base import EnvBase
+from srl.base.spaces.discrete import DiscreteSpace
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ class State(enum.Enum):
 
 
 @dataclass
-class Tiger(SinglePlayEnv):
+class Tiger(EnvBase[int, int]):
     def __post_init__(self):
         self.prob = 0.85
 
@@ -45,13 +45,17 @@ class Tiger(SinglePlayEnv):
         return DiscreteSpace(len(State))
 
     @property
+    def player_num(self) -> int:
+        return 1
+
+    @property
     def max_episode_steps(self) -> int:
         return 10
 
-    def call_reset(self) -> Tuple[int, dict]:
+    def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
         self.tiger = State(random.randint(0, 1))
         self.state = State(random.randint(0, 1))
-        return self.state.value, {}
+        return self.state.value
 
     def backup(self) -> Any:
         return json.dumps(
@@ -66,8 +70,8 @@ class Tiger(SinglePlayEnv):
         self.tiger = State(d[0])
         self.state = State(d[1])
 
-    def call_step(self, action_: int) -> Tuple[int, float, bool, dict]:
-        action = Action(action_)
+    def step(self, action) -> Tuple[int, float, bool, bool]:
+        action = Action(action)
 
         if action == Action.CHECK:
             done = False
@@ -99,7 +103,7 @@ class Tiger(SinglePlayEnv):
         else:
             raise ValueError()
 
-        return self.state.value, float(reward), done, {}
+        return self.state.value, float(reward), done, False
 
     def render_terminal(self):
         print(f"state: {self.state}, tiger: {self.tiger}")

@@ -2,9 +2,6 @@ import numpy as np
 import pytest
 
 import srl
-from srl.base.define import SpaceTypes
-from srl.base.spaces.box import BoxSpace
-from srl.envs import connectx
 from srl.test.env import TestEnv
 
 
@@ -21,43 +18,50 @@ def test_play():
         env.step(x)
         board[x + (5 * 7)] = 1
         assert not env.done
-        assert (env.step_rewards == [0, 0]).all()
+        assert env.rewards[0] == 0
+        assert env.rewards[1] == 0
         assert env.state == board
 
         env.step(1)
         board[1 + (5 * 7)] = 2
         assert not env.done
-        assert (env.step_rewards == [0, 0]).all()
+        assert env.rewards[0] == 0
+        assert env.rewards[1] == 0
         assert env.state == board
 
         env.step(x)
         board[x + (4 * 7)] = 1
         assert not env.done
-        assert (env.step_rewards == [0, 0]).all()
+        assert env.rewards[0] == 0
+        assert env.rewards[1] == 0
         assert env.state == board
 
         env.step(1)
         board[1 + (4 * 7)] = 2
         assert not env.done
-        assert (env.step_rewards == [0, 0]).all()
+        assert env.rewards[0] == 0
+        assert env.rewards[1] == 0
         assert env.state == board
 
         env.step(x)
         board[x + (3 * 7)] = 1
         assert not env.done
-        assert (env.step_rewards == [0, 0]).all()
+        assert env.rewards[0] == 0
+        assert env.rewards[1] == 0
         assert env.state == board
 
         env.step(1)
         board[1 + (3 * 7)] = 2
         assert not env.done
-        assert (env.step_rewards == [0, 0]).all()
+        assert env.rewards[0] == 0
+        assert env.rewards[1] == 0
         assert env.state == board
 
         env.step(x)
         board[x + (2 * 7)] = 1
         assert env.done
-        assert (env.step_rewards == [1, -1]).all()
+        assert env.rewards[0] == 1
+        assert env.rewards[1] == -1
         assert env.state == board
 
 
@@ -100,7 +104,7 @@ def test_kaggle_connectx():
     def agent(observation, configuration):
         env.direct_step(observation, configuration)
         if env.is_start_episode:
-            worker.on_reset(env.next_player_index, training=False)
+            worker.on_reset(env.next_player)
         action = worker.policy()
         return env.decode_action(action)
 
@@ -128,7 +132,7 @@ def test_kaggle_connectx_success():
     def agent(observation, configuration):
         env.direct_step(observation, configuration)
         if env.is_start_episode:
-            worker.on_reset(env.next_player_index, training=False)
+            worker.on_reset(env.next_player)
         action = worker.policy()
         return env.decode_action(action)
 

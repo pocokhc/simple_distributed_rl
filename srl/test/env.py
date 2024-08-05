@@ -1,5 +1,4 @@
 import srl
-from srl.base.context import RunContext
 from srl.base.define import RenderModes
 from srl.base.env.env_run import EnvRun
 from srl.utils.common import is_available_pygame_video_device, is_packages_installed
@@ -70,15 +69,14 @@ class TestEnv:
         player_num = env.player_num
         assert player_num > 0, "player_num is greater than or equal to 1."
 
-        context = RunContext(render_mode=render_mode)
-        env.setup(context)
+        env.setup(render_mode=render_mode)
 
         # --- reset
         env.reset()
         assert env.observation_space.check_val(env.state), f"Checking observation_space failed. state={env.state}"
         assert (
-            0 <= env.next_player_index < player_num
-        ), f"next_player_index is out of range. (0 <= {env.next_player_index} < {player_num}) is false."
+            0 <= env.next_player < player_num
+        ), f"next_player_index is out of range. (0 <= {env.next_player} < {player_num}) is false."
 
         # --- restore/backup
         if check_restore:
@@ -107,15 +105,15 @@ class TestEnv:
             env.step(action)
             assert env.observation_space.check_val(env.state), f"Checking observation_space failed. state={env.state}"
             assert isinstance(env.done, bool), "The type of done is not bool."
-            assert len(env.step_rewards) == player_num, "The number of rewards and players do not match."
+            assert len(env.rewards) == player_num, "The number of rewards and players do not match."
             assert env.step_num > 0, "steps not counted.(Mainly due to framework side)"
             if not env.done:
                 assert (
-                    0 <= env.next_player_index < player_num
-                ), f"next_player_index is out of range. (0 <= {env.next_player_index} < {player_num}) is false."
+                    0 <= env.next_player < player_num
+                ), f"next_player_index is out of range. (0 <= {env.next_player} < {player_num}) is false."
 
             if print_enable:
-                print(f"step {env.step_num}, actions {action}, rewards {env.step_rewards}")
+                print(f"step {env.step_num}, actions {action}, rewards {env.rewards}")
 
             # --- restore/backup
             if check_restore:

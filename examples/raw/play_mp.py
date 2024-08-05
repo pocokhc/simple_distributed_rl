@@ -49,7 +49,7 @@ def _run_actor(
     env = env_config.make()
     parameter = rl_config.make_parameter(is_load=False)
     worker = rl_config.make_worker(env, parameter, remote_memory)
-    env.setup(context)
+    env.setup(context.render_mode)
     worker.on_start(context)
 
     # episode loop
@@ -202,7 +202,7 @@ def main():
     # --------------------
     context = RunContext(render_mode="terminal")
     worker = rl_config.make_worker(env, parameter)
-    env.setup(context)
+    env.setup(context.render_mode)
     worker.on_start(context)
 
     env.reset()
@@ -213,7 +213,7 @@ def main():
     while not env.done:
         action = worker.policy()
 
-        print(f"player {env.next_player_index}")
+        print(f"player {env.next_player}")
         worker.render()
 
         env.step(action)
@@ -221,10 +221,10 @@ def main():
 
         print(
             "--- turn {}, action {}, rewards: {}, done: {}, next player {}, info: {}, ".format(
-                env.step_num, action, env.step_rewards, env.done, env.next_player_index, env.info
+                env.step_num, action, env.rewards, env.done, env.next_player, env.info
             )
         )
-        print("player {} info: {}".format(env.next_player_index, worker.info))
+        print("player {} info: {}".format(env.next_player, worker.info))
         env.render()
 
     print(f"step: {env.step_num}, reward: {env.episode_rewards}")

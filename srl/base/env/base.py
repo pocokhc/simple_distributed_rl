@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Generic, List, Optional, Tuple, Union
 
-from srl.base.define import DoneTypes, EnvActionType, EnvObservationType, KeyBindType
+from srl.base.define import KeyBindType, TActType, TObsType
+from srl.base.info import Info
 from srl.base.render import IRender
 from srl.base.spaces.space import SpaceBase
 
@@ -9,18 +10,21 @@ if TYPE_CHECKING:
     from srl.base.rl.worker import RLWorker
 
 
-class EnvBase(ABC, IRender):
-    # --------------------------------
-    # implement
-    # --------------------------------
+class EnvBase(ABC, Generic[TActType, TObsType], IRender):
+
+    # Set these in subclasses
+    next_player: int = 0
+    done_reason: str = ""
+    info: Info = Info()
+
     @property
     @abstractmethod
-    def action_space(self) -> SpaceBase:
+    def action_space(self) -> SpaceBase[TActType]:
         raise NotImplementedError()
 
     @property
     @abstractmethod
-    def observation_space(self) -> SpaceBase:
+    def observation_space(self) -> SpaceBase[TObsType]:
         raise NotImplementedError()
 
     @property
@@ -48,36 +52,30 @@ class EnvBase(ABC, IRender):
         pass
 
     @abstractmethod
-    def reset(self) -> Tuple[EnvObservationType, dict]:
+    def reset(self, *, seed: Optional[int] = None, **kwargs) -> TObsType:
         """reset
 
-        Returns: init_state, info
+        Args:
+            seed: set RNG seed
+
+        Return:
+            state(TObsType): initial state
         """
         raise NotImplementedError()
 
     @abstractmethod
-    def step(self, action: EnvActionType) -> Tuple[EnvObservationType, List[float], Union[bool, DoneTypes], dict]:
-        """step
+    def step(self, action: TActType) -> Tuple[TObsType, Union[float, List[float]], bool, bool]:
+        """Take one step forward
 
         Args:
-            action (EnvAction): player_index action
+            action (TActType): next player action
 
-        Returns:(
-            next_state,
-            [
-                player1 reward,
-                player2 reward,
-                ...
-            ],
-            done or DoneTypes,
-            info,
-        )
+        Returns:
+            state (TObsType): State after step
+            rewards (float | list[float]): Reward for each agent after 1 step.
+            terminated (bool): An end flag within the MDP, indicating a general end.
+            truncated (bool): Flags for termination outside of the MDP, such as timeout or exception termination.
         """
-        raise NotImplementedError()
-
-    @property
-    @abstractmethod
-    def next_player_index(self) -> int:
         raise NotImplementedError()
 
     def backup(self) -> Any:
@@ -89,10 +87,10 @@ class EnvBase(ABC, IRender):
     def close(self) -> None:
         pass
 
-    def get_invalid_actions(self, player_index: int = -1) -> List[EnvActionType]:
+    def get_invalid_actions(self, player_index: int = -1) -> List[TActType]:
         return []
 
-    def action_to_str(self, action: Union[str, EnvActionType]) -> str:
+    def action_to_str(self, action: Union[str, TActType]) -> str:
         return str(action)
 
     def get_key_bind(self) -> Optional[KeyBindType]:
@@ -105,9 +103,6 @@ class EnvBase(ABC, IRender):
     def unwrapped(self) -> Any:
         return self
 
-    def set_seed(self, seed: Optional[int] = None) -> None:
-        pass
-
     @property
     def render_interval(self) -> float:
         return 1000 / 60
@@ -115,21 +110,19 @@ class EnvBase(ABC, IRender):
     # --------------------------------
     # direct
     # --------------------------------
-    def direct_step(self, *args, **kwargs) -> Tuple[bool, EnvObservationType, int, dict]:
+    def direct_step(self, *args, **kwargs) -> Tuple[bool, TObsType, int]:
         """direct step
         外部で環境を動かしてpolicyだけ実行したい場合に実装します。
         これは学習で使う場合を想定していません。
 
-        Returns:(
-            is_start_episode,
-            state,
-            player_index,
-            info,
-        )
+        Returns:
+            is_start_episode (bool): Whether this step is the first of an episode. Used to initialize variables
+            state (TObsType): state
+            next_player (int): next player index
         """
         raise NotImplementedError()
 
-    def decode_action(self, action: EnvActionType) -> Any:
+    def decode_action(self, action: TActType) -> Any:
         raise NotImplementedError()
 
     @property
@@ -149,5 +142,5 @@ class EnvBase(ABC, IRender):
         env.restore(self.backup())
         return env
 
-    def get_valid_actions(self, player_index: int = -1) -> List[EnvObservationType]:
+    def get_valid_actions(self, player_index: int = -1) -> List[TActType]:
         return self.action_space.get_valid_actions(self.get_invalid_actions(player_index))

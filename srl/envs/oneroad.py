@@ -1,11 +1,10 @@
-import json
 import logging
 from dataclasses import dataclass
-from typing import Any, Tuple
+from typing import Any, Optional, Tuple
 
 from srl.base.env import registration
-from srl.base.env.genre import SinglePlayEnv
-from srl.base.spaces import DiscreteSpace
+from srl.base.env.base import EnvBase
+from srl.base.spaces.discrete import DiscreteSpace
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +23,7 @@ registration.register(
 
 
 @dataclass
-class OneRoad(SinglePlayEnv):
+class OneRoad(EnvBase[int, int]):
     N: int = 10
     action: int = 2
     is_end: bool = True
@@ -38,30 +37,29 @@ class OneRoad(SinglePlayEnv):
         return DiscreteSpace(self.N)
 
     @property
+    def player_num(self) -> int:
+        return 1
+
+    @property
     def max_episode_steps(self) -> int:
         return int(self.N * 1.1)
 
-    def call_reset(self) -> Tuple[int, dict]:
+    def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
         self.player_pos = 0
-        return self.player_pos, {}
+        return self.player_pos
 
     def backup(self) -> Any:
-        return json.dumps(
-            [
-                self.player_pos,
-            ]
-        )
+        return self.player_pos
 
     def restore(self, data: Any) -> None:
-        d = json.loads(data)
-        self.player_pos = d[0]
+        self.player_pos = data
 
-    def call_step(self, action: int) -> Tuple[int, float, bool, dict]:
+    def step(self, action: int) -> Tuple[int, float, bool, bool]:
         if action == 0:
             self.player_pos += 1
         else:
             if self.is_end:
-                return self.player_pos, 0.0, True, {}
+                return self.player_pos, 0.0, True, False
             else:
                 self.player_pos = 0
 
@@ -72,7 +70,7 @@ class OneRoad(SinglePlayEnv):
             reward = 0.0
             done = False
 
-        return self.player_pos, reward, done, {}
+        return self.player_pos, reward, done, False
 
     def render_terminal(self):
         print(f"{self.player_pos} / {self.N}")

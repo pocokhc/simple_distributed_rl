@@ -7,11 +7,13 @@ from typing import Any, List, Optional, Tuple, cast
 import numpy as np
 
 from srl.base.define import SpaceTypes
+from srl.base.env.base import EnvBase
 from srl.base.env.env_run import EnvRun, SpaceBase
-from srl.base.env.genre import TurnBase2Player
 from srl.base.env.registration import register
 from srl.base.rl.algorithms.env_worker import EnvWorker
-from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
+from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.discrete import DiscreteSpace
 
 logger = logging.getLogger(__name__)
 
@@ -55,13 +57,12 @@ register(
 
 
 @dataclass
-class Othello(TurnBase2Player):
+class Othello(EnvBase):
     W: int = 8
     H: int = 8
     obs_type: str = ""  # "" or "layer"
 
     def __post_init__(self):
-        self._next_player_index = 0
         self.screen = None
 
     def get_field(self, x: int, y: int) -> int:
@@ -98,6 +99,10 @@ class Othello(TurnBase2Player):
             return ArrayDiscreteSpace(self.W * self.H, low=-1, high=1)
 
     @property
+    def player_num(self) -> int:
+        return 2
+
+    @property
     def max_episode_steps(self) -> int:
         return self.W * self.H
 
@@ -108,14 +113,10 @@ class Othello(TurnBase2Player):
             "max": 1,
         }
 
-    @property
-    def next_player_index(self) -> int:
-        return self._next_player_index
-
-    def call_reset(self) -> Tuple[Any, dict]:
+    def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
         self.action = 0
 
-        self._next_player_index = 0
+        self.next_player = 0
         self.field = [0] * (self.W * self.H)
         center_x = int(self.W / 2) - 1
         center_y = int(self.H / 2) - 1
@@ -128,12 +129,12 @@ class Othello(TurnBase2Player):
             self._calc_movable_dirs(1),
         ]
 
-        return self._create_obs(), {}
+        return self._create_obs()
 
     def backup(self) -> Any:
         return pickle.dumps(
             [
-                self._next_player_index,
+                self.next_player,
                 self.W,
                 self.H,
                 self.field,
@@ -143,7 +144,7 @@ class Othello(TurnBase2Player):
 
     def restore(self, data: Any) -> None:
         d = pickle.loads(data)
-        self._next_player_index = d[0]
+        self.next_player = d[0]
         self.W = d[1]
         self.H = d[2]
         self.field = d[3]
@@ -153,7 +154,7 @@ class Othello(TurnBase2Player):
         if self.obs_type == "layer":
             # Layer0: my_player field (0 or 1)
             # Layer1: enemy_player field (0 or 1)
-            if self._next_player_index == 0:
+            if self.next_player == 0:
                 my_field = 1
                 enemy_field = -1
             else:
@@ -213,22 +214,22 @@ class Othello(TurnBase2Player):
 
         return dirs_list
 
-    def call_step(self, action: int) -> Tuple[Any, float, float, bool, dict]:
+    def step(self, action) -> Tuple[Any, List[float], bool, bool]:
         self.action = action
 
         # --- error action
-        if len(self.movable_dirs[self._next_player_index][action]) == 0:
-            if self._next_player_index == 0:
-                return self._create_obs(), -1.0, 0.0, True, {}
+        if len(self.movable_dirs[self.next_player][action]) == 0:
+            if self.next_player == 0:
+                return self._create_obs(), [-1.0, 0.0], True, False
             else:
-                return self._create_obs(), 0.0, -1.0, True, {}
+                return self._create_obs(), [0.0, -1.0], True, False
 
         # --- step
         self._step(action)
 
         # --- 終了判定
-        enemy_player = 1 if self._next_player_index == 0 else 0
-        my_player = 0 if self._next_player_index == 0 else 1
+        enemy_player = 1 if self.next_player == 0 else 0
+        my_player = 0 if self.next_player == 0 else 1
         enemy_put_num = self.action_space.n - len(self.get_invalid_actions(enemy_player))
         my_put_num = self.action_space.n - len(self.get_invalid_actions(my_player))
         # 互いに置けないなら終了
@@ -243,20 +244,22 @@ class Othello(TurnBase2Player):
                 r2 = 1.0
             else:
                 r1 = r2 = 0.0
-            return self._create_obs(), r1, r2, True, {"P1": p1_count, "P2": p2_count}
+            self.info["P1"] = p1_count
+            self.info["P2"] = p2_count
+            return self._create_obs(), [r1, r2], True, False
 
         # 相手が置けないならpass
         if enemy_put_num == 0:
-            return self._create_obs(), 0.0, 0.0, False, {}
+            return self._create_obs(), [0.0, 0.0], False, False
 
         # 手番交代
-        self._next_player_index = enemy_player
-        return self._create_obs(), 0.0, 0.0, False, {}
+        self.next_player = enemy_player
+        return self._create_obs(), [0.0, 0.0], False, False
 
     def _step(self, action):
         # --- update
         x, y = self.pos_decode(action)
-        my_color = 1 if self._next_player_index == 0 else -1
+        my_color = 1 if self.next_player == 0 else -1
         self.field[action] = my_color
 
         # 移動方向はテンキー
@@ -270,7 +273,7 @@ class Othello(TurnBase2Player):
             7: (-1, -1),
             4: (-1, 0),
         }
-        for movable_dir in self.movable_dirs[self._next_player_index][action]:
+        for movable_dir in self.movable_dirs[self.next_player][action]:
             diff_x, diff_y = move_diff[movable_dir]
             tmp_x = x + diff_x
             tmp_y = y + diff_y
@@ -290,7 +293,7 @@ class Othello(TurnBase2Player):
         return [a for a in range(self.H * self.W) if len(self.movable_dirs[player_index][a]) == 0]
 
     def render_terminal(self, **kwargs) -> None:
-        invalid_actions = self.get_invalid_actions(self._next_player_index)
+        invalid_actions = self.get_invalid_actions(self.next_player)
         p1_count = len([f for f in self.field if f == 1])
         p2_count = len([f for f in self.field if f == -1])
 
@@ -316,7 +319,7 @@ class Othello(TurnBase2Player):
             print(s)
         print("-" * (1 + self.W * 3))
         print(f"O: {p1_count}, X: {p2_count}")
-        if self._next_player_index == 0:
+        if self.next_player == 0:
             print("next player: O")
         else:
             print("next player: X")
@@ -333,7 +336,7 @@ class Othello(TurnBase2Player):
         h_margin = 10
         cell_w = int((WIDTH - w_margin * 2) / self.W)
         cell_h = int((HEIGHT - h_margin * 2) / self.H)
-        invalid_actions = self.get_invalid_actions(self._next_player_index)
+        invalid_actions = self.get_invalid_actions(self.next_player)
 
         pw.draw_fill(self.screen, color=(255, 255, 255))
 
@@ -392,7 +395,7 @@ class Othello(TurnBase2Player):
                         line_color=line_color,
                     )
                 elif a not in invalid_actions:
-                    if self._next_player_index == 0:
+                    if self.next_player == 0:
                         color = (0, 0, 0)
                     else:
                         color = (255, 255, 255)
@@ -479,7 +482,7 @@ class Cpu(EnvWorker):
         self._count += 1
 
         env_dat = env.backup()
-        player_index = env._next_player_index
+        player_index = env.next_player
         valid_actions = env.get_valid_actions(player_index)
 
         scores = [-999.0 for _ in range(env.action_space.n)]
@@ -487,7 +490,7 @@ class Cpu(EnvWorker):
             env.restore(env_dat)
 
             # env stepを実施
-            _, r1, r2, done, _ = env.call_step(a)
+            _, (r1, r2), done, _ = env.step(a)
             if done:
                 # 終了状態なら報酬をスコアにする
                 if player_index == 0:
@@ -503,7 +506,7 @@ class Cpu(EnvWorker):
                 if player_index != 0:
                     scores[a] = -scores[a]
             else:
-                is_enemy = player_index != env._next_player_index
+                is_enemy = player_index != env.next_player
                 n_scores = self._negamax(env, depth + 1)
                 if is_enemy:
                     scores[a] = -np.max(n_scores)
@@ -515,7 +518,7 @@ class Cpu(EnvWorker):
 
     def render_terminal(self, worker, **kwargs) -> None:
         _env = cast(Othello, worker.env.unwrapped)
-        valid_actions = worker.env.get_valid_actions(_env._next_player_index)
+        valid_actions = worker.env.get_valid_actions(_env.next_player)
 
         print(f"- MinMax count: {self._render_count}, {self._render_time:.3f}s -")
         for y in range(_env.H):

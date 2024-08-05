@@ -31,12 +31,12 @@ def _run_episode(
 
     while not env.done:
         # 2. action
-        action = workers[env.next_player_index].policy()
+        action = workers[env.next_player].policy()
 
         # --- worker render
         if rendering:
-            print(f"player {env.next_player_index}")
-            workers[env.next_player_index].render()
+            print(f"player {env.next_player}")
+            workers[env.next_player].render()
 
         # 3. step
         env.step(action)
@@ -46,10 +46,10 @@ def _run_episode(
         if rendering:
             print(
                 "--- turn {}, action {}, rewards: {}, done: {}, next player {}, info: {}, ".format(
-                    env.step_num, action, env.step_rewards, env.done, env.next_player_index, env.info
+                    env.step_num, action, env.rewards, env.done, env.next_player, env.info
                 )
             )
-            print("player {} info: {}".format(env.next_player_index, workers[env.next_player_index].info))
+            print("player {} info: {}".format(env.next_player, workers[env.next_player].info))
             env.render()
 
         # 4. train
@@ -90,8 +90,8 @@ def main():
     ]
 
     # --- train
+    env.setup()
     context = srl.RunContext(env_config, rl_config, training=True)
-    env.setup(context)
     [w.on_start(context) for w in workers]
     trainer.on_start(context)
     for episode in range(10000):
@@ -102,8 +102,8 @@ def main():
     trainer.on_end()
 
     # --- evaluate
+    env.setup()
     context = srl.RunContext(env_config, rl_config)
-    env.setup(context)
     [w.on_start(context) for w in workers]
     trainer.on_start(context)
     rewards_list = []
@@ -116,7 +116,7 @@ def main():
 
     # --- render
     context = srl.RunContext(env_config, rl_config, render_mode="terminal")
-    env.setup(context)
+    env.setup(context.render_mode)
     [w.on_start(context) for w in workers]
     _run_episode(env, workers, None, rendering=True)
     [w.on_end() for w in workers]
@@ -135,7 +135,7 @@ def play_cpu():
 
     # set context
     context = srl.RunContext(env_config, render_mode="terminal")
-    env.setup(context)
+    env.setup(context.render_mode)
     player.on_start(context)
     cpu.on_start(context)
 
@@ -148,7 +148,7 @@ def play_cpu():
 
     while not env.done:
         # 1 step
-        if env.next_player_index == 0:
+        if env.next_player == 0:
             action = player.policy()
         else:
             action = cpu.policy()

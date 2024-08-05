@@ -5,7 +5,7 @@ import numpy as np
 import srl
 from srl.base.define import SpaceTypes
 from srl.base.rl.config import DummyRLConfig
-from srl.base.spaces.box import BoxSpace  # noqa F401
+from srl.base.spaces.box import BoxSpace
 from srl.envs import grid
 from srl.test.env import TestEnv
 

@@ -55,9 +55,9 @@ class EnvConfig:
     # --- gym
     #: gym/gymnasiumの環境を生成する場合、この関数を使って生成します。
     gym_make_func: Optional[Callable[..., Union["gym.Env", "gymnasium.Env"]]] = None
-    #: gym/gymnasiumの環境に割り込むためのクラス
+    #: gym/gymnasiumの環境に割り込むためのクラス、フレームワークの代わりに変換する
     #: (pickle化できる必要があります)
-    gym_wrappers: List["GymUserWrapper"] = field(default_factory=list)
+    gym_wrapper: Optional["GymUserWrapper"] = None
     #: gymとgymnasium両方ある場合にgymを使います。（デフォルトはgymnasium）
     use_gym: bool = False
 

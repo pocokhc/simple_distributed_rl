@@ -1,24 +1,53 @@
 import random
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, List
 
 import cv2
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import RLBaseTypes, SpaceTypes
+from srl.base.define import SpaceTypes
+from srl.base.env.env_run import EnvRun
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
+from srl.base.rl.processor import RLProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
+from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.space import SpaceBase
 from srl.rl import functions as funcs
 from srl.rl.models.config.dueling_network import DuelingNetworkConfig
 from srl.rl.models.config.input_config import RLConfigComponentInput
 from srl.rl.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
+
+
+class DownSamplingProcessor(RLProcessor):
+    def remap_observation_space(self, env_observation_space: BoxSpace, env: EnvRun, rl_config: "Config") -> SpaceBase:
+        self.space = env_observation_space
+        return BoxSpace(rl_config.downsampling_size, 0, 8, np.uint8, SpaceTypes.GRAY_2ch)
+
+    def remap_observation(self, state, worker: "Worker", env: EnvRun):
+        # (1) color -> gray
+        if self.space.stype == SpaceTypes.COLOR:
+            state = cv2.cvtColor(state, cv2.COLOR_RGB2GRAY)
+        elif self.space.stype == SpaceTypes.GRAY_3ch:
+            state = np.squeeze(state, axis=-1)
+
+        # (2) down sampling
+        state = cv2.resize(
+            state,
+            (worker.config.downsampling_size[1], worker.config.downsampling_size[0]),
+            interpolation=cv2.INTER_NEAREST,
+        )
+
+        # (3) 255->8
+        state = np.round(state * worker.config.downsampling_val / 255.0)
+
+        return state.astype(np.uint8)
 
 
 @dataclass
@@ -40,6 +69,9 @@ class Config(
     eps1: float = 0.001
     eps2: float = 0.00001
 
+    downsampling_size: tuple = (11, 8)
+    downsampling_val: int = 8
+
     # --- q parameters
     memory_warmup_size: int = 1_000
     memory_capacity: int = 10_000
@@ -52,8 +84,17 @@ class Config(
     #: <:ref:`DuelingNetworkConfig`> hidden layer
     hidden_block: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
 
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.DISCRETE | RLBaseTypes.CONTINUOUS | RLBaseTypes.IMAGE
+    def get_processors(self) -> List[RLProcessor]:
+        return RLConfigComponentInput.get_processors(self)
+
+    def get_render_image_processors(self) -> List[RLProcessor]:
+        return [DownSamplingProcessor()]
+
+    def use_render_image_state(self) -> bool:
+        return True
+
+    def use_backup_restore(self) -> bool:
+        return True
 
     def get_framework(self) -> str:
         return "tensorflow"
@@ -109,24 +150,7 @@ class Memory(RLMemory[Config]):
     # -----------------------------------------------
 
     def create_cell(self, state):
-        space = self.config.observation_space
-        if space.is_image():
-            # (1) color -> gray
-            if space.stype == SpaceTypes.COLOR:
-                state = cv2.cvtColor(state, cv2.COLOR_RGB2GRAY)
-            elif space.stype == SpaceTypes.GRAY_3ch:
-                state = np.squeeze(state, axis=-1)
-
-            # (2) down sampling
-            state = cv2.resize(state, (11, 8), interpolation=cv2.INTER_NEAREST)
-
-            # (3) 255->8
-            state = np.round(state * 8.0 / 255.0)
-
-            return ",".join([str(int(n)) for n in state.flatten().tolist()])
-        else:
-            space.create_division_tbl(self.config.observation_division_num)
-            return ",".join([str(n) for n in space.encode_to_list_int(state)])
+        return ",".join([str(int(n)) for n in state.flatten().tolist()])
 
     def archive_update(self, batch):
         state = batch[0]
@@ -231,12 +255,6 @@ class QNetwork(KerasModelAddedSummary):
         self(np.zeros((1,) + self.space.np_shape))
         self.loss_func = keras.losses.Huber()
 
-    def to_state(self, state):
-        state = self.space.encode_to_np(state, self.dtype)
-        if self.space.is_image():
-            state /= 255
-        return state
-
     def call(self, x, training=False):
         x = self.in_block(x, training=training)
         x = self.hidden_block(x, training=training)
@@ -337,6 +355,7 @@ class Worker(RLWorker[Config, Parameter]):
     def on_start(self, worker, context):
         assert not self.distributed
         self.memory: Memory = self.memory
+        self.screen = None
 
         if self.training and not self.rollout:
             self.memory.create_demo_memory()
@@ -346,8 +365,8 @@ class Worker(RLWorker[Config, Parameter]):
         if self.rollout:
             self.action = self.sample_action()
             batch = [
-                worker.state,
-                [self.parameter.q_online.to_state(worker.state)],
+                worker.render_img_state,
+                [worker.state],
                 [],
                 [],
                 [],
@@ -400,12 +419,12 @@ class Worker(RLWorker[Config, Parameter]):
         if self.rollout:
             self.episode_step += 1
             self.episode_reward += worker.reward
-            self.recent_states.append(self.parameter.q_online.to_state(worker.state))
+            self.recent_states.append(worker.state)
             self.recent_actions.append(funcs.one_hot(worker.action, self.config.action_space.n))
             self.recent_rewards.append(worker.reward)
             self.recent_undone.append(int(not worker.terminated))
             batch = [
-                worker.state,
+                worker.render_img_state,
                 self.recent_states[:],
                 self.recent_actions[:],
                 self.recent_rewards[:],
@@ -423,8 +442,8 @@ class Worker(RLWorker[Config, Parameter]):
 
         else:
             batch = [
-                self.parameter.q_online.to_state(worker.prev_state),
-                self.parameter.q_online.to_state(worker.state),
+                worker.prev_state,
+                worker.state,
                 funcs.one_hot(worker.action, self.config.action_space.n),
                 worker.reward,
                 int(not worker.terminated),
@@ -436,7 +455,7 @@ class Worker(RLWorker[Config, Parameter]):
 
         # --- archive
         print(f"size: {len(self.memory.archive)}")
-        key = self.memory.create_cell(worker.state)
+        key = self.memory.create_cell(worker.render_img_state)
         if key in self.memory.archive:
             cell = self.memory.archive[key]
             print(f"step        : {cell['step']}")
@@ -454,3 +473,49 @@ class Worker(RLWorker[Config, Parameter]):
             return f"{q[a]:7.5f}"
 
         funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)
+
+    def render_rgb_array(self, worker, **kwargs):
+        # policy -> render -> env.step -> on_step
+        from srl.utils import pygame_wrapper as pw
+
+        IMG_W = 96
+        IMG_H = 96
+        PADDING = 2
+
+        if self.screen is None:
+            w = (IMG_W + PADDING) * 1 + 200
+            h = (IMG_H + PADDING) * 4
+            self.screen = pw.create_surface(w, h)
+        pw.draw_fill(self.screen, color=(0, 0, 0))
+
+        text_x = (IMG_W + PADDING) + 4
+        img = worker.env.render_rgb_array()
+        if img is None:
+            img = worker.env.render_terminal_text_to_image()
+        if img is None:
+            return None
+        pw.draw_image_rgb_array(self.screen, 0, 0, img, resize=(IMG_W, IMG_H))
+        pw.draw_text(self.screen, text_x, 0, "original", color=(255, 255, 255))
+
+        # (1) color -> gray
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        y = IMG_H + PADDING
+        pw.draw_image_rgb_array(self.screen, 0, y, img, resize=(IMG_W, IMG_H), gray_to_color=True)
+        pw.draw_text(self.screen, text_x, y, "gray", color=(255, 255, 255))
+
+        # (2) down sampling
+        img = cv2.resize(
+            img, (self.config.downsampling_size[1], self.config.downsampling_size[0]), interpolation=cv2.INTER_NEAREST
+        )
+        y = (IMG_H + PADDING) * 2
+        pw.draw_image_rgb_array(self.screen, 0, y, img, resize=(IMG_W, IMG_H), gray_to_color=True)
+        pw.draw_text(self.screen, text_x, y, f"resize {self.config.downsampling_size}", color=(255, 255, 255))
+
+        # (3) 255->8
+        val = self.config.downsampling_val
+        img = (np.round(img * val / 255.0) * 255 / val).astype(np.uint8)
+        y = (IMG_H + PADDING) * 3
+        pw.draw_image_rgb_array(self.screen, 0, y, img, resize=(IMG_W, IMG_H), gray_to_color=True)
+        pw.draw_text(self.screen, text_x, y, f"255->{val}", color=(255, 255, 255))
+
+        return pw.get_rgb_array(self.screen)

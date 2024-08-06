@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy as np
 
 from srl.base.define import DoneTypes, SpaceTypes
@@ -13,15 +15,15 @@ class AtariProcessor(EnvProcessor):
     def __init__(self):
         assert is_package_installed("ale_py")
 
-    def remap_reset(self, env: EnvRun):
+    def remap_reset(self, state, env: EnvRun):
         self.lives = env.unwrapped.env.unwrapped.ale.lives()
 
-    def remap_step(self, state, rewards, done, info, env: EnvRun):
+    def remap_step(self, state, rewards: List[float], terminated: bool, truncated: bool, env: EnvRun):
         new_lives = env.unwrapped.env.unwrapped.ale.lives()
         if new_lives < self.lives:
-            return state, rewards, DoneTypes.TERMINATED, info
+            return state, rewards, True, truncated
         self.lives = new_lives
-        return state, rewards, done, info
+        return state, rewards, terminated, truncated
 
 
 class AtariPongProcessor(EnvProcessor):
@@ -31,18 +33,18 @@ class AtariPongProcessor(EnvProcessor):
     def remap_observation_space(self, observation_space: SpaceBase, env: EnvRun) -> SpaceBase:
         return BoxSpace((84, 84), 0, 255, np.uint8, stype=SpaceTypes.GRAY_2ch)
 
-    def remap_reset(self, state, info, env: EnvRun):
+    def remap_reset(self, state, env: EnvRun):
         self.point = 0
-        return self._remap_state(state), info
+        return self._remap_state(state)
 
-    def remap_step(self, state, rewards, done, info, env: EnvRun):
+    def remap_step(self, state, rewards: List[float], terminated: bool, truncated: bool, env: EnvRun):
         if env.reward == 1:
             self.point += 1
         elif env.reward == -1:
             self.point += 1
         if self.point == 5:
-            done = DoneTypes.TERMINATED
-        return self._remap_state(state), rewards, done, info
+            terminated = True
+        return self._remap_state(state), rewards, terminated, truncated
 
     def _remap_state(self, state):
         state = image_processor(

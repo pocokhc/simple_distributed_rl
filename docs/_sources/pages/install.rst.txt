@@ -6,16 +6,16 @@ Installation
 
 .. currentmodule:: srl
 
-必須ライブラリはnumpyだけです。  
-ただ使う機能によっては他のライブラリをインストール必要があります。  
+必須ライブラリ
+^^^^^^^^^^^^^^^
 
 .. code-block:: console
 
     $ pip install numpy
 
 
-Option Libraries
-====================
+その他のライブラリ
+^^^^^^^^^^^^^^^^^^
 
 使う機能によって以下ライブラリが必要になります。
 
@@ -23,12 +23,12 @@ Option Libraries
    + tensorflow
    + tensorflow-probability
 + Torch が必要なアルゴリズムを使用する場合
-   + https://pytorch.org/get-started/locally/
-+ 主に画像関係の機能を使用する場合
+   + <https://pytorch.org/get-started/locally/>
++ 画像関係の機能を使用する場合
    + pillow
    + opencv-python
    + pygame
-+ 主にhistoryによる統計情報を扱う場合
++ historyによる統計情報を扱う場合
    + pandas
    + matplotlib
 + OpenAI Gym の環境を使用する場合
@@ -56,14 +56,16 @@ Option Libraries
 Installation
 ============
 
-本フレームワークはGitHubからインストールまたはダウンロードをして使う事を想定しています。  
-GitHubから直接インストールするコマンドは以下です。  
+本フレームワークはGitHubからインストールまたはダウンロードをして使う事ができます。
+
+インストール
+^^^^^^^^^^^^^
 
 .. code-block:: console
 
     $ pip install git+https://github.com/pocokhc/simple_distributed_rl
 
-ダウンロードしてインストールする方法は以下です。
+or
 
 .. code-block:: console
 
@@ -73,7 +75,7 @@ GitHubから直接インストールするコマンドは以下です。
 
 
 Download(No install)
-====================
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 srlディレクトリに実行パスが通っていればダウンロードだけでも使えます。
 

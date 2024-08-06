@@ -1,13 +1,13 @@
 .. _custom_algorithm:
 
 =========================
-Make Original Algorithm
+Making a Custom algorithm
 =========================
 
-ここでは本フレームワークでの自作アルゴリズムを作成する方法を説明します。
+ここでは本フレームワークの自作アルゴリズムを作成する方法を説明します。
 
 + 1.概要  
-+ 2.実装するクラスの説明  
++ 2.実装するクラス  
    + 2-1.Config
    + 2-2.Memory
    + 2-3.Parameter
@@ -21,7 +21,7 @@ Make Original Algorithm
 1. 概要
 ==========
 
-| 自作アルゴリズムは5つクラスが以下のように連携して動作します。
+| 自作アルゴリズムは5つのクラスが以下のように連携して動作します。
 | ※図にはないですが、他にハイパーパラメータを管理するConfigクラスがあります
 | ※WorkerRunとEnvRunはフレームワーク内の内容になるので意識する必要はありません
 
@@ -56,7 +56,7 @@ Make Original Algorithm
 同期的な学習と以下の点が異なります。  
 
 + WorkerがMemoryにサンプルを送るタイミングとTrainerが取り出すタイミングが異なる
-+ ParameterがWorkerとTrainerで同期されない
++ ParameterがWorkerとTrainerで別インスタンス
 
 各クラスの実装の仕方を見ていきます。
 
@@ -76,7 +76,7 @@ RLConfig で実装が必要な関数・プロパティは以下です。
 
    from dataclasses import dataclass
    from srl.base.rl.config import RLConfig
-   from srl.base.define import RLBaseTypes
+   from srl.base.define import RLBaseActTypes, RLBaseObsTypes
    from srl.base.rl.processor import Processor
 
    # 必ず dataclass で書いてください
@@ -93,15 +93,15 @@ RLConfig で実装が必要な関数・プロパティは以下です。
          """ ユニークな名前を返す """
          raise NotImplementedError()
 
-      def get_base_action_type(self) -> RLBaseTypes:
+      def get_base_action_type(self) -> RLBaseActTypes:
          """
-         アルゴリズムが想定するアクションのタイプ(srl.base.define.RLBaseTypes)を返してください。
+         アルゴリズムが想定するアクションのタイプ(srl.base.define.RLBaseActTypes)を返してください。
          """
          raise NotImplementedError()
 
-      def get_base_observation_type(self) -> RLBaseTypes:
+      def get_base_observation_type(self) -> RLBaseObsTypes:
          """
-         アルゴリズムが想定する環境から受け取る状態のタイプ(srl.base.define.RLBaseTypes)を返してください。
+         アルゴリズムが想定する環境から受け取る状態のタイプ(srl.base.define.RLBaseObsTypes)を返してください。
          """
          raise NotImplementedError()
 
@@ -129,14 +129,21 @@ RLConfig で実装が必要な関数・プロパティは以下です。
          """ 分散学習でactorが指定されたときに呼び出されます。Actor関係の初期化がある場合は記載してください。 """
          pass
 
-      def get_processors(self) -> List[Optional[Processor]]:
+      def get_processors(self) -> List[Optional[RLProcessor]]:
          """ 前処理を追加したい場合設定してください """
          return []
 
-      def get_used_backup_restore(self) -> bool:
+      def use_backup_restore(self) -> bool:
          """ MCTSなど、envのbackup/restoreを使う場合はTrueを返してください"""
          return False
 
+      # use_render_image_stateをTrueにするとworker.render_img_stateが有効になります
+      # これはenv.render_rgb_arrayの画像が入ります
+      def use_render_image_state(self) -> bool:
+         return False
+      def get_render_image_processors(self) -> List[RLProcessor]:
+         """render_img_stateに対する前処理"""
+         return []
 
 
 2-2. Memory
@@ -296,8 +303,8 @@ Worker
       worker.on_step()
       trainer.train()
 
-※v0.15.0からRLWorkerを直接継承する方法に変更しました
-※v0.16.0からInfoが戻り値ではなく、内部変数になりました。
+| ※v0.15.0からRLWorkerを直接継承する方法に変更しました
+| ※v0.16.0からInfoが戻り値ではなく、内部変数になりました
 
 .. code-block:: python
 

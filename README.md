@@ -280,7 +280,7 @@ worker.render()
 |Agent57_light |Continuous |Discrete|ValueBase|✔        |✔   |100%|Agent57 - (LSTM,MultiStep)|
 |SearchDynaQ   |Discrete   |Discrete|ModelBase|-         |-    |100%|original|
 |GoDynaQ       |Discrete   |Discrete|ModelBase|-         |-    |99%|original|
-
+|GoDQN         |Continuous |Discrete|ValueBase|✔        |-    |90%|original|
 
 
 # 6. オンライン分散学習

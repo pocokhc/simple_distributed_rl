@@ -6,6 +6,7 @@ from tests.algorithms_ import (
     base_ddpg,
     base_dqn,
     base_dreamer_v3,
+    base_go_dqn,
     base_go_explore,
     base_muzero,
     base_planet,
@@ -112,6 +113,14 @@ class Test_go_explore_CPU(_CommonOption_CPU, base_go_explore.BaseCase):
 
 
 class Test_go_explore_GPU(_CommonOption_GPU, base_go_explore.BaseCase):
+    pass
+
+
+class Test_go_dqn_CPU(_CommonOption_CPU, base_go_dqn.BaseCase):
+    pass
+
+
+class Test_go_dqn_GPU(_CommonOption_GPU, base_go_dqn.BaseCase):
     pass
 
 

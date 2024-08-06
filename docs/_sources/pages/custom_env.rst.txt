@@ -18,14 +18,13 @@ Making a Custom environment
 1. 環境クラスの実装
 =====================
 
-自作環境を作成する方法は大きく二つあります。
-
-1-1. `Gym <https://github.com/openai/gym>`_ または `Gymnasium <https://github.com/Farama-Foundation/Gymnasium>`_ （以下Gym）の環境を用意する
-1-2. 本フレームワークで実装されている 'srl.base.env.EnvBase' を継承する
-
-どちらで作成しても問題ありません。  
-それぞれについて説明します。
-
+| 自作環境を作成する方法は大きく二つあります。
+| 
+| 1-1. `Gym <https://github.com/openai/gym>`_ または `Gymnasium <https://github.com/Farama-Foundation/Gymnasium>`_ （以下Gym）の環境を用意する
+| 1-2. 本フレームワークで実装されている 'srl.base.env.EnvBase' を継承する
+| 
+| どちらで作成しても問題ありません。  
+| それぞれについて説明します。
 
 1-1. Gymクラスによる実装
 --------------------------------------------

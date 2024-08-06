@@ -660,11 +660,19 @@ class RunnerBase:
             eval_shuffle_player=eval_shuffle_player,
         )
 
-    def load_parameter_from_mlflow(self, run_idx: int = -1, parameter_idx: int = -1):
+    def load_parameter_from_mlflow(
+        self,
+        experiment_name: str = "",
+        run_idx: int = -1,
+        parameter_idx: int = -1,
+    ):
         from srl.runner.callbacks.mlflow_callback import MLFlowCallback
 
+        if experiment_name == "":
+            experiment_name = self.env_config.name
+
         MLFlowCallback.load_parameter(
-            self.env_config.name,
+            experiment_name,
             self.make_parameter(is_load=False),
             run_idx,
             parameter_idx,

@@ -237,8 +237,13 @@ class MLFlowCallback(RunCallback, TrainCallback, Evaluate):
         return metric_history
 
     @staticmethod
-    def load_parameter(env_name: str, parameter: RLParameter[RLConfig], run_idx: int = -1, parameter_idx: int = -1):
-        run_id = MLFlowCallback.get_run_id(env_name, parameter.config.name, run_idx)
+    def load_parameter(
+        experiment_name: str,
+        parameter: RLParameter[RLConfig],
+        run_idx: int = -1,
+        parameter_idx: int = -1,
+    ):
+        run_id = MLFlowCallback.get_run_id(experiment_name, parameter.config.name, run_idx)
         if run_id is None:
             return
 
@@ -257,8 +262,8 @@ class MLFlowCallback(RunCallback, TrainCallback, Evaluate):
             parameter.load(os.path.join(temp_dir, path))
 
     @staticmethod
-    def get_run_id(env_name: str, rl_name: str, idx: int = -1) -> Optional[str]:
-        experiment_id = MLFlowCallback.get_experiment_id(env_name)
+    def get_run_id(experiment_name: str, rl_name: str, idx: int = -1) -> Optional[str]:
+        experiment_id = MLFlowCallback.get_experiment_id(experiment_name)
         if experiment_id is None:
             return None
 

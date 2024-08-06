@@ -149,7 +149,8 @@ def _play(
     # render
     if context.rl_config is not None:
         if context.rl_config.used_rgb_array and (context.render_mode != RenderModes.rgb_array):
-            logger.info(f"change render_mode: {context.render_mode} -> rgb_array")
+            if context.run_name != RunNameTypes.eval:
+                logger.info(f"[{context.flow_mode}] change render_mode: {context.render_mode} -> rgb_array")
             context.render_mode = RenderModes.rgb_array
 
     # --- 1 setup_from_actor

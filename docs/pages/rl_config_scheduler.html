@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scheduler &mdash; SimpleDistributedRL 0.16.2.0 ドキュメント</title>
+  <title>Scheduler &mdash; SimpleDistributedRL 0.17.0 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -15,7 +15,7 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=0dc9c58e"></script>
+        <script src="../_static/documentation_options.js?v=95276f23"></script>
         <script src="../_static/doctools.js?v=9a2dae69"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=91613774"></script>
@@ -23,7 +23,7 @@
     <link rel="index" title="索引" href="../genindex.html" />
     <link rel="search" title="検索" href="../search.html" />
     <link rel="next" title="Runner(Configuration related)" href="runner.html" />
-    <link rel="prev" title="Framework" href="rl_config_model.html" /> 
+    <link rel="prev" title="RLConfigComponentFramework" href="rl_config_model.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -53,8 +53,8 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Custom</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Make Original Environment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Make Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Making a Custom environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Making a Custom algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="framework_detail.html">Detailed Framework</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API</span></p>
@@ -63,9 +63,11 @@
 <li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="rl_config_tree.html">RLConfig Parameters</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="rl_config_memory.html">Memory</a></li>
-<li class="toctree-l2"><a class="reference internal" href="rl_config_model.html">Framework</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rl_config_model.html">RLConfigComponentFramework</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rl_config_model.html#rlconfigcomponentinput">RLConfigComponentInput</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rl_config_model.html#inputimageblock">InputImageBlock</a></li>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_model.html#mlpblock">MLPBlock</a></li>
-<li class="toctree-l2"><a class="reference internal" href="rl_config_model.html#imageblock">ImageBlock</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rl_config_model.html#duelingnetwork">DuelingNetwork</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Scheduler</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#srl.rl.schedulers.scheduler.SchedulerConfig"><code class="docutils literal notranslate"><span class="pre">SchedulerConfig</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.schedulers.scheduler.SchedulerConfig.clear"><code class="docutils literal notranslate"><span class="pre">SchedulerConfig.clear()</span></code></a></li>
@@ -347,7 +349,7 @@ clear後、addから始まる関数を使ってください。</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="rl_config_model.html" class="btn btn-neutral float-left" title="Framework" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="rl_config_model.html" class="btn btn-neutral float-left" title="RLConfigComponentFramework" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="runner.html" class="btn btn-neutral float-right" title="Runner(Configuration related)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

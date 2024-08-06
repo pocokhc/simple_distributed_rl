@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Installation &mdash; SimpleDistributedRL 0.16.2.0 ドキュメント</title>
+  <title>Installation &mdash; SimpleDistributedRL 0.17.0 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -15,7 +15,7 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=0dc9c58e"></script>
+        <script src="../_static/documentation_options.js?v=95276f23"></script>
         <script src="../_static/doctools.js?v=9a2dae69"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=91613774"></script>
@@ -48,10 +48,16 @@
               <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#option-libraries">Option Libraries</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id1">Installation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#download-no-install">Download(No install)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#sample-code">Sample code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id1">必須ライブラリ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id2">その他のライブラリ</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id3">Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id4">インストール</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#download-no-install">Download(No install)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#sample-code">Sample code</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="howtouse.html">How To Use</a></li>
@@ -59,8 +65,8 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Custom</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Make Original Environment</a></li>
-<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Make Original Algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Making a Custom environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Making a Custom algorithm</a></li>
 <li class="toctree-l1"><a class="reference internal" href="framework_detail.html">Detailed Framework</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API</span></p>
@@ -116,13 +122,14 @@
              
   <section id="installation">
 <span id="install"></span><h1>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h1>
-<p>必須ライブラリはnumpyだけです。
-ただ使う機能によっては他のライブラリをインストール必要があります。</p>
+<section id="id1">
+<h2>必須ライブラリ<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>numpy
 </pre></div>
 </div>
-<section id="option-libraries">
-<h2>Option Libraries<a class="headerlink" href="#option-libraries" title="Link to this heading"></a></h2>
+</section>
+<section id="id2">
+<h2>その他のライブラリ<a class="headerlink" href="#id2" title="Link to this heading"></a></h2>
 <p>使う機能によって以下ライブラリが必要になります。</p>
 <ul class="simple">
 <li><dl class="simple">
@@ -135,13 +142,13 @@
 </li>
 <li><dl class="simple">
 <dt>Torch が必要なアルゴリズムを使用する場合</dt><dd><ul>
-<li><p><a class="reference external" href="https://pytorch.org/get-started/locally/">https://pytorch.org/get-started/locally/</a></p></li>
+<li><p>&lt;<a class="reference external" href="https://pytorch.org/get-started/locally/">https://pytorch.org/get-started/locally/</a>&gt;</p></li>
 </ul>
 </dd>
 </dl>
 </li>
 <li><dl class="simple">
-<dt>主に画像関係の機能を使用する場合</dt><dd><ul>
+<dt>画像関係の機能を使用する場合</dt><dd><ul>
 <li><p>pillow</p></li>
 <li><p>opencv-python</p></li>
 <li><p>pygame</p></li>
@@ -150,7 +157,7 @@
 </dl>
 </li>
 <li><dl class="simple">
-<dt>主にhistoryによる統計情報を扱う場合</dt><dd><ul>
+<dt>historyによる統計情報を扱う場合</dt><dd><ul>
 <li><p>pandas</p></li>
 <li><p>matplotlib</p></li>
 </ul>
@@ -195,15 +202,17 @@
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>matplotlib<span class="w"> </span>pillow<span class="w"> </span>opencv-python<span class="w"> </span>pygame<span class="w"> </span>pandas<span class="w"> </span>gymnasium<span class="w"> </span>psutil<span class="w"> </span>pynvml
 </pre></div>
 </div>
+<section id="id3">
+<h3>Installation<a class="headerlink" href="#id3" title="Link to this heading"></a></h3>
+<p>本フレームワークはGitHubからインストールまたはダウンロードをして使う事ができます。</p>
 </section>
-<section id="id1">
-<h2>Installation<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
-<p>本フレームワークはGitHubからインストールまたはダウンロードをして使う事を想定しています。
-GitHubから直接インストールするコマンドは以下です。</p>
+</section>
+<section id="id4">
+<h2>インストール<a class="headerlink" href="#id4" title="Link to this heading"></a></h2>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/pocokhc/simple_distributed_rl
 </pre></div>
 </div>
-<p>ダウンロードしてインストールする方法は以下です。</p>
+<p>or</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/pocokhc/simple_distributed_rl.git
 <span class="gp">$ </span><span class="nb">cd</span><span class="w"> </span>simple_distributed_rl
 <span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>.
@@ -227,9 +236,8 @@ GitHubから直接インストールするコマンドは以下です。</p>
 <span class="nb">print</span><span class="p">(</span><span class="n">srl</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span>
 </pre></div>
 </div>
-</section>
 <section id="sample-code">
-<h2>Sample code<a class="headerlink" href="#sample-code" title="Link to this heading"></a></h2>
+<h3>Sample code<a class="headerlink" href="#sample-code" title="Link to this heading"></a></h3>
 <p>動作確認用のサンプルコードは以下です。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">srl</span>
 <span class="kn">from</span> <span class="nn">srl.algorithms</span> <span class="kn">import</span> <span class="n">ql</span>  <span class="c1"># algorithm load</span>
@@ -251,6 +259,7 @@ GitHubから直接インストールするコマンドは以下です。</p>
     <span class="n">main</span><span class="p">()</span>
 </pre></div>
 </div>
+</section>
 </section>
 </section>
 

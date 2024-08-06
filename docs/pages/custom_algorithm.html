@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Make Original Algorithm &mdash; SimpleDistributedRL 0.16.2.0 ドキュメント</title>
+  <title>Making a Custom algorithm &mdash; SimpleDistributedRL 0.17.0 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
 
@@ -15,7 +15,7 @@
   
         <script src="../_static/jquery.js?v=5d32c60e"></script>
         <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=0dc9c58e"></script>
+        <script src="../_static/documentation_options.js?v=95276f23"></script>
         <script src="../_static/doctools.js?v=9a2dae69"></script>
         <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
         <script src="../_static/translations.js?v=91613774"></script>
@@ -23,7 +23,7 @@
     <link rel="index" title="索引" href="../genindex.html" />
     <link rel="search" title="検索" href="../search.html" />
     <link rel="next" title="Detailed Framework" href="framework_detail.html" />
-    <link rel="prev" title="Make Original Environment" href="custom_env.html" /> 
+    <link rel="prev" title="Making a Custom environment" href="custom_env.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -53,8 +53,8 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Custom</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Make Original Environment</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Make Original Algorithm</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Making a Custom environment</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Making a Custom algorithm</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#id1">1. 概要</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#id2">2. 実装する各クラスの説明</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#config">2-1. Config</a></li>
@@ -117,7 +117,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Make Original Algorithm</li>
+      <li class="breadcrumb-item active">Making a Custom algorithm</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/pages/custom_algorithm.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -127,13 +127,13 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="make-original-algorithm">
-<span id="custom-algorithm"></span><h1>Make Original Algorithm<a class="headerlink" href="#make-original-algorithm" title="Link to this heading"></a></h1>
-<p>ここでは本フレームワークでの自作アルゴリズムを作成する方法を説明します。</p>
+  <section id="making-a-custom-algorithm">
+<span id="custom-algorithm"></span><h1>Making a Custom algorithm<a class="headerlink" href="#making-a-custom-algorithm" title="Link to this heading"></a></h1>
+<p>ここでは本フレームワークの自作アルゴリズムを作成する方法を説明します。</p>
 <ul class="simple">
 <li><p>1.概要</p></li>
 <li><dl class="simple">
-<dt>2.実装するクラスの説明</dt><dd><ul>
+<dt>2.実装するクラス</dt><dd><ul>
 <li><p>2-1.Config</p></li>
 <li><p>2-2.Memory</p></li>
 <li><p>2-3.Parameter</p></li>
@@ -150,7 +150,7 @@
 <section id="id1">
 <h2>1. 概要<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
 <div class="line-block">
-<div class="line">自作アルゴリズムは5つクラスが以下のように連携して動作します。</div>
+<div class="line">自作アルゴリズムは5つのクラスが以下のように連携して動作します。</div>
 <div class="line">※図にはないですが、他にハイパーパラメータを管理するConfigクラスがあります</div>
 <div class="line">※WorkerRunとEnvRunはフレームワーク内の内容になるので意識する必要はありません</div>
 </div>
@@ -205,7 +205,7 @@
 <p>同期的な学習と以下の点が異なります。</p>
 <ul class="simple">
 <li><p>WorkerがMemoryにサンプルを送るタイミングとTrainerが取り出すタイミングが異なる</p></li>
-<li><p>ParameterがWorkerとTrainerで同期されない</p></li>
+<li><p>ParameterがWorkerとTrainerで別インスタンス</p></li>
 </ul>
 <p>各クラスの実装の仕方を見ていきます。</p>
 </section>
@@ -218,7 +218,7 @@
 <p>RLConfig で実装が必要な関数・プロパティは以下です。</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.config</span> <span class="kn">import</span> <span class="n">RLConfig</span>
-<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLBaseTypes</span>
+<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLBaseActTypes</span><span class="p">,</span> <span class="n">RLBaseObsTypes</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.processor</span> <span class="kn">import</span> <span class="n">Processor</span>
 
 <span class="c1"># 必ず dataclass で書いてください</span>
@@ -235,15 +235,15 @@
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; ユニークな名前を返す &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="k">def</span> <span class="nf">get_base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
+   <span class="k">def</span> <span class="nf">get_base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseActTypes</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">      アルゴリズムが想定するアクションのタイプ(srl.base.define.RLBaseTypes)を返してください。</span>
+<span class="sd">      アルゴリズムが想定するアクションのタイプ(srl.base.define.RLBaseActTypes)を返してください。</span>
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="k">def</span> <span class="nf">get_base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
+   <span class="k">def</span> <span class="nf">get_base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseObsTypes</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">      アルゴリズムが想定する環境から受け取る状態のタイプ(srl.base.define.RLBaseTypes)を返してください。</span>
+<span class="sd">      アルゴリズムが想定する環境から受け取る状態のタイプ(srl.base.define.RLBaseObsTypes)を返してください。</span>
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
@@ -271,13 +271,21 @@
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; 分散学習でactorが指定されたときに呼び出されます。Actor関係の初期化がある場合は記載してください。 &quot;&quot;&quot;</span>
       <span class="k">pass</span>
 
-   <span class="k">def</span> <span class="nf">get_processors</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">Processor</span><span class="p">]]:</span>
+   <span class="k">def</span> <span class="nf">get_processors</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">RLProcessor</span><span class="p">]]:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; 前処理を追加したい場合設定してください &quot;&quot;&quot;</span>
       <span class="k">return</span> <span class="p">[]</span>
 
-   <span class="k">def</span> <span class="nf">get_used_backup_restore</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+   <span class="k">def</span> <span class="nf">use_backup_restore</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; MCTSなど、envのbackup/restoreを使う場合はTrueを返してください&quot;&quot;&quot;</span>
       <span class="k">return</span> <span class="kc">False</span>
+
+   <span class="c1"># use_render_image_stateをTrueにするとworker.render_img_stateが有効になります</span>
+   <span class="c1"># これはenv.render_rgb_arrayの画像が入ります</span>
+   <span class="k">def</span> <span class="nf">use_render_image_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+      <span class="k">return</span> <span class="kc">False</span>
+   <span class="k">def</span> <span class="nf">get_render_image_processors</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">RLProcessor</span><span class="p">]:</span>
+<span class="w">      </span><span class="sd">&quot;&quot;&quot;render_img_stateに対する前処理&quot;&quot;&quot;</span>
+      <span class="k">return</span> <span class="p">[]</span>
 </pre></div>
 </div>
 </section>
@@ -334,7 +342,7 @@
 </div>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
 
-<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLBaseTypes</span>
+<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLBaseActTypes</span><span class="p">,</span> <span class="n">RLBaseObsTypes</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.config</span> <span class="kn">import</span> <span class="n">RLConfig</span>
 <span class="kn">from</span> <span class="nn">srl.rl.memories.experience_replay_buffer</span> <span class="kn">import</span> <span class="n">ExperienceReplayBuffer</span><span class="p">,</span> <span class="n">RLConfigComponentExperienceReplayBuffer</span>
 
@@ -350,11 +358,11 @@
     <span class="k">def</span> <span class="nf">get_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;MyConfig&quot;</span>
 
-    <span class="k">def</span> <span class="nf">get_base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">RLBaseTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
+    <span class="k">def</span> <span class="nf">get_base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseActTypes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">RLBaseActTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
-    <span class="k">def</span> <span class="nf">get_base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">RLBaseTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
+    <span class="k">def</span> <span class="nf">get_base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseObsTypes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">RLBaseObsTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
     <span class="k">def</span> <span class="nf">get_framework</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;&quot;</span>
@@ -408,7 +416,7 @@
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
-<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLBaseTypes</span>
+<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLBaseActTypes</span><span class="p">,</span> <span class="n">RLBaseObsTypes</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.config</span> <span class="kn">import</span> <span class="n">RLConfig</span>
 <span class="kn">from</span> <span class="nn">srl.rl.memories.priority_experience_replay</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">PriorityExperienceReplay</span><span class="p">,</span>
@@ -424,11 +432,11 @@
     <span class="k">def</span> <span class="nf">get_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;MyConfig&quot;</span>
 
-    <span class="k">def</span> <span class="nf">get_base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">RLBaseTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
+    <span class="k">def</span> <span class="nf">get_base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseActTypes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">RLBaseActTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
-    <span class="k">def</span> <span class="nf">get_base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">RLBaseTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
+    <span class="k">def</span> <span class="nf">get_base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseObsTypes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">RLBaseObsTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
     <span class="k">def</span> <span class="nf">get_framework</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;&quot;</span>
@@ -546,8 +554,10 @@
    <span class="n">trainer</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>※v0.15.0からRLWorkerを直接継承する方法に変更しました
-※v0.16.0からInfoが戻り値ではなく、内部変数になりました。</p>
+<div class="line-block">
+<div class="line">※v0.15.0からRLWorkerを直接継承する方法に変更しました</div>
+<div class="line">※v0.16.0からInfoが戻り値ではなく、内部変数になりました</div>
+</div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">srl.base.rl.worker</span> <span class="kn">import</span> <span class="n">RLWorker</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.worker_run</span> <span class="kn">import</span> <span class="n">WorkerRun</span>
 
@@ -688,7 +698,7 @@ RLConfigとRLWorkerはimport先を変えることで型アノテーションが�
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
-<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLBaseTypes</span>
+<span class="kn">from</span> <span class="nn">srl.base.define</span> <span class="kn">import</span> <span class="n">RLBaseActTypes</span><span class="p">,</span> <span class="n">RLBaseObsTypes</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.config</span> <span class="kn">import</span> <span class="n">RLConfig</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.parameter</span> <span class="kn">import</span> <span class="n">RLParameter</span>
 <span class="kn">from</span> <span class="nn">srl.base.rl.registration</span> <span class="kn">import</span> <span class="n">register</span>
@@ -706,11 +716,11 @@ RLConfigとRLWorkerはimport先を変えることで型アノテーションが�
     <span class="n">gamma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.9</span>
     <span class="n">lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span>
 
-    <span class="k">def</span> <span class="nf">get_base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">RLBaseTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
+    <span class="k">def</span> <span class="nf">get_base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseActTypes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">RLBaseActTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
-    <span class="k">def</span> <span class="nf">get_base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">RLBaseTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
+    <span class="k">def</span> <span class="nf">get_base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseObsTypes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">RLBaseObsTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
     <span class="k">def</span> <span class="nf">get_framework</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;&quot;</span>
@@ -988,7 +998,7 @@ work0 {}
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="custom_env.html" class="btn btn-neutral float-left" title="Make Original Environment" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="custom_env.html" class="btn btn-neutral float-left" title="Making a Custom environment" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="framework_detail.html" class="btn btn-neutral float-right" title="Detailed Framework" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

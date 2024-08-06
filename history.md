@@ -18,26 +18,27 @@
 # v0.17.0
 
 ・Envクラスの実装を見直し、SinglePlayEnv/TurnBase2Playerを非推奨とし、基本はEnvBaseを直接実装する形に変更しました。
+　→ドキュメントも更新しました。
+　　Envをカスタマイズしている場合はEnvBaseへの移行も検討してみてください。
 ・RLクラスでrenderの画像入力を明示的に分け、stateの入力をMultiSpaceを想定したlist[SpaceBase]からただのSpaceBaseだけにしました。これによりコードがかなり簡単になりました。
 ・これに合わせてRender関係も見直して大幅に更新しました。
-
 
 **MainUpdates**
 
 1. [base.env] change: Envクラスの実装を見直し
    1. [base.env.base]
       - change: resetにseed引数を追加、後方互換用に**kwargsを追加
-      - change: stepの戻り値のdoneを terminated,truncated に変更（gymを参考）
+      - change: stepの戻り値のdoneを terminated,truncated に変更（gym準拠）
       - change: infoをEnvBaseで保持するように変更、これによりresetの戻り値とstepの戻り値からinfoを削除
       - change: next_player,done_reason,info をEnvRunからEnvBaseで保持するように変更
       - rename: next_player_indexをnext_playerに変数名変更
    1. [base.env.env_run]
       - change: setupの引数からcontextを削除しcontextに依存しないように変更(これでbase.env内だけで閉じているはず)
-      - change: 報酬をnp配列ではなく配列で保持するように変更（要素数がすくない場合は配列の方が早い(10～100ぐらいが境目?)）
+      - change: 報酬をnp配列ではなく配列で保持するように変更（要素数がすくない場合は配列の方が早い）
       - rename: step_rewardsをrewardsにプロパティ名変更
    1. [base.env.gym]
       - rename: GymUserWrapperをprocessorと合わせて関数の先頭にremap_を追加
-      - change: GymUserWrapperをprocessorみたいにlistを想定していたが複雑になるので1つだけの適用に変更、適用するとフレームワーク側の処理は入らずGymUserWrapperのみで変換
+      - change: GymUserWrapperでprocessorみたいにlistを想定していたが複雑になるので1つだけの適用に変更、適用するとフレームワーク側の処理は入らずGymUserWrapperのみで変換
    1. [base.env] update: Genericを追加
 1. [base.space] update: 値のencode/decodeをintやnp等決め打ちだったが、space-spaceの変換に変更（encode_to_int等は残しているが、フレームワーク内では同クラス内でしか使用しなくなった）
    これによりRL側でMultiSpaceを意識しないくていいはず
@@ -83,6 +84,8 @@
 1. [base.define.DoneTypes] update: boolだけではなくstrにも対応
 1. [base.info] new: set_dictを追加
 1. [algorithms] rename: search_dynaq_v2をgo_dynaqに名前変更し、更新
+1. [algorithms] update: go_exploreを更新
+1. [algorithms] new: go_dqnを新規追加
 
 
 **Bug Fixes**
@@ -92,6 +95,7 @@
 1. [base.spaces.BoxSpace] fix: get_defaultでdtypeの指定がなかったバグ修正
 1. fix: functools.lru_cacheがクラスの関数に対して行うとおかしくなるらしいので削除
 1. update: plt.showの後に念のためplt.clf(),plt.close()を追加
+
 
 # v0.16.4
 

@@ -344,7 +344,7 @@ class GymWrapper(EnvBase):
 
         state = self.observation_space.sanitize(state)
         self.info.set_dict(info)
-        return state, info
+        return state
 
     def step(self, action: EnvActionType) -> Tuple[Any, List[float], bool, bool]:
         if self.use_wrapper_act:

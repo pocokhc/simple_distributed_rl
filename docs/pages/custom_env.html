@@ -63,8 +63,8 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#space">1. Spaceクラスについて</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id5">1. 自作環境の登録</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#space">2. Spaceクラスについて</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id5">3. 自作環境の登録</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#id6">4. 実装例</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#id7">テスト</a></li>
 </ul>
@@ -146,10 +146,8 @@
 <section id="id1">
 <h2>1. 環境クラスの実装<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
 <p>自作環境を作成する方法は大きく二つあります。</p>
-<ul class="simple">
-<li><p><a class="reference external" href="https://github.com/openai/gym">Gym</a> または <a class="reference external" href="https://github.com/Farama-Foundation/Gymnasium">Gymnasium</a> （以下Gym）の環境を用意する</p></li>
-<li><p>本フレームワークで実装されている 'srl.base.env.EnvBase' を継承する</p></li>
-</ul>
+<p>1-1. <a class="reference external" href="https://github.com/openai/gym">Gym</a> または <a class="reference external" href="https://github.com/Farama-Foundation/Gymnasium">Gymnasium</a> （以下Gym）の環境を用意する
+1-2. 本フレームワークで実装されている 'srl.base.env.EnvBase' を継承する</p>
 <p>どちらで作成しても問題ありません。
 それぞれについて説明します。</p>
 <section id="id2">
@@ -289,10 +287,11 @@
 
 <span class="k">class</span> <span class="nc">MyEnvBase</span><span class="p">(</span><span class="n">EnvBase</span><span class="p">):</span>
 
-   <span class="c1"># 内部で既に定義されている変数です</span>
-   <span class="n">next_player</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>   <span class="c1"># これは複数プレイヤーがいる場合に次のプレイヤーのインデックスを代入する必要があります</span>
-   <span class="n">done_reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>  <span class="c1"># (option) 終了時の理由を残せます</span>
-   <span class="n">info</span><span class="p">:</span> <span class="n">Info</span> <span class="o">=</span> <span class="n">Info</span><span class="p">()</span>    <span class="c1"># (option) 辞書形式で各種情報を残せます</span>
+   <span class="c1"># --- 内部で既に定義されている変数です</span>
+   <span class="c1">#     reset, stepの関数内で適宜代入して下さい</span>
+   <span class="c1"># self.next_player: int = 0   # これは複数プレイヤーがいる場合に次のプレイヤーのインデックスを代入する必要があります</span>
+   <span class="c1"># self.done_reason: str = &quot;&quot;  # (option) 終了時の理由を残せます</span>
+   <span class="c1"># self.info: Info = Info()    # (option) 辞書形式で各種情報を残せます</span>
 
    <span class="nd">@property</span>
    <span class="k">def</span> <span class="nf">action_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpaceBase</span><span class="p">:</span>
@@ -408,7 +407,7 @@
 </section>
 </section>
 <section id="space">
-<h2>1. Spaceクラスについて<a class="headerlink" href="#space" title="Link to this heading"></a></h2>
+<h2>2. Spaceクラスについて<a class="headerlink" href="#space" title="Link to this heading"></a></h2>
 <p>Spaceクラスは、アクション・状態の取りうる範囲を決めるクラスで以下となります。
 SpaceTypesはフレームワーク内で定義されている値となります。(<cite>srl.base.define.SpaceTypes</cite>)</p>
 <table class="docutils align-default">
@@ -478,7 +477,7 @@ SpaceTypesはフレームワーク内で定義されている値となります�
 </table>
 </section>
 <section id="id5">
-<h2>1. 自作環境の登録<a class="headerlink" href="#id5" title="Link to this heading"></a></h2>
+<h2>3. 自作環境の登録<a class="headerlink" href="#id5" title="Link to this heading"></a></h2>
 <p>作成した環境は以下で登録します。</p>
 <table class="docutils align-default">
 <thead>

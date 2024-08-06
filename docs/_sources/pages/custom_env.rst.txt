@@ -20,8 +20,8 @@ Making a Custom environment
 
 自作環境を作成する方法は大きく二つあります。
 
-+ `Gym <https://github.com/openai/gym>`_ または `Gymnasium <https://github.com/Farama-Foundation/Gymnasium>`_ （以下Gym）の環境を用意する
-+ 本フレームワークで実装されている 'srl.base.env.EnvBase' を継承する
+1-1. `Gym <https://github.com/openai/gym>`_ または `Gymnasium <https://github.com/Farama-Foundation/Gymnasium>`_ （以下Gym）の環境を用意する
+1-2. 本フレームワークで実装されている 'srl.base.env.EnvBase' を継承する
 
 どちらで作成しても問題ありません。  
 それぞれについて説明します。
@@ -175,10 +175,11 @@ EnvBase
 
    class MyEnvBase(EnvBase):
 
-      # 内部で既に定義されている変数です
-      next_player: int = 0   # これは複数プレイヤーがいる場合に次のプレイヤーのインデックスを代入する必要があります
-      done_reason: str = ""  # (option) 終了時の理由を残せます
-      info: Info = Info()    # (option) 辞書形式で各種情報を残せます
+      # --- 内部で既に定義されている変数です
+      #     reset, stepの関数内で適宜代入して下さい
+      # self.next_player: int = 0   # これは複数プレイヤーがいる場合に次のプレイヤーのインデックスを代入する必要があります
+      # self.done_reason: str = ""  # (option) 終了時の理由を残せます
+      # self.info: Info = Info()    # (option) 辞書形式で各種情報を残せます
 
       @property
       def action_space(self) -> SpaceBase:
@@ -293,7 +294,7 @@ EnvBase
       return None
 
 
-1. Spaceクラスについて
+2. Spaceクラスについて
 =================================
 
 Spaceクラスは、アクション・状態の取りうる範囲を決めるクラスで以下となります。
@@ -352,7 +353,7 @@ SpaceTypesはフレームワーク内で定義されている値となります�
      - 画像形式の形を取り扱います。shapeは(height, width, N)を想定しています。
 
 
-1. 自作環境の登録
+3. 自作環境の登録
 ====================
 
 作成した環境は以下で登録します。

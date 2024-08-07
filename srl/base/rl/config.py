@@ -82,6 +82,8 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     enable_done_encode: bool = True
     #: 過去Nステップをまとめて状態とします
     window_length: int = 1
+    #: 過去Nステップをまとめて状態とします
+    render_image_window_length: int = 1
 
     # --- other
     #: action/observationの値をエラーが出ないように可能な限り変換します。
@@ -114,6 +116,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
     def assert_params(self) -> None:
         assert self.window_length > 0
+        assert self.render_image_window_length > 0
 
     def create_scheduler(self) -> "SchedulerConfig":
         from srl.rl.schedulers.scheduler import SchedulerConfig
@@ -330,9 +333,9 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                         logger.info(f" ->{self._rl_obs_render_img_space_one_step}")
                     self._rl_obs_render_img_space_one_step = cast(BoxSpace, new_space)
 
-            if self.window_length > 1:
+            if self.render_image_window_length > 1:
                 self._rl_obs_render_img_space = self._rl_obs_render_img_space_one_step.create_stack_space(
-                    self.window_length
+                    self.render_image_window_length
                 )
             else:
                 self._rl_obs_render_img_space = self._rl_obs_render_img_space_one_step
@@ -449,7 +452,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                 logger.info(f" rl(one_step): {self._rl_obs_space_one_step}")
             logger.info(f" rl          : {self._rl_obs_space}")
             if self.use_render_image_state():
-                if self.window_length > 1:
+                if self.render_image_window_length > 1:
                     logger.info(f" render_img(one_step): {self._rl_obs_render_img_space_one_step}")
                 logger.info(f" render_img          : {self._rl_obs_render_img_space}")
 

@@ -130,7 +130,11 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     @property
     def render_img_state_one_step(self) -> np.ndarray:
-        return self._recent_render_img_states[-1] if self._config.window_length > 1 else self._render_img_state
+        return (
+            self._recent_render_img_states[-1]
+            if self._config.render_image_window_length > 1
+            else self._render_img_state
+        )
 
     @property
     def prev_action(self) -> TActType:
@@ -214,9 +218,10 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         if self._config.use_render_image_state():
             self._render_img_state = self._config.obs_render_img_space.get_default()
             self._prev_render_img_state = self._render_img_state
-            if self._config.window_length > 1:
+            if self._config.render_image_window_length > 1:
                 self._recent_render_img_states: List[np.ndarray] = [
-                    self._config.obs_render_img_space_one_step.get_default() for _ in range(self._config.window_length)
+                    self._config.obs_render_img_space_one_step.get_default()
+                    for _ in range(self._config.render_image_window_length)
                 ]
         self._action = cast(TActType, 0)
         self._prev_action = cast(TActType, 0)
@@ -359,7 +364,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
                 img_state = p.remap_observation(img_state, self, env)
         img_state = cast(np.ndarray, img_state)
 
-        if self._config.window_length > 1:
+        if self._config.render_image_window_length > 1:
             if append_recent_state:
                 self._recent_render_img_states.pop(0)
                 self._recent_render_img_states.append(img_state)
@@ -584,7 +589,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             d.append(
                 (
                     [self._config.obs_render_img_space_one_step.copy_value(s) for s in self._recent_render_img_states]
-                    if self._config.window_length > 1
+                    if self._config.render_image_window_length > 1
                     else []
                 )
             )
@@ -613,7 +618,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._prev_invalid_actions = dat[13]
         self._env.restore(dat[14])
         if self._config.use_render_image_state():
-            if self._config.window_length > 1:
+            if self._config.render_image_window_length > 1:
                 self._recent_render_img_states = dat[15][:]
             self._render_img_state: np.ndarray = dat[16]
             self._prev_render_img_state: np.ndarray = dat[17]

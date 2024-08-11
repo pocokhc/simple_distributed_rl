@@ -476,14 +476,14 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         ---------------------------------
         """
         padding = 1
-        color1 = (0, 0, 0)
+        border_color = (111, 175, 0)
 
         # --- env image
         env_img = self._env.render_rgb_array()
         if env_img is None:
             env_img = self._env.render_terminal_text_to_image()
         assert env_img is not None
-        env_img = render_funcs.add_padding(env_img, padding, padding, padding, padding, (111, 175, 0))
+        env_img = render_funcs.add_padding(env_img, padding, padding, padding, padding, border_color)
 
         # [rl state]
         if add_rl_state:
@@ -492,10 +492,10 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
                 rl_state_img = self.render_rl_image()
                 if rl_state_img is not None:
                     rl_state_img = render_funcs.add_padding(
-                        rl_state_img, padding, padding, padding, padding, (111, 175, 0)
+                        rl_state_img, padding, padding, padding, padding, border_color
                     )
                     rl_state_img = render_funcs.draw_text(rl_state_img, 0, 12, "RL")
-                    env_img = render_funcs.hconcat(env_img, rl_state_img, color1)
+                    env_img = render_funcs.vconcat(env_img, rl_state_img)
 
         # [info]
         rl_img = None
@@ -512,7 +512,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
                 if rl_img is None:
                     rl_img = t_img
                 else:
-                    rl_img = render_funcs.hconcat(rl_img, t_img)
+                    rl_img = render_funcs.vconcat(rl_img, t_img)
 
         # [rl render rgb]
         if add_rgb_array:
@@ -522,11 +522,11 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
                 if rl_img is None:
                     rl_img = rl_render
                 else:
-                    rl_img = render_funcs.hconcat(rl_img, rl_render)
+                    rl_img = render_funcs.vconcat(rl_img, rl_render)
 
         # --- env + rl
         if rl_img is not None:
-            env_img = render_funcs.vconcat(env_img, rl_img, color1, (0, 0, 0))
+            env_img = render_funcs.hconcat(env_img, rl_img)
 
         return env_img
 

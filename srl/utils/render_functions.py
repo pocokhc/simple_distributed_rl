@@ -137,18 +137,20 @@ def add_padding(img: np.ndarray, top: int, bottom: int, left: int, right: int, c
 
 
 def vconcat(img1: np.ndarray, img2: np.ndarray, color1=(0, 0, 0), color2=(0, 0, 0)):
-    import cv2
-
-    maxh = max(img1.shape[0], img2.shape[0])
-    img1 = cv2.copyMakeBorder(img1, 0, maxh - img1.shape[0], 0, 0, cv2.BORDER_CONSTANT, value=color1)
-    img2 = cv2.copyMakeBorder(img2, 0, maxh - img2.shape[0], 0, 0, cv2.BORDER_CONSTANT, value=color2)
-    return cv2.hconcat([img1, img2])
-
-
-def hconcat(img1: np.ndarray, img2: np.ndarray, color1=(0, 0, 0), color2=(0, 0, 0)):
+    # 垂直
     import cv2
 
     maxw = max(img1.shape[1], img2.shape[1])
     img1 = cv2.copyMakeBorder(img1, 0, 0, 0, maxw - img1.shape[1], cv2.BORDER_CONSTANT, value=color1)
     img2 = cv2.copyMakeBorder(img2, 0, 0, 0, maxw - img2.shape[1], cv2.BORDER_CONSTANT, value=color2)
     return cv2.vconcat([img1, img2])
+
+
+def hconcat(img1: np.ndarray, img2: np.ndarray, color1=(0, 0, 0), color2=(0, 0, 0)):
+    # 水平
+    import cv2
+
+    maxh = max(img1.shape[0], img2.shape[0])
+    img1 = cv2.copyMakeBorder(img1, 0, maxh - img1.shape[0], 0, 0, cv2.BORDER_CONSTANT, value=color1)
+    img2 = cv2.copyMakeBorder(img2, 0, maxh - img2.shape[0], 0, 0, cv2.BORDER_CONSTANT, value=color2)
+    return cv2.hconcat([img1, img2])

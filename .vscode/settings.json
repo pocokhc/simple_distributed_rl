@@ -1,32 +1,22 @@
 {
-    "python.envFile": "${workspaceFolder}/.env",
-    
     // --- python
-    // lint
-    "flake8.args": [
-        "--max-line-length=119",
-        "--ignore=E203",  // E203 whitespace before ':'
-        "--ignore=W503"  // W503 line break before binary operator
-    ],
-    // format
+    "python.envFile": "${workspaceFolder}/.env",
     "[python]": {
         "editor.formatOnSave": true,
         "editor.codeActionsOnSave": {
-            "source.organizeImports": "explicit"
+            "source.fixAll.ruff": "explicit",
+            "source.organizeImports.ruff": "explicit"
         },
-        "editor.defaultFormatter": "ms-python.black-formatter"
+        "editor.defaultFormatter": "charliermarsh.ruff"
     },
-    "black-formatter.args": [
-        "--line-length=119"
-    ],
     // type annotation 
     "python.analysis.typeCheckingMode": "basic",
     // test
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
     "python.testing.pytestArgs": [
         "tests"
     ],
-    "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true,
 
     // --- plant uml
     "plantuml.exportFormat": "png",

@@ -1,0 +1,16 @@
+# --- ruff
+[tool.ruff]
+line-length = 119
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "W"
+]
+ignore = [
+    "E203",  # whitespace before ':'
+]

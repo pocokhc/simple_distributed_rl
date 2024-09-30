@@ -180,7 +180,9 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def episode_seed(self) -> Optional[int]:
         return self._episode_seed
 
-    def on_start(self, context: RunContext):
+    def on_start(self, context: Optional[RunContext] = None):
+        if context is None:
+            context = RunContext(self.env.config, self._config)
         self._on_start_val(context)
         self._render.set_render_mode(context.render_mode, enable_window=False)
         self._worker.on_start(self, context)
@@ -196,7 +198,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     def on_reset(self, player_index: int, seed: Optional[int] = None) -> None:
         if not self._has_start:
-            raise SRLError("Cannot call worker.on_reset() before calling worker.on_start(context)")
+            raise SRLError("Cannot call worker.on_reset() before calling worker.on_start()")
 
         if self._context.rendering:
             self._render.cache_reset()
@@ -306,7 +308,6 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         enable_encode: bool,
         append_recent_state: bool,
     ) -> TObsType:
-
         # --- observation_mode
         if self._config.observation_mode == ObservationModes.ENV:
             pass
@@ -351,7 +352,6 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         enable_encode: bool,
         append_recent_state: bool,
     ) -> np.ndarray:
-
         if self.config.obs_render_type == "rgb_array":
             img_state = env.render_rgb_array()
         elif self.config.obs_render_type == "terminal":

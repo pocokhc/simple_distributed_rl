@@ -305,10 +305,6 @@ class GymnasiumWrapper(EnvBase):
     def player_num(self) -> int:
         return 1
 
-    @property
-    def next_player_index(self) -> int:
-        return 0
-
     def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
         if seed is None:
             state, info = self.env.reset()

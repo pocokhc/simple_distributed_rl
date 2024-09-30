@@ -46,6 +46,7 @@ class EnvRun(Generic[TActType, TObsType]):
         self.config._update_env_info(self.env)  # config update
         self._render = Render(self.env)
         self._reset_vals()
+        self.env.next_player = 0
         self._done = DoneTypes.RESET
         self._is_direct_step = False
         self._has_start = False
@@ -56,7 +57,6 @@ class EnvRun(Generic[TActType, TObsType]):
         self._done = DoneTypes.NONE
         self.env.done_reason = ""
         self._prev_player: int = 0
-        self.env.next_player = 0
         self._episode_rewards = [0.0 for _ in range(self.env.player_num)]
         self._step_rewards = [0.0 for _ in range(self.env.player_num)]
         self._invalid_actions_list: List[List[TActType]] = [[] for _ in range(self.env.player_num)]
@@ -174,8 +174,7 @@ class EnvRun(Generic[TActType, TObsType]):
                 assert (not terminated) and (not truncated), "Terminated during noop step."
 
         self._invalid_actions_list = [self.env.get_invalid_actions(i) for i in range(self.env.player_num)]
-        self._next_player = self.env.next_player
-        self._prev_player = self._next_player
+        self._prev_player = self.env.next_player
 
         # --- processor
         for p in self._processors_reset:
@@ -542,15 +541,14 @@ class EnvRun(Generic[TActType, TObsType]):
     # ------------------------------------
     def direct_step(self, *args, **kwargs) -> None:
         self._is_direct_step = True
-        self.is_start_episode, state, next_player = self.env.direct_step(*args, **kwargs)
+        self._prev_player = self.env.next_player
+        self.is_start_episode, state = self.env.direct_step(*args, **kwargs)
         if self.config.enable_assertion:
             self.assert_bool(self.is_start_episode)
             self.assert_state(state)
-            assert isinstance(next_player, int)
         if self.config.enable_sanitize:
             self.is_start_episode = self.sanitize_bool(self.is_start_episode)
             state = self.sanitize_state(state, "'state' in 'env.direct_step' may not be SpaceType.")
-        self.env.next_player = next_player
         if self.is_start_episode:
             self._reset_vals()
 

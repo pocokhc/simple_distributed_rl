@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 registration.register(
-    id="connectx",
+    id="kaggle_connectx",
     entry_point=__name__ + ":ConnectX",
     check_duplicate=False,
 )
@@ -95,9 +95,7 @@ class NegaMax(KaggleWorker):
 
 
 class LayerProcessor(RLProcessor):
-    def remap_observation_space(
-        self, env_observation_space: SpaceBase, env: EnvRun, rl_config: RLConfig
-    ) -> Tuple[SpaceBase, SpaceTypes]:
+    def remap_observation_space(self, env_observation_space: SpaceBase, env: EnvRun, rl_config: RLConfig) -> SpaceBase:
         _env = cast(ConnectX, env.env)
         observation_space = BoxSpace(
             low=0,

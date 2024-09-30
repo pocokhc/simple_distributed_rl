@@ -24,6 +24,12 @@ registration.register(
     entry_point=__name__ + ":ConnectX",
     check_duplicate=False,
 )
+registration.register(
+    id="connectx-layer",
+    entry_point=__name__ + ":ConnectX",
+    kwargs={"obs_type": "layer"},
+    check_duplicate=False,
+)
 
 
 def board_reverse(board):
@@ -182,7 +188,7 @@ class ConnectX(EnvBase):
                 return AlphaBeta(max_depth=n, **kwargs)
         return None
 
-    def direct_step(self, observation, configuration) -> Tuple[bool, Any, int]:
+    def direct_step(self, observation, configuration) -> Tuple[bool, Any]:
         """kaggle_environment を想定
         observation = {
             "remainingOverageTime": 60,
@@ -208,7 +214,7 @@ class ConnectX(EnvBase):
         step = observation.step
         is_start_episode = step == 0 or step == 1
 
-        return is_start_episode, self.board, self.next_player
+        return is_start_episode, self._create_state()
 
     def decode_action(self, action):
         return action

@@ -1,5 +1,3 @@
-from abc import abstractmethod
-
 from srl.base.define import EnvActionType, RLActionType
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.config import DummyRLConfig
@@ -14,7 +12,6 @@ class EnvWorker(RLWorker):
     def call_on_reset(self, env: EnvRun):
         pass
 
-    @abstractmethod
     def call_policy(self, env: EnvRun) -> EnvActionType:
         raise NotImplementedError()
 

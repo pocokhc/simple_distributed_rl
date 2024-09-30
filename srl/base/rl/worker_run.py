@@ -261,6 +261,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
         # 終了ならon_step実行
         if self._env._done != DoneTypes.NONE:
+            self._prev_action = self._action
             self._on_step()
             if self._context.rendering:
                 self._render.cache_reset()

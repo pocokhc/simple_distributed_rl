@@ -10,7 +10,7 @@ def test_play():
     from srl.envs.kaggle import connectx  # noqa F401
 
     tester = TestEnv()
-    env = tester.play_test("connectx")
+    env = tester.play_test("kaggle_connectx")
 
     for x in [0, 2, 3, 4, 5, 6]:
         env.reset()
@@ -74,7 +74,7 @@ def test_player(player):
     from srl.envs.kaggle import connectx  # noqa F401
 
     tester = TestEnv()
-    tester.player_test("connectx", player)
+    tester.player_test("kaggle_connectx", player)
 
 
 def test_processor():
@@ -100,11 +100,12 @@ def test_kaggle_connectx():
 
     rl_config = ql.Config()
 
-    env = srl.make_env("connectx")
+    env = srl.make_env("kaggle_connectx")
     rl_config.setup(env)
     parameter = rl_config.make_parameter()
     remote_memory = rl_config.make_memory()
     worker = srl.make_worker(rl_config, env, parameter, remote_memory)
+    worker.on_start()
 
     def agent(observation, configuration):
         env.direct_step(observation, configuration)
@@ -121,7 +122,7 @@ def test_kaggle_connectx():
     assert r2 is not None
 
 
-def test_kaggle_connectx_fail():
+def test_kaggle_connectx_mcts():
     pytest.importorskip("kaggle_environments")
     import kaggle_environments
 
@@ -130,11 +131,12 @@ def test_kaggle_connectx_fail():
 
     rl_config = mcts.Config()
 
-    env = srl.make_env("connectx")
+    env = srl.make_env("kaggle_connectx")
     rl_config.setup(env)
     parameter = rl_config.make_parameter()
     remote_memory = rl_config.make_memory()
     worker = srl.make_worker(rl_config, env, parameter, remote_memory)
+    worker.on_start()
 
     def agent(observation, configuration):
         env.direct_step(observation, configuration)
@@ -147,4 +149,5 @@ def test_kaggle_connectx_fail():
     steps = kaggle_env.run([agent, "random"])
     r1 = steps[-1][0]["reward"]
     r2 = steps[-1][1]["reward"]
-    assert (r1 is None) or (r2 is None)
+    assert r1 is not None
+    assert r2 is not None

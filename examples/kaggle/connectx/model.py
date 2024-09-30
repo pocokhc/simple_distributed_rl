@@ -128,7 +128,7 @@ class MyConnectXWorker(ExtendWorker):
 
 
 def create_runner():
-    env_config = srl.EnvConfig("connectx", kwargs={"obs_type": "layer"})
+    env_config = srl.EnvConfig("connectx-layer")
 
     rl_config = dqn.Config()
 

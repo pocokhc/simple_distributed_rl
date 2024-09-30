@@ -110,7 +110,7 @@ class EnvBase(ABC, Generic[TActType, TObsType], IRender):
     # --------------------------------
     # direct
     # --------------------------------
-    def direct_step(self, *args, **kwargs) -> Tuple[bool, TObsType, int]:
+    def direct_step(self, *args, **kwargs) -> Tuple[bool, TObsType]:
         """direct step
         外部で環境を動かしてpolicyだけ実行したい場合に実装します。
         これは学習で使う場合を想定していません。
@@ -118,7 +118,6 @@ class EnvBase(ABC, Generic[TActType, TObsType], IRender):
         Returns:
             is_start_episode (bool): Whether this step is the first of an episode. Used to initialize variables
             state (TObsType): state
-            next_player (int): next player index
         """
         raise NotImplementedError()
 

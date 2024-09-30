@@ -22,16 +22,15 @@ runner.load_parameter(path)
 
 env = runner.make_env()
 worker = runner.make_worker()
+worker.on_start()
 
 
 # --- agent
 def my_agent(observation, configuration):
     env.direct_step(observation, configuration)
-
     if env.is_start_episode:
         worker.on_reset(env.next_player)
     action = worker.policy()
-
     return env.decode_action(action)
 
 

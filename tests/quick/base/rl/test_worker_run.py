@@ -286,6 +286,7 @@ def _test_obs(
     true_state1,
     true_state2,
     use_render_image_state=False,
+    render_image_window_length=1,
 ):
     if rl_obs_mode == ObservationModes.RENDER_IMAGE:
         pytest.importorskip("PIL")
@@ -304,6 +305,7 @@ def _test_obs(
     rl_config.override_observation_type = rl_obs_type_override
     rl_config.observation_division_num = rl_obs_div_num
     rl_config._use_render_image_state = use_render_image_state
+    rl_config.render_image_window_length = render_image_window_length
 
     worker_run = srl.make_worker(rl_config, env)
     worker = cast(StubRLWorker, worker_run.worker)
@@ -332,7 +334,7 @@ def _test_obs(
     if use_render_image_state:
         true_img_space = BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR)
         assert rl_config.obs_render_img_space_one_step == true_img_space
-        if window_length == 1:
+        if render_image_window_length == 1:
             assert (np.ones((64, 32, 3)) == worker_run.render_img_state).all()
             assert rl_config.obs_render_img_space == true_img_space
         else:
@@ -365,7 +367,7 @@ def _test_obs(
     if use_render_image_state:
         true_img_space = BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR)
         assert rl_config.obs_render_img_space_one_step == true_img_space
-        if window_length == 1:
+        if render_image_window_length == 1:
             assert (np.ones((64, 32, 3)) == worker_run.render_img_state).all()
             assert rl_config.obs_render_img_space == true_img_space
         else:
@@ -641,24 +643,44 @@ def test_obs_render_terminal():
 
 
 @pytest.mark.parametrize(
-    "rl_obs_mode, window_length, true_obs_env_space, true_obs_space, env_state, true_state1, true_state2",
+    "rl_obs_mode, window_length, render_image_window_length, true_obs_env_space, true_obs_space, env_state, true_state1, true_state2",
     [
-        [ObservationModes.ENV, 1, DiscreteSpace(2), DiscreteSpace(2), 1, 1, 1],
-        [ObservationModes.ENV, 4, DiscreteSpace(2), ArrayDiscreteSpace(4, 0, 1), 1, [0, 0, 0, 1], [0, 0, 1, 1]],
+        [ObservationModes.ENV, 1, 1, DiscreteSpace(2), DiscreteSpace(2), 1, 1, 1],
+        [ObservationModes.ENV, 1, 4, DiscreteSpace(2), DiscreteSpace(2), 1, 1, 1],
+        [ObservationModes.ENV, 4, 1, DiscreteSpace(2), ArrayDiscreteSpace(4, 0, 1), 1, [0, 0, 0, 1], [0, 0, 1, 1]],
+        [ObservationModes.ENV, 4, 4, DiscreteSpace(2), ArrayDiscreteSpace(4, 0, 1), 1, [0, 0, 0, 1], [0, 0, 1, 1]],
         [
             ObservationModes.RENDER_IMAGE,
+            4,
             1,
             BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR),
-            BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR),
+            BoxSpace((4, 64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR),
             np.ones((64, 32, 3)),
-            np.ones((64, 32, 3)),
-            np.ones((64, 32, 3)),
+            np.stack(
+                [
+                    np.zeros((64, 32, 3)),
+                    np.zeros((64, 32, 3)),
+                    np.zeros((64, 32, 3)),
+                    np.ones((64, 32, 3)),
+                ],
+                axis=0,
+            ),
+            np.stack(
+                [
+                    np.zeros((64, 32, 3)),
+                    np.zeros((64, 32, 3)),
+                    np.ones((64, 32, 3)),
+                    np.ones((64, 32, 3)),
+                ],
+                axis=0,
+            ),
         ],
     ],
 )
 def test_obs_use_render_img_state(
     rl_obs_mode,
     window_length,
+    render_image_window_length,
     true_obs_env_space,
     true_obs_space,
     env_state,
@@ -680,6 +702,7 @@ def test_obs_use_render_img_state(
         true_state1=true_state1,
         true_state2=true_state2,
         use_render_image_state=True,
+        render_image_window_length=render_image_window_length,
     )
 
 

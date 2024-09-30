@@ -45,7 +45,7 @@ class Rendering(RunCallback):
     def on_skip_step(self, context: RunContext, state: RunStateActor, **kwargs):
         if not self.render_skip_step:
             return
-        self._render(context, state)
+        self._render(context, state, skip_step=True)
 
     def on_episode_end(self, context: RunContext, state: RunStateActor) -> None:
         self._render(context, state)
@@ -62,6 +62,12 @@ class Rendering(RunCallback):
         worker_idx = state.worker_idx
         worker: WorkerRun = state.workers[worker_idx]
         info_text = f"### {env.step_num}"
+        info_text += "(skip frame)" if skip_step else ""
+        info_text += f", next {env.next_player}" if env.player_num > 1 else ""
+        info_text += f", done({env.done_reason})" if env.done else ""
+        _s = env.observation_space.to_str(env.state)
+        _s = (_s[:40] + "...") if len(_s) > 40 else _s
+        info_text += f"\nstate: {_s}"
         if isinstance(action, float):
             a1 = f"{action:.3f}"
         else:
@@ -69,14 +75,8 @@ class Rendering(RunCallback):
         a2 = env.action_to_str(action)
         if a1 != a2:
             action = f"{a1}({a2})"
-        info_text += f", action {action}"
-        info_text += ", rewards[" + ",".join([f"{r:.3f}" for r in env.rewards]) + "]"
-        if env.done:
-            info_text += f", done({env.done_reason})"
-        if env.player_num > 1:
-            info_text += f", next {env.next_player}"
-        if skip_step:
-            info_text += "(skip frame)"
+        info_text += f"\naction : {action}"
+        info_text += "\nrewards:[" + ",".join([f"{r:.3f}" for r in env.rewards]) + "]"
         info_text += f"\nenv   {env.info}"
         info_text += f"\nwork{worker_idx: <2d}{worker.info}"
 
@@ -110,7 +110,7 @@ class Rendering(RunCallback):
         for img in self.frames:
             right = self.img_maxw - img.shape[1]
             bottom = self.img_maxh - img.shape[0]
-            img = cv2.copyMakeBorder(img, 0, bottom, 0, right, cv2.BORDER_REPLICATE)
+            img = cv2.copyMakeBorder(img, 0, bottom, 0, right, cv2.BORDER_CONSTANT, value=(0, 0, 0))
             if scale != 1.0:
                 new_width = int(img.shape[1] * scale)
                 new_height = int(img.shape[0] * scale)
@@ -139,7 +139,14 @@ class Rendering(RunCallback):
         t0 = time.time()
         images = self.create_images(scale)
         image = [Image.fromarray(img_array) for img_array in images]
-        image[0].save(path, save_all=True, append_images=image[1:], optimize=False, duration=interval, loop=0)
+        image[0].save(
+            path,
+            save_all=True,
+            append_images=image[1:],
+            optimize=False,
+            duration=interval,
+            loop=0,
+        )
         logger.info(f"save gif: interval {interval:.1f}ms, save time {time.time() - t0:.1f}s, {path}")
 
     def save_avi(

@@ -15,7 +15,9 @@
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
     "python.testing.pytestArgs": [
-        "tests"
+        "tests",
+        // pytestのdebug時にlogを表示する
+        "--log-cli-level=DEBUG"
     ],
 
     // --- plant uml

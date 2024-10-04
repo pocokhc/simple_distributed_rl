@@ -70,9 +70,9 @@ def set_logger(
     enable_log_extra_suppression: bool = True,
 ) -> None:
     if isinstance(print_level, str):
-        print_level = cast(int, logging.getLevelName(print_level))
+        print_level = cast(int, logging.getLevelName(print_level.upper()))
     if isinstance(file_level, str):
-        file_level = cast(int, logging.getLevelName(file_level))
+        file_level = cast(int, logging.getLevelName(file_level.upper()))
     top_level = print_level if (print_level > file_level) else file_level
 
     logger = logging.getLogger(log_name)

@@ -100,13 +100,14 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         batchs = self.memory.sample()
 
         for batch in batchs:
-            state = batch["state"]
-            action = batch["action"]
-            reward = batch["reward"]
-            self.parameter.init_state(state)
+            if self.distributed:
+                state = batch["state"]
+                action = batch["action"]
+                reward = batch["reward"]
+                self.parameter.init_state(state)
 
-            self.parameter.N[state][action] += 1
-            self.parameter.W[state][action] += reward
+                self.parameter.N[state][action] += 1
+                self.parameter.W[state][action] += reward
 
             self.train_count += 1
 
@@ -177,14 +178,13 @@ class Worker(RLWorker[Config, Parameter]):
         self.parameter.N[state][action] += 1
         self.parameter.W[state][action] += reward
 
-        if self.distributed:
-            self.memory.add(
-                {
-                    "state": state,
-                    "action": action,
-                    "reward": reward,
-                }
-            )
+        self.memory.add(
+            {
+                "state": state,
+                "action": action,
+                "reward": reward,
+            }
+        )
 
         return reward
 

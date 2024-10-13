@@ -9,7 +9,6 @@ from typing import Optional, cast
 
 import mlflow
 import mlflow.entities
-
 import srl
 from srl.base.context import RunContext
 from srl.base.rl.config import RLConfig
@@ -214,7 +213,11 @@ class MLFlowCallback(RunCallback, TrainCallback, Evaluate):
             return
         step = self._get_step(context, state)
         runner = self.create_eval_runner_if_not_exists(context, state)
-        render = runner.run_render(parameter=state.parameter, enable_progress=False)
+        render = runner.run_render(
+            parameter=state.parameter,
+            enable_progress=False,
+            players=self.eval_players,
+        )
         html = render.to_jshtml()
         name = context.rl_config.name.replace(":", "_")
         rewards = runner.state.last_episode_rewards

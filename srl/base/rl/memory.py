@@ -3,12 +3,14 @@ import os
 import pickle
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Generic, Optional, cast
+from typing import Any, Generic, Optional, TypeVar, cast
 
-from srl.base.define import RLMemoryTypes, TConfig
-from srl.base.rl.config import DummyRLConfig, RLConfig
+from srl.base.define import RLMemoryTypes
+from srl.base.rl.config import DummyRLConfig, TRLConfig
 
 logger = logging.getLogger(__name__)
+
+TRLMemory = TypeVar("TRLMemory", bound="RLMemory")
 
 
 class IRLMemoryWorker(ABC):
@@ -30,9 +32,9 @@ class IRLMemoryWorker(ABC):
         return pickle.loads(raw)
 
 
-class RLMemory(IRLMemoryWorker, Generic[TConfig]):
-    def __init__(self, config: Optional[TConfig]):
-        self.config: TConfig = cast(TConfig, DummyRLConfig() if config is None else config)
+class RLMemory(IRLMemoryWorker, Generic[TRLConfig]):
+    def __init__(self, config: Optional[TRLConfig]):
+        self.config: TRLConfig = cast(TRLConfig, DummyRLConfig()) if config is None else config
 
     def call_backup(self, **kwargs) -> Any:
         raise NotImplementedError()

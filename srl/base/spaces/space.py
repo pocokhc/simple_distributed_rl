@@ -6,11 +6,15 @@ import numpy as np
 from srl.base.define import SpaceTypes
 from srl.base.exception import NotSupportedError
 
+TActSpace = TypeVar("TActSpace", bound="SpaceBase")
+TActType = TypeVar("TActType")
+TObsSpace = TypeVar("TObsSpace", bound="SpaceBase")
+TObsType = TypeVar("TObsType")
+
 _T = TypeVar("_T")
 
 
 class SpaceBase(ABC, Generic[_T]):
-
     @abstractmethod
     def sample(self, mask: List[_T] = []) -> _T:
         """Returns a random value"""

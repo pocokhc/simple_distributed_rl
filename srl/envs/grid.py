@@ -2,8 +2,9 @@ import enum
 import logging
 import os
 import random
+from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple, cast
+from typing import Any, Generic, List, Optional, Tuple, cast
 
 import numpy as np
 
@@ -14,6 +15,7 @@ from srl.base.env.env_run import EnvRun, SpaceBase
 from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import RLProcessor
 from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
+from srl.base.spaces.space import TObsSpace, TObsType
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +33,11 @@ registration.register(
 
 registration.register(
     id="Grid-layer",
-    entry_point=__name__ + ":Grid",
+    entry_point=__name__ + ":GridLayer",
     kwargs={
         "move_reward": -0.04,
         "move_prob": 0.8,
         "reward_baseline": 0.65,
-        "obs_type": "layer",
     },
     check_duplicate=False,
 )
@@ -61,7 +62,7 @@ class Action(enum.Enum):
 
 
 @dataclass
-class Grid(EnvBase):
+class _GridBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSpace, TObsType]):
     move_prob: float = 0.8
     move_reward: float = -0.04
     reward_baseline: float = 0.6
@@ -78,8 +79,6 @@ class Grid(EnvBase):
             [9, 9, 9, 9, 9, 9],
         ],
     )
-
-    obs_type: str = ""  # "" or "layer"
 
     def __post_init__(self):
         self.start_pos_list = []
@@ -124,19 +123,6 @@ class Grid(EnvBase):
         return DiscreteSpace(len(Action))
 
     @property
-    def observation_space(self) -> SpaceBase:
-        if self.obs_type == "layer":
-            return BoxSpace(
-                shape=(self.H, self.W, 1),
-                low=0,
-                high=1,
-                dtype=np.uint8,
-                stype=SpaceTypes.IMAGE,
-            )
-        else:
-            return ArrayDiscreteSpace(2, low=0, high=[self.W, self.H])
-
-    @property
     def player_num(self) -> int:
         return 1
 
@@ -165,19 +151,9 @@ class Grid(EnvBase):
     def restore(self, data: Any) -> None:
         self.player_pos = data
 
+    @abstractmethod
     def _create_state(self):
-        if self.obs_type == "layer":
-            px = self.player_pos[0]
-            py = self.player_pos[1]
-
-            _field = np.zeros((self.H, self.W, 1))
-            for y in range(self.H):
-                for x in range(self.W):
-                    if y == py and x == px:
-                        _field[y][x][0] = 1
-            return _field
-        else:
-            return list(self.player_pos)
+        raise NotImplementedError()
 
     def step(self, action) -> Tuple[Any, float, bool, bool]:
         action = Action(action)
@@ -492,6 +468,38 @@ class Grid(EnvBase):
 
             rewards.append(total_reward)
         return np.mean(rewards)
+
+
+class Grid(_GridBase[ArrayDiscreteSpace, List[int]]):
+    @property
+    def observation_space(self):
+        return ArrayDiscreteSpace(2, low=0, high=[self.W, self.H])
+
+    def _create_state(self):
+        return list(self.player_pos)
+
+
+class GridLayer(_GridBase[BoxSpace, np.array]):
+    @property
+    def observation_space(self):
+        return BoxSpace(
+            shape=(self.H, self.W, 1),
+            low=0,
+            high=1,
+            dtype=np.uint8,
+            stype=SpaceTypes.IMAGE,
+        )
+
+    def _create_state(self):
+        px = self.player_pos[0]
+        py = self.player_pos[1]
+
+        _field = np.zeros((self.H, self.W, 1))
+        for y in range(self.H):
+            for x in range(self.W):
+                if y == py and x == px:
+                    _field[y][x][0] = 1
+        return _field
 
 
 class LayerProcessor(RLProcessor):

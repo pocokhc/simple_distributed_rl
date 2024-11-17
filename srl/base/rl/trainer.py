@@ -3,14 +3,16 @@ from abc import ABC
 from typing import Any, Generic, Optional
 
 from srl.base.context import RunContext
-from srl.base.define import TConfig, TMemory, TParameter
 from srl.base.info import Info
+from srl.base.rl.config import TRLConfig
+from srl.base.rl.memory import TRLMemory
+from srl.base.rl.parameter import TRLParameter
 
 logger = logging.getLogger(__name__)
 
 
-class RLTrainer(ABC, Generic[TConfig, TParameter, TMemory]):
-    def __init__(self, config: TConfig, parameter: TParameter, memory: TMemory):
+class RLTrainer(ABC, Generic[TRLConfig, TRLParameter, TRLMemory]):
+    def __init__(self, config: TRLConfig, parameter: TRLParameter, memory: TRLMemory):
         self.config = config
         self.parameter = parameter
         self.memory = memory

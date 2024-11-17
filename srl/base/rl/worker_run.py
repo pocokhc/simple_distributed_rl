@@ -10,10 +10,6 @@ from srl.base.define import (
     EnvObservationType,
     ObservationModes,
     SpaceTypes,
-    TActSpace,
-    TActType,
-    TObsSpace,
-    TObsType,
 )
 from srl.base.env.env_run import EnvRun
 from srl.base.exception import NotSupportedError, SRLError, UndefinedError
@@ -22,7 +18,7 @@ from srl.base.render import Render
 from srl.base.rl.config import RLConfig
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.worker import RLWorkerGeneric
-from srl.base.spaces.space import SpaceBase
+from srl.base.spaces.space import SpaceBase, TActSpace, TActType, TObsSpace, TObsType
 from srl.utils import render_functions as render_funcs
 
 logger = logging.getLogger(__name__)

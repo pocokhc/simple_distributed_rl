@@ -77,9 +77,10 @@ class CommonQuickCase(ABC):
         rl_config, test_kwargs = self.create_rl_config(rl_param)
         self._setup_rl_config(rl_config)
 
-        env_config = srl.EnvConfig("Grid")
         if test_kwargs.get("use_layer_processor", False):
-            env_config.kwargs["obs_type"] = "layer"
+            env_config = srl.EnvConfig("Grid-layer")
+        else:
+            env_config = srl.EnvConfig("Grid")
         env = env_config.make()
 
         parameter = rl_config.make_parameter(env)

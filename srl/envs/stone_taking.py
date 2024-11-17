@@ -21,7 +21,7 @@ register(
 
 
 @dataclass
-class StoneTaking(EnvBase[int, int]):
+class StoneTaking(EnvBase[DiscreteSpace, int, DiscreteSpace, int]):
     stones: int = 10
     max_stones: int = 3
 
@@ -29,11 +29,11 @@ class StoneTaking(EnvBase[int, int]):
         pass  #
 
     @property
-    def action_space(self) -> DiscreteSpace:
+    def action_space(self):
         return DiscreteSpace(self.max_stones)
 
     @property
-    def observation_space(self) -> DiscreteSpace:
+    def observation_space(self):
         return DiscreteSpace(self.stones + 1)
 
     @property

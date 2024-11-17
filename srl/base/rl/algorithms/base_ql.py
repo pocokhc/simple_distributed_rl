@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 from typing import Generic, List
 
-from srl.base.define import RLBaseActTypes, RLBaseObsTypes, TConfig, TParameter
+from srl.base.define import RLBaseActTypes, RLBaseObsTypes
 from srl.base.rl.config import RLConfig as RLConfigBase
+from srl.base.rl.config import TRLConfig
+from srl.base.rl.parameter import TRLParameter
 from srl.base.rl.worker import RLWorkerGeneric
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.discrete import DiscreteSpace
@@ -21,10 +23,10 @@ class RLConfig(RLConfigBase[DiscreteSpace, ArrayDiscreteSpace]):
 
 
 class RLWorker(
-    Generic[TConfig, TParameter],
+    Generic[TRLConfig, TRLParameter],
     RLWorkerGeneric[
-        TConfig,
-        TParameter,
+        TRLConfig,
+        TRLParameter,
         DiscreteSpace,
         int,
         ArrayDiscreteSpace,

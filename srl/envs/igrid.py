@@ -30,7 +30,7 @@ class Action(enum.Enum):
 
 
 @dataclass
-class IGrid(EnvBase[int, int]):
+class IGrid(EnvBase[DiscreteSpace, int, ArrayDiscreteSpace, List[int]]):
     """
     CXD
      X
@@ -52,11 +52,11 @@ class IGrid(EnvBase[int, int]):
         self.length = self.N * 2 + 1
 
     @property
-    def action_space(self) -> DiscreteSpace:
+    def action_space(self):
         return DiscreteSpace(len(Action))
 
     @property
-    def observation_space(self) -> ArrayDiscreteSpace:
+    def observation_space(self):
         return ArrayDiscreteSpace(2, 0, [self.W, self.H])
 
     @property
@@ -67,7 +67,7 @@ class IGrid(EnvBase[int, int]):
     def max_episode_steps(self) -> int:
         return (self.length + 2) * 2 * 2
 
-    def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
+    def reset(self, *, seed: Optional[int] = None, **kwargs) -> List[int]:
         self.player_pos = (1, int((self.length + 2 - 1) / 2))
 
         self.field = [[1, 1, 1]]

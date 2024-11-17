@@ -1,17 +1,16 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Generic, List, Optional, Tuple, Union
 
-from srl.base.define import KeyBindType, TActType, TObsType
+from srl.base.define import KeyBindType
 from srl.base.info import Info
 from srl.base.render import IRender
-from srl.base.spaces.space import SpaceBase
+from srl.base.spaces.space import TActSpace, TActType, TObsSpace, TObsType
 
 if TYPE_CHECKING:
     from srl.base.rl.worker import RLWorker
 
 
-class EnvBase(ABC, Generic[TActType, TObsType], IRender):
-
+class EnvBase(IRender, Generic[TActSpace, TActType, TObsSpace, TObsType], ABC):
     # Set these in subclasses
     next_player: int = 0
     done_reason: str = ""
@@ -19,12 +18,12 @@ class EnvBase(ABC, Generic[TActType, TObsType], IRender):
 
     @property
     @abstractmethod
-    def action_space(self) -> SpaceBase[TActType]:
+    def action_space(self) -> TActSpace:
         raise NotImplementedError()
 
     @property
     @abstractmethod
-    def observation_space(self) -> SpaceBase[TObsType]:
+    def observation_space(self) -> TObsSpace:
         raise NotImplementedError()
 
     @property

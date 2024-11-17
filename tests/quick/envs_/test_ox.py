@@ -15,8 +15,8 @@ def test_player():
     tester.player_test("OX", "cpu")
 
 
-def test_processor():
-    env = srl.make_env(srl.EnvConfig("OX", {"obs_type": "layer"}))
+def test_layer():
+    env = srl.make_env(srl.EnvConfig("OX-layer"))
     env.setup()
     env.reset()
 

@@ -2,7 +2,7 @@ import logging
 import pickle
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Generic, List, Optional, Type, Union, cast
+from typing import TYPE_CHECKING, Any, Generic, List, Optional, Type, TypeVar, Union, cast
 
 import numpy as np
 
@@ -14,12 +14,11 @@ from srl.base.define import (
     RLBaseActTypes,
     RLBaseObsTypes,
     SpaceTypes,
-    TActSpace,
-    TObsSpace,
 )
-from srl.base.env.env_run import EnvRun, SpaceBase
+from srl.base.env.env_run import EnvRun
 from srl.base.exception import NotSupportedError, UndefinedError
 from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.space import SpaceBase, TActSpace, TObsSpace
 from srl.utils.serialize import convert_for_json
 
 if TYPE_CHECKING:
@@ -30,6 +29,9 @@ if TYPE_CHECKING:
     from srl.rl.schedulers.scheduler import SchedulerConfig
 
 logger = logging.getLogger(__name__)
+
+
+TRLConfig = TypeVar("TRLConfig", bound="RLConfig", covariant=True)
 
 
 @dataclass

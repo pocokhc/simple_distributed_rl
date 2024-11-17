@@ -23,18 +23,18 @@ class Action(enum.Enum):
 
 
 @dataclass
-class SampleEnv(EnvBase[int, int]):
+class SampleEnv(EnvBase[DiscreteSpace, int, DiscreteSpace, int]):
     move_reward: float = -0.04
 
     def __post_init__(self):
         self.field = [-1, 0, 0, 0, 0, 0, 0, 0, 1]
 
     @property
-    def action_space(self) -> DiscreteSpace:
+    def action_space(self):
         return DiscreteSpace(len(Action))
 
     @property
-    def observation_space(self) -> DiscreteSpace:
+    def observation_space(self):
         return DiscreteSpace(len(self.field))
 
     @property

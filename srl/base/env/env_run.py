@@ -6,7 +6,7 @@ from typing import Any, Callable, Generic, List, Optional, Tuple, Union, cast
 
 import numpy as np
 
-from srl.base.define import DoneTypes, KeyBindType, RenderModes, TActType, TObsType
+from srl.base.define import DoneTypes, KeyBindType, RenderModes
 from srl.base.env.base import EnvBase
 from srl.base.env.config import EnvConfig
 from srl.base.env.registration import make_base
@@ -14,17 +14,17 @@ from srl.base.exception import SRLError
 from srl.base.info import Info
 from srl.base.render import Render
 from srl.base.spaces.discrete import DiscreteSpace
-from srl.base.spaces.space import SpaceBase
+from srl.base.spaces.space import SpaceBase, TActSpace, TActType, TObsSpace, TObsType
 
 logger = logging.getLogger(__name__)
 
 
-class EnvRun(Generic[TActType, TObsType]):
+class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def __init__(self, config: EnvConfig) -> None:
         # restore/backup用に状態は意識して管理
 
         self.config = config
-        self.env: EnvBase[TActType, TObsType] = make_base(self.config)
+        self.env = cast(EnvBase[TActSpace, TActType, TObsSpace, TObsType], make_base(self.config))
 
         # --- processor
         self._processors = [c.copy() for c in self.config.processors]

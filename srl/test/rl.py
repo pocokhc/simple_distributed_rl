@@ -49,14 +49,13 @@ class TestRL:
 
         for env_config in env_list:
             test_rl_config = rl_config.copy(reset_env_config=True)
+            if use_layer_processor:
+                if env_config == "Grid":
+                    env_config = "Grid-layer"
+                elif env_config == "OX":
+                    env_config = "OX-layer"
             test_env_config = srl.EnvConfig(env_config) if isinstance(env_config, str) else env_config.copy()
             test_env_config.render_interval = 1
-
-            if use_layer_processor:
-                if test_env_config.name == "Grid":
-                    test_env_config.kwargs["obs_type"] = "layer"
-                elif test_env_config.name == "OX":
-                    test_env_config.kwargs["obs_type"] = "layer"
 
             runner = srl.Runner(test_env_config, test_rl_config)
             runner.set_device("CPU")
@@ -105,16 +104,15 @@ class TestRL:
         train_kwargs_.update(train_kwargs)
 
         for env_config in env_list:
+            if use_layer_processor:
+                if env_config == "Grid":
+                    env_config = "Grid-layer"
+                elif env_config == "OX":
+                    env_config = "OX-layer"
             env_config = srl.EnvConfig(env_config) if isinstance(env_config, str) else env_config.copy()
             env_config.render_interval = 1
             rl_config: RLConfig = DummyRLConfig(name=name)
             rl_config.enable_assertion = True
-
-            if use_layer_processor:
-                if env_config.name == "Grid":
-                    env_config.kwargs["obs_type"] = "layer"
-                elif env_config.name == "OX":
-                    env_config.kwargs["obs_type"] = "layer"
 
             runner = srl.Runner(env_config, rl_config)
             runner.set_device(device="CPU")

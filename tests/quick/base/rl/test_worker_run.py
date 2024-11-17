@@ -6,7 +6,7 @@ import pytest
 import srl
 from srl.base.context import RunContext
 from srl.base.define import ObservationModes, RLActionType, RLBaseActTypes, RLBaseObsTypes, SpaceTypes
-from srl.base.env.base import EnvBase, SpaceBase
+from srl.base.env.base import EnvBase
 from srl.base.env.registration import register as register_env
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register as register_rl
@@ -17,6 +17,7 @@ from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.continuous import ContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.multi import MultiSpace
+from srl.base.spaces.space import SpaceBase
 from srl.test.env import TestEnv
 from srl.utils import common
 

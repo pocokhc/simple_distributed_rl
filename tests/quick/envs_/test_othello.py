@@ -37,8 +37,8 @@ def test_player4x4():
     tester.player_test("Othello4x4", "cpu")
 
 
-def test_processor():
-    env = srl.make_env(srl.EnvConfig("Othello", {"obs_type": "layer"}))
+def test_layer():
+    env = srl.make_env(srl.EnvConfig("Othello-layer"))
     env.setup()
     env.reset()
 

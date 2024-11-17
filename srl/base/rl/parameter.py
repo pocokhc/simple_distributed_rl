@@ -3,17 +3,18 @@ import os
 import pickle
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Generic, Optional, cast
+from typing import Any, Generic, Optional, TypeVar, cast
 
-from srl.base.define import TConfig
-from srl.base.rl.config import DummyRLConfig, RLConfig
+from srl.base.rl.config import DummyRLConfig, RLConfig, TRLConfig
 
 logger = logging.getLogger(__name__)
 
+TRLParameter = TypeVar("TRLParameter", bound="RLParameter")
 
-class RLParameter(ABC, Generic[TConfig]):
-    def __init__(self, config: Optional[TConfig]):
-        self.config: TConfig = cast(TConfig, DummyRLConfig() if config is None else config)
+
+class RLParameter(ABC, Generic[TRLConfig]):
+    def __init__(self, config: Optional[TRLConfig]):
+        self.config: TRLConfig = cast(TRLConfig, DummyRLConfig()) if config is None else config
 
     @abstractmethod
     def call_restore(self, data: Any, **kwargs) -> None:

@@ -1,6 +1,7 @@
 import logging
 import time
-from typing import Any, List, Optional, Tuple, cast
+from abc import abstractmethod
+from typing import Any, Generic, List, Optional, Tuple, cast
 
 import numpy as np
 
@@ -12,6 +13,7 @@ from srl.base.rl.algorithms.env_worker import EnvWorker
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.spaces.space import TObsSpace, TObsType
 
 logger = logging.getLogger(__name__)
 
@@ -24,21 +26,17 @@ register(
 
 register(
     id="OX-layer",
-    entry_point=__name__ + ":OX",
-    kwargs={"obs_type": "layer"},
+    entry_point=__name__ + ":OXLayer",
+    kwargs={},
     check_duplicate=False,
 )
 
 
-class OX(EnvBase):
+class _OXBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSpace, TObsType]):
     _scores_cache = {}
 
-    def __init__(
-        self,
-        obs_type: str = "",  # "" or "layer"
-    ):
+    def __init__(self):
         self.screen = None
-        self.obs_type = obs_type
 
         self.W = 3
         self.H = 3
@@ -46,13 +44,6 @@ class OX(EnvBase):
     @property
     def action_space(self) -> DiscreteSpace:
         return DiscreteSpace(self.W * self.H)
-
-    @property
-    def observation_space(self):
-        if self.obs_type == "layer":
-            return BoxSpace(low=0, high=1, shape=(3, 3, 2), dtype=np.float32, stype=SpaceTypes.IMAGE)
-        else:
-            return ArrayDiscreteSpace(self.H * self.W, low=-1, high=1)
 
     @property
     def player_num(self) -> int:
@@ -82,27 +73,9 @@ class OX(EnvBase):
         self.field = data[0][:]
         self.next_player = data[1]
 
+    @abstractmethod
     def _create_state(self):
-        if self.obs_type == "layer":
-            # Layer0: player1 field (0 or 1)
-            # Layer1: player2 field (0 or 1)
-            if self.next_player == 0:
-                my_field = 1
-                enemy_field = -1
-            else:
-                my_field = -1
-                enemy_field = 1
-            _field = np.zeros((self.H, self.W, 2))
-            for y in range(self.H):
-                for x in range(self.W):
-                    idx = x + y * self.W
-                    if self.field[idx] == my_field:
-                        _field[y][x][0] = 1
-                    elif self.field[idx] == enemy_field:
-                        _field[y][x][1] = 1
-            return _field
-        else:
-            return self.field
+        raise NotImplementedError()
 
     def step(self, action) -> Tuple[Any, List[float], bool, bool]:
         reward1, reward2, done = self._step(action)
@@ -262,14 +235,14 @@ class OX(EnvBase):
     def calc_scores(self) -> List[float]:
         self._scores_count = 0
         t0 = time.time()
-        scores = self._negamax(cast(OX, self.copy()))
+        scores = self._negamax(cast(_OXBase, self.copy()))
         self._scores_time = time.time() - t0
         return scores
 
-    def _negamax(self, env: "OX") -> List[float]:
+    def _negamax(self, env: "_OXBase") -> List[float]:
         key = str(env.field)
-        if key in OX._scores_cache:
-            return OX._scores_cache[key]
+        if key in _OXBase._scores_cache:
+            return _OXBase._scores_cache[key]
 
         self._scores_count += 1
         env_dat = env.backup()
@@ -290,8 +263,42 @@ class OX(EnvBase):
                 n_scores = self._negamax(env)
                 scores[a] = -np.max(n_scores)
 
-        OX._scores_cache[key] = scores
+        _OXBase._scores_cache[key] = scores
         return scores
+
+
+class OX(_OXBase[ArrayDiscreteSpace, List[int]]):
+    @property
+    def observation_space(self):
+        return ArrayDiscreteSpace(self.H * self.W, low=-1, high=1)
+
+    def _create_state(self):
+        return self.field
+
+
+class OXLayer(_OXBase[BoxSpace, np.ndarray]):
+    @property
+    def observation_space(self):
+        return BoxSpace(low=0, high=1, shape=(3, 3, 2), dtype=np.float32, stype=SpaceTypes.IMAGE)
+
+    def _create_state(self):
+        # Layer0: player1 field (0 or 1)
+        # Layer1: player2 field (0 or 1)
+        if self.next_player == 0:
+            my_field = 1
+            enemy_field = -1
+        else:
+            my_field = -1
+            enemy_field = 1
+        _field = np.zeros((self.H, self.W, 2))
+        for y in range(self.H):
+            for x in range(self.W):
+                idx = x + y * self.W
+                if self.field[idx] == my_field:
+                    _field[y][x][0] = 1
+                elif self.field[idx] == enemy_field:
+                    _field[y][x][1] = 1
+        return _field
 
 
 class Cpu(EnvWorker):

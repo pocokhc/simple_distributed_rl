@@ -32,16 +32,16 @@ class State(enum.Enum):
 
 
 @dataclass
-class Tiger(EnvBase[int, int]):
+class Tiger(EnvBase[DiscreteSpace, int, DiscreteSpace, int]):
     def __post_init__(self):
         self.prob = 0.85
 
     @property
-    def action_space(self) -> DiscreteSpace:
+    def action_space(self):
         return DiscreteSpace(len(Action))
 
     @property
-    def observation_space(self) -> DiscreteSpace:
+    def observation_space(self):
         return DiscreteSpace(len(State))
 
     @property

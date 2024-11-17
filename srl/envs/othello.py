@@ -1,19 +1,21 @@
 import logging
 import pickle
 import time
+from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple, cast
+from typing import Any, Generic, List, Optional, Tuple, cast
 
 import numpy as np
 
 from srl.base.define import SpaceTypes
 from srl.base.env.base import EnvBase
-from srl.base.env.env_run import EnvRun, SpaceBase
+from srl.base.env.env_run import EnvRun
 from srl.base.env.registration import register
 from srl.base.rl.algorithms.env_worker import EnvWorker
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.spaces.space import TObsSpace, TObsType
 
 logger = logging.getLogger(__name__)
 
@@ -38,29 +40,28 @@ register(
 
 register(
     id="Othello-layer",
-    entry_point=__name__ + ":Othello",
-    kwargs={"W": 8, "H": 8, "obs_type": "layer"},
+    entry_point=__name__ + ":OthelloLayer",
+    kwargs={"W": 8, "H": 8},
     check_duplicate=False,
 )
 register(
     id="Othello6x6-layer",
-    entry_point=__name__ + ":Othello",
-    kwargs={"W": 6, "H": 6, "obs_type": "layer"},
+    entry_point=__name__ + ":OthelloLayer",
+    kwargs={"W": 6, "H": 6},
     check_duplicate=False,
 )
 register(
     id="Othello4x4-layer",
-    entry_point=__name__ + ":Othello",
-    kwargs={"W": 4, "H": 4, "obs_type": "layer"},
+    entry_point=__name__ + ":OthelloLayer",
+    kwargs={"W": 4, "H": 4},
     check_duplicate=False,
 )
 
 
 @dataclass
-class Othello(EnvBase):
+class _OthelloBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSpace, TObsType]):
     W: int = 8
     H: int = 8
-    obs_type: str = ""  # "" or "layer"
 
     def __post_init__(self):
         self.screen = None
@@ -90,13 +91,6 @@ class Othello(EnvBase):
     @property
     def action_space(self) -> DiscreteSpace:
         return DiscreteSpace(self.W * self.H)
-
-    @property
-    def observation_space(self) -> SpaceBase:
-        if self.obs_type == "layer":
-            return BoxSpace(low=0, high=1, shape=(self.H, self.W, 2), stype=SpaceTypes.IMAGE)
-        else:
-            return ArrayDiscreteSpace(self.W * self.H, low=-1, high=1)
 
     @property
     def player_num(self) -> int:
@@ -150,27 +144,9 @@ class Othello(EnvBase):
         self.field = d[3]
         self.movable_dirs = d[4]
 
+    @abstractmethod
     def _create_obs(self):
-        if self.obs_type == "layer":
-            # Layer0: my_player field (0 or 1)
-            # Layer1: enemy_player field (0 or 1)
-            if self.next_player == 0:
-                my_field = 1
-                enemy_field = -1
-            else:
-                my_field = -1
-                enemy_field = 1
-            _field = np.zeros((self.H, self.W, 2))
-            for y in range(self.H):
-                for x in range(self.W):
-                    idx = x + y * self.W
-                    if self.field[idx] == my_field:
-                        _field[y][x][0] = 1
-                    elif self.field[idx] == enemy_field:
-                        _field[y][x][1] = 1
-            return _field
-        else:
-            return self.field
+        raise NotImplementedError()
 
     def _calc_movable_dirs(self, player_index) -> List[List[int]]:
         my_color = 1 if player_index == 0 else -1
@@ -418,6 +394,42 @@ class Othello(EnvBase):
         if name == "cpu":
             return Cpu(**kwargs)
         return None
+
+
+@dataclass
+class Othello(_OthelloBase[ArrayDiscreteSpace, List[int]]):
+    @property
+    def observation_space(self):
+        return ArrayDiscreteSpace(self.W * self.H, low=-1, high=1)
+
+    def _create_obs(self):
+        return self.field
+
+
+@dataclass
+class OthelloLayer(_OthelloBase[BoxSpace, np.array]):
+    @property
+    def observation_space(self):
+        return BoxSpace(low=0, high=1, shape=(self.H, self.W, 2), stype=SpaceTypes.IMAGE)
+
+    def _create_obs(self):
+        # Layer0: my_player field (0 or 1)
+        # Layer1: enemy_player field (0 or 1)
+        if self.next_player == 0:
+            my_field = 1
+            enemy_field = -1
+        else:
+            my_field = -1
+            enemy_field = 1
+        _field = np.zeros((self.H, self.W, 2))
+        for y in range(self.H):
+            for x in range(self.W):
+                idx = x + y * self.W
+                if self.field[idx] == my_field:
+                    _field[y][x][0] = 1
+                elif self.field[idx] == enemy_field:
+                    _field[y][x][1] = 1
+        return _field
 
 
 class Cpu(EnvWorker):

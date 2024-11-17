@@ -10,8 +10,9 @@ from gym.spaces import flatten, flatten_space
 
 from srl.base import spaces as srl_spaces
 from srl.base.define import EnvActionType, KeyBindType, RenderModes, SpaceTypes
-from srl.base.env.base import EnvBase, SpaceBase
+from srl.base.env.base import EnvBase
 from srl.base.env.config import EnvConfig
+from srl.base.spaces.space import SpaceBase
 from srl.utils.common import compare_less_version, is_package_installed
 
 if TYPE_CHECKING:

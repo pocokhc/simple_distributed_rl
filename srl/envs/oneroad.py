@@ -23,17 +23,17 @@ registration.register(
 
 
 @dataclass
-class OneRoad(EnvBase[int, int]):
+class OneRoad(EnvBase[DiscreteSpace, int, DiscreteSpace, int]):
     N: int = 10
     action: int = 2
     is_end: bool = True
 
     @property
-    def action_space(self) -> DiscreteSpace:
+    def action_space(self):
         return DiscreteSpace(self.action)
 
     @property
-    def observation_space(self) -> DiscreteSpace:
+    def observation_space(self):
         return DiscreteSpace(self.N)
 
     @property
@@ -44,7 +44,7 @@ class OneRoad(EnvBase[int, int]):
     def max_episode_steps(self) -> int:
         return int(self.N * 1.1)
 
-    def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
+    def reset(self, *, seed: Optional[int] = None, **kwargs) -> int:
         self.player_pos = 0
         return self.player_pos
 

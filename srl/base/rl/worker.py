@@ -4,23 +4,13 @@ from typing import TYPE_CHECKING, Generic, List, Optional, cast
 
 import numpy as np
 
-from srl.base.define import (
-    DoneTypes,
-    RLActionType,
-    RLObservationType,
-    TActSpace,
-    TActType,
-    TConfig,
-    TObsSpace,
-    TObsType,
-    TParameter,
-)
+from srl.base.define import DoneTypes, RLActionType, RLObservationType
 from srl.base.info import Info
 from srl.base.render import IRender
-from srl.base.rl.config import RLConfig
+from srl.base.rl.config import RLConfig, TRLConfig
 from srl.base.rl.memory import DummyRLMemoryWorker, IRLMemoryWorker
-from srl.base.rl.parameter import DummyRLParameter
-from srl.base.spaces.space import SpaceBase
+from srl.base.rl.parameter import DummyRLParameter, TRLParameter
+from srl.base.spaces.space import SpaceBase, TActSpace, TActType, TObsSpace, TObsType
 
 if TYPE_CHECKING:
     from srl.base.context import RunContext
@@ -32,19 +22,19 @@ logger = logging.getLogger(__name__)
 
 
 class RLWorkerGeneric(
-    ABC,
     IRender,
-    Generic[TConfig, TParameter, TActSpace, TActType, TObsSpace, TObsType],
+    Generic[TRLConfig, TRLParameter, TActSpace, TActType, TObsSpace, TObsType],
+    ABC,
 ):
     def __init__(
         self,
-        config: TConfig,
-        parameter: Optional[TParameter] = None,
+        config: TRLConfig,
+        parameter: Optional[TRLParameter] = None,
         memory: Optional[IRLMemoryWorker] = None,
     ) -> None:
         self.config = config
-        self.parameter: TParameter = cast(
-            TParameter,
+        self.parameter: TRLParameter = cast(
+            TRLParameter,
             DummyRLParameter(cast(RLConfig, config)) if parameter is None else parameter,
         )
         self.memory = DummyRLMemoryWorker() if memory is None else memory
@@ -149,10 +139,10 @@ class RLWorkerGeneric(
 
 
 class RLWorker(
-    Generic[TConfig, TParameter],
+    Generic[TRLConfig, TRLParameter],
     RLWorkerGeneric[
-        TConfig,
-        TParameter,
+        TRLConfig,
+        TRLParameter,
         SpaceBase,
         RLActionType,
         SpaceBase,

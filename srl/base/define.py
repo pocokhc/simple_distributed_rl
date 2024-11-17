@@ -1,5 +1,5 @@
 import enum
-from typing import TYPE_CHECKING, Any, Dict, List, Tuple, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Union
 
 import numpy as np
 
@@ -73,15 +73,6 @@ PlayerType = Union[
     "RLConfig",  # RLConfig
     Tuple["RLConfig", Any],  # [RLConfig, RLParameter]
 ]
-
-# --- Generic ---
-TConfig = TypeVar("TConfig")
-TParameter = TypeVar("TParameter")
-TMemory = TypeVar("TMemory")
-TActSpace = TypeVar("TActSpace")
-TActType = TypeVar("TActType")
-TObsSpace = TypeVar("TObsSpace")
-TObsType = TypeVar("TObsType")
 
 
 class DoneTypes(enum.Enum):

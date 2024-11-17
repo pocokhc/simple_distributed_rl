@@ -15,6 +15,29 @@
 // DemoMemory: 個別対応かな
 
 
+# v0.17.1
+
+**MainUpdates**
+
+1. [settings] change: format/lintをblack+flake8+isortからruffに変更
+
+**OtherUpdates**
+
+1. [base.rl.config] new: render用のwindow_lengthを別で用意、render_image_window_lengthをRLConfigに追加
+1. [base.rl.worker_run] change: on_startの引数がない場合でも動作するように変更
+1. [base] update: 型情報をリファクタリング
+1. [kaggle] update: kaggleのsampleが動くように変更
+1. [runner.callbacks.rendering] update: renderの表示を修正
+1. [vscode] add: pytestのdebug実行時にログを出力するように変更
+1. [algorithms] update: go_dynaqを大幅に更新
+1. [algorithms] update: MCTSでtrain_countが進むように修正
+
+**Bug Fixes**
+
+1. [utils.render_functions] fix: vとhが逆だったのを修正
+1. [base.rl.worker_run] fix: エピソード終了タイミングでprev_actionが更新されない不具合修正
+1. [runner.callbacks.mlflow] fix: 評価時にplayersが反映されない不具合修正
+
 # v0.17.0
 
 ・Envクラスの実装を見直し、SinglePlayEnv/TurnBase2Playerを非推奨とし、基本はEnvBaseを直接実装する形に変更しました。

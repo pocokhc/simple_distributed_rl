@@ -49,7 +49,7 @@ def logger_print(
     log_name: str = "",
     enable_log_extra_suppression: bool = True,
 ) -> None:
-    set_logger(log_name, True, level, "", "DEBUG", enable_log_extra_suppression)
+    set_logger(log_name, True, level, "", logging.DEBUG, enable_log_extra_suppression)
 
 
 def logger_file(
@@ -58,7 +58,7 @@ def logger_file(
     log_name: str = "",
     enable_log_extra_suppression: bool = True,
 ) -> None:
-    set_logger(log_name, False, "INFO", filename, level, enable_log_extra_suppression)
+    set_logger(log_name, False, logging.INFO, filename, level, enable_log_extra_suppression)
 
 
 def set_logger(
@@ -73,7 +73,7 @@ def set_logger(
         print_level = cast(int, logging.getLevelName(print_level.upper()))
     if isinstance(file_level, str):
         file_level = cast(int, logging.getLevelName(file_level.upper()))
-    top_level = print_level if (print_level > file_level) else file_level
+    top_level = min(print_level, file_level)
 
     logger = logging.getLogger(log_name)
     logger.setLevel(top_level)

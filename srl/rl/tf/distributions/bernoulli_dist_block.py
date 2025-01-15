@@ -13,6 +13,7 @@ class BernoulliDist:
         # logits: 標準ロジスティック関数の逆関数
         self._logits = logits
         self._probs = 1 / (1 + tf.exp(-self._logits))
+        self.loss_function = keras.losses.BinaryCrossentropy(from_logits=True)
 
     def logits(self):
         return self._logits
@@ -45,6 +46,12 @@ class BernoulliDist:
     def log_prob(self, a):
         raise NotImplementedError()  # TODO
 
+    @tf.function
+    def compute_train_loss(self, y):
+        # クロスエントロピーの最小化
+        # - (p log(q) + (1-p) log(1-q))
+        return self.loss_function(y, self._logits)
+
 
 class BernoulliDistBlock(KerasModelAddedSummary):
     def __init__(
@@ -73,3 +80,13 @@ class BernoulliDistBlock(KerasModelAddedSummary):
         # クロスエントロピーの最小化
         # - (p log(q) + (1-p) log(1-q))
         return self.loss_function(y, logits)
+
+
+class BernoulliDistLayer(KerasModelAddedSummary):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.out_layers = kl.Dense(1)
+
+    def call(self, x, training=False):
+        return BernoulliDist(self.out_layers(x, training=training))

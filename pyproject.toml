@@ -14,3 +14,6 @@ select = [
 ignore = [
     "E203",  # whitespace before ':'
 ]
+unfixable = [
+    "F401",  # unused import
+]

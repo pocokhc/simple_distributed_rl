@@ -173,6 +173,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return self._episode_seed
 
     def on_start(self, context: Optional[RunContext] = None):
+        logger.debug("on_start")
         if context is None:
             context = RunContext(self.env.config, self._config)
         self._on_start_val(context)
@@ -185,10 +186,12 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._total_step: int = 0
 
     def on_end(self):
+        logger.debug("on_end")
         self._worker.on_end(self)
         self._has_start = False
 
     def on_reset(self, player_index: int, seed: Optional[int] = None) -> None:
+        logger.debug(f"on_reset: {player_index=}, {seed=}")
         if not self._has_start:
             raise SRLError("Cannot call worker.on_reset() before calling worker.on_start()")
 
@@ -220,6 +223,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._set_invalid_actions()
 
     def policy(self) -> EnvActionType:
+        logger.debug("policy")
         # 1週目は reset -> policy
         # 2週目以降は step -> policy
         self._on_step(on_reset=(not self._is_reset))
@@ -243,6 +247,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         # 初期化前はskip
         if not self._is_reset:
             return
+        logger.debug("on_step")
         self._total_step += 1
 
         # 相手の番のrewardも加算
@@ -410,6 +415,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._render.set_render_options(interval, scale, font_name, font_size)
 
     def render(self, **kwargs):
+        logger.debug("render")
         return self._render.render(worker=self, **kwargs)
 
     def render_terminal_text(self, **kwargs) -> str:
@@ -545,6 +551,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return next_state, rewards
 
     def backup(self) -> Any:
+        logger.debug(f"backup: step={self._total_step}")
         d = [
             # on_start
             self._total_step,
@@ -573,6 +580,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return d
 
     def restore(self, dat: Any):
+        logger.debug(f"restore: step={dat[0]}")
         # on_start
         self._total_step = dat[0]
         self._has_start = dat[1]

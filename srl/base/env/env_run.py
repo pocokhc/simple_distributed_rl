@@ -64,6 +64,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def backup(self) -> Any:
         # - spaceは状態を持たない
         # - renderはcacheクリア
+        logger.debug(f"backup: step={self._step_num}, done={self._done}({self.env.done_reason}) reward={self._step_rewards}")
         d = [
             # reset_vals
             self._step_num,
@@ -100,6 +101,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._invalid_actions_list = dat[8][:]
         self._t0 = dat[9]
         self.env.info = dat[10].copy()
+        logger.debug(f"restore: step={self._step_num}, done={self._done}({self.env.done_reason}) reward={self._step_rewards}")
         # init val
         self._is_direct_step = dat[11]
         self._has_start = dat[12]
@@ -126,6 +128,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self.close()
 
     def close(self) -> None:
+        logger.debug("close")
         try:
             self.env.close()
         except Exception:
@@ -134,6 +137,8 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def remake(self):
         from srl.base.env.registration import make_base
 
+        logger.debug("remake")
+
         self.close()
         self.env = make_base(self.config)
 
@@ -141,6 +146,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     # run functions
     # ------------------------------------
     def setup(self, render_mode: Union[str, RenderModes] = RenderModes.none, **kwargs):
+        logger.debug(f"setup: {render_mode=}")
         # --- reset前の状態を設定
         self._done: DoneTypes = DoneTypes.RESET
         self.env.done_reason = ""
@@ -156,6 +162,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._has_start = True
 
     def reset(self, *, seed: Optional[int] = None, **kwargs) -> None:
+        logger.debug(f"reset: {seed=}")
         if not self._has_start:
             raise SRLError("Cannot call env.reset() before calling env.setup()")
 
@@ -192,6 +199,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         frameskip: int = 0,
         frameskip_function: Optional[Callable[[], None]] = None,
     ) -> None:
+        logger.debug(f"step: {action=}, {frameskip=}")
         if self._done != DoneTypes.NONE:
             raise SRLError(f"It is in the done state. Please execute reset(). ({self._done})")
         if self._is_direct_step and (not self.env.can_simulate_from_direct_step):
@@ -512,6 +520,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return interval
 
     def render(self, **kwargs):
+        logger.debug("render")
         return self._render.render(**kwargs)
 
     def render_terminal_text(self, **kwargs) -> str:
@@ -527,6 +536,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     # direct
     # ------------------------------------
     def direct_step(self, *args, **kwargs) -> None:
+        logger.debug("direct_step")
         self._is_direct_step = True
         self._prev_player = self.env.next_player
         self.is_start_episode, state = self.env.direct_step(*args, **kwargs)

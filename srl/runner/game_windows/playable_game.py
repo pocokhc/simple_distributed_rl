@@ -25,12 +25,22 @@ class _PlayableCallback(RunCallback):
         self.env.action_space.create_division_tbl(action_division_num)
         self.action_num = self.env.action_space.int_size
 
-    def on_step_action_after(self, context: RunContext, state: RunStateActor) -> None:
+    def on_episode_begin(self, context: RunContext, state: RunStateActor, **kwargs):
+        self._read_valid_actions()
+
+    def on_step_end(self, context: RunContext, state: RunStateActor, **kwargs):
+        self._read_valid_actions()
+
+    def _read_valid_actions(self):
+        # 入力可能なアクションを読み取り
         invalid_actions = [self.env.action_space.encode_to_int(a) for a in self.env.invalid_actions]
         self.valid_actions = [a for a in range(self.action_num) if a not in invalid_actions]
 
-    def on_step_begin(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
-        state.action = self.env.action_space.decode_from_int(self.action)
+    def on_step_action_after(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
+        # アクションでpolicyの結果を置き換える
+        manual_action = self.env.action_space.decode_from_int(self.action)
+        state.action = manual_action
+        state.workers[state.worker_idx].override_action(manual_action)
 
     def get_env_action(self):
         return self.env.action_space.decode_from_int(self.action)
@@ -194,11 +204,12 @@ class PlayableGame(GameWindow):
 
         # --- RESETは最後
         if self.scene == "RESET":
-            # on_step_action_afterまで進める
+            # on_step_action_beforeまで進める
             while True:
                 gen_status, _, _ = next(self.gen_play)
-                if gen_status == "on_step_action_after":
+                if gen_status == "on_step_action_before":
                     break
+            logger.debug(f"RESET: {gen_status=}")
 
             self.env._render.cache_reset()
             self.set_image(self.run_worker.create_render_image())
@@ -215,20 +226,22 @@ class PlayableGame(GameWindow):
             self.scene = "RUNNING"
 
     def _step(self):
-
         # --- 1step
         t0 = time.time()
         while True:
             try:
-                gen_status, _, _ = next(self.gen_play)
+                gen_status, _, state = next(self.gen_play)
             except StopIteration:
                 self.pygame_done = True
                 break
             if gen_status == "on_episode_end":
                 self.scene = "START"
                 break
-            if gen_status == "on_step_action_after":
-                break
+            if gen_status == "on_step_end":
+                # doneの場合はon_episode_endで止めるため止めない
+                if not state.env.done:
+                    break
+        logger.debug(f"step: {gen_status=}")
         self.step_time = time.time() - t0
 
         self.set_image(self.run_worker.create_render_image())

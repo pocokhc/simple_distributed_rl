@@ -243,6 +243,13 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
         return env_action
 
+    def override_action(self, env_action: EnvActionType, update_prev_action: bool = False) -> TActType:
+        rl_action = self.action_encode(env_action)
+        if update_prev_action:
+            self._prev_action = self._action
+        self._action = rl_action
+        return rl_action
+
     def on_step(self) -> None:
         # 初期化前はskip
         if not self._is_reset:

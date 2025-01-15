@@ -271,8 +271,8 @@ def _play(
             state.env.render()
             [c.on_step_action_before(context=context, state=state) for c in _calls_on_step_action_before]
             state.action = state.workers[state.worker_idx].policy()
-            state.workers[state.worker_idx].render()
             [c.on_step_action_after(context=context, state=state) for c in _calls_on_step_action_after]
+            state.workers[state.worker_idx].render()
 
             # workerがenvを終了させた場合に対応
             if not state.env.done:
@@ -335,9 +335,7 @@ def _play(
                         w.render()
 
                 # reward
-                worker_rewards = [
-                    state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)
-                ]
+                worker_rewards = [state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)]
                 state.episode_rewards_list.append(worker_rewards)
 
                 state.last_episode_step = state.env.step_num
@@ -364,9 +362,7 @@ def _play(
         if not context.training:
             # 一度もepisodeを終了していない場合は例外で途中経過を保存
             if state.episode_count == 0:
-                worker_rewards = [
-                    state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)
-                ]
+                worker_rewards = [state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)]
                 state.episode_rewards_list.append(worker_rewards)
                 state.last_episode_step = state.env.step_num
                 state.last_episode_time = state.env.elapsed_time

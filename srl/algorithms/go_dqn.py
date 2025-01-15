@@ -18,7 +18,10 @@ from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.space import SpaceBase
 from srl.rl import functions as funcs
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
+from srl.rl.memories.experience_replay_buffer import (
+    ExperienceReplayBuffer,
+    RLConfigComponentExperienceReplayBuffer,
+)
 from srl.rl.models.config.dueling_network import DuelingNetworkConfig
 from srl.rl.models.config.input_config import RLConfigComponentInput
 from srl.rl.schedulers.scheduler import SchedulerConfig
@@ -34,21 +37,28 @@ class DownSamplingProcessor(RLProcessor):
         self.space = env_observation_space
         return BoxSpace(rl_config.downsampling_size, 0, 8, np.uint8, SpaceTypes.GRAY_2ch)
 
-    def remap_observation(self, img, worker: "Worker", env: EnvRun):
+    def remap_observation(self, img, worker: "Worker", env: EnvRun, _debug=False):
         if self.space.stype == SpaceTypes.COLOR:
-            img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+            img1 = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
         elif self.space.stype == SpaceTypes.GRAY_3ch:
-            img = np.squeeze(img, axis=-1)
+            img1 = np.squeeze(img, axis=-1)
+        else:
+            img1 = img
 
-        ret, img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        ret, img2 = cv2.threshold(img1, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        # cv2.imshow("a", img2)
+        # cv2.waitKey(0)
 
-        img = cv2.resize(
-            img,
+        img3 = cv2.resize(
+            img2,
             (worker.config.downsampling_size[1], worker.config.downsampling_size[0]),
             interpolation=cv2.INTER_NEAREST,
         )
+        img3 = np.where(img3 < 127, 0, 1).astype(np.uint8)
 
-        return np.where(img < 127, 0, 1).astype(np.uint8)
+        if _debug:
+            return img1, img2, img3
+        return img3
 
 
 @dataclass
@@ -401,32 +411,29 @@ class Worker(RLWorker[Config, Parameter]):
             self.screen = pw.create_surface(w, h)
         pw.draw_fill(self.screen, color=(0, 0, 0))
 
-        text_x = (IMG_W + PADDING) + 4
         img = worker.env.render_rgb_array()
         if img is None:
             img = worker.env.render_terminal_text_to_image()
         if img is None:
             return None
-        pw.draw_image_rgb_array(self.screen, 0, 0, img, resize=(IMG_W, IMG_H))
-        pw.draw_text(self.screen, text_x, 0, "original", color=(255, 255, 255))
 
-        # color -> gray
-        img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-        y = IMG_H + PADDING
-        pw.draw_image_rgb_array(self.screen, 0, y, img, resize=(IMG_W, IMG_H), gray_to_color=True)
+        processor = DownSamplingProcessor()
+        processor.space = BoxSpace((1, 1, 3), stype=SpaceTypes.COLOR)
+        img1, img2, img3 = processor.remap_observation(img, self, None, _debug=True)
+
+        text_x = (IMG_W + PADDING) + 4
+        y = (IMG_H + PADDING) * 0
+        resize = (IMG_W, IMG_H)
+
+        pw.draw_image_rgb_array(self.screen, 0, y, img1, resize=resize, gray_to_color=True)
         pw.draw_text(self.screen, text_x, y, "gray", color=(255, 255, 255))
 
-        ret, img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        y = (IMG_H + PADDING) * 2
-        pw.draw_image_rgb_array(self.screen, 0, y, img, resize=(IMG_W, IMG_H), gray_to_color=True)
+        y = (IMG_H + PADDING) * 1
+        pw.draw_image_rgb_array(self.screen, 0, y, img2, resize=(IMG_W, IMG_H), gray_to_color=True)
         pw.draw_text(self.screen, text_x, y, "255->2", color=(255, 255, 255))
 
-        # down sampling
-        img = cv2.resize(
-            img, (self.config.downsampling_size[1], self.config.downsampling_size[0]), interpolation=cv2.INTER_NEAREST
-        )
-        y = (IMG_H + PADDING) * 3
-        pw.draw_image_rgb_array(self.screen, 0, y, img, resize=(IMG_W, IMG_H), gray_to_color=True)
-        pw.draw_text(self.screen, text_x, y, f"resize {self.config.downsampling_size}", color=(255, 255, 255))
+        y = (IMG_H + PADDING) * 2
+        pw.draw_image_rgb_array(self.screen, 0, y, img3 * 255, resize=(IMG_W, IMG_H), gray_to_color=True)
+        pw.draw_text(self.screen, text_x, y, "resize", color=(255, 255, 255))
 
         return pw.get_rgb_array(self.screen)

@@ -145,9 +145,9 @@ def play_generator(
         [c.on_step_action_before(context=context, state=state) for c in _calls_on_step_action_before]
         yield ("on_step_action_before", context, state)
         state.action = state.workers[state.worker_idx].policy()
-        state.workers[state.worker_idx].render()
         [c.on_step_action_after(context=context, state=state) for c in _calls_on_step_action_after]
         yield ("on_step_action_after", context, state)
+        state.workers[state.worker_idx].render()
 
         # workerがenvを終了させた場合に対応
         if not state.env.done:

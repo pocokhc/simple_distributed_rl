@@ -32,8 +32,6 @@ class CommonQuickCase(ABC):
             pytest.importorskip("torch")
 
     def _setup_rl_config(self, rl_config: RLConfig):
-        common.logger_print()
-
         rl_config.memory_compress = False
         if issubclass(rl_config.__class__, RLConfigComponentFramework):
             if self.use_framework() == "tensorflow":

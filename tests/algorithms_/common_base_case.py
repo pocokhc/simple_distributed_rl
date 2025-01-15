@@ -28,7 +28,6 @@ class CommonBaseCase(ABC):
             pytest.importorskip("torch")
 
     def create_runner(self, env_config: Union[str, EnvConfig], rl_config: RLConfig):
-        common.logger_print()
         if isinstance(env_config, str):
             env_config = EnvConfig(env_config)
 

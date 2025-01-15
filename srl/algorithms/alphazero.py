@@ -194,7 +194,7 @@ class Network(KerasModelAddedSummary):
             raise UndefinedError(config.value_type)
 
         # build
-        self.build((None,) + config.observation_space.shape)
+        self(np.zeros((1,) + config.observation_space.shape))
 
     def call(self, x, training=False):
         x = self.in_block(x, training=training)

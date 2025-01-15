@@ -126,11 +126,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     @property
     def render_img_state_one_step(self) -> np.ndarray:
-        return (
-            self._recent_render_img_states[-1]
-            if self._config.render_image_window_length > 1
-            else self._render_img_state
-        )
+        return self._recent_render_img_states[-1] if self._config.render_image_window_length > 1 else self._render_img_state
 
     @property
     def prev_action(self) -> TActType:
@@ -210,17 +206,12 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._state = self._config.observation_space.get_default()
         self._prev_state = self._state
         if self._config.window_length > 1:
-            self._recent_states: List[TObsType] = [
-                self._config.observation_space_one_step.get_default() for _ in range(self._config.window_length)
-            ]
+            self._recent_states: List[TObsType] = [self._config.observation_space_one_step.get_default() for _ in range(self._config.window_length)]
         if self._config.use_render_image_state():
             self._render_img_state = self._config.obs_render_img_space.get_default()
             self._prev_render_img_state = self._render_img_state
             if self._config.render_image_window_length > 1:
-                self._recent_render_img_states: List[np.ndarray] = [
-                    self._config.obs_render_img_space_one_step.get_default()
-                    for _ in range(self._config.render_image_window_length)
-                ]
+                self._recent_render_img_states: List[np.ndarray] = [self._config.obs_render_img_space_one_step.get_default() for _ in range(self._config.render_image_window_length)]
         self._action = cast(TActType, 0)
         self._prev_action = cast(TActType, 0)
         self._reward: float = 0
@@ -324,9 +315,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
                 env_state = p.remap_observation(env_state, self, env)
 
             # --- encode
-            rl_state: TObsType = self._config.observation_space_of_env.encode_to_space(
-                env_state, self._config.observation_space_one_step
-            )
+            rl_state: TObsType = self._config.observation_space_of_env.encode_to_space(env_state, self._config.observation_space_one_step)
         else:
             rl_state = cast(TObsType, env_state)
 
@@ -488,9 +477,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             if self.env.observation_space != self.config._rl_obs_space_one_step:
                 rl_state_img = self.render_rl_image()
                 if rl_state_img is not None:
-                    rl_state_img = render_funcs.add_padding(
-                        rl_state_img, padding, padding, padding, padding, border_color
-                    )
+                    rl_state_img = render_funcs.add_padding(rl_state_img, padding, padding, padding, padding, border_color)
                     rl_state_img = render_funcs.draw_text(rl_state_img, 0, 12, "RL")
                     env_img = render_funcs.vconcat(env_img, rl_state_img)
 
@@ -566,11 +553,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._player_index,
             self._episode_seed,
             self._is_reset,
-            (
-                [self._config.observation_space_one_step.copy_value(s) for s in self._recent_states]
-                if self._config.window_length > 1
-                else []
-            ),
+            ([self._config.observation_space_one_step.copy_value(s) for s in self._recent_states] if self._config.window_length > 1 else []),
             self._config.observation_space.copy_value(self._state),
             self._config.observation_space.copy_value(self._prev_state),
             self._config.action_space.copy_value(self._action),
@@ -583,13 +566,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._env.backup(),
         ]
         if self._config.use_render_image_state():
-            d.append(
-                (
-                    [self._config.obs_render_img_space_one_step.copy_value(s) for s in self._recent_render_img_states]
-                    if self._config.render_image_window_length > 1
-                    else []
-                )
-            )
+            d.append(([self._config.obs_render_img_space_one_step.copy_value(s) for s in self._recent_render_img_states] if self._config.render_image_window_length > 1 else []))
             d.append(self._config.obs_render_img_space.copy_value(self._render_img_state))
             d.append(self._config.obs_render_img_space.copy_value(self._prev_render_img_state))
 

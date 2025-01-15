@@ -31,9 +31,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._processors_reset: Any = [c for c in self._processors if hasattr(c, "remap_reset")]
         self._processors_step_action: Any = [c for c in self._processors if hasattr(c, "remap_step_action")]
         self._processors_step: Any = [c for c in self._processors if hasattr(c, "remap_step")]
-        self._processors_step_invalid_actions: Any = [
-            c for c in self._processors if hasattr(c, "remap_step_invalid_actions")
-        ]
+        self._processors_step_invalid_actions: Any = [c for c in self._processors if hasattr(c, "remap_step_invalid_actions")]
 
         # --- space
         self._action_space = self.env.action_space
@@ -186,10 +184,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             [self.assert_invalid_actions(a) for a in self._invalid_actions_list]
         elif self.config.enable_sanitize:
             self._state = self.sanitize_state(self._state, "state in env.reset may not be SpaceType.")
-            self._invalid_actions_list = [
-                self.sanitize_invalid_actions(a, "invalid_actions in env.reset may not be SpaceType.")
-                for a in self._invalid_actions_list
-            ]
+            self._invalid_actions_list = [self.sanitize_invalid_actions(a, "invalid_actions in env.reset may not be SpaceType.") for a in self._invalid_actions_list]
 
     def step(
         self,
@@ -277,9 +272,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         if self.config.enable_assertion:
             self.assert_invalid_actions(invalid_actions)
         elif self.config.enable_sanitize:
-            invalid_actions = self.sanitize_invalid_actions(
-                invalid_actions, "invalid_actions in env.step may not be SpaceType."
-            )
+            invalid_actions = self.sanitize_invalid_actions(invalid_actions, "invalid_actions in env.step may not be SpaceType.")
         self._invalid_actions_list[self.env.next_player] = invalid_actions
         self._step_num += 1
         self._episode_rewards = [self._episode_rewards[i] + self._step_rewards[i] for i in range(self.env.player_num)]
@@ -341,9 +334,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     def assert_rewards(self, rewards: Any):
         assert isinstance(rewards, list), f"Rewards must be arrayed. {rewards}({type(rewards)})"
-        assert (
-            len(rewards) == self.env.player_num
-        ), f"Array sizes are different. {len(rewards)} != {self.env.player_num}, {rewards}({type(rewards)})"
+        assert len(rewards) == self.env.player_num, f"Array sizes are different. {len(rewards)} != {self.env.player_num}, {rewards}({type(rewards)})"
         for r in rewards:
             assert isinstance(r, float), f"The type of reward is different. {r}({type(r)}), {rewards}"
 
@@ -368,9 +359,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return []
 
     def assert_invalid_actions(self, invalid_actions: Any):
-        assert isinstance(
-            invalid_actions, list
-        ), f"invalid_actions must be arrayed. {invalid_actions}({type(invalid_actions)})"
+        assert isinstance(invalid_actions, list), f"invalid_actions must be arrayed. {invalid_actions}({type(invalid_actions)})"
         for a in invalid_actions:
             assert self.action_space.check_val(a), f"The type of invalid_action is different. {a}({type(a)})"
 
@@ -473,9 +462,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         if self.config.enable_assertion:
             self.assert_invalid_actions(invalid_actions)
         elif self.config.enable_sanitize:
-            invalid_actions = self.sanitize_invalid_actions(
-                invalid_actions, "invalid_actions in 'env.add_invalid_actions' may not be SpaceType."
-            )
+            invalid_actions = self.sanitize_invalid_actions(invalid_actions, "invalid_actions in 'env.add_invalid_actions' may not be SpaceType.")
 
         if isinstance(self.action_space, DiscreteSpace):
             self._invalid_actions_list[player_index] += invalid_actions

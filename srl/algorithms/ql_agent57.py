@@ -168,13 +168,9 @@ class Parameter(RLParameter[Config]):
     def init_state(self, state, invalid_actions):
         if state not in self.Q_ext:
             if self.config.q_init == "random":
-                self.Q_ext[state] = [
-                    -np.inf if a in invalid_actions else np.random.normal() for a in range(self.config.action_space.n)
-                ]
+                self.Q_ext[state] = [-np.inf if a in invalid_actions else np.random.normal() for a in range(self.config.action_space.n)]
             else:
-                self.Q_ext[state] = [
-                    -np.inf if a in invalid_actions else 0.0 for a in range(self.config.action_space.n)
-                ]
+                self.Q_ext[state] = [-np.inf if a in invalid_actions else 0.0 for a in range(self.config.action_space.n)]
             L = self.config.lifelong_reward_L
             if self.config.enable_rescale:
                 L = funcs.rescaling(L)
@@ -265,7 +261,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
                 self.parameter.Q_ext,
                 batchs[i]["ext_rewards"],
             )
-            self.parameter.Q_ext[state][action] += lr_ext * ext_td_error * weights[i]
+            self.parameter.Q_ext[state][action] += lr_ext * ext_td_error * float(weights[i])
             ext_td_errors.append(ext_td_error)
 
             if self.config.enable_intrinsic_reward:
@@ -339,9 +335,7 @@ class Worker(RLWorker[Config, Parameter]):
         self._recent_states = ["" for _ in range(self.config.multisteps + 1)]
         self.recent_ext_rewards = [0.0 for _ in range(self.config.multisteps)]
         self.recent_int_rewards = [0.0 for _ in range(self.config.multisteps)]
-        self.recent_actions = [
-            random.randint(0, self.config.action_space.n - 1) for _ in range(self.config.multisteps)
-        ]
+        self.recent_actions = [random.randint(0, self.config.action_space.n - 1) for _ in range(self.config.multisteps)]
         self.recent_probs = [1.0 for _ in range(self.config.multisteps)]
         self.recent_invalid_actions = [[] for _ in range(self.config.multisteps + 1)]
 

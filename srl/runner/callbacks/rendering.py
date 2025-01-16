@@ -19,6 +19,7 @@ class Rendering(RunCallback):
     mode: Union[str, RenderModes] = RenderModes.none
     kwargs: dict = field(default_factory=lambda: {})
     step_stop: bool = False
+    render_interval: float = -1
     render_skip_step: bool = True
     render_worker: int = 0
     render_add_rl_terminal: bool = True
@@ -30,11 +31,11 @@ class Rendering(RunCallback):
         self.frames = []
         self.img_maxw = 0
         self.img_maxh = 0
-        self.render_interval = -1
         self.mode = RenderModes.from_str(self.mode)
 
     def on_episodes_begin(self, context: "RunContext", state: "RunStateActor", **kwargs) -> None:
-        self.render_interval = state.env.get_render_interval()
+        if self.render_interval == -1:
+            self.render_interval = state.env.get_render_interval()
 
     def on_step_begin(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         self._render(context, state)
@@ -187,9 +188,7 @@ class Rendering(RunCallback):
                 writer.write(img)
         finally:
             writer.release()
-        logger.info(
-            f"save animation: codec {codec}, interval {interval:.1f}ms, save time {time.time() - t0:.1f}s, {path}"
-        )
+        logger.info(f"save animation: codec {codec}, interval {interval:.1f}ms, save time {time.time() - t0:.1f}s, {path}")
 
     def to_jshtml(
         self,

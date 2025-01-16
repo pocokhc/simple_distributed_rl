@@ -150,6 +150,7 @@ class RunnerFacadePlay(RunnerBase):
         step_stop: bool = False,
         render_skip_step: bool = True,
         # render option
+        render_interval: float = -1,
         render_worker: int = 0,
         render_add_rl_terminal: bool = True,
         render_add_rl_rgb: bool = True,
@@ -200,6 +201,7 @@ class RunnerFacadePlay(RunnerBase):
                 mode=mode,
                 kwargs=render_kwargs,
                 step_stop=step_stop,
+                render_interval=render_interval,
                 render_skip_step=render_skip_step,
                 render_worker=render_worker,
                 render_add_rl_terminal=render_add_rl_terminal,

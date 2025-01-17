@@ -227,12 +227,9 @@ def _run_actor(
         import gc
 
         gc.collect()
-
-        logger.error(traceback.format_exc())
-        logger.error(f"[actor{actor_id}] error")
+        raise
     except Exception:
-        logger.error(traceback.format_exc())
-        logger.error(f"[actor{actor_id}] error")
+        raise
     finally:
         if not end_signal.value:
             end_signal.value = True
@@ -447,11 +444,7 @@ def train(
         if logger_config:
             logger.info("--- EnvConfig ---" + "\n" + pprint.pformat(context.env_config.to_dict()))
             logger.info("--- RLConfig ---" + "\n" + pprint.pformat(context.rl_config.to_dict()))
-            logger.info(
-                "--- Context ---"
-                + "\n"
-                + pprint.pformat(context.to_dict(include_env_config=False, include_rl_config=False))
-            )
+            logger.info("--- Context ---" + "\n" + pprint.pformat(context.to_dict(include_env_config=False, include_rl_config=False)))
         # ------------
 
         # mp を notebook で実行する場合はrlの定義をpyファイルにする必要あり TODO: それ以外でも動かないような
@@ -549,9 +542,7 @@ def train(
                         # 子プロセスが正常終了していなければ例外を出す
                         # exitcode: 0 正常, 1 例外, 負 シグナル
                         if w.exitcode != 0 and w.exitcode is not None:
-                            raise RuntimeError(
-                                f"An exception has occurred in actor{i} process.(exitcode: {w.exitcode})"
-                            )
+                            raise RuntimeError(f"An exception has occurred in actor{i} process.(exitcode: {w.exitcode})")
                         break
                 else:
                     logger.info(f"[main] actor{i} terminate")

@@ -26,7 +26,6 @@ registration.register(
     kwargs={
         "move_reward": -0.04,
         "move_prob": 0.8,
-        "reward_baseline": 0.65,  # # 0.7318 ぐらい
     },
     check_duplicate=False,
 )
@@ -37,7 +36,6 @@ registration.register(
     kwargs={
         "move_reward": -0.04,
         "move_prob": 0.8,
-        "reward_baseline": 0.65,
     },
     check_duplicate=False,
 )
@@ -48,7 +46,7 @@ registration.register(
     kwargs={
         "move_reward": 0.0,
         "move_prob": 1.0,
-        "reward_baseline": 0.9,
+        "reward_baseline_": {"episode": 100, "baseline": 0.9},
     },
     check_duplicate=False,
 )
@@ -65,7 +63,8 @@ class Action(enum.Enum):
 class _GridBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSpace, TObsType]):
     move_prob: float = 0.8
     move_reward: float = -0.04
-    reward_baseline: float = 0.6
+    # 0.7318 ぐらい
+    reward_baseline_: dict = field(default_factory=lambda: {"episode": 200, "baseline": 0.65})
 
     goal_reward: float = 1.0
     hole_reward: float = -1.0
@@ -131,14 +130,14 @@ class _GridBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSp
         return 50
 
     @property
-    def reward_info(self) -> dict:
+    def reward_range(self) -> Tuple[float, float]:
         r_min = (self.max_episode_steps - 1) * self.move_reward - 1
         r_max = 5 * self.move_reward + 1
-        return {
-            "min": r_min,
-            "max": r_max,
-            "baseline": self.reward_baseline,
-        }
+        return r_min, r_max
+
+    @property
+    def reward_baseline(self) -> dict:
+        return self.reward_baseline_
 
     def reset(self, seed: Optional[int] = None, **kwargs) -> Any:
         self.player_pos = random.choice(self.start_pos_list)

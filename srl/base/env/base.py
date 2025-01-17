@@ -1,5 +1,6 @@
+import math
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Generic, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, Tuple, Union
 
 from srl.base.define import KeyBindType
 from srl.base.info import Info
@@ -37,12 +38,14 @@ class EnvBase(IRender, Generic[TActSpace, TActType, TObsSpace, TObsType], ABC):
         raise NotImplementedError()
 
     @property
-    def reward_info(self) -> dict:
-        return {
-            "min": None,
-            "max": None,
-            "baseline": None,
-        }
+    def reward_range(self) -> Tuple[float, float]:
+        """rewardの取りうる範囲"""
+        return (-math.inf, math.inf)
+
+    @property
+    def reward_baseline(self):
+        """学習されたと見なされる報酬の閾値を返す、仕様が固まり切っていないので仮"""
+        return None
 
     def setup(self, **kwargs) -> None:
         """run.core_play の文脈で最初に呼ばれます

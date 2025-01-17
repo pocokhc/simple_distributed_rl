@@ -52,6 +52,10 @@ class Tiger(EnvBase[DiscreteSpace, int, DiscreteSpace, int]):
     def max_episode_steps(self) -> int:
         return 10
 
+    @property
+    def reward_baseline(self) -> dict:
+        return {"episode": 1000, "baseline": 0.5}
+
     def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
         self.tiger = State(random.randint(0, 1))
         self.state = State(random.randint(0, 1))

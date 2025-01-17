@@ -67,6 +67,11 @@ class IGrid(EnvBase[DiscreteSpace, int, ArrayDiscreteSpace, List[int]]):
     def max_episode_steps(self) -> int:
         return (self.length + 2) * 2 * 2
 
+    @property
+    def reward_baseline(self) -> dict:
+        # 乱数要素なし
+        return {"episode": 100, "baseline": 1.0}
+
     def reset(self, *, seed: Optional[int] = None, **kwargs) -> List[int]:
         self.player_pos = (1, int((self.length + 2 - 1) / 2))
 

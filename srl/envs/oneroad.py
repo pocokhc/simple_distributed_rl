@@ -44,6 +44,11 @@ class OneRoad(EnvBase[DiscreteSpace, int, DiscreteSpace, int]):
     def max_episode_steps(self) -> int:
         return int(self.N * 1.1)
 
+    @property
+    def reward_baseline(self) -> dict:
+        # 乱数要素なし
+        return {"episode": 100, "baseline": 1.0}
+
     def reset(self, *, seed: Optional[int] = None, **kwargs) -> int:
         self.player_pos = 0
         return self.player_pos

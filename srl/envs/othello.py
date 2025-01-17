@@ -2,7 +2,7 @@ import logging
 import pickle
 import time
 from abc import abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Generic, List, Optional, Tuple, cast
 
 import numpy as np
@@ -53,7 +53,15 @@ register(
 register(
     id="Othello4x4-layer",
     entry_point=__name__ + ":OthelloLayer",
-    kwargs={"W": 4, "H": 4},
+    kwargs={
+        "W": 4,
+        "H": 4,
+        # [0.3, 0.9] ぐらい
+        "reward_baseline_": [
+            {"episode": 50, "players": [None, "random"], "baseline": [0.1, None]},
+            {"episode": 50, "players": ["random", None], "baseline": [None, 0.5]},
+        ],
+    },
     check_duplicate=False,
 )
 
@@ -62,6 +70,7 @@ register(
 class _OthelloBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSpace, TObsType]):
     W: int = 8
     H: int = 8
+    reward_baseline_: list = field(default_factory=lambda: [])
 
     def __post_init__(self):
         self.screen = None
@@ -101,11 +110,12 @@ class _OthelloBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TOb
         return self.W * self.H
 
     @property
-    def reward_info(self) -> dict:
-        return {
-            "min": -1,
-            "max": 1,
-        }
+    def reward_range(self) -> Tuple[float, float]:
+        return -1, 1
+
+    @property
+    def reward_baseline(self) -> dict:
+        return self.reward_baseline_
 
     def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
         self.action = 0

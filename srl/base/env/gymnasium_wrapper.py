@@ -306,6 +306,14 @@ class GymnasiumWrapper(EnvBase):
     def player_num(self) -> int:
         return 1
 
+    @property
+    def reward_baseline(self) -> dict:
+        if self.config.name == "Pendulum-v1":
+            return {"episode": 10, "baseline": -500}
+        if self.config.name == "ALE/Pong-v5":
+            return {"episode": 5, "baseline": 0}
+        return {}
+
     def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
         if seed is None:
             state, info = self.env.reset()
@@ -363,11 +371,7 @@ class GymnasiumWrapper(EnvBase):
         render_mode = RenderModes.from_str(render_mode)
         # --- terminal
         # modeが違っていたら作り直す
-        if (
-            (render_mode in [RenderModes.terminal])
-            and (self.render_mode != RenderModes.terminal)
-            and ("ansi" in self.render_modes)
-        ):
+        if (render_mode in [RenderModes.terminal]) and (self.render_mode != RenderModes.terminal) and ("ansi" in self.render_modes):
             try:
                 self.env.close()
             except Exception as e:
@@ -377,11 +381,7 @@ class GymnasiumWrapper(EnvBase):
 
         # --- rgb_array
         # modeが違っていたら作り直す
-        if (
-            (render_mode in [RenderModes.rgb_array, RenderModes.window])
-            and (self.render_mode != RenderModes.rgb_array)
-            and ("rgb_array" in self.render_modes)
-        ):
+        if (render_mode in [RenderModes.rgb_array, RenderModes.window]) and (self.render_mode != RenderModes.rgb_array) and ("rgb_array" in self.render_modes):
             try:
                 self.env.close()
             except Exception as e:

@@ -54,12 +54,16 @@ class _OXBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSpac
         return 10
 
     @property
-    def reward_info(self) -> dict:
-        return {
-            "min": -1,
-            "max": 1,
-            "baseline": (0, 0),
-        }
+    def reward_range(self) -> Tuple[float, float]:
+        return -1, 1
+
+    @property
+    def reward_baseline(self):
+        # [0.987, 0.813] ぐらい
+        return [
+            {"episode": 200, "players": [None, "random"], "baseline": [0.8, None]},
+            {"episode": 200, "players": ["random", None], "baseline": [None, 0.65]},
+        ]
 
     def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
         self.field = [0 for _ in range(self.W * self.H)]

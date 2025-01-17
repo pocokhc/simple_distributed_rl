@@ -2,7 +2,7 @@ import logging
 import random
 import time
 import traceback
-from typing import Any, Callable, Generic, List, Optional, Tuple, Union, cast
+from typing import Any, Callable, Dict, Generic, List, Optional, Tuple, Union, cast
 
 import numpy as np
 
@@ -395,8 +395,12 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return self.env.player_num
 
     @property
-    def reward_info(self) -> dict:
-        return self.env.reward_info
+    def reward_range(self) -> Tuple[float, float]:
+        return self.env.reward_range
+
+    @property
+    def reward_baseline(self):
+        return self.env.reward_baseline
 
     # state properties
     @property

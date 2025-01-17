@@ -25,7 +25,7 @@ class _CommonOption:
         return "torch"
 
 
-class Test_agent57_light_CPU(_CommonOption, base_agent57_light.LongCase):
+class Test_agent57_light(_CommonOption, base_agent57_light.LongCase):
     pass
 
 
@@ -37,5 +37,5 @@ class Test_dqn(_CommonOption, base_dqn.LongCase):
     pass
 
 
-class Test_rainbow_CPU(_CommonOption, base_rainbow.LongCase):
+class Test_rainbow(_CommonOption, base_rainbow.LongCase):
     pass

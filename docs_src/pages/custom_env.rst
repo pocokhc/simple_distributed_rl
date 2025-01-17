@@ -14,8 +14,8 @@ Making a Custom environment
 + 4.実装例
 + 5.Q学習による学習例
 
-**外部環境との連携方法について**  
-`examples/external_env/ <https://github.com/pocokhc/simple_distributed_rl/tree/main/examples/external_env/>`_ 配下に説明があります。
+| **・外部環境との連携方法について**  
+| `examples/external_env/ <https://github.com/pocokhc/simple_distributed_rl/tree/main/examples/external_env/>`_ 配下にサンプルコードがあります。  
 
 
 1. 環境クラスの実装

@@ -136,9 +136,7 @@ class RLConfigComponentPriorityExperienceReplay:
         elif self.memory_name == "custom":
             from srl.utils.common import load_module
 
-            return load_module(self.memory_kwargs["entry_point"])(
-                capacity, dtype=dtype, **self.memory_kwargs["kwargs"]
-            )
+            return load_module(self.memory_kwargs["entry_point"])(capacity, dtype=dtype, **self.memory_kwargs["kwargs"])
         else:
             raise UndefinedError(self.memory_name)
 
@@ -191,7 +189,7 @@ class PriorityExperienceReplay(RLMemory[RLConfigComponentPriorityExperienceRepla
                 pass  # nothing
         self.memory.add(batch, priority)
 
-    def serialize_add_args(self, batch: Any, priority: Optional[float]) -> Any:
+    def serialize_add_args(self, batch: Any, priority: Optional[float] = None) -> Any:
         batch = pickle.dumps(batch)
         if self.config.memory_compress:
             batch = zlib.compress(batch, level=self.config.memory_compress_level)
@@ -201,9 +199,7 @@ class PriorityExperienceReplay(RLMemory[RLConfigComponentPriorityExperienceRepla
         return raw[0], raw[1], True
 
     def sample(self, step: int, batch_size: int = 0) -> Tuple[List[Any], np.ndarray, List[Any]]:
-        batchs, weights, update_args = self.memory.sample(
-            batch_size if batch_size > 0 else self.config.batch_size, step
-        )
+        batchs, weights, update_args = self.memory.sample(batch_size if batch_size > 0 else self.config.batch_size, step)
         if self.config.memory_compress:
             batchs = [pickle.loads(zlib.decompress(b)) for b in batchs]
         return batchs, weights, update_args

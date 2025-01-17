@@ -247,6 +247,7 @@ def _memory_communicate(
     remote_qsize: sharedctypes.Synchronized,
     end_signal: ctypes.c_bool,
     share_dict: dict,
+    exception_queue: queue.Queue,
 ):
     try:
         while not end_signal.value:
@@ -266,10 +267,12 @@ def _memory_communicate(
 
         logger.error(traceback.format_exc())
         end_signal.value = True
+        exception_queue.put(1)
         logger.info("[trainer, memory thread] end_signal=True (MemoryError)")
     except Exception:
         logger.error(traceback.format_exc())
         end_signal.value = True
+        exception_queue.put(1)
         logger.info("[trainer, memory thread] end_signal=True (error)")
     finally:
         logger.info("[trainer, memory thread] end")
@@ -281,6 +284,7 @@ def _parameter_communicate(
     end_signal: ctypes.c_bool,
     share_dict: dict,
     trainer_parameter_send_interval: int,
+    exception_queue: queue.Queue,
 ):
     try:
         while not end_signal.value:
@@ -296,10 +300,12 @@ def _parameter_communicate(
 
         logger.error(traceback.format_exc())
         end_signal.value = True
+        exception_queue.put(2)
         logger.info("[trainer, parameter thread] end_signal=True (MemoryError)")
     except Exception:
         logger.error(traceback.format_exc())
         end_signal.value = True
+        exception_queue.put(2)
         logger.info("[trainer, parameter thread] end_signal=True (error)")
     finally:
         logger.info("[trainer, parameter thread] end")
@@ -353,6 +359,7 @@ def _run_trainer(
     end_signal: Any,
     actors_ps_list: List[mp.Process],
 ):
+    exception_queue = queue.Queue()
     try:
         logger.info("[trainer] start.")
         context = mp_data.context
@@ -373,6 +380,7 @@ def _run_trainer(
                 remote_qsize,
                 end_signal,
                 share_dict,
+                exception_queue,
             ),
         )
         parameter_ps = threading.Thread(
@@ -383,6 +391,7 @@ def _run_trainer(
                 end_signal,
                 share_dict,
                 mp_data.trainer_parameter_send_interval,
+                exception_queue,
             ),
         )
         memory_ps.start()
@@ -415,6 +424,13 @@ def _run_trainer(
         memory_ps.join(timeout=10)
         parameter_ps.join(timeout=10)
     finally:
+        # 異常終了していたら例外を出す
+        if not exception_queue.empty():
+            n = exception_queue.get()
+            if n == 1:
+                raise RuntimeError("An exception occurred in the memory thread.")
+            else:
+                raise RuntimeError("An exception occurred in the parameter thread.")
         logger.info("[trainer] end")
 
 

@@ -373,14 +373,25 @@ class Worker(RLWorker[Config, Parameter]):
         # --- move
         if self.mode == "move_deter":
             assert self.cell is not None
+            # deterではないけどそう思いinvalid_actionsを選択する場合がある
             if self.cell["state"] == state:
                 self.mode = ""
-                return self.cell["action"]
+                if self.cell["action"] in invalid_actions:
+                    self.cell["deter"] = False
+                    # not action
+                else:
+                    return self.cell["action"]
             elif len(self.cell["actions"]) <= self.episode_step:
                 self.cell["deter"] = False
                 self.mode = ""
+                # not action
             else:
-                return self.cell["actions"][self.episode_step]
+                if self.cell["actions"][self.episode_step] in invalid_actions:
+                    self.cell["deter"] = False
+                    self.mode = ""
+                    # not action
+                else:
+                    return self.cell["actions"][self.episode_step]
 
         # --- 内部報酬による探索
         if self.training:
@@ -538,11 +549,16 @@ class Worker(RLWorker[Config, Parameter]):
         N = 0
         arr = []
         for key in self.archive_reached[start_state].keys():
+            if key not in self.archive:
+                continue
             cell = self.archive[key]
             # 0回の場合はQ値を信じるために+1
             n = cell["visit"] + cell["select"] + 1
             arr.append((n, cell))
             N += n
+
+        if N == 0:
+            return None
 
         N = 2 * math.log(N)
         max_ucb = -math.inf

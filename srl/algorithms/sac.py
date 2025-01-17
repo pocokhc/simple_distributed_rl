@@ -238,6 +238,7 @@ class Parameter(RLParameter):
 
         # エントロピーα自動調整用
         self.log_alpha = tf.Variable(np.log(self.config.entropy_alpha), dtype=tf.float32)
+        self.load_log_alpha = False
 
     def call_restore(self, data: Any, **kwargs) -> None:
         self.policy.set_weights(data[0])
@@ -246,6 +247,7 @@ class Parameter(RLParameter):
         self.q2_online.set_weights(data[2])
         self.q2_target.set_weights(data[2])
         self.log_alpha = data[3]
+        self.load_log_alpha = False
 
     def call_backup(self, **kwargs) -> Any:
         return [
@@ -276,7 +278,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.q1_optimizer = keras.optimizers.Adam(learning_rate=self.lr_q_sch.get_rate())
         self.q2_optimizer = keras.optimizers.Adam(learning_rate=self.lr_q_sch.get_rate())
         self.policy_optimizer = keras.optimizers.Adam(learning_rate=self.lr_policy_sch.get_rate())
-        self.alpha_optimizer = keras.optimizers.Adam(learning_rate=self.lr_alpha_sch.get_rate())
+        self.alpha_optimizer = None
 
         # エントロピーαの目標値、-1*アクション数が良いらしい
         if self.config.action_space.stype == SpaceTypes.DISCRETE:
@@ -306,6 +308,11 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         actions = np.asarray(actions)
         dones = np.asarray(dones, dtype=np.float32)[..., np.newaxis]
         rewards = np.asarray(rewards, dtype=np.float32)[..., np.newaxis]
+
+        if not self.parameter.load_log_alpha:
+            # restore時に再度作り直す必要あり
+            self.alpha_optimizer = keras.optimizers.Adam(learning_rate=self.lr_alpha_sch.get_rate())
+            self.parameter.load_log_alpha = True
 
         # 方策エントロピーの反映率αを計算
         alpha = np.exp(self.parameter.log_alpha)
@@ -376,12 +383,8 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             self.parameter.q1_target.set_weights(self.parameter.q1_online.get_weights())
             self.parameter.q2_target.set_weights(self.parameter.q2_online.get_weights())
         else:
-            helper_tf.model_soft_sync(
-                self.parameter.q1_target, self.parameter.q1_online, self.config.soft_target_update_tau
-            )
-            helper_tf.model_soft_sync(
-                self.parameter.q2_target, self.parameter.q2_online, self.config.soft_target_update_tau
-            )
+            helper_tf.model_soft_sync(self.parameter.q1_target, self.parameter.q1_online, self.config.soft_target_update_tau)
+            helper_tf.model_soft_sync(self.parameter.q2_target, self.parameter.q2_online, self.config.soft_target_update_tau)
 
         # lr_schedule
         if self.lr_q_sch.update(self.train_count):

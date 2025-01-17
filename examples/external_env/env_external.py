@@ -30,8 +30,8 @@ class ExternalEnv:
 
 def run_external_env(agent: Callable[[int, int], int]):
     """
-    ユーザが定義したagent関数を元に実際にシミュレーションする
-    agent関数の引数は[step, state]で戻り値はactionを想定
+    ユーザが定義したagent関数を元に実際にシミュレーションする関数
+    agent関数の引数は[step, state]で戻り値はaction
     """
 
     for episode in range(5):
@@ -52,8 +52,9 @@ def run_external_env(agent: Callable[[int, int], int]):
 
 
 if __name__ == "__main__":
-
+    # サンプルagent
     def sample_agent(step: int, state: int) -> int:
         return random.randint(0, 1)
 
+    # 動かす例
     run_external_env(sample_agent)

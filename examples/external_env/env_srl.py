@@ -11,11 +11,11 @@ from srl.base.env import registration
 from srl.base.env.base import EnvBase
 from srl.base.spaces.discrete import DiscreteSpace
 
-registration.register(id="ExternalEnv", entry_point=__name__ + ":SrlEnv")
+registration.register(id="ExternalEnv", entry_point=__name__ + ":SrlExternalEnv")
 
 
 @dataclass
-class SrlEnv(EnvBase[DiscreteSpace, int, DiscreteSpace, int]):
+class SrlExternalEnv(EnvBase[DiscreteSpace, int, DiscreteSpace, int]):
     @property
     def action_space(self):
         return DiscreteSpace(2)
@@ -50,16 +50,22 @@ class SrlEnv(EnvBase[DiscreteSpace, int, DiscreteSpace, int]):
     # direct_step, decode_action の2つの関数を実装する必要あり
     # -----------------------------------------------------------
     def direct_step(self, step: int, external_state: int) -> Tuple[bool, int, bool]:
-        """外部環境からくる情報を元にstepを進める"""
+        """外部環境からくる情報を元にSRL用の情報を作成しreturnする"""
         is_start_episode = step == 0  # エピソードの開始かどうか
         is_end_episode = False  # エピソードの終了かどうか（分からなくても動作します）
-        srl_env_state = int(external_state)  # 状態をSRL側が分かる形(observation_space型)に変換
+
+        # 状態をSRL側が分かる形(observation_space型)に変換
+        # ここでは外部環境の状態とobservation_spaceが両方intなので変換はなし
+        srl_env_state = external_state
+
         return is_start_episode, srl_env_state, is_end_episode
 
-    def decode_action(self, action: int) -> int:
+    def decode_action(self, srl_env_action: int) -> int:
         """アクションを外部環境が分かる形に変換"""
-        # action_space型 -> 外部環境のアクション
-        return action
+        # SRL側のアクションを外部環境が分かる形に変換
+        # ここではSRL側のアクション(action_space)と外部環境のアクションが両方intなので変換はなし
+        external_action = srl_env_action
+        return external_action
 
     @property
     def can_simulate_from_direct_step(self) -> bool:

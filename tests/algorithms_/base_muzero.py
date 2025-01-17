@@ -1,15 +1,12 @@
 from typing import Tuple
 
-import pytest
-
 from srl.base.rl.config import RLConfig
-from tests.algorithms_.common_base_case import CommonBaseCase
+from tests.algorithms_.common_long_case import CommonLongCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
 
 
 class QuickCase(CommonQuickCase):
     def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
-
         from srl.algorithms import muzero
 
         rl_config = muzero.Config()
@@ -25,8 +22,9 @@ class QuickCase(CommonQuickCase):
         return rl_config, dict(use_layer_processor=True)
 
 
-class BaseCase(CommonBaseCase):
+class LongCase(CommonLongCase):
     def _create_rl_config(self):
+        self.check_test_skip()
         from srl.algorithms import muzero
 
         rl_config = muzero.Config(
@@ -37,7 +35,6 @@ class BaseCase(CommonBaseCase):
         return rl_config
 
     def test_EasyGrid(self):
-        self.check_skip()
         from srl.envs import grid
 
         rl_config = self._create_rl_config()
@@ -57,12 +54,11 @@ class BaseCase(CommonBaseCase):
         rl_config.memory_warmup_size = 200
         rl_config.set_replay_memory()
         rl_config.processors = [grid.LayerProcessor()]
-        runner, tester = self.create_runner("EasyGrid", rl_config)
+        runner = self.create_test_runner("EasyGrid", rl_config)
         runner.train(max_train_count=3000)
-        tester.eval(runner)
+        assert runner.evaluate_compare_to_baseline_single_player()
 
     def test_EasyGrid_PER(self):
-        self.check_skip()
         from srl.envs import grid
 
         rl_config = self._create_rl_config()
@@ -81,6 +77,6 @@ class BaseCase(CommonBaseCase):
         rl_config.lr = rl_config.create_scheduler().set_linear(10_000, 0.002, 0.0001)
         rl_config.input_image_block.set_alphazero_block(1, 16)
         rl_config.processors = [grid.LayerProcessor()]
-        runner, tester = self.create_runner("EasyGrid", rl_config)
+        runner = self.create_test_runner("EasyGrid", rl_config)
         runner.train(max_train_count=3000)
-        tester.eval(runner)
+        assert runner.evaluate_compare_to_baseline_single_player()

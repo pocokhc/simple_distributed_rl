@@ -91,11 +91,11 @@ class KaggleWrapper(EnvBase):
         assert self.__state is not None
         return self.__state, self.__rewards, self.env.done, False
 
-    def direct_step(self, observation, configuration) -> Tuple[bool, EnvObservationType]:
+    def direct_step(self, observation, configuration) -> Tuple[bool, EnvObservationType, bool]:
         is_start_episode, state, player_index, info = self.encode_obs(observation, configuration)
         self.next_player = player_index
         self.info.set_dict(info)
-        return is_start_episode, state
+        return is_start_episode, state, False
 
     @property
     def can_simulate_from_direct_step(self) -> bool:

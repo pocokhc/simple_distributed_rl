@@ -208,8 +208,9 @@ worker.render()
 
 自作の環境とアルゴリズムの作成に関しては以下ドキュメントを参考にしてください。
 
-+ [Making a Custom environment](https://pocokhc.github.io/simple_distributed_rl/pages/custom_env.html)
-+ [Making a Custom algorithm](https://pocokhc.github.io/simple_distributed_rl/pages/custom_algorithm.html)
++ [環境の作成方法](https://pocokhc.github.io/simple_distributed_rl/pages/custom_env.html)
++ [外部環境との連携方法](./examples/external_env/)
++ [アルゴリズムの作成方法](https://pocokhc.github.io/simple_distributed_rl/pages/custom_algorithm.html)
 
 
 # 5. アルゴリズム

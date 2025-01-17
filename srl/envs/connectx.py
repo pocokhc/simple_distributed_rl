@@ -188,7 +188,7 @@ class ConnectX(EnvBase):
                 return AlphaBeta(max_depth=n, **kwargs)
         return None
 
-    def direct_step(self, observation, configuration) -> Tuple[bool, Any]:
+    def direct_step(self, observation, configuration) -> Tuple[bool, Any, bool]:
         """kaggle_environment を想定
         observation = {
             "remainingOverageTime": 60,
@@ -214,7 +214,7 @@ class ConnectX(EnvBase):
         step = observation.step
         is_start_episode = step == 0 or step == 1
 
-        return is_start_episode, self._create_state()
+        return is_start_episode, self._create_state(), False
 
     def decode_action(self, action):
         return action

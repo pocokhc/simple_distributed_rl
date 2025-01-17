@@ -539,22 +539,27 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     # ------------------------------------
     # direct
     # ------------------------------------
-    def direct_step(self, *args, **kwargs) -> None:
+    def direct_step(self, *args, **kwargs) -> Tuple[bool, bool]:
         logger.debug("direct_step")
         self._is_direct_step = True
         self._prev_player = self.env.next_player
-        self.is_start_episode, state = self.env.direct_step(*args, **kwargs)
+        is_start_episode, state, is_end_episode = self.env.direct_step(*args, **kwargs)
         if self.config.enable_assertion:
-            self.assert_bool(self.is_start_episode)
+            self.assert_bool(is_start_episode)
             self.assert_state(state)
         if self.config.enable_sanitize:
-            self.is_start_episode = self.sanitize_bool(self.is_start_episode)
+            is_start_episode = self.sanitize_bool(is_start_episode)
             state = self.sanitize_state(state, "'state' in 'env.direct_step' may not be SpaceType.")
-        if self.is_start_episode:
+        if is_start_episode:
             self._reset_vals()
 
-        # 終了タイミングが分からないのでずっと続ける
-        self._step2(state, [0] * self.env.player_num, DoneTypes.NONE)
+        if is_end_episode:
+            done = DoneTypes.TERMINATED
+            self.env.done_reason = "direct_step end episode"
+        else:
+            done = DoneTypes.NONE
+        self._step2(state, [0] * self.env.player_num, done)
+        return is_start_episode, is_end_episode
 
     def decode_action(self, action: TActType) -> Any:
         if self.config.enable_assertion:

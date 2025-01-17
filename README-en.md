@@ -150,7 +150,7 @@ For other usage, please see the following documentation.
 
 **(Trial implementation) Learning management using MLFlow**
 
-There is an example in "examples/sample_mlflow.py".
+There is an example in [examples/sample_mlflow.py](examples/sample_mlflow.py).
 
 
 # 3. Framework Overview
@@ -213,6 +213,7 @@ Please refer to the following documents for creating original environments and a
 (The contents are in Japanese)
 
 + [Making a Custom environment](https://pocokhc.github.io/simple_distributed_rl/pages/custom_env.html)
++ [Ways to Interact with External Environments](./examples/external_env/)
 + [Making a Custom algorithm](https://pocokhc.github.io/simple_distributed_rl/pages/custom_algorithm.html)
 
 
@@ -305,7 +306,7 @@ For information on linking with cloud services, please refer to the Qiita articl
 
 # 7. Development environment
 
-Look "./dockers/"
+Look [dockers folder](./dockers/)
 
 + PC1
   + windows11

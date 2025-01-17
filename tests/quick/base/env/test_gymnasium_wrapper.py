@@ -348,27 +348,27 @@ def test_random():
     print(env.observation_space)
 
     seed = 1
-    true_reward = -2.40916018129347
+    true_rewards = [-0.0867943231151876, -0.09731315910628034, -0.16233819995521884, -0.14296074750806131, -0.1789041486971654, -0.20774028619344717, -0.24025499014428392, -0.30014988321562974, -0.4117132103927077, -0.580991151617315,]
 
+    rewards = []
     random.seed(seed)
     np.random.seed(seed)
-
-    reward = 0
     env.reset(seed=seed)
     for _ in range(10):
         env.step(env.sample_action())
-        reward += env.reward
-    assert math.isclose(reward, true_reward)
+        rewards.append(env.reward)
+    for i in range(len(rewards)):
+        assert math.isclose(rewards[i], true_rewards[i])
 
+    rewards = []
     random.seed(seed)
     np.random.seed(seed)
-
-    reward = 0
     env.reset(seed=seed)
     for _ in range(10):
         env.step(env.sample_action())
-        reward += env.reward
-    assert math.isclose(reward, true_reward)
+        rewards.append(env.reward)
+    for i in range(len(rewards)):
+        assert math.isclose(rewards[i], true_rewards[i])
 
 
 def test_wrapper():

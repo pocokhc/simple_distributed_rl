@@ -19,24 +19,35 @@
 
 **MainUpdates**
 
+1. [examples] new: 外部環境を利用して学習するサンプルコードを追加(examples/external_env/)
 1. [settings] change: format/lintをblack+flake8+isortからruffに変更
+1. [tests] change: algorithm側のtestを一か所にまとめました
 
 **OtherUpdates**
 
+1. [base.base.env] change: reward_infoを廃止し、reward_rangeとreward_baselineを作成
 1. [base.rl.config] new: render用のwindow_lengthを別で用意、render_image_window_lengthをRLConfigに追加
 1. [base.rl.worker_run] change: on_startの引数がない場合でも動作するように変更
+1. [base.rl.worker_run] add: worker_runにアクションを上書きできるoverride_actionを追加
 1. [base] update: 型情報をリファクタリング
+1. [base] update: worker_runとenv_runにdebugログを追加
 1. [kaggle] update: kaggleのsampleが動くように変更
 1. [runner.callbacks.rendering] update: renderの表示を修正
+1. [runner] update: render_windowの引数にrender_intervalを追加
 1. [vscode] add: pytestのdebug実行時にログを出力するように変更
+1. [rl.tf.distributions] update: bernoulli_distとtwohot_distにlayerのみのクラスを作成
 1. [algorithms] update: go_dynaqを大幅に更新
 1. [algorithms] update: MCTSでtrain_countが進むように修正
+1. [algorithms] fix: alphazeroのbuildを呼び出しに
+1. [algorithms] update: go_dqnのrenderを修正
+1. [examples.raw] update: single playのサンプルも追加
 
 **Bug Fixes**
 
 1. [utils.render_functions] fix: vとhが逆だったのを修正
 1. [base.rl.worker_run] fix: エピソード終了タイミングでprev_actionが更新されない不具合修正
 1. [runner.callbacks.mlflow] fix: 評価時にplayersが反映されない不具合修正
+1. [runner] fix: play_windowのstep操作を直感とあうように修正
 
 # v0.17.0
 

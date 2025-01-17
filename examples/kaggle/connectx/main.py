@@ -27,8 +27,8 @@ worker.on_start()
 
 # --- agent
 def my_agent(observation, configuration):
-    env.direct_step(observation, configuration)
-    if env.is_start_episode:
+    is_start_episode, is_end_episode = env.direct_step(observation, configuration)
+    if is_start_episode:
         worker.on_reset(env.next_player)
     action = worker.policy()
     return env.decode_action(action)

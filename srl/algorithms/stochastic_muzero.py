@@ -211,7 +211,7 @@ class _DynamicsNetwork(KerasModelAddedSummary):
 
         # build
         self._in_shape = (h, w, ch + self.c_size)
-        self.build((None,) + self._in_shape)
+        self(np.zeros((1,) + self._in_shape))
 
     def call(self, in_state, training=False):
         # hidden state
@@ -296,7 +296,7 @@ class _PredictionNetwork(KerasModelAddedSummary):
         ]
 
         # build
-        self.build((None,) + hidden_shape)
+        self(np.zeros((1,) + hidden_shape))
 
     def call(self, state, training=False):
         policy = state
@@ -323,7 +323,7 @@ class _AfterstateDynamicsNetwork(KerasModelAddedSummary):
         )
 
         # build
-        self.build((None, h, w, ch + self.action_num))
+        self(np.zeros((1, h, w, ch + self.action_num)))
 
     def call(self, in_state, training=False):
         return self.image_block(in_state, training=training)
@@ -388,7 +388,7 @@ class _AfterstatePredictionNetwork(KerasModelAddedSummary):
             ),
         ]
         # build
-        self.build((None,) + as_shape)
+        self(np.zeros((1,) + as_shape))
 
     def call(self, state, training=False):
         code = state
@@ -435,7 +435,7 @@ class _VQVAE(KerasModelAddedSummary):
 
         # build
         self._in_shape = config.observation_space.shape
-        self.build((None,) + self._in_shape)
+        self(np.zeros((1,) + self._in_shape))
 
     def call(self, state, training=False):
         x = self.in_block(state, training=training)
@@ -629,21 +629,15 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             # --- unroll steps
             gradient_scale = 1 / self.config.unroll_steps
             for t in range(self.config.unroll_steps):
-                after_states = self.parameter.afterstate_dynamics_network.predict(
-                    hidden_states, actions_list[t], training=True
-                )
+                after_states = self.parameter.afterstate_dynamics_network.predict(hidden_states, actions_list[t], training=True)
                 chance_pred, q_pred = self.parameter.afterstate_prediction_network(after_states, training=True)
                 chance_code, chance_vae_pred = self.parameter.vq_vae(states_list[t + 1], training=True)
 
                 chance_loss += _scale_gradient(self._cross_entropy_loss(chance_code, chance_pred), gradient_scale)
                 q_loss += _scale_gradient(self._cross_entropy_loss(values_list[t], q_pred), gradient_scale)
-                vae_loss += _scale_gradient(
-                    tf.reduce_mean(tf.square(chance_code - chance_vae_pred), axis=1), gradient_scale
-                )
+                vae_loss += _scale_gradient(tf.reduce_mean(tf.square(chance_code - chance_vae_pred), axis=1), gradient_scale)
 
-                hidden_states, rewards_pred = self.parameter.dynamics_network.predict(
-                    after_states, chance_code, training=True
-                )
+                hidden_states, rewards_pred = self.parameter.dynamics_network.predict(after_states, chance_code, training=True)
                 p_pred, v_pred = self.parameter.prediction_network(hidden_states)
 
                 # 安定しなかったのでMSEに変更
@@ -768,9 +762,7 @@ class Worker(RLWorker[Config, Parameter]):
             counts = np.asarray(self.N[self.s0_str])
             action = np.random.choice(np.where(counts == counts.max())[0])
         else:
-            step_policy = np.array(
-                [self.N[self.s0_str][a] ** (1 / policy_tau) for a in range(self.config.action_space.n)]
-            )
+            step_policy = np.array([self.N[self.s0_str][a] ** (1 / policy_tau) for a in range(self.config.action_space.n)])
             step_policy /= step_policy.sum()
             action = funcs.random_choice_by_probs(step_policy)
 
@@ -914,9 +906,7 @@ class Worker(RLWorker[Config, Parameter]):
         )
 
         if worker.done:
-            zero_category = funcs.twohot_encode(
-                0, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max
-            )
+            zero_category = funcs.twohot_encode(0, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max)
             zero_state = np.zeros(self.config.observation_space.shape)
 
             # calc MC reward
@@ -928,10 +918,7 @@ class Worker(RLWorker[Config, Parameter]):
             # batch create
             for idx in range(len(self.history)):
                 # --- policies
-                policies = [
-                    [1 / self.config.action_space.n] * self.config.action_space.n
-                    for _ in range(self.config.unroll_steps + 1)
-                ]
+                policies = [[1 / self.config.action_space.n] * self.config.action_space.n for _ in range(self.config.unroll_steps + 1)]
                 for i in range(self.config.unroll_steps + 1):
                     if idx + i >= len(self.history):
                         break
@@ -949,9 +936,7 @@ class Worker(RLWorker[Config, Parameter]):
                     priority += v - self.history[idx + i]["state_v"]
                     self._v_min = min(self._v_min, v)
                     self._v_max = max(self._v_max, v)
-                    values[i] = funcs.twohot_encode(
-                        v, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max
-                    )
+                    values[i] = funcs.twohot_encode(v, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max)
                 priority /= self.config.unroll_steps + 1
 
                 # --- states
@@ -978,9 +963,7 @@ class Worker(RLWorker[Config, Parameter]):
                         r = rescaling(r)
                     self._v_min = min(self._v_min, r)
                     self._v_max = max(self._v_max, r)
-                    rewards[i] = funcs.twohot_encode(
-                        r, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max
-                    )
+                    rewards[i] = funcs.twohot_encode(r, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max)
 
                 self.memory.add(
                     "memory",
@@ -1031,7 +1014,7 @@ class Worker(RLWorker[Config, Parameter]):
                 q = inverse_rescaling(q)
                 reward = inverse_rescaling(reward)
 
-            s = f"{self.step_policy[a]*100:5.1f}%"
+            s = f"{self.step_policy[a] * 100:5.1f}%"
             s += f" {self.N[self.s0_str][a]:7d}(N)"
             s += f" {self.Q[self.s0_str][a]:9.5f}(Q)"
             s += f", {puct[a]:9.5f}(PUCT)"

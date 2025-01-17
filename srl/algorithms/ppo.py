@@ -203,7 +203,7 @@ class ActorCriticNetwork(KerasModelAddedSummary):
 
         # build
         self._in_shape = config.observation_space.shape
-        self.build((None,) + self._in_shape)
+        self(np.zeros((1,) + self._in_shape))
 
     def call(self, x, training=False):
         x = self.in_block(x, training=training)
@@ -245,9 +245,7 @@ class ActorCriticNetwork(KerasModelAddedSummary):
         ratio = tf.where(tf.math.is_inf(ratio), 0.0, ratio)  # for safety
         if self.config.surrogate_type == "clip":
             # Clipped Surrogate Objective
-            ratio_clipped = tf.clip_by_value(
-                ratio, 1 - self.config.policy_clip_range, 1 + self.config.policy_clip_range
-            )
+            ratio_clipped = tf.clip_by_value(ratio, 1 - self.config.policy_clip_range, 1 + self.config.policy_clip_range)
 
             # loss の計算
             loss_unclipped = ratio * advantage

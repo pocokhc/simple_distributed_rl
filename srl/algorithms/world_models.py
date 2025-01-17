@@ -242,7 +242,7 @@ class VAE(KerasModelAddedSummary):
             ]
 
         # build
-        self.build((None,) + config.observation_space.shape)
+        self(np.zeros((1,) + config.observation_space.shape))
 
     def call(self, x, training=False):
         return self.decode(self.encode(x, training=training), training=training)

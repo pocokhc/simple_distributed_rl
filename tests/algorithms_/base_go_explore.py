@@ -1,5 +1,7 @@
 from typing import Tuple
 
+import pytest
+
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_long_case import CommonLongCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -17,6 +19,9 @@ class QuickCase(CommonQuickCase):
         rl_config.hidden_block.set((2,))
 
         return rl_config, {}
+
+    def test_simple_mp(self, rl_param):
+        pytest.skip("未対応")
 
 
 class LongCase(CommonLongCase):

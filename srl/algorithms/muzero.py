@@ -155,13 +155,27 @@ class Memory(PriorityExperienceReplay):
         self.q_min = np.inf
         self.q_max = -np.inf
 
-    def add(self, key, batch: Any, priority: Optional[float] = None):
+    def add(self, key, batch: Any, priority: Optional[float] = None, serialized: bool = False):
         if key == "memory":
-            super().add(batch, priority)
+            super().add(batch, priority, serialized)
         else:
             q_min, q_max = batch
             self.q_min = min(self.q_min, q_min)
             self.q_max = max(self.q_max, q_max)
+
+    def serialize_add_args(self, key, batch: Any, priority: Optional[float] = None) -> Any:
+        if key == "memory":
+            b = super().serialize_add_args(batch, priority)
+            return key, b
+        else:
+            return key, batch
+
+    def deserialize_add_args(self, raw: Any) -> Any:
+        if raw[0] == "memory":
+            b = super().deserialize_add_args(raw[1])
+            return raw[0], *b
+        else:
+            return raw
 
     # ---------------------------------------
 

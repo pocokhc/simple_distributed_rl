@@ -147,7 +147,7 @@ if __name__ == "__main__":
 
 **(試験導入)MLFlowによる学習管理**
 
-"examples/sample_mlflow.py" にサンプルがあります。
+[examples/sample_mlflow.py](examples/sample_mlflow.py) にサンプルがあります。
 
 
 # 3. フレームワークの概要
@@ -298,7 +298,7 @@ worker.render()
 
 # 7. 開発環境
 
-Look "./dockers/"
+Look [dockers folder](./dockers/)
 
 + PC1
   + windows11

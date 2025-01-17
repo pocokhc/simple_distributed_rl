@@ -6,9 +6,6 @@ Making a Custom environment
 
 ここでは本フレームワークの環境を作成する方法を説明します。  
 
-**追記：外部環境との連携方法について作りました**  
-`examples/external_env/ <https://github.com/pocokhc/simple_distributed_rl/tree/main/examples/external_env/>`_ 配下に説明があります。
-
 + 1.環境クラスの実装
    + 1-1.Gymクラスによる実装
    + 1-2.EnvBaseクラスによる実装
@@ -16,6 +13,9 @@ Making a Custom environment
 + 3.登録
 + 4.実装例
 + 5.Q学習による学習例
+
+| **・外部環境との連携方法について**  
+| `examples/external_env/ <https://github.com/pocokhc/simple_distributed_rl/tree/main/examples/external_env/>`_ 配下にサンプルコードがあります。  
 
 
 1. 環境クラスの実装

@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Making a Custom environment &mdash; SimpleDistributedRL 0.17.0.2 ドキュメント</title>
+  <title>Making a Custom environment &mdash; SimpleDistributedRL 0.17.1 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=80936009"></script>
+      <script src="../_static/documentation_options.js?v=315feb3a"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -127,8 +127,6 @@
   <section id="making-a-custom-environment">
 <span id="custom-env"></span><h1>Making a Custom environment<a class="headerlink" href="#making-a-custom-environment" title="Link to this heading"></a></h1>
 <p>ここでは本フレームワークの環境を作成する方法を説明します。</p>
-<p><strong>追記：外部環境との連携方法について作りました</strong>
-<a class="reference external" href="https://github.com/pocokhc/simple_distributed_rl/tree/main/examples/external_env/">examples/external_env/</a> 配下に説明があります。</p>
 <ul class="simple">
 <li><dl class="simple">
 <dt>1.環境クラスの実装</dt><dd><ul>
@@ -143,6 +141,10 @@
 <li><p>4.実装例</p></li>
 <li><p>5.Q学習による学習例</p></li>
 </ul>
+<div class="line-block">
+<div class="line"><strong>・外部環境との連携方法について</strong></div>
+<div class="line"><a class="reference external" href="https://github.com/pocokhc/simple_distributed_rl/tree/main/examples/external_env/">examples/external_env/</a> 配下にサンプルコードがあります。</div>
+</div>
 <section id="id1">
 <h2>1. 環境クラスの実装<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
 <div class="line-block">

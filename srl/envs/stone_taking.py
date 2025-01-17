@@ -44,6 +44,14 @@ class StoneTaking(EnvBase[DiscreteSpace, int, DiscreteSpace, int]):
     def max_episode_steps(self) -> int:
         return self.stones
 
+    @property
+    def reward_baseline(self):
+        # 先行必勝(石10個)
+        return [
+            {"episode": 200, "players": [None, "random"], "baseline": [0.9, None]},
+            {"episode": 200, "players": ["random", None], "baseline": [None, 0.7]},
+        ]
+
     def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
         self.field = self.stones
         self.next_player = 0

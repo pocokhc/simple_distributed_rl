@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Generic, List, Optional, Tuple, cast
+from typing import Any, Generic, List, Optional, Tuple, Union, cast
 
 import numpy as np
 
@@ -9,6 +9,7 @@ from srl.base.define import (
     EnvActionType,
     EnvObservationType,
     ObservationModes,
+    RenderModes,
     SpaceTypes,
 )
 from srl.base.env.env_run import EnvRun
@@ -172,10 +173,12 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def episode_seed(self) -> Optional[int]:
         return self._episode_seed
 
-    def on_start(self, context: Optional[RunContext] = None):
+    def on_start(self, context: Optional[RunContext] = None, render_mode: Union[str, RenderModes] = RenderModes.none):
         logger.debug("on_start")
         if context is None:
             context = RunContext(self.env.config, self._config)
+        if render_mode != RenderModes.none:
+            context.render_mode = render_mode
         self._on_start_val(context)
         self._render.set_render_mode(context.render_mode, enable_window=False)
         self._worker.on_start(self, context)

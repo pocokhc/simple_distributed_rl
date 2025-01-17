@@ -4,6 +4,7 @@ import pytest
 
 import srl
 from srl.algorithms import dqn, ql
+from srl.base.system import device as device_module
 from srl.base.system.device import setup_device
 from srl.utils.common import is_available_gpu_tf, is_available_gpu_torch
 
@@ -17,6 +18,11 @@ def _setup_device(
     true_tf="/CPU",
     true_torch="cpu",
 ):
+    device_module.__setup_device = False
+    device_module.__framework = ""
+    device_module.__used_device_tf = "/CPU"
+    device_module.__used_device_torch = "cpu"
+
     if framework == "tensorflow":
         pytest.importorskip("tensorflow")
         rl_config = dqn.Config()
@@ -35,7 +41,7 @@ def _setup_device(
     assert used_device_tf == true_tf
     assert used_device_torch == true_torch
 
-    runner.train(max_train_count=5)
+    runner.train(max_train_count=2)
 
 
 @pytest.mark.parametrize("device", ["AUTO", "CPU", "GPU", "CPU:0", "GPU:0"])

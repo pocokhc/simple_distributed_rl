@@ -248,7 +248,7 @@ class _DynamicsNetwork(KerasModelAddedSummary):
 
         # build
         self._in_shape = (h, w, ch + self.action_num)
-        self.build((None,) + self._in_shape)
+        self(np.zeros((1,) + self._in_shape))
 
     def call(self, in_state, training=False):
         # hidden state
@@ -331,7 +331,7 @@ class _PredictionNetwork(KerasModelAddedSummary):
         ]
 
         # build
-        self.build((None,) + self._in_shape)
+        self(np.zeros((1,) + self._in_shape))
 
     def call(self, state, training=False):
         policy = state
@@ -481,9 +481,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             gradient_scale = 1 / self.config.unroll_steps
             for t in range(self.config.unroll_steps):
                 # pred
-                hidden_states, p_rewards = self.parameter.dynamics_network.predict(
-                    hidden_states, actions_list[t], training=True
-                )
+                hidden_states, p_rewards = self.parameter.dynamics_network.predict(hidden_states, actions_list[t], training=True)
                 p_pred, v_pred = self.parameter.prediction_network(hidden_states, training=True)
 
                 # loss
@@ -589,9 +587,7 @@ class Worker(RLWorker[Config, Parameter]):
             counts = np.asarray(self.N[self.s0_str])
             action = np.random.choice(np.where(counts == counts.max())[0])
         else:
-            step_policy = np.array(
-                [self.N[self.s0_str][a] ** (1 / policy_tau) for a in range(self.config.action_space.n)]
-            )
+            step_policy = np.array([self.N[self.s0_str][a] ** (1 / policy_tau) for a in range(self.config.action_space.n)])
             step_policy /= step_policy.sum()
             action = funcs.random_choice_by_probs(step_policy)
 
@@ -716,9 +712,7 @@ class Worker(RLWorker[Config, Parameter]):
         )
 
         if worker.done:
-            zero_category = funcs.twohot_encode(
-                0, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max
-            )
+            zero_category = funcs.twohot_encode(0, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max)
 
             # calc MC reward
             reward = 0
@@ -729,10 +723,7 @@ class Worker(RLWorker[Config, Parameter]):
             # batch create
             for idx in range(len(self.history)):
                 # --- policies
-                policies = [
-                    [1 / self.config.action_space.n] * self.config.action_space.n
-                    for _ in range(self.config.unroll_steps + 1)
-                ]
+                policies = [[1 / self.config.action_space.n] * self.config.action_space.n for _ in range(self.config.unroll_steps + 1)]
                 for i in range(self.config.unroll_steps + 1):
                     if idx + i >= len(self.history):
                         break
@@ -750,9 +741,7 @@ class Worker(RLWorker[Config, Parameter]):
                     priority += v - self.history[idx + i]["state_v"]
                     self._v_min = min(self._v_min, v)
                     self._v_max = max(self._v_max, v)
-                    values[i] = funcs.twohot_encode(
-                        v, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max
-                    )
+                    values[i] = funcs.twohot_encode(v, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max)
                 priority /= self.config.unroll_steps + 1
 
                 # --- actions
@@ -772,9 +761,7 @@ class Worker(RLWorker[Config, Parameter]):
                         r = rescaling(r)
                     self._v_min = min(self._v_min, r)
                     self._v_max = max(self._v_max, r)
-                    rewards[i] = funcs.twohot_encode(
-                        r, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max
-                    )
+                    rewards[i] = funcs.twohot_encode(r, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max)
 
                 self.memory.add(
                     "memory",

@@ -102,7 +102,7 @@ class QNetwork(KerasModelAddedSummary):
         ]
 
         # build
-        self.build((None,) + config.observation_space.shape)
+        self(np.zeros((1,) + config.observation_space.shape))
 
     def call(self, x, training=False):
         x = self.in_block(x, training=training)
@@ -233,9 +233,7 @@ class Worker(RLWorker):
 
         self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
 
-        self.Z = np.linspace(
-            self.config.categorical_v_min, self.config.categorical_v_max, self.config.categorical_num_atoms
-        )
+        self.Z = np.linspace(self.config.categorical_v_min, self.config.categorical_v_max, self.config.categorical_num_atoms)
 
     def on_reset(self, worker):
         pass

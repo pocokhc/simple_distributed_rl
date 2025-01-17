@@ -119,7 +119,7 @@ class ActorNetwork(KerasModelAddedSummary):
         self.out_layer = kl.Dense(config.action_space.size, activation="tanh")
 
         # build
-        self.build((None,) + config.observation_space.shape)
+        self(np.zeros((1,) + config.observation_space.shape))
 
     def call(self, x, training=False):
         x = self.in_block(x, training=training)
@@ -162,10 +162,10 @@ class CriticNetwork(KerasModelAddedSummary):
         )
 
         # build
-        self.build(
+        self(
             [
-                (None,) + config.observation_space.shape,
-                (None, config.action_space.size),
+                np.zeros((1,) + config.observation_space.shape),
+                np.zeros((1, config.action_space.size)),
             ]
         )
 
@@ -304,16 +304,8 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             self.info["lr"] = lr
 
         # --- soft target update
-        self.parameter.actor_target.set_weights(
-            (1 - self.config.soft_target_update_tau)
-            * np.array(self.parameter.actor_target.get_weights(), dtype=object)
-            + (self.config.soft_target_update_tau) * np.array(self.parameter.actor_online.get_weights(), dtype=object)
-        )
-        self.parameter.critic_target.set_weights(
-            (1 - self.config.soft_target_update_tau)
-            * np.array(self.parameter.critic_target.get_weights(), dtype=object)
-            + (self.config.soft_target_update_tau) * np.array(self.parameter.critic_online.get_weights(), dtype=object)
-        )
+        self.parameter.actor_target.set_weights((1 - self.config.soft_target_update_tau) * np.array(self.parameter.actor_target.get_weights(), dtype=object) + (self.config.soft_target_update_tau) * np.array(self.parameter.actor_online.get_weights(), dtype=object))
+        self.parameter.critic_target.set_weights((1 - self.config.soft_target_update_tau) * np.array(self.parameter.critic_target.get_weights(), dtype=object) + (self.config.soft_target_update_tau) * np.array(self.parameter.critic_online.get_weights(), dtype=object))
 
         # --- hard target sync
         if self.train_count % self.config.hard_target_update_interval == 0:
@@ -343,9 +335,7 @@ class Worker(RLWorker):
 
         # (-1, 1) -> (action range)
         env_action = (self.action + 1) / 2
-        env_action = self.config.action_space.low + env_action * (
-            self.config.action_space.high - self.config.action_space.low
-        )
+        env_action = self.config.action_space.low + env_action * (self.config.action_space.high - self.config.action_space.low)
         env_action = env_action.tolist()
         return env_action
 

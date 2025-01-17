@@ -152,7 +152,7 @@ class PolicyNetwork(KerasModelAddedSummary):
             raise UndefinedError(self.config.action_space)
 
         # build
-        self.build((None,) + config.observation_space.shape)
+        self(np.zeros((1,) + config.observation_space.shape))
 
     def call(self, x, training=False) -> Any:
         x = self.in_block(x, training=training)
@@ -199,7 +199,7 @@ class QNetwork(KerasModelAddedSummary):
             self._in_shape2 = (config.action_space.n,)
         else:
             self._in_shape2 = (config.action_space.size,)
-        self.build([(None,) + self._in_shape1, (None,) + self._in_shape2])
+        self([np.zeros((1,) + self._in_shape1), np.zeros((1,) + self._in_shape2)])
 
     def call(self, x, training=False):
         state = x[0]

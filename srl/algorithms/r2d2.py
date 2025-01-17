@@ -186,7 +186,7 @@ class QNetwork(KerasModelAddedSummary):
         self.hidden_block = config.hidden_block.create_block_tf(config.action_space.n, rnn=True)
 
         # build
-        self.build((None,) + (config.sequence_length,) + config.observation_space.shape)
+        self(np.zeros((1, config.sequence_length) + config.observation_space.shape))
 
     @tf.function()
     def call(self, x, hidden_states=None, training=False):
@@ -288,12 +288,8 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 
         # burn-in
         if self.config.burnin > 0:
-            _, hidden_states = self.parameter.q_online(
-                burnin_states, hidden_states
-            )  # type:ignore , ignore check "None"
-            _, hidden_states_t = self.parameter.q_target(
-                burnin_states, hidden_states_t
-            )  # type:ignore , ignore check "None"
+            _, hidden_states = self.parameter.q_online(burnin_states, hidden_states)  # type:ignore , ignore check "None"
+            _, hidden_states_t = self.parameter.q_target(burnin_states, hidden_states_t)  # type:ignore , ignore check "None"
 
         # targetQ
         q_target, _ = self.parameter.q_target(step_states, hidden_states_t)  # type:ignore , ignore check "None"
@@ -302,9 +298,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         # --- 勾配 + targetQを計算
         td_errors_list = []
         with tf.GradientTape() as tape:
-            q, _ = self.parameter.q_online(
-                step_states, hidden_states, training=True
-            )  # type:ignore , ignore check "None"
+            q, _ = self.parameter.q_online(step_states, hidden_states, training=True)  # type:ignore , ignore check "None"
             frozen_q = tf.stop_gradient(q).numpy()  # type:ignore , ignore check "None"
 
             # 最後は学習しないので除く
@@ -401,19 +395,14 @@ class Worker(RLWorker[Config, Parameter]):
         # hidden_state   : burnin + sequence_length + next_state
 
         self._recent_states = [self.dummy_state for _ in range(self.config.burnin + self.config.sequence_length + 1)]
-        self.recent_actions = [
-            random.randint(0, self.config.action_space.n - 1) for _ in range(self.config.sequence_length)
-        ]
+        self.recent_actions = [random.randint(0, self.config.action_space.n - 1) for _ in range(self.config.sequence_length)]
         self.recent_probs = [1.0 / self.config.action_space.n for _ in range(self.config.sequence_length)]
         self.recent_rewards = [0.0 for _ in range(self.config.sequence_length)]
         self.recent_done = [False for _ in range(self.config.sequence_length)]
         self.recent_invalid_actions = [[] for _ in range(self.config.sequence_length + 1)]
 
         self.hidden_state = self.parameter.q_online.get_initial_state()
-        self.recent_hidden_states = [
-            [self.hidden_state[0][0], self.hidden_state[1][0]]
-            for _ in range(self.config.burnin + self.config.sequence_length + 1)
-        ]
+        self.recent_hidden_states = [[self.hidden_state[0][0], self.hidden_state[1][0]] for _ in range(self.config.burnin + self.config.sequence_length + 1)]
 
         self._recent_states.pop(0)
         self._recent_states.append(worker.state.astype(np.float32))

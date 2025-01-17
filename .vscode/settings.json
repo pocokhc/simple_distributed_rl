@@ -17,7 +17,8 @@
     "python.testing.pytestArgs": [
         "tests",
         // pytestにlogを表示する
-        "--log-cli-level=INFO"
+        "--log-cli-level=INFO",
+        "--cache-clear",
     ],
 
     // --- plant uml

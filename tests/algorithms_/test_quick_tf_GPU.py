@@ -24,6 +24,9 @@ class _CommonOption:
     def use_framework(self) -> str:
         return "tensorflow"
 
+    def use_device(self) -> str:
+        return "GPU"
+
 
 class Test_agent57_light(_CommonOption, base_agent57_light.QuickCase):
     pass

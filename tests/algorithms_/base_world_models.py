@@ -1,23 +1,23 @@
 from typing import Tuple
 
-import srl
 from srl.base.define import ObservationModes
 from srl.base.rl.config import RLConfig
-from tests.algorithms_.common_base_case import CommonBaseCase
+from tests.algorithms_.common_long_case import CommonLongCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
 
 
 class QuickCase(CommonQuickCase):
     def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
-
         from srl.algorithms import world_models
 
         rl_config = world_models.Config()
         return rl_config, {}
 
 
-class BaseCase(CommonBaseCase):
+class LongCase(CommonLongCase):
     def _create_rl_config(self):
+        self.check_test_skip()
+
         from srl.algorithms import world_models
 
         return world_models.Config(
@@ -29,12 +29,10 @@ class BaseCase(CommonBaseCase):
         )
 
     def test_Grid(self):
-        self.check_skip()
         rl_config = self._create_rl_config()
         rl_config.observation_mode = ObservationModes.RENDER_IMAGE
 
-        env_config = srl.EnvConfig("Grid")
-        runner, tester = self.create_runner(env_config, rl_config)
+        runner = self.create_test_runner("Grid", rl_config)
 
         rl_config.train_mode = 1
         runner.rollout(max_episodes=100)
@@ -59,4 +57,4 @@ class BaseCase(CommonBaseCase):
         max_episodes = rl_config.num_simulations * rl_config.num_individual * 300
         runner.train(max_episodes=max_episodes)
 
-        tester.eval(runner, episode=10, baseline=0.3)
+        assert runner.evaluate_compare_to_baseline_single_player(episode=10, baseline=0.3)

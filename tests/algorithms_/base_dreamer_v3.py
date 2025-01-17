@@ -6,7 +6,7 @@ import pytest
 import srl
 from srl.base.define import ObservationModes, RLBaseActTypes
 from srl.base.rl.config import RLConfig
-from tests.algorithms_.common_base_case import CommonBaseCase
+from tests.algorithms_.common_long_case import CommonLongCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
 
 
@@ -62,8 +62,10 @@ class QuickCase(CommonQuickCase):
         return rl_config, {}
 
 
-class BaseCase(CommonBaseCase):
+class LongCase(CommonLongCase):
     def _create_rl_config(self, mode):
+        self.check_test_skip()
+
         from srl.algorithms import dreamer_v3
 
         rl_config = dreamer_v3.Config()
@@ -80,8 +82,6 @@ class BaseCase(CommonBaseCase):
 
     @pytest.mark.parametrize("ver", ["v1", "v2", "v3"])
     def test_EasyGrid(self, ver):
-        self.check_skip()
-
         env_config = srl.EnvConfig("EasyGrid")
         rl_config = self._create_rl_config(ver)
 
@@ -107,7 +107,7 @@ class BaseCase(CommonBaseCase):
         rl_config.free_nats = 0.01
         rl_config.warmup_world_model = 1_000
 
-        runner, tester = self.create_runner(env_config, rl_config)
+        runner = self.create_test_runner(env_config, rl_config)
         if ver == "v1":
             runner.train(max_train_count=3_000)
         elif ver == "v2":
@@ -115,12 +115,10 @@ class BaseCase(CommonBaseCase):
         elif ver == "v3":
             rl_config.warmup_world_model = 2_000
             runner.train(max_train_count=3_000)
-        tester.eval(runner, episode=5, baseline=0.9)
+        assert runner.evaluate_compare_to_baseline_single_player(episode=5, baseline=0.9)
 
     @pytest.mark.parametrize("ver", ["v1", "v2", "v3"])
     def test_Grid_cont(self, ver):
-        self.check_skip()
-
         env_config = srl.EnvConfig("Grid")
         rl_config = self._create_rl_config(ver)
 
@@ -147,7 +145,7 @@ class BaseCase(CommonBaseCase):
         rl_config.override_action_type = RLBaseActTypes.CONTINUOUS
         rl_config.actor_reinforce_rate = 1.0
 
-        runner, tester = self.create_runner(env_config, rl_config)
+        runner = self.create_test_runner(env_config, rl_config)
         if ver == "v1":
             rl_config.warmup_world_model = 3_000
             runner.train(max_train_count=10_000)
@@ -161,12 +159,10 @@ class BaseCase(CommonBaseCase):
             rl_config.reinforce_baseline = ""
             rl_config.warmup_world_model = 5_000
             runner.train(max_train_count=10_000)
-        tester.eval(runner, episode=5, baseline=0.1)
+        assert runner.evaluate_compare_to_baseline_single_player(episode=5, baseline=0.1)
 
     @pytest.mark.parametrize("params", [["v1"], ["v2"], ["v3"]])
     def test_EasyGrid_img(self, params):
-        self.check_skip()
-
         env_config = srl.EnvConfig("EasyGrid")
         env_config.max_episode_steps = 20
         rl_config = self._create_rl_config(params[0])
@@ -198,6 +194,6 @@ class BaseCase(CommonBaseCase):
         rl_config.warmup_world_model = 10_000
         rl_config.observation_mode = ObservationModes.RENDER_IMAGE
 
-        runner, tester = self.create_runner(env_config, rl_config)
+        runner = self.create_test_runner(env_config, rl_config)
         runner.train(max_train_count=12_000)
-        tester.eval(runner, episode=5, baseline=0.9)
+        assert runner.evaluate_compare_to_baseline_single_player(episode=5, baseline=0.9)

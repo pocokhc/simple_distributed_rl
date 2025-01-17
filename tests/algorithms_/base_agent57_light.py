@@ -1,7 +1,7 @@
 from typing import Tuple
 
 from srl.base.rl.config import RLConfig
-from tests.algorithms_.common_base_case import CommonBaseCase
+from tests.algorithms_.common_long_case import CommonLongCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
 
 
@@ -24,8 +24,10 @@ class QuickCase(CommonQuickCase):
         return rl_config, {}
 
 
-class BaseCase(CommonBaseCase):
+class LongCase(CommonLongCase):
     def _create_rl_config(self):
+        self.check_test_skip()
+
         from srl.algorithms import agent57_light
 
         rl_config = agent57_light.Config(
@@ -44,36 +46,37 @@ class BaseCase(CommonBaseCase):
         return rl_config
 
     def test_Pendulum(self):
-        self.check_skip()
         rl_config = self._create_rl_config()
-        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner = self.create_test_runner("Pendulum-v1", rl_config)
         runner.train(max_train_count=200 * 50)
-        tester.eval(runner)
+        assert runner.evaluate_compare_to_baseline_single_player()
 
     def test_Pendulum_mp(self):
-        self.check_skip()
         rl_config = self._create_rl_config()
-        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner = self.create_test_runner("Pendulum-v1", rl_config)
         runner.train_mp(max_train_count=200 * 100)
-        tester.eval(runner)
+        assert runner.evaluate_compare_to_baseline_single_player()
 
     def test_Pendulum_uvfa(self):
-        self.check_skip()
         rl_config = self._create_rl_config()
         rl_config.input_ext_reward = True
         rl_config.input_int_reward = True
         rl_config.input_action = True
-        runner, tester = self.create_runner("Pendulum-v1", rl_config)
+        runner = self.create_test_runner("Pendulum-v1", rl_config)
         runner.train_mp(max_train_count=200 * 50)
-        tester.eval(runner)
+        assert runner.evaluate_compare_to_baseline_single_player()
 
     def test_OX(self):
-        self.check_skip()
         rl_config = self._create_rl_config()
         rl_config.hidden_block.set((32, 32, 16))
 
-        runner, tester = self.create_runner("OX", rl_config)
+        runner = self.create_test_runner("OX", rl_config)
         runner.train(max_train_count=10_000)
 
-        tester.eval(runner, players=[None, "random"], baseline=[0.4, None])
-        tester.eval(runner, players=["random", None], baseline=[None, 0.4])
+        results = runner.evaluate_compare_to_baseline_multiplayer(
+            baseline_params=[
+                {"episode": 100, "players": [None, "random"], "baseline": [0.4, None]},
+                {"episode": 100, "players": ["random", None], "baseline": [None, 0.4]},
+            ]
+        )
+        assert all(results)

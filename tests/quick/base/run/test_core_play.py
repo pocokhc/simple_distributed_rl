@@ -11,7 +11,6 @@ from srl.base.rl.worker import RLWorker
 from srl.base.run.play import play
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.space import SpaceBase
-from srl.utils import common
 
 
 class StubEnv(EnvBase):
@@ -132,8 +131,6 @@ def scope_function():
 
 
 def test_play_worker():
-    common.logger_print()
-
     env_config = srl.EnvConfig("StubEnvCore", enable_assertion=True)
     rl_config = DummyRLConfig(name="StubWorker")
 

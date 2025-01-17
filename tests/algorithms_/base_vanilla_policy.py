@@ -1,39 +1,21 @@
-from typing import Tuple
-
 import srl
 from srl.algorithms import vanilla_policy
 from srl.base.define import RLBaseActTypes
-from srl.base.rl.config import RLConfig
-from srl.test.rl import TestRL
-from tests.algorithms_.common_quick_case import CommonQuickCase
+from tests.algorithms_.common_long_case import CommonLongCase
 
 
-class QuickCase_dis(CommonQuickCase):
-    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
-        return vanilla_policy.Config(), {}
-
-
-class QuickCase_con(CommonQuickCase):
-    def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
-        rl_config = vanilla_policy.Config()
-        rl_config.override_action_type = RLBaseActTypes.CONTINUOUS
-        return rl_config, {}
-
-
-class BaseCase:
+class LongCase(CommonLongCase):
     def test_Grid_discrete(self):
-        tester = TestRL()
         rl_config = vanilla_policy.Config()
         runner = srl.Runner("Grid", rl_config)
         runner.set_seed(1)
         runner.train(max_train_count=10_000)
-        tester.eval(runner)
+        assert runner.evaluate_compare_to_baseline_single_player()
 
     def test_Grid_continuous(self):
-        tester = TestRL()
         rl_config = vanilla_policy.Config(lr=0.01)
         rl_config.override_action_type = RLBaseActTypes.CONTINUOUS
         runner = srl.Runner("Grid", rl_config)
         runner.set_seed(1)
         runner.train(max_train_count=500_000)
-        tester.eval(runner)
+        assert runner.evaluate_compare_to_baseline_single_player()

@@ -10,6 +10,8 @@ param_path = os.path.join(os.path.dirname(__file__), "_parameter.dat")
 
 def train():
     runner = create_runner()
+
+    # --- 学習を実施
     runner.train(timeout=5)
 
     # --- save parameter

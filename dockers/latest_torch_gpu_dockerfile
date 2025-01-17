@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM pytorch/pytorch:2.1.2-cuda12.1-cudnn8-runtime
+FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
 WORKDIR /code
 ENV PYTHONPATH="/code"
 
@@ -16,8 +16,8 @@ RUN apt install -y libgl1-mesa-dev libglib2.0-0
 ##  Value in failed request:  0x0
 ##  Serial number of failed request:  128
 ##  Current serial number in output stream:  129
-#ENV LIBGL_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
-#ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6
+# ENV LIBGL_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
+# ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6
 
 COPY ./latest_requirements.txt requirements.txt
 RUN pip install -U -r requirements.txt

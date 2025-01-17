@@ -159,9 +159,6 @@ class Memory(RLMemory):
         else:
             raise ValueError(type_)
 
-    def serialize_add_args(self, type_: str, batch: Any) -> tuple:
-        return type_, pickle.dumps(batch)
-
     def sample(self) -> Any:
         if self.config.train_mode == 1:
             return random.sample(self.vae_buffer, self.config.batch_size)

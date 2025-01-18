@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING, Dict, Union
+from typing import TYPE_CHECKING, Dict, Optional, Union
 
 from srl.base.env.base import EnvBase
 from srl.base.env.config import EnvConfig
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 _registry = {}
 
 
-def make_base(config: Union[str, EnvConfig]) -> EnvBase:
+def make_base(config: Union[str, EnvConfig], env_run: Optional["EnvRun"] = None) -> EnvBase:
     if isinstance(config, str):
         config = EnvConfig(config)
 
@@ -98,6 +98,7 @@ def make_base(config: Union[str, EnvConfig]) -> EnvBase:
     if env is None:
         raise UndefinedError(f"'{env_name}' is not found.")
 
+    env.init_base(env_run)
     return env
 
 

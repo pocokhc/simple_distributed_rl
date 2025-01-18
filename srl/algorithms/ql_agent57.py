@@ -277,7 +277,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
                 int_td_error = 0
             int_td_errors.append(int_td_error)
 
-        self.train_count += 1
+            self.train_count += 1
 
         # 外部Qを優先
         # priority = abs(ext_td_error) + batch["beta"] * abs(int_td_error)

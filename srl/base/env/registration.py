@@ -58,9 +58,17 @@ def make_base(config: Union[str, EnvConfig]) -> EnvBase:
         _kwargs.update(config.kwargs)
         env = env_cls(**_kwargs)
 
-    # --- use gym
-    if env is None and config.use_gym:
-        if is_package_installed("gym"):
+    # --- load gym
+    if env is None:
+        _fgym = False
+        if config.use_gym:
+            if is_package_installed("gym"):
+                _fgym = True
+        else:
+            if not is_package_installed("gymnasium"):
+                _fgym = True
+
+        if _fgym:
             import gym.error
 
             try:
@@ -73,36 +81,19 @@ def make_base(config: Union[str, EnvConfig]) -> EnvBase:
                 logger.warning(f"Gym failed to load. '{e}'")
             except Exception:
                 raise
+        else:
+            import gymnasium.error
 
-    # --- load gymnasium
-    if env is None and is_package_installed("gymnasium"):
-        import gymnasium.error
+            try:
+                from srl.base.env.gymnasium_wrapper import GymnasiumWrapper
 
-        try:
-            from srl.base.env.gymnasium_wrapper import GymnasiumWrapper
-
-            env = GymnasiumWrapper(config)
-        except gymnasium.error.NameNotFound as e:
-            logger.warning(f"Gymnasium failed to load. '{e}'")
-        except gymnasium.error.NamespaceNotFound as e:
-            logger.warning(f"Gymnasium failed to load. '{e}'")
-        except Exception:
-            raise
-
-    # --- load gym
-    if env is None and is_package_installed("gym"):
-        import gym.error
-
-        try:
-            from srl.base.env.gym_wrapper import GymWrapper
-
-            env = GymWrapper(config)
-        except gym.error.NameNotFound as e:
-            logger.warning(f"Gym failed to load. '{e}'")
-        except gym.error.NamespaceNotFound as e:
-            logger.warning(f"Gym failed to load. '{e}'")
-        except Exception:
-            raise
+                env = GymnasiumWrapper(config)
+            except gymnasium.error.NameNotFound as e:
+                logger.warning(f"Gymnasium failed to load. '{e}'")
+            except gymnasium.error.NamespaceNotFound as e:
+                logger.warning(f"Gymnasium failed to load. '{e}'")
+            except Exception:
+                raise
 
     if env is None:
         raise UndefinedError(f"'{env_name}' is not found.")

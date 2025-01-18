@@ -1,7 +1,6 @@
 from srl.envs import sample_env  # noqa F401
-from srl.test.env import TestEnv
+from srl.test.env import env_test
 
 
-def test_env():
-    tester = TestEnv()
-    tester.play_test("SampleEnv")
+def test_simple_env():
+    env_test("SampleEnv")

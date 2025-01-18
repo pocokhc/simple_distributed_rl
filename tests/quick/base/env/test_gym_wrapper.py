@@ -11,7 +11,7 @@ from srl.base import spaces as srl_spaces
 from srl.base.define import SpaceTypes
 from srl.base.env.gym_user_wrapper import GymUserWrapper
 from srl.base.spaces.space import SpaceBase
-from srl.test.env import TestEnv
+from srl.test.env import env_test
 
 
 def test_play_FrozenLake():
@@ -21,12 +21,11 @@ def test_play_FrozenLake():
 
     # observation_space: Discrete(16)
     # action_space     : Discrete(4)
-    tester = TestEnv()
-    env = tester.play_test(
-        "FrozenLake-v1",
-        env_config_kwargs={"use_gym": True},
-        check_render=False,
-        check_restore=False,
+    env = env_test(
+        srl.EnvConfig("FrozenLake-v1", use_gym=True),
+        test_render_terminal=False,
+        test_render_window=False,
+        test_restore=False,
     )
     assert env.observation_space == srl_spaces.DiscreteSpace(16)
     assert env.action_space == srl_spaces.DiscreteSpace(4)
@@ -39,13 +38,12 @@ def test_play_CartPole():
 
     # observation_space: Box((4,))
     # action_space     : Discrete(2)
-    tester = TestEnv()
-    env = tester.play_test(
-        "CartPole-v1",
+    env = env_test(
+        srl.EnvConfig("CartPole-v1", use_gym=True),
         max_step=10,
-        env_config_kwargs={"use_gym": True},
-        check_render=False,
-        check_restore=False,
+        test_render_terminal=False,
+        test_render_window=False,
+        test_restore=False,
     )
     # range skip
     assert isinstance(env.observation_space, srl_spaces.BoxSpace)
@@ -61,13 +59,12 @@ def test_play_Blackjack():
 
     # observation_space: Tuple(Discrete(32), Discrete(11), Discrete(2))
     # action_space     : Discrete(2)
-    tester = TestEnv()
-    env = tester.play_test(
-        "Blackjack-v1",
+    env = env_test(
+        srl.EnvConfig("Blackjack-v1", use_gym=True),
         max_step=10,
-        env_config_kwargs={"use_gym": True},
-        check_render=False,
-        check_restore=False,
+        test_render_terminal=False,
+        test_render_window=False,
+        test_restore=False,
     )
     assert env.observation_space == srl_spaces.MultiSpace(
         [
@@ -85,17 +82,14 @@ def test_play_Pendulum():
 
     # observation_space: Box([-1. -1. -8.], [1. 1. 8.], (3,), float32)
     # action_space     : Box(-2.0, 2.0, (1,), float32)
-    tester = TestEnv()
-    env = tester.play_test(
-        "Pendulum-v1",
+    env = env_test(
+        srl.EnvConfig("Pendulum-v1", use_gym=True),
         max_step=10,
-        env_config_kwargs={"use_gym": True},
-        check_render=False,
-        check_restore=False,
+        test_render_terminal=False,
+        test_render_window=False,
+        test_restore=False,
     )
-    assert env.observation_space == srl_spaces.BoxSpace(
-        (3,), [-1, -1, -8], [1, 1, 8], np.float32, SpaceTypes.CONTINUOUS
-    )
+    assert env.observation_space == srl_spaces.BoxSpace((3,), [-1, -1, -8], [1, 1, 8], np.float32, SpaceTypes.CONTINUOUS)
     assert env.action_space == srl_spaces.BoxSpace((1,), -2.0, 2.0, np.float32, SpaceTypes.CONTINUOUS)
 
 
@@ -105,13 +99,12 @@ def test_play_Tetris():
 
     # Box(0, 255, (210, 160, 3), uint8)
     # Discrete(5)
-    tester = TestEnv()
-    env = tester.play_test(
-        "ALE/Tetris-v5",
-        check_render=False,
+    env = env_test(
+        srl.EnvConfig("ALE/Tetris-v5", use_gym=True),
         max_step=10,
-        env_config_kwargs={"use_gym": True},
-        check_restore=False,
+        test_render_terminal=False,
+        test_render_window=False,
+        test_restore=False,
     )
     assert env.observation_space == srl_spaces.BoxSpace((210, 160, 3), 0, 255, np.uint8, SpaceTypes.COLOR)
     assert env.action_space == srl_spaces.DiscreteSpace(5)
@@ -123,13 +116,12 @@ def test_play_Tetris_ram():
 
     # Box(0, 255, (128,), uint8)
     # Discrete(5)
-    tester = TestEnv()
-    env = tester.play_test(
-        "ALE/Tetris-ram-v5",
-        check_render=False,
+    env = env_test(
+        srl.EnvConfig("ALE/Tetris-ram-v5", use_gym=True),
         max_step=10,
-        env_config_kwargs={"use_gym": True},
-        check_restore=False,
+        test_render_terminal=False,
+        test_render_window=False,
+        test_restore=False,
     )
     assert env.observation_space == srl_spaces.BoxSpace((128,), 0, 255, np.uint8, SpaceTypes.DISCRETE)
     assert env.action_space == srl_spaces.DiscreteSpace(5)
@@ -280,9 +272,7 @@ def test_space():
     assert encode_val[3] == 4
     assert (encode_val[4] == [0, 0, 1, 0, 0, 0, 1, 1, 1, 0]).all()
     assert encode_val[5] == 6
-    assert (
-        encode_val[6] == np.array([[3.1046488, 5.9139466, 4.120618], [8.221998, 4.1012044, 7.6347136]], np.float32)
-    ).all()
+    assert (encode_val[6] == np.array([[3.1046488, 5.9139466, 4.120618], [8.221998, 4.1012044, 7.6347136]], np.float32)).all()
 
     decode_val = space_decode_to_srl_from_gym(space, srl_space, encode_val)
     print("----")

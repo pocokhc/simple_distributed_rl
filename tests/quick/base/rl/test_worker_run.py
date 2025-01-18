@@ -18,7 +18,7 @@ from srl.base.spaces.continuous import ContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.multi import MultiSpace
 from srl.base.spaces.space import SpaceBase
-from srl.test.env import TestEnv
+from srl.test.env import env_test
 from srl.utils import common
 
 _D = DiscreteSpace
@@ -124,8 +124,7 @@ def scope_function():
 
 
 def test_env_play():
-    tester = TestEnv()
-    tester.play_test("Stub")
+    env_test("Stub")
 
 
 # ------------------------------------------------------------------

@@ -1,11 +1,9 @@
-from srl.test.env import TestEnv
+from srl.test.env import env_test, player_test
 
 
 def test_play():
-    tester = TestEnv()
-    tester.play_test("StoneTaking")
+    env_test("StoneTaking")
 
 
 def test_player():
-    tester = TestEnv()
-    tester.player_test("StoneTaking", "cpu")
+    player_test("StoneTaking", "cpu")

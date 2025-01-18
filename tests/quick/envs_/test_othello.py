@@ -3,38 +3,32 @@ from typing import cast
 import numpy as np
 
 import srl
-from srl.envs import othello
-from srl.test.env import TestEnv  # noqa F401
+from srl.envs import othello  # noqa F401
+from srl.test.env import env_test, player_test
 
 
 def test_play():
-    tester = TestEnv()
-    tester.play_test("Othello")
+    env_test("Othello")
 
 
 def test_play6x6():
-    tester = TestEnv()
-    tester.play_test("Othello6x6")
+    env_test("Othello6x6")
 
 
 def test_play4x4():
-    tester = TestEnv()
-    tester.play_test("Othello4x4")
+    env_test("Othello4x4")
 
 
 def test_player():
-    tester = TestEnv()
-    tester.player_test("Othello", "cpu", timeout=2)
+    player_test("Othello", "cpu", timeout=2)
 
 
 def test_player6x6():
-    tester = TestEnv()
-    tester.player_test("Othello6x6", "cpu", timeout=1)
+    player_test("Othello6x6", "cpu", timeout=1)
 
 
 def test_player4x4():
-    tester = TestEnv()
-    tester.player_test("Othello4x4", "cpu")
+    player_test("Othello4x4", "cpu")
 
 
 def test_layer():

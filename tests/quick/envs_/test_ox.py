@@ -2,17 +2,15 @@ import numpy as np
 
 import srl
 from srl.base.define import DoneTypes
-from srl.test.env import TestEnv
+from srl.test.env import env_test, player_test
 
 
 def test_play():
-    tester = TestEnv()
-    tester.play_test("OX")
+    env_test("OX")
 
 
-def test_player():
-    tester = TestEnv()
-    tester.player_test("OX", "cpu")
+def test_player_cpu():
+    player_test("OX", "cpu")
 
 
 def test_layer():

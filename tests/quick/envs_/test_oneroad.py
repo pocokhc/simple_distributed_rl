@@ -1,12 +1,10 @@
-from srl.envs import oneroad
-from srl.test.env import TestEnv  # noqa F401
+from srl.envs import oneroad  # noqa F401
+from srl.test.env import env_test
 
 
 def test_play():
-    tester = TestEnv()
-    tester.play_test("OneRoad")
+    env_test("OneRoad")
 
 
 def test_play_hard():
-    tester = TestEnv()
-    tester.play_test("OneRoad-hard")
+    env_test("OneRoad-hard")

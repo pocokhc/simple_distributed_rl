@@ -24,7 +24,10 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         # restore/backup用に状態は意識して管理
 
         self.config = config
-        self.env = cast(EnvBase[TActSpace, TActType, TObsSpace, TObsType], make_base(self.config))
+        self.env = cast(
+            EnvBase[TActSpace, TActType, TObsSpace, TObsType],
+            make_base(self.config, self),
+        )
 
         # --- processor
         self._processors = [c.copy() for c in self.config.processors]
@@ -135,12 +138,10 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             logger.error(traceback.format_exc())
 
     def remake(self):
-        from srl.base.env.registration import make_base
-
         logger.debug("remake")
 
         self.close()
-        self.env = make_base(self.config)
+        self.env = make_base(self.config, self)
 
     # ------------------------------------
     # run functions

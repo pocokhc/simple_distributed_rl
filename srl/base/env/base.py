@@ -1,6 +1,7 @@
+import logging
 import math
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Generic, List, Optional, Tuple, Union
 
 from srl.base.define import KeyBindType
 from srl.base.info import Info
@@ -8,14 +9,39 @@ from srl.base.render import IRender
 from srl.base.spaces.space import TActSpace, TActType, TObsSpace, TObsType
 
 if TYPE_CHECKING:
+    from srl.base.env.env_run import EnvRun
     from srl.base.rl.worker import RLWorker
+
+logger = logging.getLogger(__name__)
 
 
 class EnvBase(IRender, Generic[TActSpace, TActType, TObsSpace, TObsType], ABC):
-    # Set these in subclasses
-    next_player: int = 0
-    done_reason: str = ""
-    info: Info = Info()
+    def init_base(self, env_run: Optional["EnvRun"]):
+        """
+        継承先のコードで呼び出しコードを記載しないために別途初期化関数を定義
+        registration内で手動で呼び出し
+        """
+        # Set these in subclasses
+        if hasattr(self, "next_player"):
+            if not isinstance(self.next_player, int):
+                logger.warning(f"'next_player' type is not 'int'. {self.next_player}({type(self.next_player)})")
+        else:
+            self.next_player: int = 0
+
+        if hasattr(self, "done_reason"):
+            if not isinstance(self.done_reason, int):
+                logger.warning(f"'done_reason' type is not 'str'. {self.done_reason}({type(self.done_reason)})")
+        else:
+            self.done_reason: str = ""
+
+        if hasattr(self, "info"):
+            if not isinstance(self.info, Info):
+                logger.warning(f"'info' type is not 'Info'. {self.info}({type(self.info)})")
+        else:
+            self.info: Info = Info()
+
+        self.env_run = env_run
+        return self
 
     @property
     @abstractmethod

@@ -167,7 +167,7 @@ def _play(
     if state.trainer is not None:
         state.start_train_count = state.trainer.train_count
         state.trainer.on_start(context)
-    state.env.setup(**context.to_dict())
+    state.env.setup(context)
 
     # --- 4 init
     state.worker_indices = [i for i in range(state.env.player_num)]

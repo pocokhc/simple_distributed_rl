@@ -173,14 +173,19 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def episode_seed(self) -> Optional[int]:
         return self._episode_seed
 
-    def on_start(self, context: Optional[RunContext] = None, render_mode: Union[str, RenderModes] = RenderModes.none):
-        logger.debug("on_start")
+    def on_start(
+        self,
+        context: Optional[RunContext] = None,
+        render_mode: Union[str, RenderModes] = RenderModes.none,
+    ):
+        logger.debug(f"on_start: {render_mode=}")
         if context is None:
             context = RunContext(self.env.config, self._config)
-        if render_mode != RenderModes.none:
-            context.render_mode = render_mode
+        if render_mode == RenderModes.none:
+            render_mode = context.render_mode
+
         self._on_start_val(context)
-        self._render.set_render_mode(context.render_mode, enable_window=False)
+        self._render.set_render_mode(render_mode, enable_window=False)
         self._worker.on_start(self, context)
         self._has_start = True
 

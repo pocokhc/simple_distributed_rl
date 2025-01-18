@@ -2,10 +2,11 @@ import logging
 import random
 import time
 import traceback
-from typing import Any, Callable, Dict, Generic, List, Optional, Tuple, Union, cast
+from typing import Any, Callable, Generic, List, Optional, Tuple, Union, cast
 
 import numpy as np
 
+from srl.base.context import RunContext
 from srl.base.define import DoneTypes, KeyBindType, RenderModes
 from srl.base.env.base import EnvBase
 from srl.base.env.config import EnvConfig
@@ -47,6 +48,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self.config._update_env_info(self.env)  # config update
         self._render = Render(self.env)
         self._reset_vals()
+        self.context: RunContext = RunContext(self.config)
         self.env.next_player = 0
         self._done = DoneTypes.RESET
         self._is_direct_step = False
@@ -146,8 +148,17 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     # ------------------------------------
     # run functions
     # ------------------------------------
-    def setup(self, render_mode: Union[str, RenderModes] = RenderModes.none, **kwargs):
+    def setup(
+        self,
+        context: Optional[RunContext] = None,
+        render_mode: Union[str, RenderModes] = RenderModes.none,
+    ):
         logger.debug(f"setup: {render_mode=}")
+        if context is not None:
+            self.context = context
+        if render_mode == RenderModes.none:
+            render_mode = self.context.render_mode
+
         # --- reset前の状態を設定
         self._done: DoneTypes = DoneTypes.RESET
         self.env.done_reason = ""
@@ -159,7 +170,9 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         [p.setup(self) for p in self._processors]
 
         # --- env
-        self.env.setup(render_mode=render_mode, **kwargs)
+        kwargs = self.context.to_dict()
+        kwargs["render_mode"] = render_mode
+        self.env.setup(**kwargs)
         self._has_start = True
 
     def reset(self, *, seed: Optional[int] = None, **kwargs) -> None:

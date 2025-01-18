@@ -1,6 +1,6 @@
-import copy
 import enum
 import logging
+import pickle
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, List, Optional, Union
 
@@ -99,7 +99,17 @@ class RunContext:
         return d
 
     def copy(self) -> "RunContext":
-        return copy.deepcopy(self)
+        context = self.__class__()
+        for k, v in self.__dict__.items():
+            if k in ["env_config", "rl_config"]:
+                continue
+            try:
+                setattr(context, k, pickle.loads(pickle.dumps(v)))
+            except TypeError as e:
+                logger.warning(f"'{k}' copy fail.({e})")
+        context.env_config = self.env_config
+        context.rl_config = self.rl_config
+        return context
 
     def check_stop_config(self):
         if self.distributed:
@@ -108,7 +118,7 @@ class RunContext:
             assert self.max_train_count > 0 or self.timeout > 0, "Please specify 'max_train_count' or 'timeout'."
         else:
             assert (
-                self.max_steps > 0
+                self.max_steps > 0  # 改行抑制コメント
                 or self.max_episodes > 0
                 or self.timeout > 0
                 or self.max_train_count > 0

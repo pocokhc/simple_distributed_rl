@@ -83,7 +83,7 @@ def main():
 
     # --- train
     context = srl.RunContext(env_config, rl_config, training=True)
-    env.setup()
+    env.setup(context)
     worker.on_start(context)
     trainer.on_start(context)
     for episode in range(10000):
@@ -95,7 +95,7 @@ def main():
 
     # --- evaluate
     context = srl.RunContext(env_config, rl_config)
-    env.setup()
+    env.setup(context)
     worker.on_start(context)
     rewards_list = []
     for episode in range(100):
@@ -106,7 +106,7 @@ def main():
 
     # --- render
     context = srl.RunContext(env_config, rl_config, render_mode="terminal")
-    env.setup(context.render_mode)
+    env.setup(context)
     worker.on_start(context)
     _run_episode(env, worker, None, rendering=True)
     worker.on_end()

@@ -135,6 +135,16 @@ class EnvBase(IRender, Generic[TActSpace, TActType, TObsSpace, TObsType], ABC):
     def render_interval(self) -> float:
         return 1000 / 60
 
+    # ------------------------------------
+    # context
+    # ------------------------------------
+    @property
+    def training(self) -> bool:
+        if hasattr(self, "env_run"):
+            assert self.env_run is not None
+            return self.env_run.context.training
+        return False
+
     # --------------------------------
     # direct
     # --------------------------------

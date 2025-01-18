@@ -34,6 +34,7 @@ class State(enum.Enum):
 @dataclass
 class Tiger(EnvBase[DiscreteSpace, int, DiscreteSpace, int]):
     def __post_init__(self):
+        super().__init__()
         self.prob = 0.85
 
     @property

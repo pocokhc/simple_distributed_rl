@@ -73,6 +73,7 @@ class _OthelloBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TOb
     reward_baseline_: list = field(default_factory=lambda: [])
 
     def __post_init__(self):
+        super().__init__()
         self.screen = None
 
     def get_field(self, x: int, y: int) -> int:

@@ -11,7 +11,7 @@ from srl.base import spaces as srl_spaces
 from srl.base.define import SpaceTypes
 from srl.base.env.gym_user_wrapper import GymUserWrapper
 from srl.base.spaces.space import SpaceBase
-from srl.test.env import TestEnv
+from srl.test.env import env_test
 from srl.utils import common
 
 
@@ -21,8 +21,7 @@ def test_play_FrozenLake():
 
     # observation_space: Discrete(16)
     # action_space     : Discrete(4)
-    tester = TestEnv()
-    env = tester.play_test("FrozenLake-v1")
+    env = env_test("FrozenLake-v1")
     assert env.observation_space == srl_spaces.DiscreteSpace(16)
     assert env.action_space == srl_spaces.DiscreteSpace(4)
     assert issubclass(env.unwrapped.__class__, gymnasium.Env)
@@ -35,8 +34,7 @@ def test_play_CartPole():
 
     # observation_space: Box((4,))
     # action_space     : Discrete(2)
-    tester = TestEnv()
-    env = tester.play_test("CartPole-v1", max_step=10)
+    env = env_test("CartPole-v1", max_step=10)
     # range skip
     assert isinstance(env.observation_space, srl_spaces.BoxSpace)
     assert env.observation_space.shape == (4,)
@@ -52,8 +50,7 @@ def test_play_Blackjack():
 
     # observation_space: Tuple(Discrete(32), Discrete(11), Discrete(2))
     # action_space     : Discrete(2)
-    tester = TestEnv()
-    env = tester.play_test("Blackjack-v1", max_step=10)
+    env = env_test("Blackjack-v1", max_step=10)
     assert env.observation_space == srl_spaces.MultiSpace(
         [
             srl_spaces.DiscreteSpace(32),
@@ -69,11 +66,8 @@ def test_play_Pendulum():
 
     # observation_space: Box([-1. -1. -8.], [1. 1. 8.], (3,), float32)
     # action_space     : Box(-2.0, 2.0, (1,), float32)
-    tester = TestEnv()
-    env = tester.play_test("Pendulum-v1", max_step=10)
-    assert env.observation_space == srl_spaces.BoxSpace(
-        (3,), [-1, -1, -8], [1, 1, 8], np.float32, SpaceTypes.CONTINUOUS
-    )
+    env = env_test("Pendulum-v1", max_step=10)
+    assert env.observation_space == srl_spaces.BoxSpace((3,), [-1, -1, -8], [1, 1, 8], np.float32, SpaceTypes.CONTINUOUS)
     assert env.action_space == srl_spaces.BoxSpace((1,), -2.0, 2.0, np.float32, SpaceTypes.CONTINUOUS)
 
 
@@ -83,8 +77,12 @@ def test_play_Tetris():
 
     # Box(0, 255, (210, 160, 3), uint8)
     # Discrete(5)
-    tester = TestEnv()
-    env = tester.play_test("ALE/Tetris-v5", check_render=False, max_step=10)
+    env = env_test(
+        "ALE/Tetris-v5",
+        max_step=10,
+        test_render_terminal=False,
+        test_render_window=False,
+    )
     assert env.observation_space == srl_spaces.BoxSpace((210, 160, 3), 0, 255, np.uint8, SpaceTypes.COLOR)
     assert env.action_space == srl_spaces.DiscreteSpace(5)
 
@@ -95,8 +93,12 @@ def test_play_Tetris_ram():
 
     # Box(0, 255, (128,), uint8)
     # Discrete(5)
-    tester = TestEnv()
-    env = tester.play_test("ALE/Tetris-ram-v5", check_render=False, max_step=10)
+    env = env_test(
+        "ALE/Tetris-ram-v5",
+        max_step=10,
+        test_render_terminal=False,
+        test_render_window=False,
+    )
     assert env.observation_space == srl_spaces.BoxSpace((128,), 0, 255, np.uint8, SpaceTypes.DISCRETE)
     assert env.action_space == srl_spaces.DiscreteSpace(5)
 
@@ -244,9 +246,7 @@ def test_space():
     assert encode_val[3] == 4
     assert (encode_val[4] == [0, 0, 1, 0, 0, 0, 1, 1, 1, 0]).all()
     assert encode_val[5] == 6
-    assert (
-        encode_val[6] == np.array([[3.1046488, 5.9139466, 4.120618], [8.221998, 4.1012044, 7.6347136]], np.float32)
-    ).all()
+    assert (encode_val[6] == np.array([[3.1046488, 5.9139466, 4.120618], [8.221998, 4.1012044, 7.6347136]], np.float32)).all()
 
     decode_val = space_decode_to_srl_from_gym(space, srl_space, encode_val)
     print("----")
@@ -348,7 +348,18 @@ def test_random():
     print(env.observation_space)
 
     seed = 1
-    true_rewards = [-0.0867943231151876, -0.09731315910628034, -0.16233819995521884, -0.14296074750806131, -0.1789041486971654, -0.20774028619344717, -0.24025499014428392, -0.30014988321562974, -0.4117132103927077, -0.580991151617315,]
+    true_rewards = [
+        -0.0867943231151876,
+        -0.09731315910628034,
+        -0.16233819995521884,
+        -0.14296074750806131,
+        -0.1789041486971654,
+        -0.20774028619344717,
+        -0.24025499014428392,
+        -0.30014988321562974,
+        -0.4117132103927077,
+        -0.580991151617315,
+    ]
 
     rewards = []
     random.seed(seed)

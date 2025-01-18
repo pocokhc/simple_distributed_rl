@@ -7,17 +7,15 @@ from srl.base.define import SpaceTypes
 from srl.base.rl.config import DummyRLConfig
 from srl.base.spaces.box import BoxSpace
 from srl.envs import grid
-from srl.test.env import TestEnv
+from srl.test.env import env_test
 
 
 def test_grid():
-    tester = TestEnv()
-    tester.play_test("Grid")
+    env_test("Grid")
 
 
 def test_easy_grid():
-    tester = TestEnv()
-    tester.play_test("EasyGrid")
+    env_test("EasyGrid")
 
 
 def test_processor():
@@ -43,7 +41,9 @@ def test_processor():
 def test_calc_action_values():
     env = cast(grid.Grid, srl.make_env("Grid").unwrapped)
 
-    V = env.value_iteration()
+    V = env.calc_state_values()
     Q = env.calc_action_values()
     env.print_state_values(V)
     env.print_action_values(Q)
+
+    print(env.prediction_reward(Q))

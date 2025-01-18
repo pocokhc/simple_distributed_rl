@@ -2,15 +2,14 @@ import numpy as np
 import pytest
 
 import srl
-from srl.test.env import TestEnv
+from srl.test.env import env_test
 
 
 def test_play():
     pytest.importorskip("kaggle_environments")
     from srl.envs.kaggle import connectx  # noqa F401
 
-    tester = TestEnv()
-    env = tester.play_test("kaggle_connectx")
+    env = env_test("kaggle_connectx")
 
     for x in [0, 2, 3, 4, 5, 6]:
         env.reset()
@@ -73,8 +72,7 @@ def test_player(player):
     pytest.importorskip("kaggle_environments")
     from srl.envs.kaggle import connectx  # noqa F401
 
-    tester = TestEnv()
-    tester.player_test("kaggle_connectx", player)
+    env_test("kaggle_connectx", player)
 
 
 def test_processor():
@@ -108,8 +106,8 @@ def test_kaggle_connectx():
     worker.on_start()
 
     def agent(observation, configuration):
-        env.direct_step(observation, configuration)
-        if env.is_start_episode:
+        is_start_episode, is_end_episode = env.direct_step(observation, configuration)
+        if is_start_episode:
             worker.on_reset(env.next_player)
         action = worker.policy()
         return env.decode_action(action)
@@ -139,8 +137,8 @@ def test_kaggle_connectx_mcts():
     worker.on_start()
 
     def agent(observation, configuration):
-        env.direct_step(observation, configuration)
-        if env.is_start_episode:
+        is_start_episode, is_end_episode = env.direct_step(observation, configuration)
+        if is_start_episode:
             worker.on_reset(env.next_player)
         action = worker.policy()
         return env.decode_action(action)

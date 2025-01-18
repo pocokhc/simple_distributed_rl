@@ -2,12 +2,11 @@ import numpy as np
 import pytest
 
 import srl
-from srl.test.env import TestEnv
+from srl.test.env import env_test, player_test
 
 
 def test_play():
-    tester = TestEnv()
-    env = tester.play_test("connectx")
+    env = env_test("connectx")
 
     for x in [0, 2, 3, 4, 5, 6]:
         env.reset()
@@ -74,8 +73,7 @@ def test_play():
     ],
 )
 def test_player(player):
-    tester = TestEnv()
-    tester.player_test("connectx", player)
+    player_test("connectx", player)
 
 
 def test_processor():
@@ -103,8 +101,8 @@ def test_kaggle_connectx():
     worker.on_start()
 
     def agent(observation, configuration):
-        env.direct_step(observation, configuration)
-        if env.is_start_episode:
+        is_start_episode, is_end_episode = env.direct_step(observation, configuration)
+        if is_start_episode:
             worker.on_reset(env.next_player)
         action = worker.policy()
         print(action)
@@ -133,8 +131,8 @@ def test_kaggle_connectx_success():
     worker.on_start()
 
     def agent(observation, configuration):
-        env.direct_step(observation, configuration)
-        if env.is_start_episode:
+        is_start_episode, is_end_episode = env.direct_step(observation, configuration)
+        if is_start_episode:
             worker.on_reset(env.next_player)
         action = worker.policy()
         return env.decode_action(action)

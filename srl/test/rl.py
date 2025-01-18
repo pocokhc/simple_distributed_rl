@@ -24,6 +24,7 @@ def test_rl(
     test_backup: bool = True,
     tmp_dir: str = "",
 ):
+    rl_config = rl_config.copy()
     env_list = env_list.copy()
     train_kwargs_ = {}
     train_kwargs_.update(test_train_kwargs)
@@ -113,44 +114,3 @@ def test_rl_rulebase(
         test_backup,
         tmp_dir,
     )
-
-
-# ----------------------------------------------------
-
-
-def verify_grid_policy(self, runner: srl.Runner):
-    from srl.envs.grid import Grid
-
-    env = srl.make_env("Grid")
-    env_org = cast(Grid, env.unwrapped)
-    worker = runner.make_worker()
-
-    V, _Q = env_org.calc_action_values()
-    Q = {}
-    for k, v in _Q.items():
-        new_k = worker.state_encode(k, env, append_recent_state=False)
-        new_k = to_str_observation(new_k)
-        Q[new_k] = v
-
-    # 数ステップ回してactionを確認
-    for _ in range(100):
-        if env.done:
-            env.reset()
-            worker.on_reset(0)
-
-        # action
-        pred_a = worker.policy()
-
-        # -----------
-        # policyのアクションと最適アクションが等しいか確認
-        key = to_str_observation(np.asarray(env.state))
-        true_a = np.argmax(list(Q[key].values()))
-        print(f"{env.state}: {true_a} == {pred_a}")
-        assert true_a == pred_a
-        # -----------
-
-        # env step
-        env.step(pred_a)
-
-        # rl step
-        worker.on_step()

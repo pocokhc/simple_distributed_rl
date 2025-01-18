@@ -1,7 +1,6 @@
 from srl.envs import igrid  # noqa F401
-from srl.test.env import TestEnv  # noqa F401
+from srl.test.env import env_test
 
 
 def test_play():
-    tester = TestEnv()
-    tester.play_test("IGrid")
+    env_test("IGrid")

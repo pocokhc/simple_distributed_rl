@@ -14,6 +14,43 @@
 // RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
 // DemoMemory: 個別対応かな
 
+# v0.17.2
+
+・EnvBaseのコンストラクタを呼び出す必要性がでてきました。
+  もしコンストラクタを使っている場合は親クラスの__init__も呼び出してください。
+
+``` python
+class MyEnv(EnvBase):
+  def __init__(self):
+    super().__init__()  # 追加する必要あり
+
+@dataclass
+class MyEnv2(EnvBase):
+  def __post_init__(self):
+    super().__init__()  # dataclassの場合も__init__を追加
+```
+
+**MainUpdates**
+
+1. [base.env] change: EnvBaseにコンストラクタを追加、継承先で呼び出すように変更（カスタム環境に影響あり）、一応なくても動くようにしているが書くのを推奨
+   - 合わせてドキュメントも変更
+1. [base.env] update: envもcontextを保持するようにして、env側からトレーニング状況などを参照できるように変更(rawレベルで引数に変更あり)
+
+
+**OtherUpdates**
+
+1. [base.env.env_base] fix: next_playerがクラス変数だったのをインスタンス変数に変更
+1. [tests] ref: env側のテストを修正
+1. [env.grid] update: 可視化用関数とアクション数を表示する関数他
+
+**Bug Fixes**
+
+1. [base.run.play_mp] fix: workerの例外が通知されない不具合修正
+1. [base.run.play_mp] fix: trainerの子スレッド内で例外が出た場合に通知されない不具合修正
+1. [algorithms.sac] fix: restore時にoptimizerも更新する必要があった
+1. [algorithms] fix: weightを初期化する前にrestoreするとエラーになるのでtfのbuildにweightを生成に変更
+1. [algorithms.muzero] fix: mp環境でうまくserialize出来ていなかった不具合修正
+1. [algorithms.world_models] fix: Memoryのserializeを修正
 
 # v0.17.1
 

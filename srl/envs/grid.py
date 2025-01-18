@@ -8,6 +8,7 @@ from typing import Any, Generic, List, Optional, Tuple, cast
 
 import numpy as np
 
+import srl
 from srl.base.define import KeyBindType, SpaceTypes
 from srl.base.env import registration
 from srl.base.env.base import EnvBase
@@ -80,6 +81,8 @@ class _GridBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSp
     )
 
     def __post_init__(self):
+        super().__init__()
+
         self.start_pos_list = []
         for y in range(self.H):
             for x in range(self.W):
@@ -115,6 +118,7 @@ class _GridBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSp
             },
         }
 
+        self.action_count = {}
         self.screen = None
 
     @property
@@ -156,6 +160,14 @@ class _GridBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSp
 
     def step(self, action) -> Tuple[Any, float, bool, bool]:
         action = Action(action)
+
+        if self.training:
+            k = tuple(self.player_pos)
+            if k not in self.action_count:
+                self.action_count[k] = {}
+            if action.value not in self.action_count[k]:
+                self.action_count[k][action.value] = 0
+            self.action_count[k][action.value] += 1
 
         items = self.action_probs[action].items()
         actions = [a for a, prob in items]
@@ -340,7 +352,7 @@ class _GridBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSp
 
     # ------------------------------------
 
-    def value_iteration(self, discount: float = 0.9, threshold: float = 0.000001):
+    def calc_state_values(self, discount: float = 0.9, threshold: float = 0.000001):
         V = {s: 0 for s in self.states}
 
         # 学習
@@ -381,7 +393,7 @@ class _GridBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSp
         return V
 
     def calc_action_values(self, discount: float = 0.9, threshold: float = 0.000001):
-        V = self.value_iteration(discount, threshold)
+        V = self.calc_state_values(discount, threshold)
         Q = {}
 
         # 全状態をループ
@@ -406,27 +418,80 @@ class _GridBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSp
 
         return Q
 
-    def print_state_values(self, V):
-        for y in range(1, self.H - 1):
+    def print_action_count(self):
+        def _Q(x, y, a):
+            q = 0
+            if (x, y) in self.action_count:
+                if a.value in self.action_count[(x, y)]:
+                    q = self.action_count[(x, y)][a.value]
+            return q
+
+        print("-" * self.W * 14)
+        for y in range(0, self.H):
+            # 上
             s = ""
-            for x in range(1, self.W - 1):
+            for x in range(0, self.W):
+                s += "   {:6d}    |".format(_Q(x, y, Action.UP))
+            print(s)
+            # 左右
+            s = ""
+            for x in range(0, self.W):
+                s += "{:6d} {:6d}|".format(_Q(x, y, Action.LEFT), _Q(x, y, Action.RIGHT))
+            print(s)
+            # 下
+            s = ""
+            for x in range(0, self.W):
+                s += "   {:6d}    |".format(_Q(x, y, Action.DOWN))
+            print(s)
+            print("-" * self.W * 14)
+
+    def print_state_values(self, V):
+        for y in range(0, self.H):
+            s = ""
+            for x in range(0, self.W):
                 if (x, y) in V:
                     v = V[(x, y)]
                 elif f"{x},{y}" in V:
                     v = V[f"{x},{y}"]
                 else:
                     v = 0
-                s += "{:9.6f} ".format(v)
+                s += "{:9.6f} ".format(float(v))
             print(s)
+
+    def plot_state_values(self, V):
+        import matplotlib.pyplot as plt
+
+        # 状態価値を格納する2D配列を初期化
+        grid = np.zeros((self.H, self.W))
+
+        for y in range(0, self.H):
+            for x in range(0, self.W):
+                if (x, y) in V:
+                    grid[y, x] = V[(x, y)]
+                elif f"{x},{y}" in V:
+                    grid[y, x] = V[f"{x},{y}"]
+
+        # ヒートマップを描画
+        plt.figure(figsize=(8, 6))
+        plt.imshow(grid, cmap="afmhot", origin="upper")
+        plt.colorbar(label="State Value")
+        plt.title("State Value map")
+        plt.xlabel("X")
+        plt.ylabel("Y")
+        plt.xticks(ticks=range(self.W), labels=range(0, self.W))
+        plt.yticks(ticks=range(self.H), labels=range(0, self.H))
+        plt.grid(False)
+        plt.show()
 
     def print_action_values(self, Q):
         def _Q(x, y, a):
             if (x, y) in Q:
-                return Q[(x, y)][a.value]
+                q = Q[(x, y)][a.value]
             elif f"{x},{y}" in Q:
-                return Q[f"{x},{y}"][a.value]
+                q = Q[f"{x},{y}"][a.value]
             else:
-                return 0
+                q = 0
+            return float(q)
 
         print("-" * self.W * 14)
         for y in range(0, self.H):
@@ -447,7 +512,80 @@ class _GridBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSp
             print(s)
             print("-" * self.W * 14)
 
-    def reward_prediction(self, Q, times=1000):
+    def plot_action_values(self, Q):
+        import matplotlib.cm as cm
+        import matplotlib.pyplot as plt
+        from matplotlib.colors import Normalize
+        from matplotlib.patches import FancyArrow
+
+        # 値の正規化用
+        all_values = [value for actions in self.action_count.values() for value in actions.values()]
+        norm = Normalize(vmin=min(all_values, default=0), vmax=max(all_values, default=1))
+        cmap = cm.Blues
+
+        fig, ax = plt.subplots(figsize=(self.W, self.H))
+        ax.set_xlim(0, self.W)
+        ax.set_ylim(0, self.H)
+        ax.set_xticks(np.arange(self.W))
+        ax.set_yticks(np.arange(self.H))
+        ax.set_xticks(np.arange(self.W) + 0.5, minor=True)
+        ax.set_yticks(np.arange(self.H) + 0.5, minor=True)
+        ax.grid(which="minor", color="gray", linestyle="-", linewidth=1)
+        ax.tick_params(which="both", bottom=False, left=False, labelbottom=False, labelleft=False)
+        fontsize = 12
+        arrow_size = 0.15
+        arrow_width = 0.08
+
+        def _Q(x, y, a):
+            if (x, y) in Q:
+                q = Q[(x, y)][a]
+            elif f"{x},{y}" in Q:
+                q = Q[f"{x},{y}"][a]
+            else:
+                q = 0
+            return q
+
+        for y in range(self.H):
+            for x in range(self.W):
+                # 各アクションの値を取得
+                up = _Q(x, y, 3)
+                down = _Q(x, y, 1)
+                left = _Q(x, y, 0)
+                right = _Q(x, y, 2)
+
+                # 中心座標
+                cx, cy = x + 0.5, self.H - y - 0.5
+
+                # 上矢印
+                if up > 0:
+                    color = cmap(norm(up))
+                    ax.add_patch(FancyArrow(cx, cy, 0, arrow_size, width=arrow_width, color=color))
+                    # ax.text(cx - 0, cy + 0.2, f"{up}", fontsize=fontsize, ha="center", va="bottom")
+
+                # 下矢印
+                if down > 0:
+                    color = cmap(norm(down))
+                    ax.add_patch(FancyArrow(cx, cy, 0, -arrow_size, width=arrow_width, color=color))
+                    # ax.text(cx + 0, cy - 0.2, f"{down}", fontsize=fontsize, ha="center", va="top")
+
+                # 左矢印
+                if left > 0:
+                    color = cmap(norm(left))
+                    ax.add_patch(FancyArrow(cx, cy, -arrow_size, 0, width=arrow_width, color=color))
+                    # ax.text(cx - 0.2, cy + 0, f"{left}", fontsize=fontsize, ha="right", va="center")
+
+                # 右矢印
+                if right > 0:
+                    color = cmap(norm(right))
+                    ax.add_patch(FancyArrow(cx, cy, arrow_size, 0, width=arrow_width, color=color))
+                    # ax.text(cx + 0.2, cy - 0, f"{right}", fontsize=fontsize, ha="left", va="center")
+
+        plt.show()
+
+    def plot_action_count(self):
+        self.plot_action_values(self.action_count)
+
+    def prediction_reward(self, Q, times=1000):
         rewards = []
         for _ in range(times):
             game = Grid()
@@ -455,6 +593,7 @@ class _GridBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSp
             done = False
             total_reward = 0
             while not done:
+                state = tuple(state)
                 if state in Q:
                     q = []
                     for a in self.actions:
@@ -463,10 +602,47 @@ class _GridBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSp
                 else:
                     action = np.random.choice([a.value for a in self.actions])
                 state, reward, done, _ = game.step(int(action))
-                total_reward += reward[0]
+                total_reward += reward
 
             rewards.append(total_reward)
         return np.mean(rewards)
+
+    def verify_grid_policy(self, runner: srl.Runner):
+        from srl.envs.grid import Grid
+
+        env = srl.make_env("Grid")
+        env_org = cast(Grid, env.unwrapped)
+        worker = runner.make_worker()
+
+        V, _Q = env_org.calc_action_values()
+        Q = {}
+        for k, v in _Q.items():
+            new_k = worker.state_encode(k, env, append_recent_state=False)
+            new_k = to_str_observation(new_k)
+            Q[new_k] = v
+
+        # 数ステップ回してactionを確認
+        for _ in range(100):
+            if env.done:
+                env.reset()
+                worker.on_reset(0)
+
+            # action
+            pred_a = worker.policy()
+
+            # -----------
+            # policyのアクションと最適アクションが等しいか確認
+            key = to_str_observation(np.asarray(env.state))
+            true_a = np.argmax(list(Q[key].values()))
+            print(f"{env.state}: {true_a} == {pred_a}")
+            assert true_a == pred_a
+            # -----------
+
+            # env step
+            env.step(pred_a)
+
+            # rl step
+            worker.on_step()
 
 
 class Grid(_GridBase[ArrayDiscreteSpace, List[int]]):

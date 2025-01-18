@@ -49,6 +49,7 @@ class IGrid(EnvBase[DiscreteSpace, int, ArrayDiscreteSpace, List[int]]):
     N: int = 0
 
     def __post_init__(self):
+        super().__init__()
         self.length = self.N * 2 + 1
 
     @property

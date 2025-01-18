@@ -25,9 +25,6 @@ class StoneTaking(EnvBase[DiscreteSpace, int, DiscreteSpace, int]):
     stones: int = 10
     max_stones: int = 3
 
-    def __post_init__(self):
-        pass  #
-
     @property
     def action_space(self):
         return DiscreteSpace(self.max_stones)

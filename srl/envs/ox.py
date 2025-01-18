@@ -36,6 +36,7 @@ class _OXBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSpac
     _scores_cache = {}
 
     def __init__(self):
+        super().__init__()
         self.screen = None
 
         self.W = 3

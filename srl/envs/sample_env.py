@@ -27,6 +27,7 @@ class SampleEnv(EnvBase[DiscreteSpace, int, DiscreteSpace, int]):
     move_reward: float = -0.04
 
     def __post_init__(self):
+        super().__init__()
         self.field = [-1, 0, 0, 0, 0, 0, 0, 0, 1]
 
     @property

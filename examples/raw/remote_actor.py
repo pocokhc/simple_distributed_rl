@@ -12,7 +12,7 @@ from srl.base.rl.worker_run import WorkerRun
 
 def _run_episode(env: EnvRun, worker: WorkerRun):
     env.reset()
-    worker.on_reset(0)
+    worker.reset(0)
     while not env.done:
         action = worker.policy()
         env.step(action)
@@ -50,7 +50,7 @@ def main(ip: str, port: int):
     worker = srl.make_worker(rl_config, env, parameter, remote_memory)
 
     env.setup(context)
-    worker.on_start(context)
+    worker.setup(context)
 
     print("--- actor start ---")
     prev_update_count = 0
@@ -74,6 +74,8 @@ def main(ip: str, port: int):
             print(f"{actor_id}: {episode} episode, {step} step, {reward} reward")
 
     print("--- actor end ---")
+    env.teardown()
+    worker.teardown()
 
 
 if __name__ == "__main__":

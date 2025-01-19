@@ -68,8 +68,8 @@ def run_trainer(queue, ip, port):
     remote_memory = manager.RemoteMemory()
 
     parameter = rl_config.make_parameter()
-    trainer = rl_config.make_trainer(parameter, remote_memory, distributed=True)
-    trainer.train_start(context)
+    trainer = rl_config.make_trainer(parameter, remote_memory)
+    trainer.setup(context)
 
     train_count = 0
     while True:
@@ -91,6 +91,7 @@ def run_trainer(queue, ip, port):
 
     server_state.set_end_signal(True)
     queue.put(parameter.backup())  # 学習結果を送信
+    trainer.teardown()
     manager.server_stop()
 
 
@@ -142,7 +143,7 @@ def train(config):
 
 def _run_episode(env: EnvRun, worker: WorkerRun):
     env.reset()
-    worker.on_reset(0)
+    worker.reset(0)
     while not env.done:
         action = worker.policy()
         env.step(action)
@@ -178,10 +179,13 @@ if __name__ == "__main__":
     assert env.player_num == 1
     worker = srl.make_worker(rl_config, env, parameter)
     env.setup(context)
-    worker.on_start(context)
+    worker.setup(context)
 
     reward_list = []
     for episode in range(100):
         reward = _run_episode(env, worker)
         reward_list.append(reward)
     print(f"Average reward for 100 episodes: {np.mean(reward_list):.5f}")
+
+    env.teardown()
+    worker.teardown()

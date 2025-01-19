@@ -22,7 +22,7 @@ def _run_episode(
 ):
     # 1. reset
     env.reset()
-    worker.on_reset(player_index=0)
+    worker.reset(player_index=0)
 
     # --- env render
     if rendering:
@@ -50,9 +50,7 @@ def _run_episode(
 
         # 4. train
         if trainer is not None:
-            train_info = trainer.train()
-        else:
-            train_info = {}
+            trainer.train()
 
         # --- step info
         if False:
@@ -61,7 +59,8 @@ def _run_episode(
             print(env.done)
             print(env.info)
             print(worker.info)
-            print(train_info)
+            if trainer is not None:
+                print(trainer.info)
 
     if rendering:
         print(f"step: {env.step_num}, reward: {env.episode_rewards}")
@@ -84,32 +83,35 @@ def main():
     # --- train
     context = srl.RunContext(env_config, rl_config, training=True)
     env.setup(context)
-    worker.on_start(context)
-    trainer.on_start(context)
+    worker.setup(context)
+    trainer.setup(context)
     for episode in range(10000):
         step, rewards = _run_episode(env, worker, trainer, rendering=False)
         if episode % 1000 == 0:
             print(f"{episode} / 10000 episode, {step} step, {rewards} reward")
-    worker.on_end()
-    trainer.on_end()
+    env.teardown()
+    worker.teardown()
+    trainer.teardown()
 
     # --- evaluate
     context = srl.RunContext(env_config, rl_config)
     env.setup(context)
-    worker.on_start(context)
+    worker.setup(context)
     rewards_list = []
     for episode in range(100):
         _, rewards = _run_episode(env, worker, None, rendering=False)
         rewards_list.append(rewards)
     print(f"Average reward for 100 episodes: {np.mean(rewards_list, axis=0)}")
-    worker.on_end()
+    env.teardown()
+    worker.teardown()
 
     # --- render
     context = srl.RunContext(env_config, rl_config, render_mode="terminal")
     env.setup(context)
-    worker.on_start(context)
+    worker.setup(context)
     _run_episode(env, worker, None, rendering=True)
-    worker.on_end()
+    env.teardown()
+    worker.teardown()
 
 
 if __name__ == "__main__":

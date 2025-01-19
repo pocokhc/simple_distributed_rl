@@ -54,7 +54,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self.env.next_player = 0
         self._done = DoneTypes.RESET
         self._is_direct_step = False
-        self._has_start = False
+        self._is_setup = False
 
     def _reset_vals(self):
         self._step_num: int = 0
@@ -87,7 +87,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self.env.info.copy(),
             # init val
             self._is_direct_step,
-            self._has_start,
+            self._is_setup,
             # processor
             [p.backup() for p in self._processors],
             # env
@@ -111,7 +111,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         logger.debug(f"restore: step={self._step_num}, done={self._done}({self.env.done_reason}) reward={self._step_rewards}")
         # init val
         self._is_direct_step = dat[11]
-        self._has_start = dat[12]
+        self._is_setup = dat[12]
         # processor
         [p.restore(dat[13][i]) for i, p in enumerate(self._processors)]
         # env
@@ -177,11 +177,16 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         kwargs = self.context.to_dict()
         kwargs["render_mode"] = render_mode
         self.env.setup(**kwargs)
-        self._has_start = True
+        self._is_setup = True
+
+    def teardown(self, **kwargs) -> None:
+        logger.debug("teardown")
+        self.env.teardown(**kwargs)
+        self._is_setup = False
 
     def reset(self, *, seed: Optional[int] = None, **kwargs) -> None:
         logger.debug(f"reset: {seed=}")
-        if not self._has_start:
+        if not self._is_setup:
             raise SRLError("Cannot call env.reset() before calling env.setup()")
 
         # --- render

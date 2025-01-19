@@ -86,6 +86,9 @@ class EnvBase(IRender, Generic[TActSpace, TActType, TObsSpace, TObsType], ABC):
         """
         pass
 
+    def teardown(self, **kwargs) -> None:
+        pass
+
     @abstractmethod
     def reset(self, *, seed: Optional[int] = None, **kwargs) -> TObsType:
         """reset
@@ -147,8 +150,7 @@ class EnvBase(IRender, Generic[TActSpace, TActType, TObsSpace, TObsType], ABC):
     # ------------------------------------
     @property
     def training(self) -> bool:
-        if hasattr(self, "env_run"):
-            assert self.env_run is not None
+        if self.env_run is not None:
             return self.env_run.context.training
         return False
 

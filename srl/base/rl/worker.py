@@ -47,10 +47,10 @@ class RLWorkerGeneric(
         self.__worker_run = worker
 
     # --- implement
-    def on_start(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]", context: "RunContext") -> None:
+    def on_setup(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]", context: "RunContext") -> None:
         pass
 
-    def on_end(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]") -> None:
+    def on_teardown(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]") -> None:
         pass
 
     def on_reset(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]") -> None:
@@ -67,9 +67,7 @@ class RLWorkerGeneric(
     def render_terminal(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]", **kwargs) -> None:
         pass
 
-    def render_rgb_array(
-        self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]", **kwargs
-    ) -> Optional[np.ndarray]:
+    def render_rgb_array(self, worker: "WorkerRun[TActSpace, TActType, TObsSpace, TObsType]", **kwargs) -> Optional[np.ndarray]:
         return None
 
     # --- instance

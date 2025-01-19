@@ -104,9 +104,9 @@ def _play_trainer_only(
     if context.enable_train_thread and trainer.implement_thread_train():
         state.enable_train_thread = True
 
-    # --- 1 start
+    # --- 1 setup
     state.start_train_count = state.trainer.train_count
-    state.trainer.on_start(context)
+    state.trainer.setup(context)
 
     # 2 callbacks
     _calls_on_train_before: List[Any] = [c for c in callbacks if hasattr(c, "on_train_before")]
@@ -192,8 +192,8 @@ def _play_trainer_only(
 
     logger.info(f"loop end({state.end_reason})")
 
-    # 4 end
-    state.trainer.on_end()
+    # 4 teardown
+    state.trainer.teardown()
 
     # 5 callbacks
     [c.on_trainer_end(context=context, state=state) for c in callbacks]

@@ -49,8 +49,8 @@ def _run_actor(
     env = env_config.make()
     parameter = rl_config.make_parameter(is_load=False)
     worker = rl_config.make_worker(env, parameter, remote_memory)
-    env.setup(context.render_mode)
-    worker.on_start(context)
+    env.setup(context)
+    worker.setup(context)
 
     # episode loop
     prev_update_count = 0
@@ -61,7 +61,7 @@ def _run_actor(
 
         # --- 1 episode
         env.reset()
-        worker.on_reset(0)
+        worker.reset(0)
         while not env.done:
             action = worker.policy()
             env.step(action)
@@ -78,7 +78,8 @@ def _run_actor(
 
         if episode % 1000 == 0:
             print(f"{actor_id}: {episode} episode, {env.step_num} step, {env.episode_rewards} reward")
-    worker.on_end()
+    worker.teardown()
+    env.teardown()
 
 
 def _run_trainer(
@@ -92,7 +93,7 @@ def _run_trainer(
 
     parameter = rl_config.make_parameter()
     trainer = rl_config.make_trainer(parameter, remote_memory)
-    trainer.on_start(context)
+    trainer.setup(context)
 
     train_count = 0
     while True:
@@ -117,7 +118,7 @@ def _run_trainer(
     # 学習結果を送信
     remote_board.write(parameter.backup())
 
-    trainer.on_end()
+    trainer.teardown()
 
 
 class MPManager(BaseManager):
@@ -202,11 +203,11 @@ def main():
     # --------------------
     context = RunContext(render_mode="terminal")
     worker = rl_config.make_worker(env, parameter)
-    env.setup(context.render_mode)
-    worker.on_start(context)
+    env.setup(context)
+    worker.setup(context)
 
     env.reset()
-    worker.on_reset(0)
+    worker.reset(0)
 
     print("step 0")
     env.render()
@@ -219,15 +220,13 @@ def main():
         env.step(action)
         worker.on_step()
 
-        print(
-            "--- turn {}, action {}, rewards: {}, done: {}, next player {}, info: {}, ".format(
-                env.step_num, action, env.rewards, env.done, env.next_player, env.info
-            )
-        )
+        print("--- turn {}, action {}, rewards: {}, done: {}, next player {}, info: {}, ".format(env.step_num, action, env.rewards, env.done, env.next_player, env.info))
         print("player {} info: {}".format(env.next_player, worker.info))
         env.render()
 
     print(f"step: {env.step_num}, reward: {env.episode_rewards}")
+    env.teardown()
+    worker.teardown()
 
 
 if __name__ == "__main__":

@@ -58,6 +58,9 @@ class SrlExternalEnv(EnvBase[DiscreteSpace, int, DiscreteSpace, int]):
         # ここでは外部環境の状態とobservation_spaceが両方intなので変換はなし
         srl_env_state = external_state
 
+        # 複数プレイヤーがいる場合は現在のプレイヤーindexを指定
+        self.next_player = 0
+
         return is_start_episode, srl_env_state, is_end_episode
 
     def decode_action(self, srl_env_action: int) -> int:

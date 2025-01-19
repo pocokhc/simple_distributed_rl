@@ -10,7 +10,8 @@ runner.load_parameter(param_path)
 # --- setup env, worker
 env = runner.make_env()
 worker = runner.make_worker()
-worker.on_start()
+env.setup()
+worker.setup()
 
 
 # --- 外部環境の指定されたフォーマットでagentを定義
@@ -22,7 +23,7 @@ def my_agent(step: int, state: int) -> int:
 
     # 2. もしエピソードの最初ならworkerのon_resetを実施
     if is_start_episode:
-        worker.on_reset(env.next_player)
+        worker.reset(env.next_player)
 
     # 3. workerからactionを取得
     srl_env_action = worker.policy()

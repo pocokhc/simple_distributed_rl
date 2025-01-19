@@ -34,6 +34,7 @@ abstract EnvBase {
     player_num : int
     next_player: int
     setup()
+    teardown()
     reset(seed)
     step(action)
     render_terminal()
@@ -52,15 +53,18 @@ GymWrapper o-- gym.Env
 EnvBase -- GymnasiumWrapper
 EnvBase -- GymWrapper
 
+class RunContext {}
 class EnvRun {
     config : EnvConfig
     env : EnvBase
-    setup(render_mode)
+    setup(context)
+    teardown()
     reset(seed)
     step(action)
     render()
 }
 EnvRun -- EnvBase
+RunContext . EnvRun
 
 note "Keeps run-time state." as EnvRunMemo
 EnvRun . EnvRunMemo

@@ -48,6 +48,8 @@ abstract RLTrainer {
     config : RLConfig
     parameter : RLParameter
     memory : RLMemory
+    on_setup()
+    on_teardown()
     train()
 }
 
@@ -56,6 +58,8 @@ abstract RLWorker {
     config : RLConfig
     parameter : RLParameter
     memory : <color red>IRLMemoryWorker</color>
+    on_setup()
+    on_teardown()
     on_reset()
     policy() : action
     on_step()
@@ -65,9 +69,12 @@ abstract RLWorker {
 RLWorker -- WorkerRun
 
 
+class RunContext {}
 class WorkerRun {
     env : EnvRun
-    on_reset(env)
+    setup(context)
+    teardown()
+    reset(player_index)
     policy() : action
     on_step()
     render()
@@ -76,6 +83,7 @@ class WorkerRun {
 }
 note "Keeps run-time state.\nAbsorbs the difference with the environment." as WorkerRunMemo
 WorkerRun . WorkerRunMemo
+RunContext . WorkerRun
 
 RLBaseActTypes . RLConfig
 RLBaseObsTypes . RLConfig

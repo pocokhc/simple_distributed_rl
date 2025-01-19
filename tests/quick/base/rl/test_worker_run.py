@@ -150,8 +150,8 @@ def _test_action(
     worker = cast(StubRLWorker, worker_run.worker)
 
     context = RunContext()
-    env.setup()
-    worker_run.on_start(context)
+    env.setup(context)
+    worker_run.setup(context)
 
     # --- check act space
     print(rl_config.action_space)
@@ -170,7 +170,7 @@ def _test_action(
 
     # --- decode
     env.reset()
-    worker_run.on_reset(0)
+    worker_run.reset(0)
     worker.action = rl_act
     dec_env_action = worker_run.policy()
     print(dec_env_action)
@@ -311,8 +311,8 @@ def _test_obs(
     worker = cast(StubRLWorker, worker_run.worker)
 
     context = RunContext()
-    env.setup()
-    worker_run.on_start(context)
+    env.setup(context)
+    worker_run.setup(context)
 
     # --- check obs space
     print(true_obs_space)
@@ -328,7 +328,7 @@ def _test_obs(
 
     # --- check val
     env.reset()
-    worker_run.on_reset(0)
+    worker_run.reset(0)
     env_action = worker_run.policy()
 
     if use_render_image_state:

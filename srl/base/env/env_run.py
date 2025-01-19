@@ -23,12 +23,9 @@ logger = logging.getLogger(__name__)
 class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def __init__(self, config: EnvConfig) -> None:
         # restore/backup用に状態は意識して管理
-
+        self.env = None  # type: ignore
         self.config = config
-        self.env = cast(
-            EnvBase[TActSpace, TActType, TObsSpace, TObsType],
-            make_base(self.config, self),
-        )
+        self.env: EnvBase[TActSpace, TActType, TObsSpace, TObsType] = make_base(self.config, self)
 
         # --- processor
         self._processors = [c.copy() for c in self.config.processors]
@@ -138,8 +135,10 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self.close()
 
     def close(self) -> None:
-        logger.debug("close")
+        if self.env is None:
+            return
         try:
+            logger.debug("close")
             self.env.close()
         except Exception:
             logger.error(traceback.format_exc())

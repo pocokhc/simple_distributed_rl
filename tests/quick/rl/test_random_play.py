@@ -8,10 +8,10 @@ def test_raw():
 
     context = RunContext()
     env.setup(context)
-    worker.on_start(context)
+    worker.setup(context)
 
     env.reset()
-    worker.on_reset(0)
+    worker.reset(0)
     while not env.done:
         env.step(worker.policy())
         worker.on_step()

@@ -13,10 +13,10 @@ def test_raw(monkeypatch):
 
     context = RunContext(render_mode="terminal")
     env.setup(context)
-    worker.on_start(context)
+    worker.setup(context)
 
     env.reset()
-    worker.on_reset(0)
+    worker.reset(0)
     env.render()
     while not env.done:
         env.step(worker.policy())

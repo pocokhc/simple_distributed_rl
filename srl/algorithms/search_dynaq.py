@@ -328,15 +328,10 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             # online mean
             self.parameter.done[state][action][n_state] += (done - self.parameter.done[state][action][n_state]) / c
             # online mean
-            self.parameter.reward_ext[state][action][n_state] += (
-                reward_ext - self.parameter.reward_ext[state][action][n_state]
-            ) / c
+            self.parameter.reward_ext[state][action][n_state] += (reward_ext - self.parameter.reward_ext[state][action][n_state]) / c
             # discount online mean
             old_reward_int = self.parameter.reward_int[state][action][n_state]
-            self.parameter.reward_int[state][action][n_state] = (
-                old_reward_int * self.config.int_reward_discount
-                + (reward_int - old_reward_int * self.config.int_reward_discount) / c
-            )
+            self.parameter.reward_int[state][action][n_state] = old_reward_int * self.config.int_reward_discount + (reward_int - old_reward_int * self.config.int_reward_discount) / c
 
             # --- ext (greedy)
             # TD誤差なので生データ
@@ -404,13 +399,19 @@ class Worker(RLWorker[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
 
-    def on_start(self, worker, context) -> None:
+    def on_teardown(self, worker):
+        # 学習最後にQテーブルを更新
         self.parameter.iteration_q(
             "ext",
             self.config.iteration_threshold / 10,
+            self.config.iteration_timeout * 10,
+        )
+        self.parameter.iteration_q(
+            "int",
+            self.config.iteration_threshold,
             self.config.iteration_timeout * 2,
         )
-        self.parameter.iteration_q("int", self.config.iteration_threshold, self.config.iteration_timeout)
+        logger.info("iteration Q Table.")
 
     def on_reset(self, worker):
         self.episodic = {}

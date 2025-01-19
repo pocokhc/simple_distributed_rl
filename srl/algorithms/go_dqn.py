@@ -231,7 +231,7 @@ class Worker(RLWorker[Config, Parameter]):
         self.rmax = -np.inf
         self.rmin = np.inf
 
-    def on_start(self, worker, context):
+    def on_setup(self, worker, context):
         self.restore_count = 0
 
     def on_reset(self, worker):

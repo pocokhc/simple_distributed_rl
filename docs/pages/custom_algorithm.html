@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Making a Custom algorithm &mdash; SimpleDistributedRL 0.17.1 ドキュメント</title>
+  <title>Making a Custom algorithm &mdash; SimpleDistributedRL 0.17.1.1 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=315feb3a"></script>
+      <script src="../_static/documentation_options.js?v=c6bea03a"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -153,6 +153,39 @@
 <div class="line">※WorkerRunとEnvRunはフレームワーク内の内容になるので意識する必要はありません</div>
 </div>
 <img alt="../_images/overview-sequence.drawio.png" src="../_images/overview-sequence.drawio.png" />
+<div class="line-block">
+<div class="line">実装側で意識する疑似コードは以下です。</div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 学習単位の初期化</span>
+<span class="n">worker</span><span class="o">.</span><span class="n">on_setup</span><span class="p">()</span>
+<span class="n">trainer</span><span class="o">.</span><span class="n">on_setup</span><span class="p">()</span>
+
+<span class="k">for</span> <span class="n">episode</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">)</span>
+   <span class="c1"># 1エピソード最初の初期化</span>
+   <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+   <span class="n">worker</span><span class="o">.</span><span class="n">on_reset</span><span class="p">()</span>
+
+   <span class="c1"># 1エピソードのループ</span>
+   <span class="k">while</span> <span class="ow">not</span> <span class="n">env</span><span class="o">.</span><span class="n">done</span><span class="p">:</span>
+         <span class="c1"># アクションを取得</span>
+         <span class="n">action</span> <span class="o">=</span> <span class="n">worker</span><span class="o">.</span><span class="n">policy</span><span class="p">()</span>
+         <span class="n">worker</span><span class="o">.</span><span class="n">render</span><span class="p">()</span>  <span class="c1"># workerの描画</span>
+
+         <span class="c1"># 環境の1stepを実行</span>
+         <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
+         <span class="n">worker</span><span class="o">.</span><span class="n">on_step</span><span class="p">()</span>
+
+         <span class="c1"># 学習</span>
+         <span class="n">trainer</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+
+   <span class="c1"># 終了後の描画</span>
+   <span class="n">worker</span><span class="o">.</span><span class="n">render</span><span class="p">()</span>
+
+<span class="c1"># 学習単位の終了</span>
+<span class="n">worker</span><span class="o">.</span><span class="n">on_teardown</span><span class="p">()</span>
+<span class="n">trainer</span><span class="o">.</span><span class="n">on_teardown</span><span class="p">()</span>
+</pre></div>
+</div>
 <div class="line-block">
 <div class="line">それぞれの役割は以下です。</div>
 </div>

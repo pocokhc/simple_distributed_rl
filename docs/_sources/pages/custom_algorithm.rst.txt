@@ -27,6 +27,40 @@ Making a Custom algorithm
 
 .. image:: ../../diagrams/overview-sequence.drawio.png
 
+| 実装側で意識する疑似コードは以下です。
+
+.. code-block:: python
+
+   # 学習単位の初期化
+   worker.on_setup()
+   trainer.on_setup()
+
+   for episode in range(N)
+      # 1エピソード最初の初期化
+      env.reset()
+      worker.on_reset()
+
+      # 1エピソードのループ
+      while not env.done:
+            # アクションを取得
+            action = worker.policy()
+            worker.render()  # workerの描画
+
+            # 環境の1stepを実行
+            env.step(action)
+            worker.on_step()
+
+            # 学習
+            trainer.train()
+
+      # 終了後の描画
+      worker.render()
+
+   # 学習単位の終了
+   worker.on_teardown()
+   trainer.on_teardown()
+
+
 | それぞれの役割は以下です。
 
 .. list-table::

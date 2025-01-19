@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>How To Use &mdash; SimpleDistributedRL 0.17.1 ドキュメント</title>
+  <title>How To Use &mdash; SimpleDistributedRL 0.17.1.1 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=315feb3a"></script>
+      <script src="../_static/documentation_options.js?v=c6bea03a"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -279,11 +279,11 @@
 
 
 <span class="c1"># --- train sample</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">train</span><span class="p">():</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">train</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
     <span class="n">runner</span> <span class="o">=</span> <span class="n">_create_runner</span><span class="p">(</span><span class="n">load_parameter</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
     <span class="c1"># sequence training</span>
-    <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+    <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
 
     <span class="c1"># save parameter</span>
     <span class="n">runner</span><span class="o">.</span><span class="n">save_parameter</span><span class="p">(</span><span class="n">_parameter_path</span><span class="p">)</span>
@@ -551,13 +551,17 @@ pygameのwindowが表示できる環境である必要があります。</p>
 <div class="line">pygame上で手動プレイします。</div>
 <div class="line">'key_bind' は設定しなくても遊べますが、設定するとより環境にあった入力方法でプレイすることができます。</div>
 </div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pygame</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">ale_py</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">gymnasium</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gym</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pygame</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">srl</span>
 
 <span class="c1"># --- Atari env</span>
-<span class="c1"># Run &quot;pip install gymnasium pygame&quot; and also see the URL below.</span>
-<span class="c1"># https://gymnasium.farama.org/environments/atari/</span>
+<span class="c1"># https://ale.farama.org/</span>
+<span class="n">gym</span><span class="o">.</span><span class="n">register_envs</span><span class="p">(</span><span class="n">ale_py</span><span class="p">)</span>
+
+
 <span class="n">env_config</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span>
     <span class="s2">&quot;ALE/Galaxian-v5&quot;</span><span class="p">,</span>
     <span class="n">kwargs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">full_action_space</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
@@ -583,7 +587,7 @@ pygameのwindowが表示できる環境である必要があります。</p>
     <span class="p">(</span><span class="n">pygame</span><span class="o">.</span><span class="n">K_DOWN</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_RIGHT</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_z</span><span class="p">):</span> <span class="mi">16</span><span class="p">,</span>
     <span class="p">(</span><span class="n">pygame</span><span class="o">.</span><span class="n">K_DOWN</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_LEFT</span><span class="p">,</span> <span class="n">pygame</span><span class="o">.</span><span class="n">K_z</span><span class="p">):</span> <span class="mi">17</span><span class="p">,</span>
 <span class="p">}</span>
-<span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">rl_config</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="n">env_config</span><span class="p">)</span>
 <span class="n">runner</span><span class="o">.</span><span class="n">play_window</span><span class="p">(</span><span class="n">key_bind</span><span class="o">=</span><span class="n">key_bind</span><span class="p">)</span>
 </pre></div>
 </div>

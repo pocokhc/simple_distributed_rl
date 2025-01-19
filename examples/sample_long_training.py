@@ -16,9 +16,9 @@ def _create_runner():
     return runner
 
 
-def train():
+def train(timeout=10):
     runner = _create_runner()
-    runner.train(timeout=10)
+    runner.train(timeout=timeout)
 
 
 def evaluate():

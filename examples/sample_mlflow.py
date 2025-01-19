@@ -1,9 +1,8 @@
 import mlflow
+
 import srl
 from srl.algorithms import ql, vanilla_policy
 from srl.utils import common
-
-common.logger_print()
 
 # > mlflow ui --backend-store-uri mlruns
 mlflow.set_tracking_uri("mlruns")
@@ -15,10 +14,10 @@ def create_ql_runner():
     return srl.Runner(env_config, rl_config)
 
 
-def train_ql():
+def train_ql(timeout=30):
     runner = create_ql_runner()
     runner.set_mlflow()
-    runner.train(timeout=30)
+    runner.train(timeout=timeout)
 
 
 def load_ql_parameter():
@@ -28,7 +27,7 @@ def load_ql_parameter():
     print(rewards)
 
 
-def train_vanilla_policy():
+def train_vanilla_policy(timeout=30):
     env_config = srl.EnvConfig("Grid")
     rl_config = vanilla_policy.Config()
     runner = srl.Runner(env_config, rl_config)
@@ -36,10 +35,12 @@ def train_vanilla_policy():
     runner.set_mlflow()
     mlflow.set_experiment("MyExperimentName")
     with mlflow.start_run(run_name="MyRunName"):
-        runner.train(timeout=30)
+        runner.train(timeout=timeout)
 
 
 if __name__ == "__main__":
+    common.logger_print()
+
     train_ql()
     load_ql_parameter()
     train_vanilla_policy()

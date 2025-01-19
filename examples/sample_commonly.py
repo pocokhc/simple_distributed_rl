@@ -27,11 +27,11 @@ def _create_runner(load_parameter: bool):
 
 
 # --- train sample
-def train():
+def train(timeout=10):
     runner = _create_runner(load_parameter=False)
 
     # sequence training
-    runner.train(timeout=10)
+    runner.train(timeout=timeout)
 
     # save parameter
     runner.save_parameter(_parameter_path)

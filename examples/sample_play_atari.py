@@ -1,10 +1,14 @@
+import ale_py
+import gymnasium as gym
 import pygame
 
 import srl
 
 # --- Atari env
-# Run "pip install gymnasium pygame" and also see the URL below.
-# https://gymnasium.farama.org/environments/atari/
+# https://ale.farama.org/
+gym.register_envs(ale_py)
+
+
 env_config = srl.EnvConfig(
     "ALE/Galaxian-v5",
     kwargs=dict(full_action_space=True),
@@ -30,5 +34,5 @@ key_bind = {
     (pygame.K_DOWN, pygame.K_RIGHT, pygame.K_z): 16,
     (pygame.K_DOWN, pygame.K_LEFT, pygame.K_z): 17,
 }
-runner = srl.Runner(env_config, rl_config=None)
+runner = srl.Runner(env_config)
 runner.play_window(key_bind=key_bind)

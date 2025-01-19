@@ -171,9 +171,7 @@ class Parameter(RLParameter[Config]):
         all_states = []
         for state in self.mdp.keys():
             if state not in q_tbl:
-                q_tbl[state] = [
-                    -math.inf if a in self.invalid_actions[state] else 0.0 for a in range(self.config.action_space.n)
-                ]
+                q_tbl[state] = [-math.inf if a in self.invalid_actions[state] else 0.0 for a in range(self.config.action_space.n)]
             for act in range(self.config.action_space.n):
                 if act in self.invalid_actions[state]:
                     continue
@@ -338,7 +336,8 @@ class Worker(RLWorker[Config, Parameter]):
         self.archive: Dict[str, dict] = {}
         self.start_state = None
 
-    def on_start(self, worker, context):
+    def on_teardown(self, worker):
+        # 学習最後にQテーブルを更新
         self.parameter.iteration_q("ext", self.config.q_iter_threshold / 10, self.config.q_iter_timeout * 10)
         self.parameter.iteration_q("int", self.config.q_iter_threshold / 10, self.config.q_iter_timeout * 10)
 

@@ -1,3 +1,5 @@
+import pytest
+
 from tests.quick.examples.examples_common import setup_examples_test
 
 
@@ -32,6 +34,8 @@ def test_sample_long_training():
 
 
 def test_sample_mlflow():
+    pytest.skip("環境に左右されるのでskip")
+
     wkdir = setup_examples_test(add_path="")
 
     import sample_mlflow  # type: ignore

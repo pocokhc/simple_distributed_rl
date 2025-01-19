@@ -352,7 +352,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 
 
 class Worker(RLWorker[Config, Parameter]):
-    def on_start(self, worker, context):
+    def on_setup(self, worker, context):
         assert not self.distributed
         self.memory: Memory = self.memory
         self.screen = None
@@ -504,9 +504,7 @@ class Worker(RLWorker[Config, Parameter]):
         pw.draw_text(self.screen, text_x, y, "gray", color=(255, 255, 255))
 
         # (2) down sampling
-        img = cv2.resize(
-            img, (self.config.downsampling_size[1], self.config.downsampling_size[0]), interpolation=cv2.INTER_NEAREST
-        )
+        img = cv2.resize(img, (self.config.downsampling_size[1], self.config.downsampling_size[0]), interpolation=cv2.INTER_NEAREST)
         y = (IMG_H + PADDING) * 2
         pw.draw_image_rgb_array(self.screen, 0, y, img, resize=(IMG_W, IMG_H), gray_to_color=True)
         pw.draw_text(self.screen, text_x, y, f"resize {self.config.downsampling_size}", color=(255, 255, 255))

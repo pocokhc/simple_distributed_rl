@@ -201,7 +201,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def reset(self, player_index: int, seed: Optional[int] = None) -> None:
         logger.debug(f"worker_run.on_reset: {player_index=}, {seed=}")
         if not self._is_setup:
-            raise SRLError("Cannot call worker.on_reset() before calling worker.on_start()")
+            raise SRLError("Cannot call worker.on_reset() before calling worker.setup()")
 
         if self._context.rendering:
             self._render.cache_reset()
@@ -581,10 +581,10 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def backup(self) -> Any:
         logger.debug(f"backup: step={self._total_step}")
         d = [
-            # on_start
+            # setup
             self._total_step,
             self._is_setup,
-            # on_reset
+            # reset
             self._player_index,
             self._episode_seed,
             self._is_reset,
@@ -609,10 +609,10 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     def restore(self, dat: Any):
         logger.debug(f"restore: step={dat[0]}")
-        # on_start
+        # setup
         self._total_step = dat[0]
         self._is_setup = dat[1]
-        # on_reset
+        # reset
         self._player_index = dat[2]
         self._episode_seed = dat[3]
         self._is_reset = dat[4]

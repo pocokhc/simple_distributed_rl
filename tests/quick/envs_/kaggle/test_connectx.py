@@ -103,12 +103,13 @@ def test_kaggle_connectx():
     parameter = rl_config.make_parameter()
     remote_memory = rl_config.make_memory()
     worker = srl.make_worker(rl_config, env, parameter, remote_memory)
-    worker.on_start()
+    env.setup()
+    worker.setup()
 
     def agent(observation, configuration):
         is_start_episode, is_end_episode = env.direct_step(observation, configuration)
         if is_start_episode:
-            worker.on_reset(env.next_player)
+            worker.reset(env.next_player)
         action = worker.policy()
         return env.decode_action(action)
 
@@ -134,12 +135,13 @@ def test_kaggle_connectx_mcts():
     parameter = rl_config.make_parameter()
     remote_memory = rl_config.make_memory()
     worker = srl.make_worker(rl_config, env, parameter, remote_memory)
-    worker.on_start()
+    env.setup()
+    worker.setup()
 
     def agent(observation, configuration):
         is_start_episode, is_end_episode = env.direct_step(observation, configuration)
         if is_start_episode:
-            worker.on_reset(env.next_player)
+            worker.reset(env.next_player)
         action = worker.policy()
         return env.decode_action(action)
 

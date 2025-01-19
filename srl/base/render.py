@@ -21,26 +21,22 @@ class IRender:
 
 
 class Render:
-    def __init__(self, render_obj: IRender) -> None:
+    def __init__(self, render_obj: IRender, interval: float = 1000 / 60) -> None:
         self._render_obj = render_obj
         self._mode = RenderModes.none
         self._screen = None
 
-        self.set_render_options(interval=1000 / 60)
+        self.set_render_options(interval=interval)
         self.cache_reset()
 
-    def set_render_mode(self, mode: Union[str, RenderModes], interval: float = -1, enable_window: bool = True):
+    def set_render_mode(self, mode: Union[str, RenderModes], enable_window: bool = True):
         self._mode = RenderModes.from_str(mode)
-        if interval > 0:
-            self.interval = interval
         if not enable_window:
             if self._mode == RenderModes.window:
                 self._mode = RenderModes.rgb_array
 
         if self._mode in [RenderModes.rgb_array, RenderModes.window]:
-            assert is_packages_installed(
-                ["PIL", "pygame"]
-            ), "This run requires installation of 'PIL', 'pygame'. (pip install pillow pygame)"
+            assert is_packages_installed(["PIL", "pygame"]), "This run requires installation of 'PIL', 'pygame'. (pip install pillow pygame)"
             # PIL use 'text_to_rgb_array'
 
     def set_render_options(
@@ -79,7 +75,7 @@ class Render:
             self._cache_text = print_to_text(lambda: self._render_obj.render_terminal(**kwargs))
         return self._cache_text
 
-    def render_terminal_text_to_image(self, **kwargs):
+    def render_terminal_text_to_image(self, **kwargs) -> Optional[np.ndarray]:
         if self._cache_text_img is None:
             text = self.render_terminal_text(**kwargs)
             if text.strip() == "":

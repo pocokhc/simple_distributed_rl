@@ -46,7 +46,12 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
         # --- init val
         self.config._update_env_info(self.env)  # config update
-        self._render = Render(self.env)
+        render_interval = 1000 / 60
+        if self.config.render_interval > 0:
+            render_interval = self.config.render_interval
+        else:
+            render_interval = self.env.render_interval
+        self._render = Render(self.env, render_interval)
         self._reset_vals()
         self.context: RunContext = RunContext(self.config)
         self.env.next_player = 0
@@ -164,7 +169,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self.env.done_reason = ""
 
         # --- render
-        self._render.set_render_mode(render_mode, self.get_render_interval())
+        self._render.set_render_mode(render_mode)
 
         # --- processor
         [p.setup(self) for p in self._processors]
@@ -526,16 +531,12 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         font_name: str = "",
         font_size: int = 18,
     ):
-        self._render.set_render_options(self.get_render_interval(interval), scale, font_name, font_size)
+        self._render.set_render_options(interval, scale, font_name, font_size)
 
     def get_render_interval(self, interval: float = -1):  # ms
         if interval > 0:
-            pass
-        elif self.config.render_interval > 0:
-            interval = self.config.render_interval
-        else:
-            interval = self.env.render_interval
-        return interval
+            return interval
+        return self._render.interval
 
     def render(self, **kwargs):
         logger.debug("render")

@@ -76,18 +76,21 @@ class PlayableGame(GameWindow):
             0,
             callbacks=[self.playable_callback] + callbacks,
         )
-        # on_episode_beginまで進める
+        # 最初まで進める
         while True:
             gen_status, _, gen_state = next(self.gen_play)
             if gen_status == "on_episode_begin":
                 self.run_worker = gen_state.worker
                 break
+            logger.debug(f"{gen_status=}")
+        logger.debug(f"START {gen_status=}")
         # ---------------------------
 
         # 初期設定
         self.set_image(self.run_worker.create_render_image())
         self.env_interval = self.env.config.render_interval
         self.scene = "START"
+        logger.debug("scene change: START")
         self.mode = "Turn"  # "Turn" or "RealTime"
         self.is_pause = False
         self.cursor_action = 0
@@ -149,7 +152,17 @@ class PlayableGame(GameWindow):
                 self.is_pause = not self.is_pause
 
         if self.scene == "START":
-            self._on_loop_start()
+            if self.get_key(pygame.K_UP) == KeyStatus.PRESSED:
+                self.mode = "Turn"
+            elif self.get_key(pygame.K_DOWN) == KeyStatus.PRESSED:
+                self.mode = "RealTime"
+            elif self.get_key(pygame.K_RETURN) == KeyStatus.PRESSED:
+                self.scene = "RESET"
+                logger.debug("scene change: RESET")
+            if self.mode == "Turn":
+                self.add_info_texts(["> Turn", "  RealTime"])
+            else:
+                self.add_info_texts(["  Turn", "> RealTime"])
         elif self.scene == "RUNNING":
             self._on_loop_running()
             # sceneが変わっていなければstepを進める
@@ -204,11 +217,11 @@ class PlayableGame(GameWindow):
 
         # --- RESETは最後
         if self.scene == "RESET":
-            # on_step_action_beforeまで進める
             while True:
                 gen_status, _, _ = next(self.gen_play)
-                if gen_status == "on_step_action_before":
+                if gen_status == "on_step_action_after":
                     break
+                logger.debug(f"{gen_status=}")
             logger.debug(f"RESET: {gen_status=}")
 
             self.env._render.cache_reset()
@@ -224,9 +237,10 @@ class PlayableGame(GameWindow):
                 self.is_pause = False
 
             self.scene = "RUNNING"
+            logger.debug("scene change: RUNNING")
 
     def _step(self):
-        # --- 1step
+        # --- 1step: アクションの後 on_step_action_after まで進める
         t0 = time.time()
         while True:
             try:
@@ -236,8 +250,9 @@ class PlayableGame(GameWindow):
                 break
             if gen_status == "on_episode_end":
                 self.scene = "START"
+                logger.debug("scene change: START")
                 break
-            if gen_status == "on_step_end":
+            if gen_status == "on_step_action_after":
                 # doneの場合はon_episode_endで止めるため止めない
                 if not state.env.done:
                     break
@@ -246,18 +261,6 @@ class PlayableGame(GameWindow):
 
         self.set_image(self.run_worker.create_render_image())
         self._set_cursor_action()
-
-    def _on_loop_start(self):
-        if self.get_key(pygame.K_UP) == KeyStatus.PRESSED:
-            self.mode = "Turn"
-        elif self.get_key(pygame.K_DOWN) == KeyStatus.PRESSED:
-            self.mode = "RealTime"
-        elif self.get_key(pygame.K_RETURN) == KeyStatus.PRESSED:
-            self.scene = "RESET"
-        if self.mode == "Turn":
-            self.add_info_texts(["> Turn", "  RealTime"])
-        else:
-            self.add_info_texts(["  Turn", "> RealTime"])
 
     def _on_loop_running(self):
         # --- r, reset
@@ -274,6 +277,7 @@ class PlayableGame(GameWindow):
                     break
 
             self.scene = "START"
+            logger.debug("scene change: START")
             return
 
         # --- f, RealTime frameadvance

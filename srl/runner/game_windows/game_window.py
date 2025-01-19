@@ -128,8 +128,17 @@ class GameWindow(ABC):
                 is_window_resize = True
 
             self.screen.fill((0, 0, 0))
+            # --------------------------- draw start
 
-            # --- image
+            self.info_texts = []
+            self.hotkey_texts = [
+                "- Hotkeys -",
+                f"1-6: change screen size (x{self.scale:.1f})",
+            ]
+
+            self.on_loop(events)
+
+            # --- draw image
             pw.draw_image_rgb_array(
                 self.screen,
                 0,
@@ -141,14 +150,7 @@ class GameWindow(ABC):
                 ),
             )
 
-            # --- info
-            self.info_texts = []
-            self.hotkey_texts = [
-                "- Hotkeys -",
-                f"1-6: change screen size (x{self.scale:.1f})",
-            ]
-
-            self.on_loop(events)
+            # --- draw info
             self.info_texts.append("")
             self.info_texts.extend(self.hotkey_texts)
             width, height = pw.draw_texts(
@@ -166,6 +168,7 @@ class GameWindow(ABC):
                 self.info_h = height
                 is_window_resize = True
 
+            # ------------------ draw end
             pygame.display.flip()
             clock.tick(60)
 
@@ -176,6 +179,7 @@ class GameWindow(ABC):
                 self.pygame_done = True
 
     def set_image(self, env_image):
+        logger.debug("set_image")
         self.env_img = add_border(env_image, 1, border_color=(0, 0, 0))
 
     def add_hotkey_texts(self, texts: List[str]):

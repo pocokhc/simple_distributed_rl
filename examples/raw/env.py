@@ -4,9 +4,9 @@ import srl
 from srl.envs import grid, ox  # isort: skip # noqa F401
 
 
-def main(env_name):
+def main(env_name: str, render_interval: float = 1000 / 5):
     env = srl.make_env(env_name)
-    env.set_render_options(interval=1000 / 5)
+    env.set_render_options(interval=render_interval)
 
     print(f"action_space     : {env.action_space}")
     print(f"observation_space: {env.observation_space}")

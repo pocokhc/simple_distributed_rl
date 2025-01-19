@@ -8,7 +8,11 @@ Detailed Framework
 Play flow
 ----------------
 
-.. image:: ../../diagrams/playflow.png
+.. image:: ../../diagrams/playflow1.png
+
+・1 Episode loop
+
+.. image:: ../../diagrams/playflow2.png
 
 
 Multiplay flow

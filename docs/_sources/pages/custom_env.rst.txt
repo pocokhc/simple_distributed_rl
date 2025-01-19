@@ -174,14 +174,22 @@ EnvBase
    from srl.base.spaces.space import SpaceBase
    from srl.base.define import EnvActionType, EnvObservationType, EnvObservationTypes
 
-
+   # ※ @dataclass も使えます
    class MyEnvBase(EnvBase):
 
       # --- 内部で既に定義されている変数です
-      #     reset, stepの関数内で適宜代入して下さい
+      #     reset, stepの関数内で適宜変えてください
       # self.next_player: int = 0   # これは複数プレイヤーがいる場合に次のプレイヤーのインデックスを代入する必要があります
       # self.done_reason: str = ""  # (option) 終了時の理由を残せます
       # self.info: Info = Info()    # (option) 辞書形式で各種情報を残せます
+
+      # ※記載が必要
+      def __init__():
+         super().__init__()
+
+      # ※dataclassの場合
+      # def __post_init__():
+      #    super().__init__()
 
       @property
       def action_space(self) -> SpaceBase:
@@ -250,13 +258,9 @@ EnvBase
 
    # --- 追加情報
    @property
-   def reward_info(self) -> dict:
-      """ 報酬に関する情報を返す """
-      return {
-         "min": None,
-         "max": None,
-         "baseline": None,
-      }
+   def reward_range(self) -> Tuple[float, float]:
+      """rewardの取りうる範囲を返す"""
+        return (-math.inf, math.inf)
 
    # --- 実行に関する関数
    def close(self) -> None:

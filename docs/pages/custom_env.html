@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Making a Custom environment &mdash; SimpleDistributedRL 0.17.1 ドキュメント</title>
+  <title>Making a Custom environment &mdash; SimpleDistributedRL 0.17.1.1 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=315feb3a"></script>
+      <script src="../_static/documentation_options.js?v=c6bea03a"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -290,14 +290,22 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">srl.base.spaces.space</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpaceBase</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">srl.base.define</span><span class="w"> </span><span class="kn">import</span> <span class="n">EnvActionType</span><span class="p">,</span> <span class="n">EnvObservationType</span><span class="p">,</span> <span class="n">EnvObservationTypes</span>
 
-
+<span class="c1"># ※ @dataclass も使えます</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">MyEnvBase</span><span class="p">(</span><span class="n">EnvBase</span><span class="p">):</span>
 
    <span class="c1"># --- 内部で既に定義されている変数です</span>
-   <span class="c1">#     reset, stepの関数内で適宜代入して下さい</span>
+   <span class="c1">#     reset, stepの関数内で適宜変えてください</span>
    <span class="c1"># self.next_player: int = 0   # これは複数プレイヤーがいる場合に次のプレイヤーのインデックスを代入する必要があります</span>
    <span class="c1"># self.done_reason: str = &quot;&quot;  # (option) 終了時の理由を残せます</span>
    <span class="c1"># self.info: Info = Info()    # (option) 辞書形式で各種情報を残せます</span>
+
+   <span class="c1"># ※記載が必要</span>
+   <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">():</span>
+      <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+   <span class="c1"># ※dataclassの場合</span>
+   <span class="c1"># def __post_init__():</span>
+   <span class="c1">#    super().__init__()</span>
 
    <span class="nd">@property</span>
    <span class="k">def</span><span class="w"> </span><span class="nf">action_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpaceBase</span><span class="p">:</span>
@@ -363,13 +371,9 @@
 
 <span class="c1"># --- 追加情報</span>
 <span class="nd">@property</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">reward_info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">   </span><span class="sd">&quot;&quot;&quot; 報酬に関する情報を返す &quot;&quot;&quot;</span>
-   <span class="k">return</span> <span class="p">{</span>
-      <span class="s2">&quot;min&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
-      <span class="s2">&quot;max&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
-      <span class="s2">&quot;baseline&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
-   <span class="p">}</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">reward_range</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+<span class="w">   </span><span class="sd">&quot;&quot;&quot;rewardの取りうる範囲を返す&quot;&quot;&quot;</span>
+     <span class="k">return</span> <span class="p">(</span><span class="o">-</span><span class="n">math</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span> <span class="n">math</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span>
 
 <span class="c1"># --- 実行に関する関数</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -549,6 +553,7 @@ SpaceTypesはフレームワーク内で定義されている値となります�
     <span class="n">move_reward</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.04</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">field</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
 
     <span class="nd">@property</span>
@@ -663,10 +668,9 @@ SpaceTypesはフレームワーク内で定義されている値となります�
 <p>最低限ですが、ちゃんと動くか以下でテストできます。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># 実装したEnvファイルをimportし、registerに登録</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">srl.envs</span><span class="w"> </span><span class="kn">import</span> <span class="n">sample_env</span>  <span class="c1"># noqa F401</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">srl.test.env</span><span class="w"> </span><span class="kn">import</span> <span class="n">TestEnv</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">srl.test.env</span><span class="w"> </span><span class="kn">import</span> <span class="n">env_test</span>
 
-<span class="n">tester</span> <span class="o">=</span> <span class="n">TestEnv</span><span class="p">()</span>
-<span class="n">tester</span><span class="o">.</span><span class="n">play_test</span><span class="p">(</span><span class="s2">&quot;SampleEnv&quot;</span><span class="p">)</span>
+<span class="n">env_test</span><span class="p">(</span><span class="s2">&quot;SampleEnv&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>

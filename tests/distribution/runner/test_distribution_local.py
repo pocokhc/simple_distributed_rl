@@ -32,7 +32,6 @@ def is_port_open(host, port):
 
 
 def _run_actor():
-    common.logger_print()
     actor_run_forever(
         RedisParameters(host="localhost"),
         None,
@@ -42,7 +41,6 @@ def _run_actor():
 
 
 def _run_trainer():
-    common.logger_print()
     trainer_run_forever(
         RedisParameters(host="localhost"),
         None,
@@ -66,7 +64,6 @@ def test_train(is_wait):
 
     # 起動しないテスト方法が不明...
     # サーバが起動している事
-    common.logger_print()
 
     assert is_port_open("127.0.0.1", 6379), "Redis is not running."
 

@@ -14,10 +14,11 @@
 // RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
 // DemoMemory: 個別対応かな
 
-# v0.17.2
+# v0.18.0
 
-・EnvBaseのコンストラクタを呼び出す必要性がでてきました。
-  もしコンストラクタを使っている場合は親クラスの__init__も呼び出してください。
+
+・EnvBaseのコンストラクタを呼び出す必要性がでてきました。  
+もしコンストラクタを使っている場合は親クラスの__init__も呼び出してください。  
 
 ``` python
 class MyEnv(EnvBase):
@@ -30,18 +31,29 @@ class MyEnv2(EnvBase):
     super().__init__()  # dataclassの場合も__init__を追加
 ```
 
+・worker_runのフローの思に関数名を見直し。これによりrawレベルでフローに変更があります。  
+（本当は別件でフローを見直していたが、現状で問題なかったのでフロー自体に変更なし）  
+外部環境との連携でも on_start -> setup と on_reset -> reset の変更があります。  
+
+
 **MainUpdates**
 
+1. [base.rl.worker_run] change: フローの関数名の見直し
+   - 実装側のon_に引っ張られていたが、違う動作なのでworker_runの関数名を見直し。
+       - on_start -> setup
+       - on_reset -> reset
+       - 学習全体の後に呼ばれるteardownを作成
+   - [docs,diagrams] update: フローに合わせてドキュメント更新
 1. [base.env] change: EnvBaseにコンストラクタを追加、継承先で呼び出すように変更（カスタム環境に影響あり）、一応なくても動くようにしているが書くのを推奨
    - 合わせてドキュメントも変更
 1. [base.env] update: envもcontextを保持するようにして、env側からトレーニング状況などを参照できるように変更(rawレベルで引数に変更あり)
-
 
 **OtherUpdates**
 
 1. [base.env.env_base] fix: next_playerがクラス変数だったのをインスタンス変数に変更
 1. [tests] ref: env側のテストを修正
 1. [env.grid] update: 可視化用関数とアクション数を表示する関数他
+1. [examples] new: examplesのテストを追加
 
 **Bug Fixes**
 
@@ -51,6 +63,10 @@ class MyEnv2(EnvBase):
 1. [algorithms] fix: weightを初期化する前にrestoreするとエラーになるのでtfのbuildにweightを生成に変更
 1. [algorithms.muzero] fix: mp環境でうまくserialize出来ていなかった不具合修正
 1. [algorithms.world_models] fix: Memoryのserializeを修正
+1. [runner] fix: play_windowのstep操作がまだおかしかったので修正
+1. [render] fix: envのset_render_optionsでintervalが反映されない不具合修正
+1. [base.env] fix: ない環境を作るときにcloseで余分な例外が出る不具合修正
+
 
 # v0.17.1
 

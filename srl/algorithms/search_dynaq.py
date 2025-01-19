@@ -400,18 +400,19 @@ class Worker(RLWorker[Config, Parameter]):
         super().__init__(*args)
 
     def on_teardown(self, worker):
-        # 学習最後にQテーブルを更新
-        self.parameter.iteration_q(
-            "ext",
-            self.config.iteration_threshold / 10,
-            self.config.iteration_timeout * 10,
-        )
-        self.parameter.iteration_q(
-            "int",
-            self.config.iteration_threshold,
-            self.config.iteration_timeout * 2,
-        )
-        logger.info("iteration Q Table.")
+        if self.training:
+            # 学習最後にQテーブルを更新
+            self.parameter.iteration_q(
+                "ext",
+                self.config.iteration_threshold / 10,
+                self.config.iteration_timeout * 10,
+            )
+            self.parameter.iteration_q(
+                "int",
+                self.config.iteration_threshold,
+                self.config.iteration_timeout * 2,
+            )
+            logger.info("iteration Q Table.")
 
     def on_reset(self, worker):
         self.episodic = {}

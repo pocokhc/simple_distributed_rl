@@ -337,9 +337,10 @@ class Worker(RLWorker[Config, Parameter]):
         self.start_state = None
 
     def on_teardown(self, worker):
-        # 学習最後にQテーブルを更新
-        self.parameter.iteration_q("ext", self.config.q_iter_threshold / 10, self.config.q_iter_timeout * 10)
-        self.parameter.iteration_q("int", self.config.q_iter_threshold / 10, self.config.q_iter_timeout * 10)
+        if self.training:
+            # 学習最後にQテーブルを更新
+            self.parameter.iteration_q("ext", self.config.q_iter_threshold / 10, self.config.q_iter_timeout * 10)
+            self.parameter.iteration_q("int", self.config.q_iter_threshold / 10, self.config.q_iter_timeout * 10)
 
     def on_reset(self, worker):
         self.mode = ""
@@ -372,24 +373,28 @@ class Worker(RLWorker[Config, Parameter]):
         # --- move
         if self.mode == "move_deter":
             assert self.cell is not None
-            # deterではないけどそう思いinvalid_actionsを選択する場合がある
             if self.cell["state"] == state:
+                # 目的地についた時
                 self.mode = ""
                 if self.cell["action"] in invalid_actions:
+                    # アクション履歴に無効なアクションがあった場合
                     self.cell["deter"] = False
                     # not action
                 else:
                     return self.cell["action"]
-            elif len(self.cell["actions"]) <= self.episode_step:
+            elif self.episode_step >= len(self.cell["actions"]):
+                # 目的地につかず、アクション履歴を超えた場合
                 self.cell["deter"] = False
                 self.mode = ""
                 # not action
             else:
                 if self.cell["actions"][self.episode_step] in invalid_actions:
+                    # アクション履歴に無効なアクションがあった場合
                     self.cell["deter"] = False
                     self.mode = ""
                     # not action
                 else:
+                    # アクション履歴を実行
                     return self.cell["actions"][self.episode_step]
 
         # --- 内部報酬による探索
@@ -654,5 +659,5 @@ class Worker(RLWorker[Config, Parameter]):
             print(f" select      : {cell['select']}")
             print(f" visit       : {cell['visit']}")
             print(f" total reward: {cell['total_reward']}")
-            print(f" action      : {len(cell['actions'])}")
+            print(f" actions     : {cell['actions'][:20]}...")
             print(f" deter       : {cell['deter']}")

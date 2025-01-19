@@ -160,47 +160,43 @@ if __name__ == "__main__":
 
 ![overview-mp.drawio.png](diagrams/overview-mp.drawio.png)
 
-+ 学習の疑似コード
++ 疑似コード
+
+※実装側の動作に関してはアルゴリズムの作成方法を参照
 
 ``` python
-# 初期化
+# 学習単位の初期化
 env.setup()
-worker.on_start()
+worker.setup()
+trainer.setup()
 
-# 1エピソードの初期化
-env.reset()
-worker.on_reset()
+for episode in range(N)
+  # 1エピソードの初期化
+  env.reset()
+  worker.reset()
 
-# 1エピソードのループ
-while not env.done:
-    action = worker.policy()  # パラメータを参照
-    env.step(action)
-    worker.on_step()
+  # 1エピソードのループ
+  while not env.done:
+      env.render()  # 環境の描画
 
-    # 学習
-    trainer.train()  # パラメータを更新
-```
+      # アクションを取得
+      action = worker.policy()
+      worker.render()  # workerの描画
 
-+ renderの疑似コード
+      # 環境の1stepを実行
+      env.step(action)
+      worker.on_step()
 
-``` python
-# 初期化
-env.setup()
-worker.on_start()
+      # 学習
+      trainer.train()
+  # 終了後の描画
+  env.render()
+  worker.render()
 
-# 1エピソードの初期化
-env.reset()
-worker.on_reset()
-
-# 1エピソードのループ
-while not env.done:
-    env.render()
-    action = worker.policy()  # パラメータを参照
-    worker.render()
-    env.step(action)
-    worker.on_step()
-env.render()
-worker.render()
+# 学習単位の終了
+env.teardown()
+worker.teardown()
+trainer.teardown()
 ```
 
 

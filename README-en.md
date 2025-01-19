@@ -165,45 +165,42 @@ There is an example in [examples/sample_mlflow.py](examples/sample_mlflow.py).
 
 + Simplified pseudo code(train)
 
-``` python
-# Initializing phase
-env.setup()
-worker.on_start()
-
-# 1 episode initializing phase
-env.reset()
-worker.on_reset()
-
-# 1 episode loop
-while not env.done:
-    action = worker.policy()  # parameter reference
-    env.step(action)
-    worker.on_step()
-
-    # Train phase
-    trainer.train()  # parameter update
-```
-
-+ Simplified pseudo code(not train)
+For implementation details, see 'Making a Custom algorithm'.
 
 ``` python
-# Initializing phase
+# Initialize learning units
 env.setup()
-worker.on_start()
+worker.setup()
+trainer.setup()
 
-# 1 episode initializing phase
-env.reset()
-worker.on_reset()
+for episode in range(N)
+  # 1 episode initializing phase
+  env.reset()
+  worker.reset()
 
-# 1 episode loop
-while not env.done:
-    env.render()
-    action = worker.policy()  # parameter reference
-    worker.render()
-    env.step(action)
-    worker.on_step()
-env.render()
-worker.render()
+  # 1 episode loop
+  while not env.done:
+      env.render()  # env render
+
+      # get action
+      worker.ready_policy()
+      action = worker.policy()
+      worker.render()  # worker render
+
+      # Run 1 step of the environment
+      env.step(action)
+      worker.on_step()
+
+      # Train phase
+      trainer.train()
+  # Drawing after the end of one episode
+  env.render()
+  worker.render()
+
+# End of learning unit
+env.teardown()
+worker.teardown()
+trainer.teardown()
 ```
 
 

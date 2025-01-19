@@ -1,0 +1,67 @@
+@startuml playflow1
+autoactivate on
+
+actor User
+
+participant EnvRun
+participant EnvBase
+participant WorkerRun
+participant Worker
+participant Trainer
+
+
+activate User
+
+group Setup Phase
+
+    User -> EnvRun: setup(context)
+        EnvRun -> EnvBase: setup(**context.to_dict())
+        return
+    return
+
+    User -> WorkerRun: setup(context)
+        WorkerRun -> Worker: on_setup(context)
+        return
+    return
+
+    User -> Trainer: setup(context)
+        Trainer -> Trainer: on_setup()
+        return
+    return
+
+end
+
+loop Episodes
+    User -> User: episode_flow
+    return
+
+    note right
+    For details, see another flow chart.
+    end note
+end
+
+group Teardown Phase
+
+    User -> EnvRun: teardown()
+        EnvRun -> EnvBase: teardown()
+        return
+    return
+
+    User -> WorkerRun: teardown()
+        WorkerRun -> Worker: on_teardown()
+        return
+    return
+
+    User -> Trainer: teardown()
+        Trainer -> Trainer: on_teardown()
+        return
+    return
+
+end
+
+
+
+
+deactivate User
+
+@enduml

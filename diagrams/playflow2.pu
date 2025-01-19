@@ -1,4 +1,4 @@
-@startuml playflow
+@startuml playflow2
 autoactivate on
 
 actor User
@@ -16,23 +16,17 @@ participant Memory
 
 activate User
 
-User -> EnvRun: setup(render_mode)
-    EnvRun -> EnvBase: setup(render_mode)
+group Reset Phase
+    User -> EnvRun: reset(seed)
+        EnvRun -> EnvBase: reset(seed)
+        return state
     return
-return
 
-User -> WorkerRun: on_start(context)
-    WorkerRun -> Worker: on_start(context)
+    User -> WorkerRun: reset(player_index, seed)
+        WorkerRun -> Worker: on_reset()
+        return
     return
-return
-
-User -> EnvRun: reset(seed)
-    EnvRun -> EnvBase: reset(seed)
-    return state
-return
-
-User -> WorkerRun: on_reset(player_index, seed)
-return
+end
 
 loop episode
     User -> EnvRun: render()

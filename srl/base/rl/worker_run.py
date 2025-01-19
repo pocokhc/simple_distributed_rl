@@ -44,10 +44,10 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._config: RLConfig[SpaceBase, SpaceBase] = worker.config
         self._env = env
         self._render = Render(worker)
-        self._has_start = False
+        self._is_setup = False
 
-        self._on_start_val(RunContext())
-        self._on_reset_val(0)
+        self._setup_val(RunContext())
+        self._reset_val(0)
 
         # --- processor
         self._processors = [c.copy() for c in self._config._episode_processors]
@@ -173,46 +173,47 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def episode_seed(self) -> Optional[int]:
         return self._episode_seed
 
-    def on_start(
+    def setup(
         self,
         context: Optional[RunContext] = None,
         render_mode: Union[str, RenderModes] = RenderModes.none,
     ):
-        logger.debug(f"on_start: {render_mode=}")
         if context is None:
             context = RunContext(self.env.config, self._config)
         if render_mode == RenderModes.none:
             render_mode = context.render_mode
 
-        self._on_start_val(context)
+        self._setup_val(context)
         self._render.set_render_mode(render_mode, enable_window=False)
-        self._worker.on_start(self, context)
-        self._has_start = True
+        logger.debug(f"on_setup: {render_mode=}")
+        self._worker.on_setup(self, context)
+        self._is_setup = True
 
-    def _on_start_val(self, context: RunContext):
+    def _setup_val(self, context: RunContext):
         self._context = context
         self._total_step: int = 0
 
-    def on_end(self):
-        logger.debug("on_end")
-        self._worker.on_end(self)
-        self._has_start = False
+    def teardown(self):
+        logger.debug("teardown")
+        self._worker.on_teardown(self)
+        self._is_setup = False
 
-    def on_reset(self, player_index: int, seed: Optional[int] = None) -> None:
-        logger.debug(f"on_reset: {player_index=}, {seed=}")
-        if not self._has_start:
+    def reset(self, player_index: int, seed: Optional[int] = None) -> None:
+        logger.debug(f"worker_run.on_reset: {player_index=}, {seed=}")
+        if not self._is_setup:
             raise SRLError("Cannot call worker.on_reset() before calling worker.on_start()")
 
         if self._context.rendering:
             self._render.cache_reset()
 
-        self._on_reset_val(player_index, seed)
+        self._reset_val(player_index, seed)
         [r.remap_on_reset(self, self._env) for r in self._processors_on_reset]
 
-    def _on_reset_val(self, player_index: int, seed: Optional[int] = None):
+    def _reset_val(self, player_index: int, seed: Optional[int] = None):
         self._player_index = player_index
         self._episode_seed = seed
         self._is_reset = False
+        self._is_ready_policy = False
 
         self._state = self._config.observation_space.get_default()
         self._prev_state = self._state
@@ -230,53 +231,9 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._invalid_actions: List[TActType] = []
         self._set_invalid_actions()
 
-    def policy(self) -> EnvActionType:
-        logger.debug("policy")
-        # 1週目は reset -> policy
-        # 2週目以降は step -> policy
-        self._on_step(on_reset=(not self._is_reset))
-
-        # worker policy
-        action = self._worker.policy(self)
-        self._prev_action = self._action
-        self._action = cast(TActType, action)
-        if self._config.enable_assertion:
-            assert self._config.action_space.check_val(self._action)
-        elif self._config.enable_sanitize:
-            self._action = self._config.action_space.sanitize(self._action)
-        env_action = self.action_decode(self._action)
-
-        if self._context.rendering:
-            self._render.cache_reset()
-
-        return env_action
-
-    def override_action(self, env_action: EnvActionType, update_prev_action: bool = False) -> TActType:
-        rl_action = self.action_encode(env_action)
-        if update_prev_action:
-            self._prev_action = self._action
-        self._action = rl_action
-        return rl_action
-
-    def on_step(self) -> None:
-        # 初期化前はskip
-        if not self._is_reset:
-            return
-        logger.debug("on_step")
-        self._total_step += 1
-
-        # 相手の番のrewardも加算
-        self._step_reward += self._env.rewards[self.player_index]
-
-        # 終了ならon_step実行
-        if self._env._done != DoneTypes.NONE:
-            self._prev_action = self._action
-            self._on_step()
-            if self._context.rendering:
-                self._render.cache_reset()
-
-    def _on_step(self, on_reset: bool = False):
-        # encode -> set invalid -> on_step -> reward=0
+    def ready_policy(self):
+        """policyの準備を実行。1週目は on_reset、2週目以降は on_step を実行。"""
+        # encode -> set invalid -> on_step -> step_reward=0
         self._set_invalid_actions()
         self._prev_state = self._state
         self._state = self.state_encode(
@@ -293,13 +250,56 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
                 append_recent_state=True,
             )
 
-        if on_reset:
+        if not self._is_reset:
+            logger.debug("on_reset")
             self._worker.on_reset(self)
             self._is_reset = True
         else:
             self._reward = self.reward_encode(self._step_reward, self._env)
             self._step_reward = 0
+            logger.debug("on_step")
             self._worker.on_step(self)
+
+        self._is_ready_policy = True
+
+    def policy(self, call_ready_policy: bool = True) -> EnvActionType:
+        if call_ready_policy:
+            self.ready_policy()
+        if not self._is_ready_policy:
+            raise SRLError("Please call 'worker.ready_policy' first.")
+
+        # worker policy
+        logger.debug("policy")
+        action = self._worker.policy(self)
+        self._prev_action = self._action
+        self._action = cast(TActType, action)
+        if self._config.enable_assertion:
+            assert self._config.action_space.check_val(self._action)
+        elif self._config.enable_sanitize:
+            self._action = self._config.action_space.sanitize(self._action)
+        env_action = self.action_decode(self._action)
+
+        if self._context.rendering:
+            self._render.cache_reset()
+
+        self._is_ready_policy = False
+        return env_action
+
+    def on_step(self) -> None:
+        # 初期化前はskip
+        if not self._is_reset:
+            return
+        self._total_step += 1
+
+        # 相手の番のrewardも加算
+        self._step_reward += self._env.rewards[self.player_index]
+
+        # 終了ならon_step実行
+        if self._env._done != DoneTypes.NONE:
+            self._prev_action = self._action
+            self.ready_policy()
+            if self._context.rendering:
+                self._render.cache_reset()
 
     def _set_invalid_actions(self):
         self._prev_invalid_actions = self._invalid_actions
@@ -434,12 +434,18 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return self._render.render(worker=self, **kwargs)
 
     def render_terminal_text(self, **kwargs) -> str:
+        if not self._is_reset:  # on_reset前はrenderしない
+            return ""
         return self._render.render_terminal_text(worker=self, **kwargs)
 
-    def render_terminal_text_to_image(self, **kwargs):
+    def render_terminal_text_to_image(self, **kwargs) -> Optional[np.ndarray]:
+        if not self._is_reset:  # on_reset前はrenderしない
+            return None
         return self._render.render_terminal_text_to_image(worker=self, **kwargs)
 
     def render_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
+        if not self._is_reset:  # on_reset前はrenderしない
+            return None
         return self._render.render_rgb_array(worker=self, **kwargs)
 
     def render_rl_image(self) -> Optional[np.ndarray]:
@@ -545,6 +551,13 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def sample_action_for_env(self) -> EnvActionType:
         return self._env.sample_action()
 
+    def override_action(self, env_action: EnvActionType, update_prev_action: bool = False) -> TActType:
+        rl_action = self.action_encode(env_action)
+        if update_prev_action:
+            self._prev_action = self._action
+        self._action = rl_action
+        return rl_action
+
     def env_step(self, env: EnvRun, action: TActType, **step_kwargs) -> Tuple[TObsType, List[float]]:
         """RLActionを入力として、envを1step進める。戻り値はRL側の状態。
         Worker自身の内部状態は変更しない
@@ -570,7 +583,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         d = [
             # on_start
             self._total_step,
-            self._has_start,
+            self._is_setup,
             # on_reset
             self._player_index,
             self._episode_seed,
@@ -598,7 +611,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         logger.debug(f"restore: step={dat[0]}")
         # on_start
         self._total_step = dat[0]
-        self._has_start = dat[1]
+        self._is_setup = dat[1]
         # on_reset
         self._player_index = dat[2]
         self._episode_seed = dat[3]

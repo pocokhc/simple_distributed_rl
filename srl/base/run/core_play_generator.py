@@ -55,12 +55,12 @@ def play_generator(
         state.episode_seed = random.randint(0, 2**16)
         logger.info(f"set_seed: {context.seed}, 1st episode seed: {state.episode_seed}")
 
-    # --- 3 start
-    [w.on_start(context) for w in state.workers]
+    # --- 3 setup
+    state.env.setup(context)
+    [w.setup(context) for w in state.workers]
     if state.trainer is not None:
         state.start_train_count = state.trainer.train_count
-        state.trainer.on_start(context)
-    state.env.setup(context)
+        state.trainer.setup(context)
 
     # --- 4 init
     state.worker_indices = [i for i in range(state.env.player_num)]
@@ -130,7 +130,7 @@ def play_generator(
             state.worker_idx = state.worker_indices[state.env.next_player]
 
             # worker reset
-            [w.on_reset(state.worker_indices[i]) for i, w in enumerate(state.workers)]
+            [w.reset(state.worker_indices[i]) for i, w in enumerate(state.workers)]
 
             # callbacks
             [c.on_episode_begin(context=context, state=state) for c in _calls_on_episode_begin]
@@ -139,15 +139,14 @@ def play_generator(
         # ------------------------
         # step
         # ------------------------
-
-        # action
+        # --- action
         state.env.render()
         [c.on_step_action_before(context=context, state=state) for c in _calls_on_step_action_before]
         yield ("on_step_action_before", context, state)
         state.action = state.workers[state.worker_idx].policy()
+        state.workers[state.worker_idx].render()
         [c.on_step_action_after(context=context, state=state) for c in _calls_on_step_action_after]
         yield ("on_step_action_after", context, state)
-        state.workers[state.worker_idx].render()
 
         # workerがenvを終了させた場合に対応
         if not state.env.done:
@@ -166,7 +165,7 @@ def play_generator(
             # step update
             state.total_step += 1
 
-        # trainer
+        # --- trainer
         if state.trainer is not None:
             if not state.trainer.implement_thread_train():
                 _prev_train = state.trainer.train_count
@@ -185,6 +184,9 @@ def play_generator(
         yield ("on_step_end", context, state)
         state.worker_idx = state.worker_indices[state.env.next_player]  # on_step_end の後
 
+        # ------------------------
+        # done
+        # ------------------------
         if state.env.done:
             state.env.render()
             for w in state.workers:
@@ -207,10 +209,11 @@ def play_generator(
     if context.run_name != RunNameTypes.eval:
         logger.info(f"[{context.run_name}] loop end({state.end_reason})")
 
-    # 7 end
-    [w.on_end() for w in state.workers]
+    # --- 7 teardown
+    state.env.teardown()
+    [w.teardown() for w in state.workers]
     if state.trainer is not None:
-        state.trainer.on_end()
+        state.trainer.teardown()
 
     # rewardは学習中は不要
     if not context.training:

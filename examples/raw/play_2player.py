@@ -22,7 +22,7 @@ def _run_episode(
 ):
     # 1. reset
     env.reset()
-    [w.on_reset(player_index=i) for i, w in enumerate(workers)]
+    [w.reset(player_index=i) for i, w in enumerate(workers)]
 
     # --- env render
     if rendering:
@@ -50,9 +50,7 @@ def _run_episode(
 
         # 4. train
         if trainer is not None:
-            train_info = trainer.train()
-        else:
-            train_info = {}
+            trainer.train()
 
         # --- step info
         if False:
@@ -62,7 +60,8 @@ def _run_episode(
             print(env.info)
             print(workers[0].info)
             print(workers[1].info)
-            print(train_info)
+            if trainer is not None:
+                print(trainer.info)
 
     if rendering:
         print(f"step: {env.step_num}, reward: {env.episode_rewards}")
@@ -87,56 +86,59 @@ def main():
 
     # --- train
     context = srl.RunContext(env_config, rl_config, training=True)
-    env.setup()
-    [w.on_start(context) for w in workers]
-    trainer.on_start(context)
+    env.setup(context)
+    [w.setup(context) for w in workers]
+    trainer.setup(context)
     for episode in range(10000):
         step, rewards = _run_episode(env, workers, trainer, rendering=False)
         if episode % 1000 == 0:
             print(f"{episode} / 10000 episode, {step} step, {rewards} reward")
-    [w.on_end() for w in workers]
-    trainer.on_end()
+    env.teardown()
+    [w.teardown() for w in workers]
+    trainer.teardown()
 
     # --- evaluate
     context = srl.RunContext(env_config, rl_config)
-    env.setup()
-    [w.on_start(context) for w in workers]
+    env.setup(context)
+    [w.setup(context) for w in workers]
     rewards_list = []
     for episode in range(100):
         _, rewards = _run_episode(env, workers, None, rendering=False)
         rewards_list.append(rewards)
     print(f"Average reward for 100 episodes: {np.mean(rewards_list, axis=0)}")
-    [w.on_end() for w in workers]
+    [w.teardown() for w in workers]
+    env.teardown()
 
     # --- render
     context = srl.RunContext(env_config, rl_config, render_mode="terminal")
-    env.setup(context.render_mode)
-    [w.on_start(context) for w in workers]
+    env.setup(context)
+    [w.setup(context) for w in workers]
     _run_episode(env, workers, None, rendering=True)
-    [w.on_end() for w in workers]
+    [w.teardown() for w in workers]
+    env.teardown()
 
 
-def play_cpu():
+def play_cpu(player_mode: str = "human"):
     import srl.rl.human
 
     env_config = srl.EnvConfig("OX")
 
     # make
     env = env_config.make()
-    player = srl.make_worker("human", env)
+    player = srl.make_worker(player_mode, env)
     cpu = env.make_worker("cpu")
     assert cpu is not None
 
     # set context
     context = srl.RunContext(env_config, render_mode="terminal")
-    env.setup(context.render_mode)
-    player.on_start(context)
-    cpu.on_start(context)
+    env.setup(context)
+    player.setup(context)
+    cpu.setup(context)
 
     # reset
     env.reset()
-    player.on_reset(player_index=0)
-    cpu.on_reset(player_index=1)
+    player.reset(player_index=0)
+    cpu.reset(player_index=1)
 
     env.render()
 
@@ -152,9 +154,9 @@ def play_cpu():
 
         env.render()
 
-    # end
-    player.on_end()
-    cpu.on_end()
+    # teardown
+    player.teardown()
+    cpu.teardown()
 
 
 if __name__ == "__main__":

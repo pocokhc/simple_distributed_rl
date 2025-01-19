@@ -25,12 +25,6 @@ class RLTrainer(ABC, Generic[TRLConfig, TRLParameter, TRLMemory]):
     def get_train_count(self) -> int:
         return self.train_count
 
-    def on_start(self, context: RunContext) -> None:
-        self.__context = context
-
-    def on_end(self) -> None:
-        pass
-
     @property
     def distributed(self) -> bool:
         return self.__context.distributed
@@ -38,6 +32,22 @@ class RLTrainer(ABC, Generic[TRLConfig, TRLParameter, TRLMemory]):
     @property
     def train_only(self) -> bool:
         return self.__context.train_only
+
+    def setup(self, context: RunContext) -> None:
+        self.__context = context
+        self.on_setup()
+
+    def teardown(self) -> None:
+        self.on_teardown()
+
+    # --------------------------------
+    # implement
+    # --------------------------------
+    def on_setup(self) -> None:
+        pass
+
+    def on_teardown(self) -> None:
+        pass
 
     # --- 1step train
     def train(self) -> None:

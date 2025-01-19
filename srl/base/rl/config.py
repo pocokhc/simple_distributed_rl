@@ -191,7 +191,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         # --- backup/restore check
         if self.use_backup_restore():
             try:
-                env.setup(**srl.RunContext().to_dict())
+                env.setup()
                 env.reset()
                 d = env.backup()
                 env.restore(d)
@@ -252,7 +252,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                         logger.info(s)
                     env_obs_space._stype = self.override_observation_type
         elif self.observation_mode == ObservationModes.RENDER_IMAGE:
-            env.setup(**srl.RunContext(render_mode=RenderModes.rgb_array).to_dict())
+            env.setup(srl.RunContext(render_mode=RenderModes.rgb_array))
             env.reset()
             rgb_array = env.render_rgb_array()
             if rgb_array is not None:
@@ -309,7 +309,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
         # --- include render image
         if self.use_render_image_state():
-            env.setup(**srl.RunContext(render_mode=RenderModes.rgb_array).to_dict())
+            env.setup(srl.RunContext(render_mode=RenderModes.rgb_array))
             env.reset()
             rgb_array = env.render_rgb_array()
             if rgb_array is not None:
@@ -320,9 +320,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                     self.obs_render_type = "terminal"
                 else:
                     raise NotSupportedError("Failed to get image.")
-            self._rl_obs_render_img_space_one_step: BoxSpace = BoxSpace(
-                rgb_array.shape, 0, 255, np.uint8, SpaceTypes.COLOR
-            )
+            self._rl_obs_render_img_space_one_step: BoxSpace = BoxSpace(rgb_array.shape, 0, 255, np.uint8, SpaceTypes.COLOR)
             self._used_rgb_array = True
 
             if self.enable_state_encode:
@@ -336,9 +334,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                     self._rl_obs_render_img_space_one_step = cast(BoxSpace, new_space)
 
             if self.render_image_window_length > 1:
-                self._rl_obs_render_img_space = self._rl_obs_render_img_space_one_step.create_stack_space(
-                    self.render_image_window_length
-                )
+                self._rl_obs_render_img_space = self._rl_obs_render_img_space_one_step.create_stack_space(self.render_image_window_length)
             else:
                 self._rl_obs_render_img_space = self._rl_obs_render_img_space_one_step
 

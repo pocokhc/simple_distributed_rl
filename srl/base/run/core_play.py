@@ -107,12 +107,6 @@ def play(
     trainer: Optional[RLTrainer] = None,
     callbacks: List[RunCallback] = [],
 ):
-    # --- check trainer
-    if context.disable_trainer:
-        trainer = None
-    elif context.training:
-        assert trainer is not None
-
     # --- play tf
     if context.enable_tf_device and context.framework == "tensorflow":
         if common.is_enable_tf_device_name(context.used_device_tf):
@@ -133,6 +127,12 @@ def _play(
     trainer: Optional[RLTrainer],
     callbacks: List[RunCallback],
 ):
+    # --- check trainer
+    if context.disable_trainer:
+        trainer = None
+    elif context.training:
+        assert trainer is not None
+
     assert env.player_num == len(workers)
     main_worker = workers[main_worker_idx]
     state = RunStateActor(
@@ -162,12 +162,12 @@ def _play(
         state.episode_seed = random.randint(0, 2**16)
         logger.info(f"set_seed: {context.seed}, 1st episode seed: {state.episode_seed}")
 
-    # --- 3 start
-    [w.on_start(context) for w in state.workers]
+    # --- 3 setup
+    state.env.setup(context)
+    [w.setup(context) for w in state.workers]
     if state.trainer is not None:
         state.start_train_count = state.trainer.train_count
-        state.trainer.on_start(context)
-    state.env.setup(context)
+        state.trainer.setup(context)
 
     # --- 4 init
     state.worker_indices = [i for i in range(state.env.player_num)]
@@ -258,7 +258,7 @@ def _play(
                 state.worker_idx = state.worker_indices[state.env.next_player]
 
                 # worker reset
-                [w.on_reset(state.worker_indices[i], seed=state.episode_seed) for i, w in enumerate(state.workers)]
+                [w.reset(state.worker_indices[i], seed=state.episode_seed) for i, w in enumerate(state.workers)]
 
                 # callbacks
                 [c.on_episode_begin(context=context, state=state) for c in _calls_on_episode_begin]
@@ -266,13 +266,12 @@ def _play(
             # ------------------------
             # step
             # ------------------------
-
-            # action
+            # --- action
             state.env.render()
             [c.on_step_action_before(context=context, state=state) for c in _calls_on_step_action_before]
             state.action = state.workers[state.worker_idx].policy()
-            [c.on_step_action_after(context=context, state=state) for c in _calls_on_step_action_after]
             state.workers[state.worker_idx].render()
+            [c.on_step_action_after(context=context, state=state) for c in _calls_on_step_action_after]
 
             # workerがenvを終了させた場合に対応
             if not state.env.done:
@@ -322,6 +321,9 @@ def _play(
             _stop_flags = [c.on_step_end(context=context, state=state) for c in _calls_on_step_end]
             state.worker_idx = state.worker_indices[state.env.next_player]  # on_step_end の後
 
+            # ------------------------
+            # done
+            # ------------------------
             if state.env.done:
                 state.env.render()
                 for w in state.workers:
@@ -353,10 +355,11 @@ def _play(
         if context.run_name != RunNameTypes.eval:
             logger.info(f"[{context.run_name}] loop end({state.end_reason})")
 
-        # --- 7 end
-        [w.on_end() for w in state.workers]
+        # --- 7 teardown
+        state.env.teardown()
+        [w.teardown() for w in state.workers]
         if state.trainer is not None:
-            state.trainer.on_end()
+            state.trainer.teardown()
 
         # rewardは学習中は不要
         if not context.training:

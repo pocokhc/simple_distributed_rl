@@ -1,40 +1,41 @@
 import ctypes
 import multiprocessing as mp
-import queue
-from typing import Any, List
+from multiprocessing.managers import BaseManager
+from typing import Any, List, cast
 
 import srl
 from srl.base.context import RunContext
 from srl.base.env.config import EnvConfig
 from srl.base.rl.config import RLConfig
-from srl.base.rl.memory import IRLMemoryWorker, RLMemory
-from srl.base.rl.parameter import RLParameter
+from srl.base.rl.memory import RLMemory
 
 # --- env & algorithm
+from srl.base.rl.registration import make_memory_class
+
 from srl.envs import grid  # isort: skip # noqa F401
 from srl.algorithms import ql  # isort: skip
 
 
-class _ActorRLMemory(IRLMemoryWorker):
-    def __init__(self, remote_queue: queue.Queue, base_memory: IRLMemoryWorker):
-        self.remote_queue = remote_queue
-        self.base_memory = base_memory
+class Board:
+    def __init__(self):
+        self.params = None
+        self.update_count = 0
 
-    def add(self, *args) -> None:
-        raw = self.base_memory.serialize_add_args(*args)
-        self.remote_queue.put(raw)
+    def write(self, params):
+        self.params = params
+        self.update_count += 1
 
-    def length(self) -> int:
-        return self.remote_queue.qsize()
+    def get_update_count(self):
+        return self.update_count
 
-    def serialize_add_args(self, *args):
-        raise NotImplementedError("Unused")
+    def read(self):
+        return self.params
 
 
 def _run_actor(
     config,
-    remote_queue: queue.Queue,
-    remote_board: Any,
+    remote_memory: RLMemory,
+    remote_board: Board,
     actor_id: int,
     train_end_signal: ctypes.c_bool,
 ):
@@ -47,13 +48,12 @@ def _run_actor(
     # make instance
     env = env_config.make()
     parameter = rl_config.make_parameter(is_load=False)
-    memory = rl_config.make_memory(is_load=False)
-    remote_memory = _ActorRLMemory(remote_queue, memory)
     worker = rl_config.make_worker(env, parameter, remote_memory)
     env.setup(context)
     worker.setup(context)
 
     # episode loop
+    prev_update_count = 0
     episode = 0
     while True:
         if train_end_signal.value:
@@ -69,33 +69,33 @@ def _run_actor(
         episode += 1
 
         # --- sync parameter
-        if episode % config["actor_parameter_sync_interval_by_episode"] == 0:
-            params = remote_board.value
+        update_count = remote_board.get_update_count()
+        if update_count != prev_update_count:
+            prev_update_count = update_count
+            params = remote_board.read()
             if params is not None:
                 parameter.restore(params)
 
         if episode % 1000 == 0:
-            print(f"actor{actor_id} : {episode} episode, {env.step_num} step, {env.episode_rewards} reward")
+            print(f"{actor_id}: {episode} episode, {env.step_num} step, {env.episode_rewards} reward")
     worker.teardown()
     env.teardown()
 
 
 def _run_trainer(
     config,
-    parameter: RLParameter,
-    memory: RLMemory,
-    remote_queue: queue.Queue,
-    remote_board: Any,
-    train_end_signal: Any,
+    remote_memory: RLMemory,
+    remote_board: Board,
+    train_end_signal: ctypes.c_bool,
 ):
     rl_config: RLConfig = config["rl_config"]
     context: RunContext = config["context"]
 
-    trainer = rl_config.make_trainer(parameter, memory)
+    parameter = rl_config.make_parameter()
+    trainer = rl_config.make_trainer(parameter, remote_memory)
     trainer.setup(context)
 
     train_count = 0
-    recv_queue = 0
     while True:
         if train_end_signal.value:
             break
@@ -106,22 +106,23 @@ def _run_trainer(
         trainer.train()
         train_count = trainer.get_train_count()
 
-        # recv memory
-        if not remote_queue.empty():
-            batch = remote_queue.get()
-            batch = memory.deserialize_add_args(batch)
-            memory.add(*batch)
-            recv_queue += 1
-
         # send parameter
         if train_count % config["trainer_parameter_send_interval_by_train_count"] == 0:
-            remote_board.set(parameter.backup())
+            remote_board.write(parameter.backup())
 
         if train_count > 0 and train_count % 10000 == 0:
-            print(f"trainer: {train_count} / {context.max_train_count}, {recv_queue=}")
+            print(f"{train_count} / 100000 train")
 
     train_end_signal.value = True
+
+    # 学習結果を送信
+    remote_board.write(parameter.backup())
+
     trainer.teardown()
+
+
+class MPManager(BaseManager):
+    pass
 
 
 def main():
@@ -139,54 +140,63 @@ def main():
         "rl_config": rl_config,
         "context": context,
         "trainer_parameter_send_interval_by_train_count": 100,
-        "actor_parameter_sync_interval_by_episode": 1,
     }
 
     # init
     env = env_config.make()
     rl_config.setup(env)
 
-    # make parameter/memory
-    parameter = rl_config.make_parameter()
-    memory = rl_config.make_memory()
-
     # bug fix
     mp.set_start_method("spawn")
 
     # --- async
-    with mp.Manager() as manager:
+    MPManager.register("RemoteMemory", make_memory_class(rl_config))
+    MPManager.register("Board", Board)
+
+    with MPManager() as manager:
+        manager = cast(Any, manager)
+
         # --- share values
         train_end_signal = mp.Value(ctypes.c_bool, False)
-        remote_queue = manager.Queue()
-        remote_board = manager.Value(ctypes.c_char_p, None)
+        remote_memory = manager.RemoteMemory(rl_config)
+        remote_board = manager.Board()
 
         # --- actor
         actors_ps_list: List[mp.Process] = []
         for actor_id in range(context.actor_num):
             params = (
                 config,
-                remote_queue,
+                remote_memory,
                 remote_board,
                 actor_id,
                 train_end_signal,
             )
             ps = mp.Process(target=_run_actor, args=params)
             actors_ps_list.append(ps)
-        # actor start
-        [p.start() for p in actors_ps_list]
 
-        # --- trainer start
-        _run_trainer(
+        # --- trainer
+        params = (
             config,
-            parameter,
-            memory,
-            remote_queue,
+            remote_memory,
             remote_board,
             train_end_signal,
         )
+        trainer_ps = mp.Process(target=_run_trainer, args=params)
+
+        # --- start
+        [p.start() for p in actors_ps_list]
+        trainer_ps.start()
+        trainer_ps.join()
+
+        # 学習後の結果
+        parameter = rl_config.make_parameter()
+        params = remote_board.read()
+        if params is not None:
+            parameter.restore(params)
 
         # 強制終了
         [p.terminate() for p in actors_ps_list]
+        trainer_ps.terminate()
 
     # --------------------
     # rendering

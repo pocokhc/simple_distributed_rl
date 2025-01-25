@@ -492,12 +492,12 @@ def train(
 
         """ note
         - mp.Queue + BaseManager
-        - qsizeはmacOSで例外が出る可能性あり(https://docs.python.org/ja/3/library/multiprocessing.html#multiprocessing.Queue)
-        - 終了時にqueueにデータがあると子プロセス(actor)が終了しない
+           - qsizeはmacOSで例外が出る可能性あり(https://docs.python.org/ja/3/library/multiprocessing.html#multiprocessing.Queue)
+           - 終了時にqueueにデータがあると子プロセス(actor)が終了しない
         - Manager.Queue
-        - 終了時のqueue.getがものすごい時間がかかる
-        - 終了時にqueueにデータがあっても終了する
-        - qsizeがmacOSで使えるかは未確認
+           - 終了時のqueue.getがものすごい時間がかかる
+           - 終了時にqueueにデータがあっても終了する
+           - qsizeがmacOSで使えるかは未確認
         """
         # manager.Value : https://github.com/python/cpython/issues/79967
         remote_qsize = cast(sharedctypes.Synchronized, mp.Value(ctypes.c_int, 0))

@@ -2,7 +2,7 @@ from typing import List
 
 import numpy as np
 
-from srl.base.define import DoneTypes, SpaceTypes
+from srl.base.define import SpaceTypes
 from srl.base.env.env_run import EnvRun
 from srl.base.env.processor import EnvProcessor
 from srl.base.spaces.box import BoxSpace

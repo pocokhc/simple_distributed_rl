@@ -14,8 +14,16 @@
 // RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
 // DemoMemory: 個別対応かな
 
-# v0.18.0
 
+# v0.18.1
+
+
+**OtherUpdates**
+1. [examples.raw] update: play_mpを現行に修正、前バージョンをplay_mp_no_queueに名前変更
+1. [envs.oneroad] fix: observation_spaceが1ずれていたので修正
+
+
+# v0.18.0
 
 ・EnvBaseのコンストラクタを呼び出す必要性がでてきました。  
 もしコンストラクタを使っている場合は親クラスの__init__も呼び出してください。  

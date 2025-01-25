@@ -34,7 +34,7 @@ class OneRoad(EnvBase[DiscreteSpace, int, DiscreteSpace, int]):
 
     @property
     def observation_space(self):
-        return DiscreteSpace(self.N)
+        return DiscreteSpace(self.N + 1)
 
     @property
     def player_num(self) -> int:

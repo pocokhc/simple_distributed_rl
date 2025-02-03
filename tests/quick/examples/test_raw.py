@@ -43,6 +43,14 @@ def test_play_mp():
     play_mp.main()
 
 
+def test_play_mp_no_queue():
+    wkdir = setup_examples_test(add_path="raw")
+
+    import play_mp_no_queue  # type: ignore
+
+    play_mp_no_queue.main()
+
+
 def test_play_mp_use_run():
     wkdir = setup_examples_test(add_path="raw")
 

@@ -8,10 +8,9 @@ from srl.base.context import RunContext
 from srl.base.env.config import EnvConfig
 from srl.base.rl.config import RLConfig
 from srl.base.rl.memory import RLMemory
-
-# --- env & algorithm
 from srl.base.rl.registration import make_memory_class
 
+# --- env & algorithm
 from srl.envs import grid  # isort: skip # noqa F401
 from srl.algorithms import ql  # isort: skip
 

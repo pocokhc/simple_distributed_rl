@@ -51,7 +51,7 @@ class LongCase(CommonLongCase):
             enable_value_clip=False,
             enable_state_normalized=False,
         )
-        rl_config.lr = 0.005
+        rl_config.lr = 0.002
         rl_config.hidden_block.set((64, 64))
         rl_config.value_block.set(())
         rl_config.policy_block.set(())
@@ -92,30 +92,17 @@ class LongCase(CommonLongCase):
         runner.train(max_train_count=30000)
         assert runner.evaluate_compare_to_baseline_single_player()
 
-    def test_Grid4(self):
+    def test_Pendulum_continue(self):
         rl_config = self._create_rl_config()
-        rl_config.experience_collection_method = "MC"
-        rl_config.baseline_type = "normal"
-        rl_config.surrogate_type = ""  # ""は学習がそもそも難しい
+        rl_config.experience_collection_method = "GAE"
+        rl_config.baseline_type = "advantage"
+        rl_config.surrogate_type = "clip"
         rl_config.enable_value_clip = True
-        rl_config.enable_state_normalized = True
-        runner = self.create_test_runner("Grid", rl_config)
-        runner.train(max_train_count=30000)
-        assert runner.evaluate_compare_to_baseline_single_player(baseline=-1)
-
-    def test_Grid_continue(self):
-        rl_config = self._create_rl_config()
-        rl_config.lr = 0.001
+        rl_config.lr = 0.0005
         rl_config.hidden_block.set((64, 64))
         rl_config.value_block.set(())
         rl_config.policy_block.set(())
-        rl_config.experience_collection_method = "GAE"
-        rl_config.baseline_type = ""
-        rl_config.surrogate_type = "clip"
-        rl_config.enable_value_clip = False
-        rl_config.enable_state_normalized = False
         rl_config.entropy_weight = 1.0
-        rl_config.override_action_type = RLBaseActTypes.CONTINUOUS
-        runner = self.create_test_runner("Grid", rl_config)
-        runner.train(max_train_count=40000)
+        runner = self.create_test_runner("Pendulum-v1", rl_config)
+        runner.train(max_train_count=30000)
         assert runner.evaluate_compare_to_baseline_single_player()

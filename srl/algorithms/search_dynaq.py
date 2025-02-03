@@ -399,6 +399,10 @@ class Worker(RLWorker[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
 
+    def on_setup(self, worker, context):
+        self.parameter.iteration_q("ext", self.config.iteration_threshold / 10, self.config.iteration_timeout)
+        self.parameter.iteration_q("int", self.config.iteration_threshold, self.config.iteration_timeout)
+
     def on_teardown(self, worker):
         if self.training:
             # 学習最後にQテーブルを更新

@@ -1,3 +1,4 @@
+import logging
 import random
 from dataclasses import dataclass
 from typing import Any, List, Optional, cast
@@ -5,6 +6,69 @@ from typing import Any, List, Optional, cast
 import numpy as np
 
 from .imemory import IPriorityMemory
+
+logger = logging.getLogger(__name__)
+
+try:
+    from numba import njit
+
+    _enable_numba = True
+    logger.info("Numba is enable")
+
+    class SumTreeNumba:
+        def __init__(self, capacity: int):
+            self.capacity = capacity
+            self.write = 0
+            self.tree = np.zeros(2 * capacity - 1, dtype=np.float64)
+            self.data = np.empty(capacity, dtype=object)
+
+        @staticmethod
+        @njit
+        def _propagate(tree, idx: int, change: float):
+            while idx != 0:
+                parent = (idx - 1) // 2
+                tree[parent] += change
+                idx = parent
+
+        @staticmethod
+        @njit
+        def _retrieve(tree, idx: int, val: float):
+            while True:
+                left = 2 * idx + 1
+                if left >= len(tree):
+                    return idx
+                if val <= tree[left]:
+                    idx = left
+                else:
+                    idx = left + 1
+                    val -= tree[left]
+
+        def total(self) -> float:
+            return self.tree[0]
+
+        def add(self, priority: float, data):
+            # print(f'SumTree add')
+            tree_idx = self.write + self.capacity - 1
+
+            self.data[self.write] = data
+            self.update(tree_idx, priority)
+
+            self.write += 1
+            if self.write >= self.capacity:
+                self.write = 0
+
+        def update(self, tree_idx: int, priority: float):
+            change = priority - self.tree[tree_idx]
+            self.tree[tree_idx] = priority
+            self._propagate(self.tree, tree_idx, change)
+
+        def get(self, val: float):
+            idx = self._retrieve(self.tree, 0, val)
+            data_idx = idx - self.capacity + 1
+            return idx, self.tree[idx], self.data[data_idx]
+
+except ImportError:
+    _enable_numba = False
 
 
 class SumTree:
@@ -44,28 +108,24 @@ class SumTree:
         self.tree: List[float] = [0 for _ in range(2 * self.capacity - 1)]
         self.data = [None for _ in range(capacity)]
 
-    def _propagate(self, idx, change):
-        parent = (idx - 1) // 2
+    @staticmethod
+    def _propagate(tree, idx: int, change: float):
+        while idx != 0:
+            parent = (idx - 1) // 2
+            tree[parent] += change
+            idx = parent
 
-        self.tree[parent] += change
-
-        if parent != 0:
-            self._propagate(parent, change)
-
-    def _retrieve(self, idx, val):
-        left = 2 * idx + 1
-
-        # 子がなければ該当
-        if left >= len(self.tree):
-            return idx
-
-        # left が val 以上なら左に移動
-        if val <= self.tree[left]:
-            return self._retrieve(left, val)
-        else:
-            # でなければ左の重さを引いて、右に移動
-            right = left + 1
-            return self._retrieve(right, val - self.tree[left])
+    @staticmethod
+    def _retrieve(tree, idx: int, val: float):
+        while True:
+            left = 2 * idx + 1
+            if left >= len(tree):
+                return idx
+            if val <= tree[left]:
+                idx = left
+            else:
+                idx = left + 1
+                val -= tree[left]
 
     def total(self):
         return self.tree[0]
@@ -85,10 +145,10 @@ class SumTree:
         change = priority - self.tree[tree_idx]
 
         self.tree[tree_idx] = priority
-        self._propagate(tree_idx, change)
+        self._propagate(self.tree, tree_idx, change)
 
     def get(self, val):
-        idx = self._retrieve(0, float(val))
+        idx = self._retrieve(self.tree, 0, float(val))
         data_idx = idx - self.capacity + 1
 
         return (idx, self.tree[idx], self.data[data_idx])
@@ -113,7 +173,10 @@ class ProportionalMemory(IPriorityMemory):
         self.clear()
 
     def clear(self):
-        self.tree = SumTree(self.capacity)
+        if _enable_numba:
+            self.tree = SumTreeNumba(self.capacity)
+        else:
+            self.tree = SumTree(self.capacity)
         self.max_priority: float = 1.0
         self.size = 0
 

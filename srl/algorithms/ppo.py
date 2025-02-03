@@ -73,7 +73,7 @@ class Config(
     #: Parameters:
     #:   "MC" : モンテカルロ法
     #:   "GAE": Generalized Advantage Estimator
-    experience_collection_method: str = "MC"
+    experience_collection_method: str = "GAE"
     #: discount
     discount: float = 0.9
     #: GAEの割引率
@@ -87,7 +87,7 @@ class Config(
     #:  "std"           : adv/std
     #:  "normal"        : (adv - mean)/std
     #:  "advantage" "v" : adv - v
-    baseline_type: str = "ave"
+    baseline_type: str = "advantage"
     #: surrogate type
     #:
     #: Parameters:
@@ -101,7 +101,7 @@ class Config(
     adaptive_kl_target: float = 0.01
 
     #: value clip flag
-    enable_value_clip: float = False
+    enable_value_clip: float = True
     #: value clip range
     value_clip_range: float = 0.2
 
@@ -223,6 +223,7 @@ class ActorCriticNetwork(KerasModelAddedSummary):
         self,
         state,
         action,
+        v_target,
         advantage,
         old_logpi,
         old_probs,
@@ -276,9 +277,9 @@ class ActorCriticNetwork(KerasModelAddedSummary):
         # --- value loss
         if self.config.enable_value_clip:
             v_clipped = tf.clip_by_value(v, old_v - self.config.value_clip_range, old_v + self.config.value_clip_range)
-            value_loss = tf.maximum((v - advantage) ** 2, (v_clipped - advantage) ** 2)
+            value_loss = tf.maximum((v - v_target) ** 2, (v_clipped - v_target) ** 2)
         else:
-            value_loss = (v - advantage) ** 2
+            value_loss = (v - v_target) ** 2
         # MSEの最小化
         value_loss = self.config.value_loss_weight * tf.reduce_mean(value_loss)
 
@@ -335,6 +336,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         batchs = self.memory.sample()
 
         states = np.asarray([e["state"] for e in batchs])
+        v_target = np.asarray([e["discounted_reward"] for e in batchs])[..., np.newaxis]
         advantage = np.asarray([e["discounted_reward"] for e in batchs])[..., np.newaxis]
 
         # --- 状態の正規化
@@ -379,6 +381,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             policy_loss, value_loss, entropy_loss, kl = self.parameter.model.compute_train_loss(
                 states,
                 actions,
+                v_target,
                 advantage,
                 old_logpi,
                 old_probs,

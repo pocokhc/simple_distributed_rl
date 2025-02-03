@@ -1,9 +1,11 @@
+import copy
 import logging
 import math
 import pickle
 import random
 import time
 from dataclasses import dataclass
+from textwrap import shorten
 from typing import Any, Dict, List
 
 import numpy as np
@@ -32,10 +34,13 @@ class Config(RLConfig):
     q_iter_threshold: float = 0.001
     q_iter_timeout: float = 10
 
+    #: 学習時にQ値policyを実行する確率
+    train_q_policy_rate: float = 0.01
+
     #: アクション選択におけるUCBのペナルティ項の反映率
-    action_ucb_penalty_rate: float = 1.0
+    action_ucb_penalty_rate: float = 0.5
     #: セル選択におけるUCBのQ値の反映率
-    cell_select_ucb_penalty_rate: float = 2.0
+    cell_select_ucb_penalty_rate: float = 1.0
 
     #: 外部報酬の割引率
     q_ext_discount: float = 0.9
@@ -83,7 +88,7 @@ class Parameter(RLParameter[Config]):
         super().__init__(*args)
 
         # [state][action][next_state] = [trans(count), reward, done, int_reward]
-        self.mdp: Dict[str, List[Dict[str, List[float]]]] = {}
+        self.mdp: Dict[str, List[Dict[str, List]]] = {}
         self.mdp_size = 0  # for info
 
         # [state]
@@ -101,6 +106,27 @@ class Parameter(RLParameter[Config]):
         # [state]
         self.lifelong = {}
 
+        # --- archive
+        # [start_state][state_action] = 1
+        self.archive_reached_area: Dict[str, dict] = {}
+        # [state] = {}
+        self.archive_state: Dict[str, dict] = {}
+        # [state_action] = {}
+        self.archive_action: Dict[str, dict] = {}
+
+    def update_archive(self, archive_reached_area, archive_state, archive_action):
+        for start_state, key_dict in archive_reached_area.items():
+            if start_state not in self.archive_reached_area:
+                self.archive_reached_area[start_state] = {}
+            for k, v in key_dict.items():
+                self.archive_reached_area[start_state][k] = v
+        for state, info in archive_state.items():
+            # とりあえず最新ので更新
+            self.archive_state[state] = copy.deepcopy(info)
+        for key, info in archive_action.items():
+            # とりあえず最新ので更新
+            self.archive_action[key] = copy.deepcopy(info)
+
     def call_restore(self, data: Any, **kwargs) -> None:
         d = pickle.loads(data)
         self.mdp = d[0]
@@ -113,6 +139,9 @@ class Parameter(RLParameter[Config]):
         self.q_ext_max = d[7]
         self.q_int_max = d[8]
         self.lifelong = d[9]
+        self.archive_reached_area = d[10]
+        self.archive_state = d[11]
+        self.archive_action = d[12]
 
     def call_backup(self, **kwargs):
         return pickle.dumps(
@@ -127,6 +156,9 @@ class Parameter(RLParameter[Config]):
                 self.q_ext_max,
                 self.q_int_max,
                 self.lifelong,
+                self.archive_reached_area,
+                self.archive_state,
+                self.archive_action,
             ]
         )
 
@@ -332,9 +364,18 @@ class Worker(RLWorker[Config, Parameter]):
     def __init__(self, *args):
         super().__init__(*args)
 
-        self.archive_reached: Dict[str, dict] = {}
-        self.archive: Dict[str, dict] = {}
-        self.start_state = None
+        self.archive_reached_area: Dict[str, dict] = {}
+        self.archive_state: Dict[str, dict] = {}
+        self.archive_action: Dict[str, dict] = {}
+
+    def on_setup(self, worker, context):
+        self.parameter.iteration_q("ext", self.config.q_iter_threshold / 10, self.config.q_iter_timeout)
+        self.parameter.iteration_q("int", self.config.q_iter_threshold / 10, self.config.q_iter_timeout)
+
+        # 1step毎に更新したいのでparameterの同期は最初と最後
+        self.archive_reached_area = copy.deepcopy(self.parameter.archive_reached_area)
+        self.archive_state = copy.deepcopy(self.parameter.archive_state)
+        self.archive_action = copy.deepcopy(self.parameter.archive_action)
 
     def on_teardown(self, worker):
         if self.training:
@@ -342,28 +383,44 @@ class Worker(RLWorker[Config, Parameter]):
             self.parameter.iteration_q("ext", self.config.q_iter_threshold / 10, self.config.q_iter_timeout * 10)
             self.parameter.iteration_q("int", self.config.q_iter_threshold / 10, self.config.q_iter_timeout * 10)
 
+            self.parameter.update_archive(self.archive_reached_area, self.archive_state, self.archive_action)
+
     def on_reset(self, worker):
-        self.mode = ""
+        self.policy_type = "q"
         self.start_state = self.config.observation_space.to_str(worker.state)
+        self.move_actions = []
+
         if not self.training:
             return
 
-        self.episode_step = 0
         self.episode_reward = 0
         self.explore_step = 0
-        self.recent_actions = []
+        self.action_history = []
+        self.action_history_deter = True
 
         self.episodic = {}
 
-        self.cell = self._archive_select(self.start_state)
-        if self.cell is not None:
-            self.cell["select"] += 1
-            if self.cell["deter"]:
-                self.mode = "move_deter"
-            else:
-                # Q tbl を作成し、ターゲットの状態まで移動する
-                # けどQ tblの作成が重いので内部報酬で探索する
-                pass
+        state = self.config.observation_space.to_str(worker.state)
+        self._archive_init(self.start_state, state, worker.invalid_actions)
+        self._archive_state_update(state, 0, [], True)
+
+        if random.random() < self.config.train_q_policy_rate:
+            # アーカイブ更新用にQ値のルートも低確率で試す
+            self.policy_type = "q"
+        else:
+            # アーカイブの中から目的地を探す
+            cell = self._archive_select(self.start_state)
+            if cell is not None:
+                cell["select"] += 1
+                self.policy_type = "ucb"  # アーカイブ後はUCBで探索
+                cell_state = self.archive_state[cell["state"]]
+                if cell_state["deter"]:
+                    self.move_actions = cell_state["actions"][:]
+                    self.move_actions.append(cell["action"])
+                else:
+                    # Q tbl を作成し、ターゲットの状態まで移動する
+                    # けどQ tblの作成が重いので内部報酬で探索する
+                    pass
 
     def policy(self, worker) -> int:
         state = self.config.observation_space.to_str(worker.state)
@@ -371,38 +428,20 @@ class Worker(RLWorker[Config, Parameter]):
         self.parameter.init_q(state)
 
         # --- move
-        if self.mode == "move_deter":
-            assert self.cell is not None
-            if self.cell["state"] == state:
-                # 目的地についた時
-                self.mode = ""
-                if self.cell["action"] in invalid_actions:
-                    # アクション履歴に無効なアクションがあった場合
-                    self.cell["deter"] = False
-                    # not action
-                else:
-                    return self.cell["action"]
-            elif self.episode_step >= len(self.cell["actions"]):
-                # 目的地につかず、アクション履歴を超えた場合
-                self.cell["deter"] = False
-                self.mode = ""
-                # not action
-            else:
-                if self.cell["actions"][self.episode_step] in invalid_actions:
-                    # アクション履歴に無効なアクションがあった場合
-                    self.cell["deter"] = False
-                    self.mode = ""
-                    # not action
-                else:
-                    # アクション履歴を実行
-                    return self.cell["actions"][self.episode_step]
+        if len(self.move_actions) > 0:
+            act = self.move_actions.pop(0)
 
-        # --- 内部報酬による探索
-        if self.training:
-            # 学習時はUCBベースでアクションを決定
+            # 無効なアクションの場合
+            if act in invalid_actions:
+                self.move_actions = []
+            else:
+                return act
+
+        if self.policy_type == "ucb":
+            # UCBベースでアクションを決定
             ucb_list = self._calc_policy_ucb(state, invalid_actions)
             action = funcs.get_random_max_index(ucb_list, invalid_actions)
-        else:
+        elif self.policy_type == "q":
             # Qテーブルベースでアクションを決定
             q_ext = np.array(self.parameter.q_ext[state])
             q_int = np.array(self.parameter.q_int[state])
@@ -413,6 +452,8 @@ class Worker(RLWorker[Config, Parameter]):
 
             q = (1 - self.config.test_search_rate) * q_ext + self.config.test_search_rate * q_int
             action = funcs.get_random_max_index(q, invalid_actions)
+        else:
+            raise ValueError(self.policy_type)
 
         return action
 
@@ -454,6 +495,7 @@ class Worker(RLWorker[Config, Parameter]):
         state = self.config.observation_space.to_str(worker.prev_state)
         n_state = self.config.observation_space.to_str(worker.state)
 
+        # --- batch
         batch = [
             state,
             n_state,
@@ -466,96 +508,110 @@ class Worker(RLWorker[Config, Parameter]):
         ]
         self.memory.add(batch)
 
+        # --- update action_count
         self.parameter.action_count[state][worker.action] += 1
 
+        # --- action history update
+        self.action_history.append(worker.action)
+        # deterチェック
+        if self.action_history_deter:
+            if state in self.parameter.mdp:
+                m = self.parameter.mdp[state][worker.action]
+                # 次の遷移先が1つならdeter
+                if len(m.keys()) > 1:
+                    self.action_history_deter = False
+
         # --- update archive
-        self.episode_step += 1
         self.episode_reward += worker.reward
-        self._archive_update(
-            self.start_state,
-            state,
-            worker.action,
-            self.episode_reward,
-            self.recent_actions[:],
-            worker.prev_invalid_actions,
+        self._archive_init(self.start_state, state, worker.prev_invalid_actions)
+        self._archive_init(self.start_state, n_state, worker.invalid_actions)
+        archive_state_is_update = self._archive_state_update(
+            n_state,
+            total_reward=self.episode_reward,
+            action_history=self.action_history,
+            action_history_deter=self.action_history_deter,
         )
+        self._archive_action_update(state, worker.action, archive_state_is_update)
+
         if not worker.done:
-            self.recent_actions.append(worker.action)
-            self._archive_update(
-                self.start_state,
-                n_state,
-                None,
-                0,
-                self.recent_actions[:],
-                worker.invalid_actions,
-            )
-            if self.mode == "":
+            if len(self.move_actions) == 0:
                 self.explore_step += 1
                 if self.explore_step > self.config.explore_max_step:
                     worker.env.abort_episode()
 
     # ----------------------------------------------------------
+    def _archive_init(self, start_state, state, invalid_actions):
+        if start_state not in self.archive_reached_area:
+            self.archive_reached_area[start_state] = {}
 
-    def _archive_update(
-        self,
-        start_state,
-        state,
-        action,
-        total_reward,
-        actions,
-        invalid_actions,
-    ):
-        if start_state not in self.archive_reached:
-            self.archive_reached[start_state] = {}
+        if state not in self.archive_state:
+            self.archive_state[state] = {
+                "actions": [],
+                "deter": True,
+                "total_reward": -math.inf,
+            }
 
         key = state + "_" + str(0)
-        if key not in self.archive:
+        if key not in self.archive_action:
             for a in range(self.config.action_space.n):
                 if a in invalid_actions:
                     continue
-
-                self.archive_reached[start_state][key] = 1
-
                 akey = state + "_" + str(a)
-                self.archive[akey] = {
+                self.archive_reached_area[start_state][akey] = 1
+                self.archive_action[akey] = {
                     "state": state,
                     "action": a,
                     "select": 0,
                     "visit": 0,
-                    "total_reward": -math.inf,
-                    "deter": True,
-                    "actions": actions,
                 }
 
-        if action is not None:
-            key = state + "_" + str(action)
-            if key not in self.archive:
-                return
-            cell = self.archive[key]
-            cell["visit"] += 1
+    def _archive_action_update(self, state, action, is_update):
+        action_cell = self.archive_action[state + "_" + str(action)]
+        action_cell["visit"] += 1
+        if is_update:
+            action_cell["select"] = 0
 
-            _update = False
-            if cell["total_reward"] < total_reward:
-                _update = True
-            elif (cell["total_reward"] == total_reward) and (len(cell["actions"]) > len(actions)):
-                _update = True
-            if _update:
-                cell["select"] = 0
-                cell["total_reward"] = total_reward
-                cell["actions"] = actions
+    def _archive_state_update(
+        self,
+        n_state,
+        total_reward,
+        action_history,
+        action_history_deter,
+    ):
+        n_state_cell = self.archive_state[n_state]
+
+        # --- deter check
+        if n_state_cell["deter"]:
+            n_state_cell["deter"] = action_history_deter
+
+        is_update = False
+        if n_state_cell["total_reward"] < total_reward:
+            is_update = True
+        elif (n_state_cell["total_reward"] == total_reward) and (len(n_state_cell["actions"]) > len(action_history)):
+            is_update = True
+        if is_update:
+            n_state_cell["total_reward"] = total_reward
+            n_state_cell["actions"] = action_history[:]
+        else:
+            # updateしない場合はアーカイブのアクション履歴を採用
+            self.action_history = self.archive_state[n_state]["actions"][:]
+            if self.action_history_deter:
+                self.action_history_deter = self.archive_state[n_state]["deter"]
+
+        return is_update
 
     def _archive_select(self, start_state):
-        if start_state not in self.archive_reached:
+        if start_state not in self.archive_reached_area:
             return None
-        if len(self.archive_reached[start_state]) == 0:
+        if len(self.archive_reached_area[start_state]) == 0:
             return None
 
         N = 0
         arr = []
-        for key in self.archive_reached[start_state].keys():
-            if key not in self.archive:
+        for key in self.archive_reached_area[start_state].keys():
+            if key not in self.archive_action:
                 continue
-            cell = self.archive[key]
+            cell = self.archive_action[key]
             # 0回の場合はQ値を信じるために+1
             n = cell["visit"] + cell["select"] + 1
             arr.append((n, cell))
@@ -616,18 +672,20 @@ class Worker(RLWorker[Config, Parameter]):
         self.parameter.init_q(prev_state)
         self.parameter.init_q(state)
 
-        print(f"mode: {self.mode}")
+        print(f"policy: {self.policy_type}")
 
         # --- MDP
-        m = self.parameter.mdp[prev_state][prev_act]
-        N = sum([n[0] for n in m.values()])
-        trans, reward, done, episodic_reward = m[state]
-        p = 0 if N == 0 else trans / N
-        print(f"trans {100 * p:3.1f}%({trans}/{N})")
-        s = f"reward {reward:8.5f}"
-        s += f", done {done:.1%}"
-        s += f", episodic {episodic_reward:6.3f}"
-        print(s)
+        if prev_state in self.parameter.mdp:
+            m = self.parameter.mdp[prev_state][prev_act]
+            if state in m:
+                N = sum([n[0] for n in m.values()])
+                trans, reward, done, episodic_reward = m[state]
+                p = 0 if N == 0 else trans / N
+                print(f"trans {100 * p:3.1f}%({trans}/{N})")
+                s = f"reward {reward:8.5f}"
+                s += f", done {done:.1%}"
+                s += f", episodic {episodic_reward:6.3f}"
+                print(s)
 
         # --- q
         q_ext_nor = q_ext = np.array(self.parameter.q_ext[state])
@@ -651,13 +709,18 @@ class Worker(RLWorker[Config, Parameter]):
 
         funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)
 
-        # --- archive
-        print(f"archive {len(self.archive)}, action={worker.action}")
-        key = state + "_" + str(worker.action)
-        if key in self.archive:
-            cell = self.archive[key]
+        # --- archive action
+        key = prev_state + "_" + str(worker.action)
+        print(f"archive action size={len(self.archive_action)}, action={worker.action}, key={shorten(key, width=50)}")
+        if key in self.archive_action:
+            cell = self.archive_action[key]
             print(f" select      : {cell['select']}")
             print(f" visit       : {cell['visit']}")
+
+        # --- archive state
+        print(f"archive state size={len(self.archive_state)}, state={shorten(str(state), width=50)}")
+        if state in self.archive_state:
+            cell = self.archive_state[state]
             print(f" total reward: {cell['total_reward']}")
             print(f" actions     : {cell['actions'][:20]}...")
             print(f" deter       : {cell['deter']}")

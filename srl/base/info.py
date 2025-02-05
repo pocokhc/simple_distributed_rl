@@ -49,6 +49,10 @@ class Info:
         for k, v in d.items():
             self.set_scalar(k, v)
 
+    def update(self, d: dict):
+        for k, v in d.items():
+            self.set_scalar(k, v)
+
     # -------------------------
     def to_str(self) -> str:
         s = ""

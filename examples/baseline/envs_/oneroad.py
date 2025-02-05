@@ -3,7 +3,7 @@ import os
 import numpy as np
 
 import srl
-from srl.algorithms import ql, search_dynaq
+from srl.algorithms import go_dynaq, ql, search_dynaq
 
 base_dir = os.path.dirname(__file__)
 TRAIN_COUNT = 1_000_000
@@ -30,11 +30,16 @@ def main_search_dynaq():
     _train("SearchDynaQ", search_dynaq.Config())
 
 
+def main_go_dynaq():
+    _train("GoDynaQ", go_dynaq.Config())
+
+
 def compare():
     histories = srl.Runner.load_histories(
         [
             os.path.join(base_dir, f"_{ENV_PRE}_QL"),
             os.path.join(base_dir, f"_{ENV_PRE}_SearchDynaQ"),
+            os.path.join(base_dir, f"_{ENV_PRE}_GoDynaQ"),
         ]
     )
     histories.plot("train", "eval_reward0", title=f"Train:{TRAIN_COUNT}")
@@ -44,4 +49,5 @@ def compare():
 if __name__ == "__main__":
     main_ql()
     main_search_dynaq()
+    main_go_dynaq()
     compare()

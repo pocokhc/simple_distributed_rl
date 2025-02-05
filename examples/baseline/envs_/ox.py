@@ -1,7 +1,5 @@
 import os
 
-# MiniGrid Documentation https://minigrid.farama.org/
-import minigrid  # noqa: F401
 import mlflow
 import numpy as np
 
@@ -11,51 +9,49 @@ from srl.utils import common
 mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "mlruns"))
 common.logger_print()
 
-
-ENV_NAME = "MiniGrid-Dynamic-Obstacles-6x6-v0"
-BASE_LR = 0.1
-BASE_TRAIN = 300_000
+ENV_NAME = "OX"
+BASE_TRAIN = 1_000_000
 
 
 def _train(rl_config, train):
     runner = srl.Runner(ENV_NAME, rl_config)
 
-    runner.set_mlflow()
-    runner.train(max_train_count=train)
+    runner.set_mlflow(eval_players=[None, "cpu"])
 
-    rewards = runner.evaluate(max_episodes=100)
-    print(f"{np.mean(rewards)} > 0.5")
+    runner.train(max_train_count=train, players=[None, None])
+
+    for players in [
+        [None, "random"],
+        ["random", None],
+        [None, "cpu"],
+        ["cpu", None],
+    ]:
+        rewards = runner.evaluate(max_episodes=100, players=players)
+        print(f"Average reward for 100 episodes: {np.mean(rewards, axis=0)}, {players}")
 
 
 def main_ql():
     from srl.algorithms import ql
 
-    _train(ql.Config(lr=BASE_LR), BASE_TRAIN)
+    _train(ql.Config(), BASE_TRAIN)
 
 
-def main_policy():
-    from srl.algorithms import vanilla_policy
+def main_mcts():
+    from srl.algorithms import mcts
 
-    _train(vanilla_policy.Config(lr=BASE_LR), BASE_TRAIN)
+    _train(mcts.Config(), BASE_TRAIN)
 
 
 def main_search_dynaq():
     from srl.algorithms import search_dynaq
 
-    _train(
-        search_dynaq.Config(
-            q_ext_lr=BASE_LR,
-            q_int_lr=BASE_LR,
-            iteration_interval=50_000,
-        ),
-        BASE_TRAIN,
-    )
+    _train(search_dynaq.Config(), BASE_TRAIN)
 
 
 def main_go_dynaq():
     from srl.algorithms import go_dynaq
 
-    _train(go_dynaq.Config(q_ext_lr=BASE_LR, q_int_lr=BASE_LR), BASE_TRAIN)
+    _train(go_dynaq.Config(), BASE_TRAIN)
 
 
 def compare():
@@ -70,7 +66,7 @@ def compare():
     plt.ylabel(metric_name)
     for name in [
         "QL",
-        "VanillaPolicy",
+        "MCTS",
         "SearchDynaQ",
         "GoDynaQ",
     ]:
@@ -81,18 +77,18 @@ def compare():
         times -= times[0]
         steps = [h.step for h in history]
         vals = [h.value for h in history]
-        plt.plot(steps, common.rolling(vals), label=name)
+        plt.plot(times, common.ema(vals), label=name)
     plt.grid()
     plt.legend()
-    plt.title(f"Train:{BASE_TRAIN}, lr={BASE_LR}")
+    plt.title(f"Train:{BASE_TRAIN}")
     plt.tight_layout()
-    plt.savefig(os.path.join(os.path.dirname(__file__), "_MiniGrid-Dynamic-Obstacles-6x6.png"))
+    plt.savefig(os.path.join(os.path.dirname(__file__), "_ox.png"))
     plt.show()
 
 
 if __name__ == "__main__":
     main_ql()
-    main_policy()
+    main_mcts()
     main_search_dynaq()
     main_go_dynaq()
     compare()

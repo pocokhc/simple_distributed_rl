@@ -51,7 +51,7 @@ def main_search_dynaq():
 def main_go_dynaq():
     from srl.algorithms import go_dynaq
 
-    _train(go_dynaq.Config(q_lr=BASE_LR), BASE_TRAIN)
+    _train(go_dynaq.Config(q_ext_lr=BASE_LR, q_int_lr=BASE_LR), BASE_TRAIN)
 
 
 def compare():

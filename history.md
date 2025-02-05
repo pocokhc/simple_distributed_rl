@@ -17,8 +17,9 @@
 
 # v0.18.1
 
-**Updates**
+PPOの更新とproportioal_memoryの更新が主です。
 
+**Updates**
 
 1. [algorithms] fix: PPOの状態価値の学習方法が間違っていたので修正
 1. [rl.memories.priority_memory] update: proportioal_memoryのsum_treeを高速化
@@ -27,6 +28,8 @@
 
 1. [examples.raw] update: play_mpを現行に修正、前バージョンをplay_mp_no_queueに名前変更
 1. [algorithms] update: GoDynaQを更新
+1. [base.info] add: update関数を追加
+1. [examples.baseline] update: 粗いですが更新…
 
 **Bug Fixes**
 

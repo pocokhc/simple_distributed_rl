@@ -14,14 +14,11 @@ from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.rl import functions as funcs
-from srl.rl.memories.sequence_memory import SequenceMemory
+from srl.rl.memories.single_use_buffer import RLSingleUseBuffer
 
 logger = logging.getLogger(__name__)
 
 
-# ------------------------------------------------------
-# config
-# ------------------------------------------------------
 @dataclass
 class Config(RLConfig):
     #: 学習時の探索率
@@ -32,8 +29,8 @@ class Config(RLConfig):
     #: アクション選択におけるUCBのペナルティ項の反映率
     action_ucb_penalty_rate: float = 0.1
 
-    #: 近似モデルの学習時に内部報酬を割り引く率
-    int_reward_discount: float = 0.9
+    #: 近似モデルの学習時のEMAの割合
+    int_reward_ema_rate: float = 0.5
     #: 方策反復法におけるタイムアウト
     iteration_timeout: float = 1
     #: 方策反復法の学習完了の閾値
@@ -57,14 +54,8 @@ class Config(RLConfig):
     #: lifelong rewardの減少率
     lifelong_decrement_rate: float = 0.999
 
-    def get_framework(self) -> str:
-        return ""
-
     def get_name(self) -> str:
         return "SearchDynaQ"
-
-    def assert_params(self) -> None:
-        super().assert_params()
 
 
 register(
@@ -76,17 +67,12 @@ register(
 )
 
 
-class Memory(SequenceMemory):
+class Memory(RLSingleUseBuffer):
     pass
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
 class Parameter(RLParameter[Config]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
+    def setup(self):
         # [state][action][next_state]
         self.trans = {}
         self.reward_ext = {}
@@ -290,23 +276,18 @@ class Parameter(RLParameter[Config]):
         return n_s_list[r_idx]
 
 
-# ------------------------------------------------------
-# Trainer
-# ------------------------------------------------------
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
+    def on_setup(self) -> None:
         self.iteration_num = 0
 
     def train(self) -> None:
-        if self.memory.is_warmup_needed():
+        batches = self.memory.sample()
+        if batches is None:
             return
-        batchs = self.memory.sample()
 
         td_error_ext = 0
         td_error_int = 0
-        for batch in batchs:
+        for batch in batches:
             state = batch["state"]
             n_state = batch["next_state"]
             action = batch["action"]
@@ -329,9 +310,9 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             self.parameter.done[state][action][n_state] += (done - self.parameter.done[state][action][n_state]) / c
             # online mean
             self.parameter.reward_ext[state][action][n_state] += (reward_ext - self.parameter.reward_ext[state][action][n_state]) / c
-            # discount online mean
+            # discount ema
             old_reward_int = self.parameter.reward_int[state][action][n_state]
-            self.parameter.reward_int[state][action][n_state] = old_reward_int * self.config.int_reward_discount + (reward_int - old_reward_int * self.config.int_reward_discount) / c
+            self.parameter.reward_int[state][action][n_state] = self.config.int_reward_ema_rate * reward_int + (1 - self.config.int_reward_ema_rate) * old_reward_int
 
             # --- ext (greedy)
             # TD誤差なので生データ
@@ -392,13 +373,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.info["iteration"] = self.iteration_num
 
 
-# ------------------------------------------------------
-# Worker
-# ------------------------------------------------------
-class Worker(RLWorker[Config, Parameter]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
+class Worker(RLWorker[Config, Parameter, Memory]):
     def on_setup(self, worker, context):
         self.parameter.iteration_q("ext", self.config.iteration_threshold / 10, self.config.iteration_timeout)
         self.parameter.iteration_q("int", self.config.iteration_threshold, self.config.iteration_timeout)

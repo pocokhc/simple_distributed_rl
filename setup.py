@@ -31,7 +31,7 @@ setup(
     long_description=open(os.path.join(here, "README.md"), encoding="utf-8").read().replace("\r", ""),
     long_description_content_type="text/markdown",
     install_requires=["numpy"],
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Programming Language :: Python",

@@ -1,7 +1,7 @@
 import logging
 import random
-from dataclasses import dataclass
-from typing import Any, List, Optional, Union
+from dataclasses import dataclass, field
+from typing import Any, List, Optional
 
 import numpy as np
 import tensorflow as tf
@@ -12,13 +12,12 @@ from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import RLProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
+from srl.base.spaces.space import SpaceBase
 from srl.rl import functions as funcs
 from srl.rl.functions import inverse_rescaling, rescaling
-from srl.rl.memories.priority_experience_replay import (
-    PriorityExperienceReplay,
-    RLConfigComponentPriorityExperienceReplay,
-)
-from srl.rl.models.config.input_config import RLConfigComponentInput
+from srl.rl.memories.priority_replay_buffer import PriorityReplayBufferConfig, RLPriorityReplayBuffer
+from srl.rl.models.config.input_image_block import InputImageBlockConfig
+from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.blocks.alphazero_image_block import AlphaZeroImageBlock
 from srl.rl.tf.model import KerasModelAddedSummary
@@ -35,36 +34,44 @@ https://arxiv.org/src/1911.08265v2/anc/pseudocode.py
 """
 
 
-# ------------------------------------------------------
-# config
-# ------------------------------------------------------
 @dataclass
-class Config(
-    RLConfig,
-    RLConfigComponentPriorityExperienceReplay,
-    RLConfigComponentInput,
-):
-    """
-    <:ref:`RLConfigComponentPriorityExperienceReplay`>
-    <:ref:`RLConfigComponentInput`>
-    """
-
+class Config(RLConfig):
     #: シミュレーション回数
     num_simulations: int = 20
     #: 割引率
     discount: float = 0.99
 
-    #: <:ref:`scheduler`> Learning rate
-    lr: Union[float, SchedulerConfig] = 0.001
+    #: Batch size
+    batch_size: int = 32
+    #: <:ref:`PriorityReplayBufferConfig`>
+    memory: PriorityReplayBufferConfig = field(default_factory=lambda: PriorityReplayBufferConfig())
 
+    #: <:ref:`InputImageBlockConfig`>
+    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig().set_alphazero_block())
+    #: Learning rate
+    lr: float = 0.001
+    #: <:ref:`LRSchedulerConfig`>
+    lr_scheduler: LRSchedulerConfig = field(
+        default_factory=lambda: (
+            LRSchedulerConfig().set_step(100_000, 0.0001)  #
+        )
+    )
     #: カテゴリ化する範囲
     v_min: int = -10
     #: カテゴリ化する範囲
     v_max: int = 10
 
-    #: policyの温度パラメータのリスト
-    policy_tau: Union[float, SchedulerConfig] = 0.25
-
+    # policyの温度パラメータのリスト
+    policy_tau: Optional[float] = None
+    #: <:ref:`SchedulerConfig`>
+    policy_tau_scheduler: SchedulerConfig = field(
+        default_factory=lambda: (
+            SchedulerConfig(default_scheduler=True)  #
+            .add_constant(1.0, 50_000)
+            .add_constant(0.5, 25_000)
+            .add_constant(0.25)
+        )
+    )
     # td_steps: int = 5  # multisteps
     #: unroll_steps
     unroll_steps: int = 3
@@ -89,51 +96,43 @@ class Config(
     #: rescale
     enable_rescale: bool = True
 
-    def __post_init__(self):
-        super().__post_init__()
-        self.input_image_block.set_alphazero_block()
-        self.lr = self.create_scheduler().set_linear(100_000, 0.001, 0.0001)
-        self.policy_tau = self.create_scheduler()
-        self.policy_tau.clear()
-        self.policy_tau.add_constant(50_000, 1.0)
-        self.policy_tau.add_constant(25_000, 0.5)
-        self.policy_tau.add_constant(1, 0.25)
-
     def set_atari_config(self):
         self.num_simulations = 50
         self.batch_size = 1024
-        self.memory_warmup_size = 10_000
+        self.memory.warmup_size = 10_000
         self.discount = 0.997
-        self.lr = self.create_scheduler().set_linear(350_000, 0.05, 0.005)
+        self.lr = 0.05
+        self.lr_scheduler.set_step(350_000, 0.005)
         self.v_min = -300
         self.v_max = 300
         # self.td_steps = 10
         self.unroll_steps = 5
-        self.policy_tau = self.create_scheduler()
-        self.policy_tau.clear()
-        self.policy_tau.add_constant(500_000, 1.0)
-        self.policy_tau.add_constant(250_000, 0.5)
-        self.policy_tau.add_constant(1, 0.25)
+        self.policy_tau_scheduler.clear()
+        self.policy_tau_scheduler.add_constant(1.0, 500_000)
+        self.policy_tau_scheduler.add_constant(0.5, 250_000)
+        self.policy_tau_scheduler.add_constant(0.25)
         self.input_image_block.set_muzero_atari_block(filters=128)
         self.dynamics_blocks = 15
         self.weight_decay = 0.0001
         self.enable_rescale = True
 
-    def get_processors(self) -> List[RLProcessor]:
-        return RLConfigComponentInput.get_processors(self)
-
-    def get_framework(self) -> str:
-        return "tensorflow"
+    def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
+        if not prev_observation_space.is_image():
+            raise ValueError(f"The input supports only image format. {prev_observation_space}")
+        return self.input_image_block.get_processors()
 
     def get_name(self) -> str:
         return "MuZero"
 
-    def assert_params(self) -> None:
-        super().assert_params()
-        self.assert_params_memory()
-        self.assert_params_input()
-        assert self.v_min < self.v_max
-        assert self.unroll_steps > 0
+    def get_framework(self) -> str:
+        return "tensorflow"
+
+    def validate_params(self) -> None:
+        super().validate_params()
+        if not (self.v_min < self.v_max):
+            raise ValueError(f"assert {self.v_min} < {self.v_max}")
+        if not (self.unroll_steps > 0):
+            raise ValueError(f"assert {self.unroll_steps} > 0")
 
 
 register(
@@ -145,39 +144,16 @@ register(
 )
 
 
-# ------------------------------------------------------
-# Memory
-# ------------------------------------------------------
-class Memory(PriorityExperienceReplay):
-    def __init__(self, *args):
-        super().__init__(*args)
+class Memory(RLPriorityReplayBuffer):
+    def setup(self) -> None:
+        self.q_min = float("inf")
+        self.q_max = float("-inf")
+        self.register_worker_func(self.add_q, lambda x1, x2: (x1, x2))
+        self.register_trainer_recv_func(self.get_q)
 
-        self.q_min = np.inf
-        self.q_max = -np.inf
-
-    def add(self, key, batch: Any, priority: Optional[float] = None, serialized: bool = False):
-        if key == "memory":
-            super().add(batch, priority, serialized)
-        else:
-            q_min, q_max = batch
-            self.q_min = min(self.q_min, q_min)
-            self.q_max = max(self.q_max, q_max)
-
-    def serialize_add_args(self, key, batch: Any, priority: Optional[float] = None) -> Any:
-        if key == "memory":
-            b = super().serialize_add_args(batch, priority)
-            return key, b
-        else:
-            return key, batch
-
-    def deserialize_add_args(self, raw: Any) -> Any:
-        if raw[0] == "memory":
-            b = super().deserialize_add_args(raw[1])
-            return raw[0], *b
-        else:
-            return raw
-
-    # ---------------------------------------
+    def add_q(self, q_min, q_max, serialized: bool = False):
+        self.q_min = min(self.q_min, q_min)
+        self.q_max = max(self.q_max, q_max)
 
     def get_q(self):
         return self.q_min, self.q_max
@@ -190,8 +166,10 @@ class _RepresentationNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
-        assert config.observation_space.is_image(), "The input supports only image format."
-        self.in_block = config.create_input_block_tf(image_flatten=False)
+        self.in_block = config.input_image_block.create_tf_block(
+            config.observation_space,
+            out_flatten=False,
+        )
 
         # build & 出力shapeを取得
         dummy_state = np.zeros(shape=(1,) + config.observation_space.shape, dtype=np.float32)
@@ -363,10 +341,7 @@ class _PredictionNetwork(KerasModelAddedSummary):
 # Parameter
 # ------------------------------------------------------
 class Parameter(RLParameter):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-
+    def setup(self) -> None:
         self.representation_network = _RepresentationNetwork(self.config)
         # 出力shapeを取得
         hidden_state_shape = self.representation_network.hidden_state_shape
@@ -433,17 +408,10 @@ def _scale_gradient(tensor, scale):
 
 
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
-        self.memory: Memory = self.memory
-
-        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
-
-        self.opt_rep = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
-        self.opt_pre = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
-        self.opt_dyn = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
+    def on_setup(self) -> None:
+        self.opt_rep = keras.optimizers.Adam(learning_rate=self.config.lr_scheduler.apply_tf_scheduler(self.config.lr))
+        self.opt_pre = keras.optimizers.Adam(learning_rate=self.config.lr_scheduler.apply_tf_scheduler(self.config.lr))
+        self.opt_dyn = keras.optimizers.Adam(learning_rate=self.config.lr_scheduler.apply_tf_scheduler(self.config.lr))
 
     def _cross_entropy_loss(self, y_true, y_pred):
         y_pred = tf.clip_by_value(y_pred, 1e-6, y_pred)  # log(0)回避用
@@ -451,13 +419,14 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         return loss
 
     def train(self) -> None:
-        if self.memory.is_warmup_needed():
+        batches = self.memory.sample()
+        if batches is None:
             return
-        batchs, weights, update_args = self.memory.sample(self.train_count)
+        batches, weights, update_args = batches
 
         # (batch, dict, val) -> (batch, val)
         states = []
-        for b in batchs:
+        for b in batches:
             states.append(b["state"])
         states = np.asarray(states)
 
@@ -471,7 +440,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             policies = []
             values = []
             rewards = []
-            for b in batchs:
+            for b in batches:
                 policies.append(b["policies"][i])
                 values.append(b["values"][i])
                 if i < self.config.unroll_steps:
@@ -528,22 +497,15 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.info["reward_loss"] = np.mean(reward_loss)
         self.info["loss"] = loss.numpy()
 
-        # lr_schedule
-        if self.lr_sch.update(self.train_count):
-            lr = self.lr_sch.get_rate()
-            self.opt_rep.learning_rate = lr
-            self.opt_pre.learning_rate = lr
-            self.opt_dyn.learning_rate = lr
-            self.info["lr"] = lr
-
         # memory update
         priorities = np.abs(value_loss.numpy())
-        self.memory.update(update_args, priorities)
+        self.memory.update(update_args, priorities, self.train_count)
 
         # 学習したらキャッシュは削除
         self.parameter.reset_cache()
 
-        # --- 正規化用Qを保存できるように送信(remote_memory -> trainer -> parameter)
+        # --- 正規化用Qを保存(parameterはtrainerからしか保存されない)
+        # (remote_memory -> trainer -> parameter)
         q_min, q_max = self.memory.get_q()
         self.parameter.q_min = q_min
         self.parameter.q_max = q_max
@@ -552,14 +514,9 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker[Config, Parameter]):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
-
-        self.policy_tau_sch = SchedulerConfig.create_scheduler(self.config.policy_tau)
-
+class Worker(RLWorker[Config, Parameter, Memory]):
+    def on_setup(self, worker, context) -> None:
+        self.policy_tau_sch = self.config.policy_tau_scheduler.create(self.config.policy_tau)
         self._v_min = np.inf
         self._v_max = -np.inf
 
@@ -577,7 +534,7 @@ class Worker(RLWorker[Config, Parameter]):
             self.Q[state_str] = [0 for _ in range(self.config.action_space.n)]
 
     def policy(self, worker) -> int:
-        invalid_actions = worker.get_invalid_actions()
+        invalid_actions = worker.invalid_actions
 
         # --- シミュレーションしてpolicyを作成
         self.s0 = self.parameter.representation_network(worker.state[np.newaxis, ...])
@@ -586,7 +543,7 @@ class Worker(RLWorker[Config, Parameter]):
             self._simulation(self.s0, self.s0_str, invalid_actions)
 
         # 正規化用Qを保存できるように送信(remote_memory -> trainer -> parameter)
-        self.memory.add("q", (self.parameter.q_min, self.parameter.q_max))
+        self.memory.add_q(self.parameter.q_min, self.parameter.q_max)
 
         # V
         self.state_v = self.parameter.V[self.s0_str]
@@ -595,7 +552,7 @@ class Worker(RLWorker[Config, Parameter]):
         if not self.training:
             policy_tau = 0  # 評価時は決定的に
         else:
-            policy_tau = self.policy_tau_sch.get_and_update_rate(self.total_step)
+            policy_tau = self.policy_tau_sch.update(self.total_step).to_float()
 
         if policy_tau == 0:
             counts = np.asarray(self.N[self.s0_str])
@@ -778,7 +735,6 @@ class Worker(RLWorker[Config, Parameter]):
                     rewards[i] = funcs.twohot_encode(r, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max)
 
                 self.memory.add(
-                    "memory",
                     {
                         "state": self.history[idx]["state"],
                         "actions": actions,

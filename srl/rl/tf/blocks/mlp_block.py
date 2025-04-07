@@ -10,16 +10,16 @@ from srl.rl.tf.model import KerasModelAddedSummary
 kl = keras.layers
 
 
-def create_mlp_block_from_config(config: MLPBlockConfig):
-    if config._name == "MLP":
-        return MLPBlock(**config._kwargs)
+def create_block_from_config(config: MLPBlockConfig):
+    if config.name == "MLP":
+        return MLPBlock(**config.kwargs)
 
-    if config._name == "custom":
+    if config.name == "custom":
         from srl.utils.common import load_module
 
-        return load_module(config._kwargs["entry_point"])(**config._kwargs["kwargs"])
+        return load_module(config.kwargs["entry_point"])(**config.kwargs["kwargs"])
 
-    raise UndefinedError(config._name)
+    raise UndefinedError(config.name)
 
 
 class MLPBlock(KerasModelAddedSummary):
@@ -78,9 +78,3 @@ class MLPBlock(KerasModelAddedSummary):
         for layer in self.hidden_layers:
             x = layer(x, training=training)
         return x
-
-
-if __name__ == "__main__":
-    m = MLPBlock((512, 128, 256))
-    m.build((None, None, 64))
-    m.summary()

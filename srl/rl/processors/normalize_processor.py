@@ -1,83 +1,80 @@
 from dataclasses import dataclass
-from typing import List, Tuple, cast
+from typing import List, Optional, Tuple, cast
 
 import numpy as np
 
 from srl.base.define import EnvObservationType
-from srl.base.env.env_run import EnvRun, SpaceBase
-from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import RLProcessor
-from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.continuous import ContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.spaces.space import SpaceBase
 
 
 @dataclass
 class NormalizeProcessor(RLProcessor):
     feature_rang: Tuple[float, float] = (0, 1)
 
-    def remap_observation_space(self, env_observation_space: SpaceBase, env: EnvRun, rl_config: RLConfig) -> SpaceBase:
-        self._old_space = env_observation_space
+    def remap_observation_space(self, prev_space: SpaceBase, **kwargs) -> Optional[SpaceBase]:
         assert self.feature_rang[0] <= self.feature_rang[1]
 
-        if isinstance(env_observation_space, DiscreteSpace):
+        if isinstance(prev_space, DiscreteSpace):
             return ContinuousSpace(self.feature_rang[0], self.feature_rang[1])
 
-        if isinstance(env_observation_space, ContinuousSpace):
+        if isinstance(prev_space, ContinuousSpace):
             return ContinuousSpace(self.feature_rang[0], self.feature_rang[1])
 
-        if isinstance(env_observation_space, ArrayDiscreteSpace):
-            return ArrayContinuousSpace(env_observation_space._size, self.feature_rang[0], self.feature_rang[1])
+        if isinstance(prev_space, ArrayDiscreteSpace):
+            return ArrayContinuousSpace(prev_space._size, self.feature_rang[0], self.feature_rang[1])
 
-        if isinstance(env_observation_space, ArrayContinuousSpace):
-            return ArrayContinuousSpace(env_observation_space._size, self.feature_rang[0], self.feature_rang[1])
+        if isinstance(prev_space, ArrayContinuousSpace):
+            return ArrayContinuousSpace(prev_space._size, self.feature_rang[0], self.feature_rang[1])
 
-        if isinstance(env_observation_space, BoxSpace):
-            return BoxSpace(env_observation_space.shape, self.feature_rang[0], self.feature_rang[1])
+        if isinstance(prev_space, BoxSpace):
+            return BoxSpace(prev_space.shape, self.feature_rang[0], self.feature_rang[1])
 
-        return env_observation_space
+        return None
 
-    def remap_observation(self, state: EnvObservationType, worker: WorkerRun, env: EnvRun) -> EnvObservationType:
+    def remap_observation(self, state: EnvObservationType, prev_space: SpaceBase, new_space: SpaceBase, **kwargs) -> EnvObservationType:
         _min = self.feature_rang[0]
         _max = self.feature_rang[1]
 
-        if isinstance(self._old_space, DiscreteSpace):
+        if isinstance(prev_space, DiscreteSpace):
             state = cast(int, state)
-            state = state / (self._old_space.n - 1)
+            state = state / (prev_space.n - 1)
             return float(state * (_max - _min) + _min)
 
-        if isinstance(self._old_space, ContinuousSpace):
+        if isinstance(prev_space, ContinuousSpace):
             state = cast(float, state)
-            _low = self._old_space.low
-            _high = self._old_space.high
+            _low = prev_space.low
+            _high = prev_space.high
             state = ((state - _low) / (_high - _low)) * (_max - _min) + _min
             return state
 
-        if isinstance(self._old_space, ArrayDiscreteSpace):
+        if isinstance(prev_space, ArrayDiscreteSpace):
             state = cast(List[int], state)
             state = state[:]  # copy
-            for i in range(self._old_space.size):
-                _low = self._old_space.low[i]
-                _high = self._old_space.high[i]
+            for i in range(prev_space.size):
+                _low = prev_space.low[i]
+                _high = prev_space.high[i]
                 state[i] = ((state[i] - _low) / (_high - _low)) * (_max - _min) + _min
             return state
 
-        if isinstance(self._old_space, ArrayContinuousSpace):
+        if isinstance(prev_space, ArrayContinuousSpace):
             state = cast(List[float], state)
             state = state[:]  # copy
-            for i in range(self._old_space.size):
-                _low = self._old_space.low[i]
-                _high = self._old_space.high[i]
+            for i in range(prev_space.size):
+                _low = prev_space.low[i]
+                _high = prev_space.high[i]
                 state[i] = ((state[i] - _low) / (_high - _low)) * (_max - _min) + _min
             return state
 
-        if isinstance(self._old_space, BoxSpace):
+        if isinstance(prev_space, BoxSpace):
             state = cast(np.ndarray, state)
-            _low = self._old_space.low
-            _high = self._old_space.high
+            _low = prev_space.low
+            _high = prev_space.high
             state = ((state - _low) / (_high - _low)) * (_max - _min) + _min
             return state
 

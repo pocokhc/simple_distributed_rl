@@ -7,21 +7,23 @@ import torch.nn as nn
 import torch.optim as optim
 
 from srl.base.rl.trainer import RLTrainer
-from srl.rl.schedulers.scheduler import SchedulerConfig
 
 from .rainbow import CommonInterfaceParameter, Config, Memory
 from .rainbow_nomultisteps import calc_target_q
 
 
-# ------------------------------------------------------
-# network
-# ------------------------------------------------------
 class QNetwork(nn.Module):
     def __init__(self, config: Config):
         super().__init__()
 
-        self.in_block = config.create_input_block_torch()
-        self.hidden_block = config.hidden_block.create_block_torch(
+        if config.observation_space.is_value():
+            self.in_block = config.input_value_block.create_torch_block(config.observation_space.shape)
+        elif config.observation_space.is_image():
+            self.in_block = config.input_image_block.create_torch_block(config.observation_space)
+        else:
+            raise ValueError(config.observation_space)
+
+        self.hidden_block = config.hidden_block.create_torch_block(
             self.in_block.out_size,
             config.action_space.n,
             enable_noisy_dense=config.enable_noisy_dense,
@@ -33,15 +35,11 @@ class QNetwork(nn.Module):
         return x
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
 class Parameter(CommonInterfaceParameter):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-
+    def setup(self):
+        super().setup()
         self.device = torch.device(self.config.used_device_torch)
+        self.torch_dtype = self.config.get_dtype("torch")
 
         self.q_online = QNetwork(self.config).to(self.device)
         self.q_target = QNetwork(self.config).to(self.device)
@@ -69,80 +67,71 @@ class Parameter(CommonInterfaceParameter):
 
     # ----------------------------------------------
     def pred_single_q(self, state) -> np.ndarray:
-        state = self.q_online.in_block.create_batch_single_data(state, self.device)
         with torch.no_grad():
+            state = self.q_online.in_block.to_torch_one_batch(state, self.device, self.torch_dtype)
             q = self.q_online(state)
-            q = q.to("cpu").detach().numpy()
+            q = q.detach().cpu().numpy()
         return q[0]
 
     def pred_batch_q(self, state) -> np.ndarray:
-        state = self.q_online.in_block.create_batch_stack_data(state, self.device)
         with torch.no_grad():
+            state = self.q_online.in_block.to_torch_batches(state, self.device, self.torch_dtype)
             q = self.q_online(state)
-            q = q.to("cpu").detach().numpy()
+            q = q.detach().cpu().numpy()
         return q
 
     def pred_batch_target_q(self, state) -> np.ndarray:
-        state = self.q_online.in_block.create_batch_stack_data(state, self.device)
         with torch.no_grad():
+            state = self.q_target.in_block.to_torch_batches(state, self.device, self.torch_dtype)
             q = self.q_target(state)
-            q = q.to("cpu").detach().numpy()
+            q = q.detach().cpu().numpy()
         return q
 
 
-# ------------------------------------------------------
-# Trainer
-# ------------------------------------------------------
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
-
-        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
-        self.optimizer = optim.Adam(self.parameter.q_online.parameters(), lr=self.lr_sch.get_rate())
+    def on_setup(self) -> None:
+        self.optimizer = optim.Adam(self.parameter.q_online.parameters(), lr=self.config.lr)
+        self.optimizer = self.config.lr_scheduler.apply_torch_scheduler(self.optimizer)
         self.criterion = nn.HuberLoss()
-
         self.sync_count = 0
 
-    def train(self) -> None:
-        if self.memory.is_warmup_needed():
-            return
-        batchs, weights, update_args = self.memory.sample(self.train_count)
+        self.torch_dtype = self.config.get_dtype("torch")
+        self.np_dtype = self.config.get_dtype("np")
+        self.device = self.parameter.device
+        self.parameter.q_online.to(self.device)
+        self.parameter.q_target.to(self.device)
+        self.parameter.q_online.train()
 
-        device = self.parameter.device
-        self.parameter.q_online.to(device)
-        self.parameter.q_target.to(device)
+    def train(self) -> None:
+        batches = self.memory.sample()
+        if batches is None:
+            return
+        batches, weights, update_args = batches
 
         if self.config.multisteps == 1:
-            target_q, states, onehot_actions = calc_target_q(self.parameter, batchs, training=True)
+            target_q, states, onehot_actions = calc_target_q(self.parameter, batches, training=True)
         else:
-            target_q, states, onehot_actions = self.parameter.calc_target_q(batchs, training=True)
+            target_q, states, onehot_actions = self.parameter.calc_target_q(batches, training=True)
 
-        states = torch.tensor(states).to(device)
-        onehot_actions = torch.tensor(onehot_actions).to(device)
-        weights = torch.tensor(weights).to(device)
-        target_q = torch.from_numpy(target_q).to(dtype=torch.float32).to(device)
+        states = torch.tensor(np.asarray(states), dtype=self.torch_dtype, device=self.device)
+        onehot_actions = torch.tensor(np.asarray(onehot_actions), dtype=self.torch_dtype, device=self.device)
+        weights = torch.tensor(np.asarray(weights), dtype=self.torch_dtype, device=self.device)
+        target_q = torch.tensor(np.asarray(target_q), dtype=self.torch_dtype, device=self.device)
 
         # --- train
         self.parameter.q_online.train()
         q = self.parameter.q_online(states)
         q = torch.sum(q * onehot_actions, dim=1)
-
         loss = self.criterion(target_q * weights, q * weights)
+
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
         self.info["loss"] = loss.item()
 
-        if self.lr_sch.update(self.train_count):
-            lr = self.lr_sch.get_rate()
-            for param_group in self.optimizer.param_groups:
-                param_group["lr"] = lr
-
         # --- update
-        priorities = np.abs((target_q - q).to("cpu").detach().numpy())
-        self.memory.update(update_args, priorities)
+        priorities = np.abs((target_q - q).detach().cpu().numpy())
+        self.memory.update(update_args, priorities, self.train_count)
 
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:

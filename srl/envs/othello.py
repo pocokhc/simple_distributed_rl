@@ -414,7 +414,7 @@ class Othello(_OthelloBase[ArrayDiscreteSpace, List[int]]):
         return ArrayDiscreteSpace(self.W * self.H, low=-1, high=1)
 
     def _create_obs(self):
-        return self.field
+        return self.field[:]
 
 
 @dataclass
@@ -484,7 +484,7 @@ class Cpu(EnvWorker):
 
         return {}
 
-    def call_policy(self, env: EnvRun) -> Tuple[int, dict]:
+    def call_policy(self, env: EnvRun):
         self._count = 0
         self.t0 = time.time()
         _env = cast(Othello, env.unwrapped)
@@ -495,7 +495,7 @@ class Cpu(EnvWorker):
 
         scores = np.array(scores)
         action = int(np.random.choice(np.where(scores == scores.max())[0]))
-        return action, {}
+        return action
 
     def _negamax(self, env: Othello, depth: int = 0):
         key = str(env.field)

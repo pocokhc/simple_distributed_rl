@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, List, Optional, cast
 import srl
 from srl.base.context import RunContext
 from srl.base.rl.parameter import RLParameter
-from srl.base.run.callback import CallbackType, RunCallback, TrainCallback
+from srl.base.run.callback import RunCallback
 from srl.runner.distribution.interface import IMemoryReceiver
 from srl.runner.runner import Runner
 from srl.utils.common import compare_equal_version
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TaskConfig:
     context: RunContext
-    callbacks: List[CallbackType] = field(default_factory=list)
+    callbacks: List[RunCallback] = field(default_factory=list)
 
     queue_capacity: int = 1000
     trainer_parameter_send_interval: int = 1  # sec
@@ -42,12 +42,6 @@ class TaskConfig:
             List[DistributionCallback],
             [c for c in self.callbacks if issubclass(c.__class__, DistributionCallback)],
         )
-
-    def get_run_callback(self) -> List[RunCallback]:
-        return cast(List[RunCallback], [c for c in self.callbacks if issubclass(c.__class__, RunCallback)])
-
-    def get_train_callback(self) -> List[TrainCallback]:
-        return cast(List[TrainCallback], [c for c in self.callbacks if issubclass(c.__class__, TrainCallback)])
 
 
 @dataclass
@@ -361,7 +355,7 @@ class TaskManager:
         task_config = self.get_config()
         if task_config is None:
             return None
-        parameter = task_config.context.rl_config.make_parameter(is_load=False)
+        parameter = task_config.context.rl_config.make_parameter()
         self.read_parameter(parameter)
         return parameter
 

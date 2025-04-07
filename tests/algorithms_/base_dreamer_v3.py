@@ -4,7 +4,7 @@ from typing import Tuple
 import pytest
 
 import srl
-from srl.base.define import ObservationModes, RLBaseActTypes
+from srl.base.define import RLBaseActTypes
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_long_case import CommonLongCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -55,8 +55,8 @@ class QuickCase(CommonQuickCase):
         rl_config.batch_length = 2
         rl_config.horizon = 2
         # memory
-        rl_config.memory_warmup_size = 2
-        rl_config.memory_capacity = 10_000
+        rl_config.memory.warmup_size = 2
+        rl_config.memory.capacity = 10_000
 
         rl_config.override_action_type = rl_param[1]
         return rl_config, {}
@@ -76,8 +76,8 @@ class LongCase(CommonLongCase):
         elif mode == "v3":
             rl_config.set_dreamer_v3()
         # memory
-        rl_config.memory_warmup_size = 50
-        rl_config.memory_capacity = 10_000
+        rl_config.memory.warmup_size = 50
+        rl_config.memory.capacity = 10_000
         return rl_config
 
     @pytest.mark.parametrize("ver", ["v1", "v2", "v3"])
@@ -192,7 +192,7 @@ class LongCase(CommonLongCase):
         rl_config.cnn_use_sigmoid = False
 
         rl_config.warmup_world_model = 10_000
-        rl_config.observation_mode = ObservationModes.RENDER_IMAGE
+        rl_config.observation_mode = "render_image"
 
         runner = self.create_test_runner(env_config, rl_config)
         runner.train(max_train_count=12_000)

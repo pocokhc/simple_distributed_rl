@@ -3,13 +3,13 @@ from typing import Any, Generic, List, Tuple, TypeVar
 
 import numpy as np
 
-from srl.base.define import SpaceTypes
+from srl.base.define import RLActionType, RLObservationType, SpaceTypes
 from srl.base.exception import NotSupportedError
 
-TActSpace = TypeVar("TActSpace", bound="SpaceBase")
-TActType = TypeVar("TActType")
-TObsSpace = TypeVar("TObsSpace", bound="SpaceBase")
-TObsType = TypeVar("TObsType")
+TActSpace = TypeVar("TActSpace", bound="SpaceBase", covariant=True)
+TActType = TypeVar("TActType", bound=RLActionType)
+TObsSpace = TypeVar("TObsSpace", bound="SpaceBase", covariant=True)
+TObsType = TypeVar("TObsType", bound=RLObservationType)
 
 _T = TypeVar("_T")
 
@@ -40,7 +40,8 @@ class SpaceBase(ABC, Generic[_T]):
         raise NotImplementedError()
 
     @abstractmethod
-    def copy(self) -> "SpaceBase":
+    def copy(self, **kwargs) -> "SpaceBase":
+        """引数はコンストラクタを上書き"""
         raise NotImplementedError()
 
     @abstractmethod
@@ -88,6 +89,12 @@ class SpaceBase(ABC, Generic[_T]):
         raise NotImplementedError()
 
     # --- utils
+    def is_value(self) -> bool:
+        return self.stype in [
+            SpaceTypes.DISCRETE,
+            SpaceTypes.CONTINUOUS,
+        ]
+
     def is_image(self) -> bool:
         return self.stype in [
             SpaceTypes.GRAY_2ch,
@@ -96,11 +103,17 @@ class SpaceBase(ABC, Generic[_T]):
             SpaceTypes.IMAGE,
         ]
 
+    def is_multi(self) -> bool:
+        return self.stype == SpaceTypes.MULTI
+
     def is_discrete(self) -> bool:
         return self.stype == SpaceTypes.DISCRETE
 
     def is_continuous(self) -> bool:
         return self.stype == SpaceTypes.CONTINUOUS
+
+    def get_onehot(self, x):
+        raise NotImplementedError()
 
     # --------------------------------------
     # action discrete

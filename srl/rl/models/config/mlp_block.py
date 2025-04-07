@@ -4,8 +4,12 @@ from typing import Tuple
 
 @dataclass
 class MLPBlockConfig:
-    _name: str = field(init=False, default="MLP")
-    _kwargs: dict = field(init=False, default_factory=dict)
+    name: str = field(default="")
+    kwargs: dict = field(default_factory=dict)
+
+    def __post_init__(self):
+        if self.name == "":
+            self.set()
 
     def set(
         self,
@@ -23,27 +27,27 @@ class MLPBlockConfig:
             >>> mlp_conf = MLPBlockConfig()
             >>> mlp_conf.set((128, 64, 32))
         """
-        self._name = "MLP"
-        self._kwargs = dict(
+        self.name = "MLP"
+        self.kwargs = dict(
             layer_sizes=layer_sizes,
             activation=activation.lower(),
         )
-        self._kwargs.update(kwargs)
+        self.kwargs.update(kwargs)
         return self
 
     def set_custom_block(self, entry_point: str, **kwargs):
-        self._name = "custom"
-        self._kwargs = dict(entry_point=entry_point, kwargs=kwargs)
+        self.name = "custom"
+        self.kwargs = dict(entry_point=entry_point, kwargs=kwargs)
         return self
 
     # ---------------------
 
-    def create_block_tf(self):
-        from srl.rl.tf.blocks.mlp_block import create_mlp_block_from_config
+    def create_tf_block(self):
+        from srl.rl.tf.blocks.mlp_block import create_block_from_config
 
-        return create_mlp_block_from_config(self)
+        return create_block_from_config(self)
 
-    def create_block_torch(self, in_size: int):
-        from srl.rl.torch_.blocks.mlp_block import create_mlp_block_from_config
+    def create_torch_block(self, in_size: int):
+        from srl.rl.torch_.blocks.mlp_block import create_block_from_config
 
-        return create_mlp_block_from_config(self, in_size)
+        return create_block_from_config(self, in_size)

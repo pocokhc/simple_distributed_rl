@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from srl.base.context import RunContext
@@ -8,15 +8,16 @@ if TYPE_CHECKING:
     from .core_train_only import RunStateTrainer
 
 
-class PlayCallback(ABC):
+class RunCallback(ABC):
     def on_start(self, context: "RunContext", **kwargs) -> None:
         pass  # do nothing
 
     def on_end(self, context: "RunContext", **kwargs) -> None:
         pass  # do nothing
 
-
-class RunCallback(PlayCallback, ABC):
+    # ----------------------------------
+    # worker
+    # ----------------------------------
     def on_episodes_begin(self, context: "RunContext", state: "RunStateActor", **kwargs) -> None:
         pass  # do nothing
 
@@ -46,8 +47,9 @@ class RunCallback(PlayCallback, ABC):
     # def on_skip_step(self, context: "RunContext", state: "RunStateActor", **kwargs) -> None:
     #    pass  # do nothing
 
-
-class TrainCallback(PlayCallback, ABC):
+    # ----------------------------------
+    # trainer
+    # ----------------------------------
     def on_trainer_start(self, context: "RunContext", state: "RunStateTrainer", **kwargs) -> None:
         pass  # do nothing
 
@@ -62,5 +64,15 @@ class TrainCallback(PlayCallback, ABC):
     #    """If return is True, it will end intermediate stop."""
     #    return False
 
+    # ----------------------------------
+    # memory
+    # ----------------------------------
+    def on_memory_start(self, context: "RunContext", info: dict, **kwargs) -> None:
+        pass  # do nothing
 
-CallbackType = Union[RunCallback, TrainCallback]
+    def on_memory_end(self, context: "RunContext", info: dict, **kwargs) -> None:
+        pass  # do nothing
+
+    # --- 実装されている場合に実行
+    # def on_memory(self, context: "RunContext", info: dict, **kwargs) -> None:
+    #    pass  # do nothing

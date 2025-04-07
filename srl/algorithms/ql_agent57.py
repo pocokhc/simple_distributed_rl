@@ -1,8 +1,8 @@
 import json
 import logging
 import random
-from dataclasses import dataclass
-from typing import Any, Union
+from dataclasses import dataclass, field
+from typing import Any, Literal
 
 import numpy as np
 
@@ -11,10 +11,7 @@ from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.rl import functions as funcs
-from srl.rl.memories.priority_experience_replay import (
-    PriorityExperienceReplay,
-    RLConfigComponentPriorityExperienceReplay,
-)
+from srl.rl.memories.priority_replay_buffer import PriorityReplayBufferConfig, RLPriorityReplayBuffer
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 logger = logging.getLogger(__name__)
@@ -52,16 +49,17 @@ Other
 """
 
 
-# ------------------------------------------------------
-# config
-# ------------------------------------------------------
 @dataclass
-class Config(RLConfig, RLConfigComponentPriorityExperienceReplay):
+class Config(RLConfig):
     #: ε-greedy parameter for Test
     test_epsilon: float = 0.0
     test_beta: float = 0.0
 
-    lr_ext: Union[float, SchedulerConfig] = 0.01
+    batch_size: int = 4
+    memory: PriorityReplayBufferConfig = field(default_factory=lambda: PriorityReplayBufferConfig(warmup_size=10))
+
+    lr_ext: float = 0.01
+    lr_ext_scheduler: SchedulerConfig = field(default_factory=lambda: SchedulerConfig())
     enable_rescale: bool = False
 
     # retrace
@@ -75,13 +73,15 @@ class Config(RLConfig, RLConfigComponentPriorityExperienceReplay):
     ucb_epsilon: float = 0.5  # UCBを使う確率
     ucb_beta: float = 1  # UCBのβ
     # actorを使わない場合の設定
-    epsilon: Union[float, SchedulerConfig] = 0.1
+    epsilon: float = 0.1
+    epsilon_scheduler: SchedulerConfig = field(default_factory=lambda: SchedulerConfig())
     discount: float = 0.9
     beta: float = 0.1
 
     # intrinsic_reward
     enable_intrinsic_reward: bool = True  # 内部報酬を使うか
-    lr_int: Union[float, SchedulerConfig] = 0.01
+    lr_int: float = 0.01
+    lr_int_scheduler: SchedulerConfig = field(default_factory=lambda: SchedulerConfig())
 
     # episodic
     episodic_memory_capacity: int = 30000
@@ -95,24 +95,17 @@ class Config(RLConfig, RLConfigComponentPriorityExperienceReplay):
     #: Parameters:
     #:   "": 0
     #:   "random": np.random.normal()
-    q_init: str = ""
-
-    def __post_init__(self):
-        super().__post_init__()
-        self.memory_warmup_size = 10
-        self.batch_size = 4
-
-    def get_framework(self) -> str:
-        return ""
+    q_init: Literal["", "random"] = ""
 
     def get_name(self) -> str:
         return "QL_Agent57"
 
-    def assert_params(self) -> None:
-        super().assert_params()
-        self.assert_params_memory()
-        assert self.actor_num > 0
-        assert self.multisteps >= 1
+    def validate_params(self) -> None:
+        super().validate_params()
+        if not (self.actor_num > 0):
+            raise ValueError(f"assert {self.actor_num} > 0")
+        if not (self.multisteps >= 1):
+            raise ValueError(f"assert {self.multisteps} >= 1")
 
 
 register(
@@ -124,21 +117,12 @@ register(
 )
 
 
-# ------------------------------------------------------
-# Memory
-# ------------------------------------------------------
-class Memory(PriorityExperienceReplay):
+class Memory(RLPriorityReplayBuffer):
     pass
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
 class Parameter(RLParameter[Config]):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-
+    def setup(self):
         self.Q_ext = {}
         self.Q_int = {}
         self.lifelong_C = {}
@@ -232,43 +216,37 @@ class Parameter(RLParameter[Config]):
         return TQ
 
 
-# ------------------------------------------------------
-# Trainer
-# ------------------------------------------------------
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
-
-        self.lr_ext_sch = SchedulerConfig.create_scheduler(self.config.lr_ext)
-        self.lr_int_sch = SchedulerConfig.create_scheduler(self.config.lr_int)
+    def on_setup(self) -> None:
+        self.lr_ext_sch = self.config.lr_ext_scheduler.create(self.config.lr_ext)
+        self.lr_int_sch = self.config.lr_int_scheduler.create(self.config.lr_int)
 
     def train(self) -> None:
-        if self.memory.is_warmup_needed():
+        batches = self.memory.sample()
+        if batches is None:
             return
-        batchs, weights, update_args = self.memory.sample(self.train_count)
+        batches, weights, update_args = batches
 
-        lr_ext = self.lr_ext_sch.get_and_update_rate(self.train_count)
-        lr_int = self.lr_int_sch.get_and_update_rate(self.train_count)
+        lr_ext = self.lr_ext_sch.update(self.train_count).to_float()
+        lr_int = self.lr_int_sch.update(self.train_count).to_float()
         ext_td_errors = []
         int_td_errors = []
         for i in range(self.config.batch_size):
-            state = batchs[i]["states"][0]
-            action = batchs[i]["actions"][0]
+            state = batches[i]["states"][0]
+            action = batches[i]["actions"][0]
             ext_td_error = self.parameter.calc_td_error(
-                batchs[i],
+                batches[i],
                 self.parameter.Q_ext,
-                batchs[i]["ext_rewards"],
+                batches[i]["ext_rewards"],
             )
             self.parameter.Q_ext[state][action] += lr_ext * ext_td_error * float(weights[i])
             ext_td_errors.append(ext_td_error)
 
             if self.config.enable_intrinsic_reward:
                 int_td_error = self.parameter.calc_td_error(
-                    batchs[i],
+                    batches[i],
                     self.parameter.Q_int,
-                    batchs[i]["int_rewards"],
+                    batches[i]["int_rewards"],
                     enable_norm=True,
                 )
                 self.parameter.Q_int[state][action] += lr_int * int_td_error * weights[i]
@@ -281,7 +259,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 
         # 外部Qを優先
         # priority = abs(ext_td_error) + batch["beta"] * abs(int_td_error)
-        self.memory.update(update_args, np.abs(ext_td_errors))
+        self.memory.update(update_args, np.abs(ext_td_errors), self.train_count)
 
         self.info["size"] = len(self.parameter.Q_ext)
         self.info["ext_td_error"] = float(np.mean(ext_td_errors))
@@ -290,20 +268,13 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.info["lr_int"] = lr_int
 
 
-# ------------------------------------------------------
-# Worker
-# ------------------------------------------------------
-class Worker(RLWorker[Config, Parameter]):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
-
+class Worker(RLWorker[Config, Parameter, Memory]):
+    def on_setup(self, worker, context) -> None:
         self.beta_list = funcs.create_beta_list(self.config.actor_num)
         self.discount_list = funcs.create_discount_list(self.config.actor_num)
         self.epsilon_list = funcs.create_epsilon_list(self.config.actor_num)
 
-        self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
+        self.epsilon_sch = self.config.epsilon_scheduler.create(self.config.epsilon)
 
         # ucb
         self.actor_index = -1
@@ -322,7 +293,7 @@ class Worker(RLWorker[Config, Parameter]):
                 self.discount = self.discount_list[self.actor_index]
                 self.beta = self.beta_list[self.actor_index]
             else:
-                self.epsilon = self.epsilon_sch.get_and_update_rate(self.total_step)
+                self.epsilon = self.epsilon_sch.update(self.total_step).to_float()
                 self.discount = self.config.discount
                 self.beta = self.config.beta
         else:
@@ -466,7 +437,7 @@ class Worker(RLWorker[Config, Parameter]):
         # priority
         if not self.distributed:
             priority = 0
-        elif not self.config.requires_priority():
+        elif not self.config.memory.requires_priority():
             priority = 0
         else:
             td_error = self.parameter.calc_td_error(

@@ -3,23 +3,22 @@ import logging
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Union
+from typing import List
 
 import numpy as np
 
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import RLProcessor
+from srl.base.spaces.space import SpaceBase
 from srl.rl import functions as funcs
-from srl.rl.memories.priority_experience_replay import (
-    PriorityExperienceReplay,
-    RLConfigComponentPriorityExperienceReplay,
-)
+from srl.rl.memories.priority_replay_buffer import PriorityReplayBufferConfig, RLPriorityReplayBuffer
 from srl.rl.models.config.dueling_network import DuelingNetworkConfig
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
-from srl.rl.models.config.input_config import RLConfigComponentInput
+from srl.rl.models.config.input_image_block import InputImageBlockConfig
+from srl.rl.models.config.input_value_block import InputValueBlockConfig
 from srl.rl.models.config.mlp_block import MLPBlockConfig
-from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 
 logger = logging.getLogger(__name__)
 
@@ -55,20 +54,10 @@ Other
 """
 
 
-# ------------------------------------------------------
-# config
-# ------------------------------------------------------
 @dataclass
-class Config(
-    RLConfig,
-    RLConfigComponentPriorityExperienceReplay,
-    RLConfigComponentFramework,
-    RLConfigComponentInput,
-):
+class Config(RLConfig, RLConfigComponentFramework):
     """
-    <:ref:`RLConfigComponentPriorityExperienceReplay`>
     <:ref:`RLConfigComponentFramework`>
-    <:ref:`RLConfigComponentInput`>
     """
 
     #: ε-greedy parameter for Test
@@ -76,10 +65,19 @@ class Config(
     #: intrinsic reward rate for Test
     test_beta: float = 0
 
-    #: <:ref:`scheduler`> Learning rate
-    lr_ext: Union[float, SchedulerConfig] = 0.0001
-    #: <:ref:`scheduler`> Intrinsic network Learning rate
-    lr_int: Union[float, SchedulerConfig] = 0.0001
+    #: Batch size
+    batch_size: int = 32
+    #: <:ref:`PriorityReplayBufferConfig`>
+    memory: PriorityReplayBufferConfig = field(default_factory=lambda: PriorityReplayBufferConfig().set_proportional())
+
+    #: Learning rate
+    lr_ext: float = 0.0001
+    #: <:ref:`LRSchedulerConfig`>
+    lr_ext_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
+    #: Intrinsic network Learning rate
+    lr_int: float = 0.0001
+    #: <:ref:`LRSchedulerConfig`>
+    lr_int_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
     #: Synchronization interval to Target network
     target_model_update_interval: int = 1500
 
@@ -88,8 +86,12 @@ class Config(
     #: enable rescaling
     enable_rescale: bool = False
 
+    #: <:ref:`InputValueBlockConfig`>
+    input_value_block: InputValueBlockConfig = field(default_factory=lambda: InputValueBlockConfig())
+    #: <:ref:`InputImageBlockConfig`>
+    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig())
     #: <:ref:`DuelingNetworkConfig`> hidden layer
-    hidden_block: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
+    hidden_block: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig().set_dueling_network())
 
     #: ucb(160,0.5 or 3600,0.01)
     actor_num: int = 32
@@ -103,8 +105,10 @@ class Config(
     #: enable intrinsic reward
     enable_intrinsic_reward: bool = True
 
-    #: <:ref:`scheduler`> Episodic Learning rate
-    episodic_lr: Union[float, SchedulerConfig] = 0.0005
+    #: Episodic Learning rate
+    episodic_lr: float = 0.0005
+    #: <:ref:`LRSchedulerConfig`>
+    episodic_lr_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
     #: [episodic] k
     episodic_count_max: int = 10
     #: [episodic] epsilon
@@ -116,16 +120,18 @@ class Config(
     #: [episodic] 疑似カウント定数(c)
     episodic_pseudo_counts: float = 0.1
     #: <:ref:`MLPBlockConfig`> [episodic] emb block
-    episodic_emb_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    episodic_emb_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig().set((32,)))
     #: <:ref:`MLPBlockConfig`> [episodic] out block
-    episodic_out_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    episodic_out_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig().set((128,)))
 
-    #: <:ref:`scheduler`> Lifelong Learning rate
-    lifelong_lr: Union[float, SchedulerConfig] = 0.0005
+    #: Lifelong Learning rate
+    lifelong_lr: float = 0.0005
+    #: <:ref:`LRSchedulerConfig`>
+    lifelong_lr_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
     #: [lifelong] L
     lifelong_max: float = 5.0
     #: <:ref:`MLPBlockConfig`> [lifelong] hidden block
-    lifelong_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    lifelong_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig().set((128,)))
 
     #: [UVFA] input ext reward
     input_ext_reward: bool = True
@@ -139,50 +145,23 @@ class Config(
     #: dummy_state_val
     dummy_state_val: float = 0.0
 
-    def __post_init__(self):
-        super().__post_init__()
-        self.set_proportional_memory()
-        self.hidden_block.set_dueling_network((512,))
-        self.episodic_emb_block.set(
-            (32,),
-            activation="relu",
-            # kernel_initializer="he_normal",
-            # dense_kwargs={"bias_initializer": keras.initializers.constant(0.001)},
-        )
-        self.episodic_out_block.set((128,))
-        self.lifelong_hidden_block.set((128,))
+    def get_name(self) -> str:
+        return "Agent57_light"
 
-    def get_processors(self) -> List[RLProcessor]:
-        return RLConfigComponentInput.get_processors(self)
+    def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
+        if prev_observation_space.is_image():
+            return self.input_image_block.get_processors()
+        return []
 
     def get_framework(self) -> str:
         return RLConfigComponentFramework.get_framework(self)
 
-    def get_name(self) -> str:
-        return "Agent57_light"
 
-    def assert_params(self) -> None:
-        super().assert_params()
-        self.assert_params_memory()
-        self.assert_params_framework()
-        self.assert_params_input()
-
-
-# ------------------------------------------------------
-# Memory
-# ------------------------------------------------------
-class Memory(PriorityExperienceReplay):
+class Memory(RLPriorityReplayBuffer):
     pass
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
 class CommonInterfaceParameter(RLParameter[Config], ABC):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-
     @abstractmethod
     def predict_q_ext_online(self, x) -> np.ndarray:
         raise NotImplementedError()
@@ -211,7 +190,7 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
     def predict_lifelong_train(self, x) -> np.ndarray:
         raise NotImplementedError()
 
-    def change_batchs_format(self, batchs):
+    def change_batches_format(self, batches):
         (
             states,
             n_states,
@@ -224,13 +203,13 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
             prev_rewards_ext,
             prev_rewards_int,
             actor_idx_list,
-        ) = zip(*batchs)
+        ) = zip(*batches)
         return (
             np.asarray(states),
             np.asarray(n_states),
             np.asarray(onehot_actions),
-            [e for b in batchs for e in b[3]],
-            [i for i, b in enumerate(batchs) for e in b[3]],
+            [e for b in batches for e in b[3]],
+            [i for i, b in enumerate(batches) for e in b[3]],
             np.array(rewards_ext, dtype=np.float32)[..., np.newaxis],
             np.array(rewards_int, dtype=np.float32)[..., np.newaxis],
             np.array(dones, dtype=np.float32),
@@ -294,15 +273,8 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
         return target_q
 
 
-# ------------------------------------------------------
-# Worker
-# ------------------------------------------------------
-class Worker(RLWorker[Config, CommonInterfaceParameter]):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: CommonInterfaceParameter = self.parameter
-
+class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
+    def on_setup(self, worker, context) -> None:
         self.dummy_state = np.full(self.config.observation_space.shape, self.config.dummy_state_val, dtype=np.float32)
         self.discount = 0
 
@@ -386,7 +358,6 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
         return funcs.get_random_max_index(ucbs)
 
     def policy(self, worker) -> int:
-
         in_ = [
             worker.state[np.newaxis, ...],
             np.array([[self.prev_reward_ext]], dtype=np.float32),
@@ -467,7 +438,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
 
         if not self.distributed:
             priority = None
-        elif not self.config.requires_priority():
+        elif not self.config.memory.requires_priority():
             priority = None
         else:
             next_invalid_actions_idx = [0 for _ in next_invalid_actions]

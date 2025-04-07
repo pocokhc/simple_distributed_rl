@@ -120,7 +120,8 @@ def train(config):
     config["rl_config"].setup(env)
 
     # bug fix
-    mp.set_start_method("spawn")
+    if mp.get_start_method() != "spawn":
+        mp.set_start_method("spawn")
 
     # -- server & trainer
     queue = mp.Queue()

@@ -5,25 +5,21 @@ import numpy as np
 from srl.base.rl.worker import RLWorker
 from srl.rl import functions as funcs
 from srl.rl.functions import inverse_rescaling, rescaling
-from srl.rl.schedulers.scheduler import SchedulerConfig
 
-from .rainbow import CommonInterfaceParameter, Config
+from .rainbow import CommonInterfaceParameter, Config, Memory
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
-def calc_target_q(self: CommonInterfaceParameter, batchs, training: bool):
-    batch_size = len(batchs)
+def calc_target_q(self: CommonInterfaceParameter, batches, training: bool):
+    batch_size = len(batches)
 
-    states, n_states, onehot_actions, rewards, undones, _ = zip(*batchs)
+    states, n_states, onehot_actions, rewards, undones, _ = zip(*batches)
     states = np.asarray(states)
     n_states = np.asarray(n_states)
     onehot_actions = np.asarray(onehot_actions, dtype=np.float32)
     rewards = np.array(rewards, dtype=np.float32)
     undones = np.array(undones, dtype=np.float32)
-    next_invalid_actions = [e for b in batchs for e in b[5]]
-    next_invalid_actions_idx = [i for i, b in enumerate(batchs) for e in b[5]]
+    next_invalid_actions = [e for b in batches for e in b[5]]
+    next_invalid_actions_idx = [i for i, b in enumerate(batches) for e in b[5]]
 
     n_q_target = self.pred_batch_target_q(n_states)
 
@@ -52,23 +48,10 @@ def calc_target_q(self: CommonInterfaceParameter, batchs, training: bool):
         return target_q
 
 
-# ------------------------------------------------------
-# Worker
-# ------------------------------------------------------
-class Worker(RLWorker):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: CommonInterfaceParameter = self.parameter
-
-        assert self.config.multisteps == 1
-
+class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
+    def on_setup(self, worker, context) -> None:
         self.step_epsilon = 0
-
-        self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
-
-    def on_reset(self, worker):
-        pass
+        self.epsilon_sch = self.config.epsilon_scheduler.create(self.config.epsilon)
 
     def policy(self, worker) -> int:
         invalid_actions = worker.get_invalid_actions()
@@ -80,7 +63,7 @@ class Worker(RLWorker):
             return self.action
 
         if self.training:
-            epsilon = self.epsilon_sch.get_and_update_rate(self.total_step)
+            epsilon = self.epsilon_sch.update(self.total_step).to_float()
         else:
             epsilon = self.config.test_epsilon
 
@@ -133,7 +116,7 @@ class Worker(RLWorker):
 
         if not self.distributed:
             priority = None
-        elif not self.config.requires_priority():
+        elif not self.config.memory.requires_priority():
             priority = None
         else:
             if self.q is None:

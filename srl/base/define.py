@@ -155,24 +155,6 @@ class RLMemoryTypes(enum.Enum):
     PRIORITY = enum.auto()
 
 
-class ObservationModes(enum.Enum):
-    ENV = enum.auto()
-    RENDER_IMAGE = enum.auto()
-    # RENDER_TERMINAL = enum.auto()  # TODO
-
-    @staticmethod
-    def from_str(mode: Union[str, "ObservationModes"]) -> "ObservationModes":
-        if isinstance(mode, str):
-            mode = mode.strip().lower()
-            if mode == "":
-                mode = ObservationModes.ENV
-            elif mode in ["img", "image", "render", "render_img", "render_image"]:
-                mode = ObservationModes.RENDER_IMAGE
-            else:
-                mode = ObservationModes.ENV
-        return mode
-
-
 class RenderModes(enum.Enum):
     none = 0
     terminal = enum.auto()

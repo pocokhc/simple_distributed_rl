@@ -13,6 +13,129 @@
 // cached_propertyでちょっと高速化?→予想外のバグがでそうなので保留
 // RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
 // DemoMemory: 個別対応かな
+// TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除
+
+
+# v0.19.0
+
+大幅アップデート
+
+**train_mp_memoryの追加**
+
+・学習の前準備のタイミングについて
+主にbatchを作成する処理ですが、今まではTrainerとMemoryが同じプロセスにいる事を前提としており、切り離していませんでした。
+ここで想定される主要な処理は以下です。
+
+- Memoryからのランダムサンプリング（Priority系だとそこそこ計算が必要）
+- Memoryが圧縮されていた場合に解凍処理
+- batchへの成型処理（例えばバッチのデータ[[s1,a1], [s2,a2]]を学習用データ[s1,s2],[a1,a2]にする処理など）
+
+ここの責務がTrainerにあると思いここを分離する thread_train を前のバージョンで試験的にいれてましたが、Memory側に置いた方がすっきりすると思い今回実装しています。
+主な更新は以下です。
+
+1. [base.run] remove: TrainerThreadが複雑な割に効果がないので削除
+1. [base.run.mp] new: trainerとmemoryを別プロセスにした play_mp_memory.py を作成
+
+
+**MemoryUpdates**
+
+RLMemoryですが、前はworkerで使える関数がaddのみ固定でしたが、登録方式に変更する事で複数指定可能に変更。
+また上記memoryのmp化に伴い、Trainer側で使う関数も登録方式に変更。
+合わせてrl.memories配下をすべて見直しました。
+
+1. [base.rl.memory]: Memoryの使用方法変更に関する修正
+   1. remove: IRLMemoryWorkerを削除しRLMemoryだけに修正
+   1. workerが使う関数を登録するregister_worker_funcを作成
+   1. trainerが使う関数を登録するregister_trainer_recv_funcを作成
+   1. trainer->memory用の関数を登録するregister_trainer_send_funcを作成
+   1. setupを作成
+1. [base.rl] change: WorkerのGeneric引数にTRLMemoryを追加（カスタムWorkerでGenericを指定した場合に影響あり）
+1. [rl.memories] update: memoryを大幅にリファクタリング、折角なので一通り見直し
+   1. change: Configのあり方を継承から変数に変更
+   1. [rankbased] update: sample/updateがずれても問題ないように修正
+   1. [rankbased] update: ChatGPTを参考に1.5倍ほど高速化
+   1. update: resotre/backupを見直して高速化
+   1. [rankbased_linear] update: sample/updateがずれても問題ないように修正+高速化
+   1. [priority] fix: proporional_memoryのコメントが間違っていたのでを修正
+   1. [replay_buffer] rename: replay_memory/experience_replay_bufferの名前をreplay_bufferに変更、priority_experience_replayをpriority_replay_bufferに変更
+   1. [rankbased] rename: rankbaseをrankbasedに変更
+   1. [tests.rl.memories] update: 合わせてテストを更新
+
+
+**WorkeruRunUpdates**
+
+1. state_encode/action_decodeをRLConfigに移動、依存範囲が少なくなりました
+   - processorもRLConfigで閉じるように移動
+1. trackingシステムを作成
+   - recentや、prev_state等をなくし、状態の保持をtackingシステム一括で管理するように変更
+1. reward_encodeを廃止。RLWorker内またはEnv側のProcessorで十分と判断。
+1. MCTS等のenv側のシミュレーションstepをEnvRun側に移動し、WorkerRunに依存しないように変更。
+1. EnvProcessor,RLRrocessorを見直し
+   - EnvProcessorは状態を保持してstepに割り込めるように変更
+   - RLProcessorは状態を持たず、obsのみしか干渉できないように変更
+   - actionとobsの変更に前後のspace情報を参照できるように、prev_spaceとnew_spaceの引数を追加
+   - remap_xxx_spaceでspaceの変更がなかった場合にNoneを返すと無視するように変更
+
+
+・その他の変更
+
+1. defineからObservationModeを廃止し、Literal["", "render_image"] に変更
+1. RLConfigからget_frameworkの実装を必須から任意に変更
+1. RLConfigからparameter_pathとmemory_pathの優位性があまりなかったので削除
+1. RLConfigにdtypeを指定するget_dtypeを追加
+1. RLConfigから別envをsetupできる機能を廃止し、setupは1回だけに固定
+1. RLConfigのassert_paramsをvalidate_paramsに名前変更
+   - validate_paramsをsetup内で実行するように変更
+   - validate_paramsを持っている変数に対しても自動でvalidate_paramsが実行されるように変更
+1. RLConfigにget_metadataとsummaryを追加
+1. EnvConfigにsummaryを追加
+1. Runnerにsummaryを追加し、logger.infoによるconfig表示を削除
+
+
+**Blockの見直し**
+
+主に `rl.models.config` 配下にあるmodelsの見直し及び、入力形式を見直しました。
+入力ブロックを input_image_block, input_value_block, input_multi_block(TODO) に明確に分けました。
+
+1. input_config.py を input_image_block.py、input_value_block.py、input_multi_block.pyに分割
+   - RLConfig側も明確にvalue_blockとimage_blockを区別して設定するように変更
+   - input_value_blockとMLPを同じにしていたが、分けて役割を明確化
+   - 関数名と変数名を見直して変更
+   - 各アルゴリズムに反映
+
+**Schedulerとlr**
+
+全体的に見直し、lrスケジュールは別途LRSchedulerを作成しました。
+
+1. change: floatとschedulerを混合させるのではなく、別で定義して使用するように変更
+    - Union[float, SchedulerConfig] -> floatとSchedulerConfig
+1. change: get_and_update_rateを廃止し、更新をupdate、変換用にto_floatを作成
+1. [rl.schedulers.lr_scheduler] new: 新しくlr用のスケジューラーを作成
+    1. これは、apply_tf_schedulerとapply_torch_schedulerを実装しており、同じ設定でそれぞれのスケジューラを適用できます
+
+
+**OtherUpdates**
+
+1. [runner.callbacks.print_progress] update: 表示を見やすいように更新
+1. [base.spaces] add: copyにコンストラクタを上書きできる引数を追加
+1. [base.spaces] add: is_value,is_multi関数を追加
+1. [base.spaces.box] change: gray画像でstackする場合、chに追加するかどうかをコンストラクタで指定するように変更
+1. [base.rl.trainer] add: contextプロパティを追加
+1. [base.spaces.space] TypeVerにboundとcovariantを追加
+1. RLMemory/RLParameterでsetup、RLTrainer/RLWorkerでon_setupを使うようにし、コンストラクタの使用を非推奨に（ドキュメントベース）
+1. [rl.processors] change: image_processorの正規化引数をenable_normからnormalize_typeに変更し-1～1への変換も追加
+1. [spaces] add: discreteなspaceにget_onehot関数を追加
+1. [base.run.callback] ref: クラスを分ける意味が薄かったのでRunCallbackに統一
+1. rename: batchs -> batches
+1. [runner.callbacks] update: np.NaNの判定をnp.isnanに変更
+
+**Bug Fixes**
+
+1. [setup] fix: python_requiresを3.7から3.8に変更（VSCodeが3.7を対象外にしてから対象外にしていましたが、更新を忘れていました）
+1. [base.rl.worker_run] fix: renderingじゃないときにworkerのrenderを呼んでいた不具合修正
+1. [envs] fix: ox,othello,connectxでstateをそのまま渡していたのをcopyして渡すように変更
+1. [tests] fix: 一括でtestするとplt系でエラーが出る不具合をplt.closeを追加で対処（出来たか不明なので一旦様子見）
+
 
 
 # v0.18.1
@@ -628,7 +751,7 @@ class MyEnv2(EnvBase):
    1. [base.define] change: SHAPE2,SHAPE3を削除し、IMAGEを追加
    1. [base.define] change: RLTypesをRLTypesとRLBaseTypesに分割
    1. [base.define] new: DoneTypesを追加し、終了状態を判定できるように変更
-   1. [base.rl.RLTrainer] change: RLTrainerのtrain_on_batchsを廃止し、trainに戻しました
+   1. [base.rl.RLTrainer] change: RLTrainerのtrain_on_batchesを廃止し、trainに戻しました
    1. [base.rl.RLTrainer] add: RLTrainerにdistributedとtrain_onlyのプロパティを追加
    1. [base.rl.RLTrainer] new: train_startとtrain_end関数を追加
    1. [base.rl.RLWorker] new: on_startとon_end関数を追加
@@ -731,9 +854,9 @@ class MyEnv2(EnvBase):
 
 **OtherUpdates**
 
-1. [base.rl] new: RLTrainerにbatchに関係なく実行するtrain_no_batchsを追加
+1. [base.rl] new: RLTrainerにbatchに関係なく実行するtrain_no_batchesを追加
 1. [callbacks] change: on_trainer_train_end -> on_trainer_loop に変更
-1. [core.trainer] change: trainの戻り値をboolにし、train_on_batchsを実行したかを返すように変更
+1. [core.trainer] change: trainの戻り値をboolにし、train_on_batchesを実行したかを返すように変更
 1. [torch] fix: GPUのbackup/restoreの割り当てを改善(並列処理でTrainerとrestoreでCPU/GPUが競合した)、to_cpu/from_cpuの引数を追加
 1. [runner] fix: psutilの実行方法を改善
 1. [exception] new: SRL用のExceptionを追加（とりあえずクラスだけ）
@@ -748,14 +871,14 @@ class MyEnv2(EnvBase):
 Redisを用いた分散コンピューティングによる分散学習を実装しました。
 それに伴いアーキテクチャを見直しています。
 RLTrainer（とRLMemory）の変更が一番大きいので、自作でアルゴリズムを作成している場合はドキュメントを参照してください。
-(trainの実装がなくなり、代わりにtrain_on_batchsを実装する必要があります)
+(trainの実装がなくなり、代わりにtrain_on_batchesを実装する必要があります)
 
 また、次のアップデートで長時間の学習（途中復旧など）の実装を予定しています。
 
 **MainUpdates**
 
 1. 分散コンピューティングによる学習のためにアーキテクチャ見直し
-   1. [base] update: RLTrainerのtrainの動作を定義、batch処理だけを train_on_batchs として抜き出し。(自作方法も変わるのでドキュメントも更新)
+   1. [base] update: RLTrainerのtrainの動作を定義、batch処理だけを train_on_batches として抜き出し。(自作方法も変わるのでドキュメントも更新)
    1. [base] update: RLTrainerに合わせてRLMemoryを全体的に見直し
       1. [base] rename: RLRemoteMemory -> RLMemoryに名前変更
       1. capacity,memory_warmup_size,batch_size等をmemoryのハイパーパラメータとして実装
@@ -778,7 +901,6 @@ RLTrainer（とRLMemory）の変更が一番大きいので、自作でアルゴ
 1. [callbacks] change: 途中停止のintermediate_stopを廃止し、stepなどの戻り値で制御に変更
 1. [rl.scheduler] new: updateを追加し、更新があるか分かるように変更
 1. [render] update: gifの生成をArtistAnimationからPIL.imageに変更
-
 
 # v0.12.2
 

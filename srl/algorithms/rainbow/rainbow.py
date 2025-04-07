@@ -1,22 +1,22 @@
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Union
+from typing import List
 
 import numpy as np
 
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import RLProcessor
+from srl.base.spaces.space import SpaceBase
 from srl.rl import functions as funcs
 from srl.rl.functions import create_epsilon_list, inverse_rescaling, rescaling
-from srl.rl.memories.priority_experience_replay import (
-    PriorityExperienceReplay,
-    RLConfigComponentPriorityExperienceReplay,
-)
+from srl.rl.memories.priority_replay_buffer import PriorityReplayBufferConfig, RLPriorityReplayBuffer
 from srl.rl.models.config.dueling_network import DuelingNetworkConfig
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
-from srl.rl.models.config.input_config import RLConfigComponentInput
+from srl.rl.models.config.input_image_block import InputImageBlockConfig
+from srl.rl.models.config.input_value_block import InputValueBlockConfig
+from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 """
@@ -54,24 +54,19 @@ Other
 """
 
 
-# ------------------------------------------------------
-# config
-# ------------------------------------------------------
 @dataclass
-class Config(
-    RLConfig,
-    RLConfigComponentPriorityExperienceReplay,
-    RLConfigComponentFramework,
-    RLConfigComponentInput,
-):
+class Config(RLConfig, RLConfigComponentFramework):
     """
-    <:ref:`RLConfigComponentPriorityExperienceReplay`>
     <:ref:`RLConfigComponentFramework`>
-    <:ref:`RLConfigComponentInput`>
     """
 
     #: ε-greedy parameter for Test
     test_epsilon: float = 0
+
+    #: Batch size
+    batch_size: int = 32
+    #: <:ref:`PriorityReplayBufferConfig`>
+    memory: PriorityReplayBufferConfig = field(default_factory=lambda: PriorityReplayBufferConfig())
 
     #: Learning rate during distributed learning
     #: :math:`\epsilon_i = \epsilon^{1 + \frac{i}{N-1} \alpha}`
@@ -79,11 +74,19 @@ class Config(
     #: Look actor_epsilon
     actor_alpha: float = 7.0
 
-    #: <:ref:`scheduler`> ε-greedy parameter for Train
-    epsilon: Union[float, SchedulerConfig] = 0.1
+    #: ε-greedy parameter for Train
+    epsilon: float = 0.1
+    #: <:ref:`SchedulerConfig`>
+    epsilon_scheduler: SchedulerConfig = field(default_factory=lambda: SchedulerConfig())
     #: Learning rate
-    lr: Union[float, SchedulerConfig] = 0.001
+    lr: float = 0.001
+    #: <:ref:`LRSchedulerConfig`>
+    lr_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
 
+    #: <:ref:`InputValueBlockConfig`>
+    input_value_block: InputValueBlockConfig = field(default_factory=lambda: InputValueBlockConfig())
+    #: <:ref:`InputImageBlockConfig`>
+    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig())
     #: <:ref:`DuelingNetworkConfig`> hidden layer
     hidden_block: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
 
@@ -106,20 +109,16 @@ class Config(
     #: retrace parameter h
     retrace_h: float = 1.0
 
-    dummy_state_val: float = 0
-
-    def __post_init__(self):
-        super().__post_init__()
-        self.set_proportional_memory()
-        self.hidden_block.set_dueling_network((512,))
-
     def setup_from_actor(self, actor_num: int, actor_id: int) -> None:
-        e = create_epsilon_list(actor_num, epsilon=self.actor_epsilon, alpha=self.actor_alpha)[actor_id]
-        self.epsilon = e
+        self.epsilon = create_epsilon_list(
+            actor_num,
+            epsilon=self.actor_epsilon,
+            alpha=self.actor_alpha,
+        )[actor_id]
 
     def set_atari_config(self):
         # Annealing e-greedy
-        self.epsilon = self.create_scheduler().set_linear(1_000_000, 1.0, 0.1)
+        self.epsilon_scheduler.set_linear(1.0, 0.1, 1_000_000)
 
         # model
         self.input_image_block.set_dqn_block()
@@ -133,9 +132,9 @@ class Config(
         self.enable_reward_clip = True
 
         # memory
-        self.memory_warmup_size = 80_000
-        self.memory_capacity = 1_000_000
-        self.set_proportional_memory(
+        self.memory.warmup_size = 80_000
+        self.memory.capacity = 1_000_000
+        self.memory.set_proportional(
             alpha=0.5,
             beta_initial=0.4,
             beta_steps=1_000_000,
@@ -151,40 +150,32 @@ class Config(
         # other
         self.enable_rescale = False
 
-    def get_processors(self) -> List[RLProcessor]:
-        return RLConfigComponentInput.get_processors(self)
-
-    def get_framework(self) -> str:
-        return RLConfigComponentFramework.get_framework(self)
-
     def get_name(self) -> str:
         if self.multisteps == 1:
             return "Rainbow_no_multisteps"
         else:
             return "Rainbow"
 
-    def assert_params(self) -> None:
-        super().assert_params()
-        self.assert_params_memory()
-        self.assert_params_framework()
-        assert self.multisteps > 0
+    def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
+        if prev_observation_space.is_image():
+            return self.input_image_block.get_processors()
+        return []
+
+    def get_framework(self) -> str:
+        return RLConfigComponentFramework.get_framework(self)
+
+    def validate_params(self) -> None:
+        super().validate_params()
+        if not (self.multisteps > 0):
+            raise ValueError(f"assert {self.multisteps} > 0")
 
 
-# ------------------------------------------------------
-# Memory
-# ------------------------------------------------------
-class Memory(PriorityExperienceReplay):
+class Memory(RLPriorityReplayBuffer):
     pass
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
 class CommonInterfaceParameter(RLParameter[Config], ABC):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-
+    def setup(self):
         self.multi_discounts = np.array([self.config.discount**n for n in range(self.config.multisteps)])
 
     @abstractmethod
@@ -199,12 +190,12 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
     def pred_batch_target_q(self, state) -> np.ndarray:
         raise NotImplementedError()
 
-    def calc_target_q(self, batchs, training: bool):
-        batch_size = len(batchs)
+    def calc_target_q(self, batches, training: bool):
+        batch_size = len(batches)
         multi_discounts = np.tile(self.multi_discounts, (batch_size, 1))
 
         # (batch, multistep, shape)
-        states_list, onehot_actions_list, rewards, dones, _ = zip(*batchs)
+        states_list, onehot_actions_list, rewards, dones, _ = zip(*batches)
         states_list = np.asarray(states_list)
         onehot_actions_list = np.asarray(onehot_actions_list, dtype=np.float32)
         rewards = np.array(rewards, dtype=np.float32)
@@ -252,9 +243,9 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
 
         # --- calc TD error
         # ファンシーインデックス
-        idx1 = [i for i, b in enumerate(batchs) for e in b[4] for e2 in e]
-        idx2 = [i for b in batchs for i, e in enumerate(b[4]) for e2 in e]
-        idx3 = [e2 for b in batchs for e in b[4] for e2 in e]
+        idx1 = [i for i, b in enumerate(batches) for e in b[4] for e2 in e]
+        idx2 = [i for b in batches for i, e in enumerate(b[4]) for e2 in e]
+        idx3 = [e2 for b in batches for e in b[4] for e2 in e]
         if self.config.enable_double_dqn:
             q_online[idx1, idx2, idx3] = -np.inf
             n_act_idx = np.argmax(q_online, axis=2)
@@ -267,7 +258,7 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
         if self.config.enable_rescale:
             maxq = inverse_rescaling(maxq)
 
-        gains = rewards + dones * self.config.discount * maxq
+        gains = rewards + (1 - dones) * self.config.discount * maxq
 
         if self.config.enable_rescale:
             gains = rescaling(gains)
@@ -303,72 +294,62 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
             return target_q
 
 
-# ------------------------------------------------------
-# Worker
-# ------------------------------------------------------
-class Worker(RLWorker[Config, CommonInterfaceParameter]):
-    def __init__(self, *args):
-        super().__init__(*args)
+class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
+    def on_setup(self, worker, context):
+        self.np_dtype = self.config.get_dtype("np")
+        self.epsilon_sch = self.config.epsilon_scheduler.create(self.config.epsilon)
 
-        self.dummy_state = np.full(self.config.observation_space.shape, self.config.dummy_state_val, dtype=np.float32)
-        self.onehot_arr = np.identity(self.config.action_space.n, dtype=int)
-
-        self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
+        # tracking機能を有効化
+        worker.enable_tracking(max_size=self.config.multisteps)
 
     def on_reset(self, worker):
-        self._recent_states = [self.dummy_state for _ in range(self.config.multisteps + 1)]
-        self._recent_actions = [
-            self.onehot_arr[random.randint(0, self.config.action_space.n - 1)] for _ in range(self.config.multisteps)
-        ]
-        # self._recent_probs = [1.0 / self.config.action_space.n for _ in range(self.config.multisteps)] #[1]
-        self._recent_rewards = [0.0 for _ in range(self.config.multisteps)]
-        self._recent_done = [1 for _ in range(self.config.multisteps)]
-        self._recent_invalid_actions = [[] for _ in range(self.config.multisteps)]
-
-        self._recent_states.pop(0)
-        self._recent_states.append(worker.state)
+        for _ in range(self.config.multisteps - 1):
+            worker.add_dummy_step(
+                tracking_data={
+                    "onehot_action": worker.get_onehot_action(random.randint(0, self.config.action_space.n - 1)),
+                    "clip_reward": 0,
+                    # "prob": 1.0,  # [1]
+                },
+                is_reset=True,
+            )
 
     def policy(self, worker) -> int:
-        self.state = worker.state
-        invalid_actions = worker.get_invalid_actions()
+        state = worker.state
+        invalid_actions = worker.invalid_actions
 
         if self.config.enable_noisy_dense:
-            self.q = self.parameter.pred_single_q(self.state)
+            self.q = self.parameter.pred_single_q(state)
             self.q[invalid_actions] = -np.inf
-            self.action = int(np.argmax(self.q))
-            # self.prob = 1.0 #[1]
-            return self.action
+            # self.prob = 1.0  #[1]
+            return int(np.argmax(self.q))
 
         if self.training:
-            epsilon = self.epsilon_sch.get_and_update_rate(self.total_step)
+            epsilon = self.epsilon_sch.update(self.total_step).to_float()
         else:
             epsilon = self.config.test_epsilon
 
-        # valid_action_num = self.config.action_space.n - len(invalid_actions)
+        # valid_action_num = self.config.action_space.n - len(invalid_actions)  #[1]
         if random.random() < epsilon:
-            self.action = random.choice([a for a in range(self.config.action_space.n) if a not in invalid_actions])
+            action = random.choice([a for a in range(self.config.action_space.n) if a not in invalid_actions])
             self.q = None
-            # self.prob = epsilon / valid_action_num #[1]
+            # self.prob = epsilon / valid_action_num  #[1]
         else:
-            self.q = self.parameter.pred_single_q(self.state)
+            self.q = self.parameter.pred_single_q(state)
             self.q[invalid_actions] = -np.inf
 
             # 最大値を選ぶ（複数はほぼないとして無視）
-            self.action = int(np.argmax(self.q))
+            action = int(np.argmax(self.q))
             # self.prob = epsilon / valid_action_num + (1 - epsilon) #[1]
 
         self.info["epsilon"] = epsilon
-        return self.action
+        return action
 
     def on_step(self, worker):
-        reward = worker.reward
-        self._recent_states.pop(0)
-        self._recent_states.append(worker.state)
-
         if not self.training:
             return
 
         # reward clip
+        reward = worker.reward
         if self.config.enable_reward_clip:
             if reward < 0:
                 reward = -1
@@ -377,73 +358,62 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
             else:
                 reward = 0
 
-        self._recent_actions.pop(0)
-        self._recent_actions.append(self.onehot_arr[self.action])
-        # self._recent_probs.pop(0)
-        # self._recent_probs.append(self.prob) #[1]
-        self._recent_rewards.pop(0)
-        self._recent_rewards.append(reward)
-        self._recent_done.pop(0)
-        self._recent_done.append(int(not worker.terminated))
-        self._recent_invalid_actions.pop(0)
-        self._recent_invalid_actions.append(worker.get_invalid_actions())
-        priority = self._add_memory(None)
+        worker.add_tracking(
+            {
+                "onehot_action": worker.get_onehot_action(),
+                "clip_reward": reward,
+                # "prob": self.prob,  # [1]
+            }
+        )
+
+        batch = [
+            worker.get_tracking("state", self.config.multisteps + 1),
+            worker.get_tracking("onehot_action", self.config.multisteps),
+            worker.get_tracking("clip_reward", self.config.multisteps),
+            worker.get_tracking("terminated", self.config.multisteps),
+            worker.get_tracking("invalid_actions", self.config.multisteps),
+            # worker.get_tracking_data("prob", self.config.multisteps),  #[1]
+        ]
+
+        if not self.distributed:
+            priority = None
+        elif not self.config.memory.requires_priority():
+            priority = None
+        else:
+            if self.q is None:
+                self.q = self.parameter.pred_single_q(worker.prev_state)
+            select_q = self.q[worker.action]
+            target_q = self.parameter.calc_target_q([batch], training=False)[0]
+            priority = abs(target_q - select_q)
+
+        self.memory.add(batch, priority)
 
         if worker.done:
             # 残りstepも追加
-            for _ in range(len(self._recent_rewards) - 1):
-                self._recent_states.pop(0)
-                self._recent_states.append(self.dummy_state)
-                self._recent_actions.pop(0)
-                self._recent_actions.append(self.onehot_arr[random.randint(0, self.config.action_space.n - 1)])
-                # self._recent_probs.pop(0)
-                # self._recent_probs.append(1.0) #[1]
-                self._recent_rewards.pop(0)
-                self._recent_rewards.append(0.0)
-                self._recent_done.pop(0)
-                self._recent_done.append(0)
-                self._recent_invalid_actions.pop(0)
-                self._recent_invalid_actions.append([])
-                self._add_memory(priority)
-
-    def _add_memory(self, priority):
-        """
-        [
-            states,
-            onehot_actions,
-            # probs,
-            rewards,
-            dones,
-            invalid_actions,
-        ]
-        """
-        batch = [
-            self._recent_states[:],
-            self._recent_actions[:],
-            # self._recent_probs[:], #[1]
-            self._recent_rewards[:],
-            self._recent_done[:],
-            self._recent_invalid_actions[:],
-        ]
-
-        if priority is None:
-            if not self.distributed:
-                priority = None
-            elif not self.config.requires_priority():
-                priority = None
-            else:
-                if self.q is None:
-                    self.q = self.parameter.pred_single_q(self.state)
-                select_q = self.q[self.action]
-                target_q = self.parameter.calc_target_q([batch], training=False)[0]
-                priority = abs(target_q - select_q)
-
-        self.memory.add(batch, priority)
-        return priority
+            for _ in range(self.config.multisteps - 1):
+                worker.add_dummy_step(
+                    terminated=True,
+                    tracking_data={
+                        "onehot_action": worker.get_onehot_action(random.randint(0, self.config.action_space.n - 1)),
+                        "clip_reward": 0,
+                        # "prob": 1.0,  # [1]
+                    },
+                )
+                self.memory.add(
+                    [
+                        worker.get_tracking("state", self.config.multisteps + 1),
+                        worker.get_tracking("onehot_action", self.config.multisteps),
+                        worker.get_tracking("clip_reward", self.config.multisteps),
+                        worker.get_tracking("terminated", self.config.multisteps),
+                        worker.get_tracking("invalid_actions", self.config.multisteps),
+                        # worker.get_tracking_data("prob", self.config.multisteps),  #[1]
+                    ],
+                    priority,
+                )
 
     def render_terminal(self, worker, **kwargs) -> None:
         if self.q is None:
-            q = self.parameter.pred_single_q(self.state)
+            q = self.parameter.pred_single_q(worker.state)
         else:
             q = self.q
         maxa = np.argmax(q)

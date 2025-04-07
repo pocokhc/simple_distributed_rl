@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, List, Union, cast
+from typing import Any, List, cast
 
 import numpy as np
 import tensorflow as tf
@@ -14,11 +14,13 @@ from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.spaces.space import SpaceBase
 from srl.rl import functions as funcs
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
-from srl.rl.models.config.input_config import RLConfigComponentInput
+from srl.rl.memories.replay_buffer import ReplayBufferConfig, RLReplayBuffer
+from srl.rl.models.config.input_image_block import InputImageBlockConfig
+from srl.rl.models.config.input_value_block import InputValueBlockConfig
 from srl.rl.models.config.mlp_block import MLPBlockConfig
-from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 from srl.rl.tf import helper as helper_tf
 from srl.rl.tf.distributions.categorical_dist_block import CategoricalDistBlock
 from srl.rl.tf.distributions.normal_dist_block import NormalDistBlock
@@ -44,33 +46,36 @@ SAC
 """
 
 
-# ------------------------------------------------------
-# config
-# ------------------------------------------------------
 @dataclass
-class Config(
-    RLConfig,
-    RLConfigComponentExperienceReplayBuffer,
-    RLConfigComponentInput,
-):
-    """
-    <:ref:`RLConfigComponentExperienceReplayBuffer`>
-    <:ref:`RLConfigComponentInput`>
-    """
-
+class Config(RLConfig):
+    #: <:ref:`InputValueBlockConfig`>
+    input_value_block: InputValueBlockConfig = field(default_factory=lambda: InputValueBlockConfig())
+    #: <:ref:`InputImageBlockConfig`>
+    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig())
     #: <:ref:`MLPBlockConfig`> policy layer
-    policy_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    policy_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig().set((64, 64, 64)))
     #: <:ref:`MLPBlockConfig`>
-    q_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    q_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig().set((128, 128, 128)))
+
+    #: Batch size
+    batch_size: int = 32
+    #: <:ref:`ReplayBufferConfig`>
+    memory: ReplayBufferConfig = field(default_factory=lambda: ReplayBufferConfig(capacity=1000))
 
     #: discount
     discount: float = 0.9
     #: policy learning rate
-    lr_policy: Union[float, SchedulerConfig] = 0.001
+    lr_policy: float = 0.001
+    #: <:ref:`LRSchedulerConfig`>
+    lr_policy_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
     #: q learning rate
-    lr_q: Union[float, SchedulerConfig] = 0.001
+    lr_q: float = 0.001
+    #: <:ref:`LRSchedulerConfig`>
+    lr_q_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
     #: alpha learning rate
-    lr_alpha: Union[float, SchedulerConfig] = 0.001
+    lr_alpha: float = 0.001
+    #: <:ref:`LRSchedulerConfig`>
+    lr_alpha_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
     #: soft_target_update_tau
     soft_target_update_tau: float = 0.02
     #: hard_target_update_interval
@@ -90,25 +95,16 @@ class Config(
     #: enable_stable_gradients状態での標準偏差のclip
     stable_gradients_scale_range: tuple = (1e-10, 10)
 
-    def __post_init__(self):
-        super().__post_init__()
-        self.memory_capacity = 1000
-        self.policy_hidden_block.set((64, 64, 64))
-        self.q_hidden_block.set((128, 128, 128))
+    def get_name(self) -> str:
+        return "SAC"
 
     def get_framework(self) -> str:
         return "tensorflow"
 
-    def get_processors(self) -> List[RLProcessor]:
-        return RLConfigComponentInput.get_processors(self)
-
-    def get_name(self) -> str:
-        return "SAC"
-
-    def assert_params(self) -> None:
-        super().assert_params()
-        self.assert_params_memory()
-        self.assert_params_input()
+    def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
+        if prev_observation_space.is_image():
+            return self.input_image_block.get_processors()
+        return []
 
 
 register(
@@ -120,23 +116,21 @@ register(
 )
 
 
-# ------------------------------------------------------
-# Memory
-# ------------------------------------------------------
-class Memory(ExperienceReplayBuffer):
+class Memory(RLReplayBuffer):
     pass
 
 
-# ------------------------------------------------------
-# network
-# ------------------------------------------------------
 class PolicyNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
         self.config = config
 
-        self.in_block = config.create_input_block_tf()
-        self.hidden_block = config.policy_hidden_block.create_block_tf()
+        if config.observation_space.is_image():
+            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
+        else:
+            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
+
+        self.hidden_block = config.policy_hidden_block.create_tf_block()
 
         # out
         if isinstance(config.action_space, DiscreteSpace):
@@ -152,7 +146,7 @@ class PolicyNetwork(KerasModelAddedSummary):
             raise UndefinedError(self.config.action_space)
 
         # build
-        self(np.zeros((1,) + config.observation_space.shape))
+        self(self.in_block.create_dummy_data(config.get_dtype("np")))
 
     def call(self, x, training=False) -> Any:
         x = self.in_block(x, training=training)
@@ -188,18 +182,25 @@ class QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
-        self.in_block = config.create_input_block_tf()
+        if config.observation_space.is_image():
+            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
+        else:
+            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
 
-        self.q_block = config.q_hidden_block.create_block_tf()
+        self.q_block = config.q_hidden_block.create_tf_block()
         self.q_out_layer = kl.Dense(1)
 
         # build
-        self._in_shape1 = config.observation_space.shape
         if isinstance(config.action_space, DiscreteSpace):
             self._in_shape2 = (config.action_space.n,)
         else:
             self._in_shape2 = (config.action_space.size,)
-        self([np.zeros((1,) + self._in_shape1), np.zeros((1,) + self._in_shape2)])
+        self(
+            [
+                self.in_block.create_dummy_data(config.get_dtype("np")),
+                np.zeros((1,) + self._in_shape2),
+            ]
+        )
 
     def call(self, x, training=False):
         state = x[0]
@@ -220,14 +221,8 @@ class QNetwork(KerasModelAddedSummary):
         return loss
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
 class Parameter(RLParameter):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-
+    def setup(self):
         self.policy = PolicyNetwork(self.config)
         self.q1_online = QNetwork(self.config)
         self.q1_target = QNetwork(self.config)
@@ -262,22 +257,11 @@ class Parameter(RLParameter):
         self.q1_online.summary(**kwargs)
 
 
-# ------------------------------------------------------
-# Trainer
-# ------------------------------------------------------
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
-
-        self.lr_q_sch = SchedulerConfig.create_scheduler(self.config.lr_q)
-        self.lr_policy_sch = SchedulerConfig.create_scheduler(self.config.lr_policy)
-        self.lr_alpha_sch = SchedulerConfig.create_scheduler(self.config.lr_alpha)
-
-        self.q1_optimizer = keras.optimizers.Adam(learning_rate=self.lr_q_sch.get_rate())
-        self.q2_optimizer = keras.optimizers.Adam(learning_rate=self.lr_q_sch.get_rate())
-        self.policy_optimizer = keras.optimizers.Adam(learning_rate=self.lr_policy_sch.get_rate())
+    def on_setup(self) -> None:
+        self.q1_optimizer = keras.optimizers.Adam(learning_rate=self.config.lr_q_scheduler.apply_tf_scheduler(self.config.lr_q))
+        self.q2_optimizer = keras.optimizers.Adam(learning_rate=self.config.lr_q_scheduler.apply_tf_scheduler(self.config.lr_q))
+        self.policy_optimizer = keras.optimizers.Adam(learning_rate=self.config.lr_policy_scheduler.apply_tf_scheduler(self.config.lr_policy))
         self.alpha_optimizer = None
 
         # エントロピーαの目標値、-1*アクション数が良いらしい
@@ -288,30 +272,26 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.target_entropy = -1 * n
 
     def train(self) -> None:
-        if self.memory.is_warmup_needed():
+        batches = self.memory.sample()
+        if batches is None:
             return
-        batchs = self.memory.sample()
 
-        states = []
-        actions = []
-        n_states = []
-        rewards = []
-        dones = []
-        for b in batchs:
-            states.append(b["state"])
-            actions.append(b["action"])
-            n_states.append(b["next_state"])
-            rewards.append(b["reward"])
-            dones.append(b["done"])
+        (
+            states,
+            actions,
+            n_states,
+            rewards,
+            dones,
+        ) = zip(*batches)
         states = np.asarray(states)
-        n_states = np.asarray(n_states)
         actions = np.asarray(actions)
+        n_states = np.asarray(n_states)
         dones = np.asarray(dones, dtype=np.float32)[..., np.newaxis]
         rewards = np.asarray(rewards, dtype=np.float32)[..., np.newaxis]
 
         if not self.parameter.load_log_alpha:
             # restore時に再度作り直す必要あり
-            self.alpha_optimizer = keras.optimizers.Adam(learning_rate=self.lr_alpha_sch.get_rate())
+            self.alpha_optimizer = keras.optimizers.Adam(learning_rate=self.config.lr_alpha_scheduler.apply_tf_scheduler(self.config.lr_alpha))
             self.parameter.load_log_alpha = True
 
         # 方策エントロピーの反映率αを計算
@@ -320,7 +300,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         # ポリシーより次の状態のアクションを取得し、次の状態のアクションlogpiを取得
         n_p_dist = self.parameter.policy(n_states)
         if self.config.action_space.stype == SpaceTypes.DISCRETE:
-            n_action = n_p_dist.rsample(onehot=True)
+            n_action = n_p_dist.rsample()
             n_logpi = n_p_dist.log_prob(n_action)
             entropy = -n_logpi
         elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
@@ -386,28 +366,10 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             helper_tf.model_soft_sync(self.parameter.q1_target, self.parameter.q1_online, self.config.soft_target_update_tau)
             helper_tf.model_soft_sync(self.parameter.q2_target, self.parameter.q2_online, self.config.soft_target_update_tau)
 
-        # lr_schedule
-        if self.lr_q_sch.update(self.train_count):
-            self.q1_optimizer.learning_rate = self.lr_q_sch.get_rate()
-            self.q2_optimizer.learning_rate = self.lr_q_sch.get_rate()
-        if self.lr_policy_sch.update(self.train_count):
-            self.policy_optimizer.learning_rate = self.lr_policy_sch.get_rate()
-        if self.lr_alpha_sch.update(self.train_count):
-            self.alpha_optimizer.learning_rate = self.lr_alpha_sch.get_rate()
-
         self.train_count += 1
 
 
-# ------------------------------------------------------
-# Worker
-# ------------------------------------------------------
-class Worker(RLWorker[Config, Parameter]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
-    def on_reset(self, worker):
-        pass
-
+class Worker(RLWorker[Config, Parameter, Memory]):
     def policy(self, worker) -> Any:
         p_dist = self.parameter.policy(worker.state[np.newaxis, ...])
         if isinstance(self.config.action_space, DiscreteSpace):
@@ -433,14 +395,25 @@ class Worker(RLWorker[Config, Parameter]):
     def on_step(self, worker):
         if not self.training:
             return
-        batch = {
-            "state": worker.prev_state,
-            "action": self.action,
-            "next_state": worker.state,
-            "reward": worker.reward,
-            "done": worker.done,
-        }
-        self.memory.add(batch)
+
+        """
+        [
+            state,
+            action,
+            n_state,
+            reward,
+            done,
+        ]
+        """
+        self.memory.add(
+            [
+                worker.prev_state,
+                self.action,
+                worker.state,
+                worker.reward,
+                worker.done,
+            ]
+        )
 
     def render_terminal(self, worker, **kwargs) -> None:
         # policy -> render -> env.step

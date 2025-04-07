@@ -87,7 +87,7 @@ def test_on_memory_train_only_plot():
     pytest.importorskip("matplotlib")
 
     rl_config = ql_agent57.Config(batch_size=1)
-    rl_config.memory_warmup_size = 5
+    rl_config.memory.warmup_size = 5
     runner = srl.Runner("OX", rl_config)
     runner.rollout(max_memory=10)
 
@@ -225,15 +225,16 @@ def test_on_file_train_only_plot(tmp_path):
     history.plot(ylabel_left=["train"], _for_test=True)
 
 
+@pytest.mark.parametrize("enable_mp_memory", [False, True])
 @pytest.mark.parametrize("interval_mode", ["step", "time"])
-def test_on_file_mp(tmp_path, interval_mode):
+def test_on_file_mp(tmp_path, interval_mode, enable_mp_memory):
     runner = srl.Runner("OX", ql.Config())
 
     runner.set_history_on_file(tmp_path, interval_mode=interval_mode, enable_eval=True)
     if interval_mode == "step":
-        runner.train_mp(max_train_count=10)
+        runner.train_mp(max_train_count=10, enable_mp_memory=enable_mp_memory)
     else:
-        runner.train_mp(timeout=1.2)
+        runner.train_mp(timeout=1.2, enable_mp_memory=enable_mp_memory)
 
     history = runner.get_history()
     pprint(history.logs[-1])
@@ -250,14 +251,15 @@ def test_on_file_mp(tmp_path, interval_mode):
             assert False
 
 
-def test_on_file_mp_plot(tmp_path):
+@pytest.mark.parametrize("enable_mp_memory", [False, True])
+def test_on_file_mp_plot(tmp_path, enable_mp_memory):
     pytest.importorskip("pandas")
     pytest.importorskip("matplotlib")
 
     runner = srl.Runner("OX", ql.Config())
 
     runner.set_history_on_file(tmp_path, interval_mode="step", enable_eval=True)
-    runner.train_mp(max_train_count=5)
+    runner.train_mp(max_train_count=5, enable_mp_memory=enable_mp_memory)
     history = runner.get_history()
 
     df = history.get_df()

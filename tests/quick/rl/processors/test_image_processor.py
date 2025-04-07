@@ -28,14 +28,14 @@ test_pattens = (
 
 
 @pytest.mark.parametrize("env_img_type, env_img_shape, img_type, true_shape, check_val", test_pattens)
-@pytest.mark.parametrize("enable_norm", [False, True])
-def test_image(env_img_type, env_img_shape, img_type, true_shape, check_val, enable_norm):
+@pytest.mark.parametrize("normalize_type", ["", "0to1", "-1to1"])
+def test_image(env_img_type, env_img_shape, img_type, true_shape, check_val, normalize_type):
     pytest.importorskip("cv2")
 
     processor = ImageProcessor(
         image_type=img_type,
         resize=image_resize,
-        enable_norm=enable_norm,
+        normalize_type=normalize_type,
     )
     space = BoxSpace(
         low=0,
@@ -49,15 +49,18 @@ def test_image(env_img_type, env_img_shape, img_type, true_shape, check_val, ena
     # --- change space
     new_space = processor.remap_observation_space(space, env, DummyRLConfig())
     assert new_space.stype == img_type
-    if enable_norm:
+    if normalize_type == "0to1" or normalize_type == "-1to1":
         assert new_space.dtype == np.float32
     else:
         assert new_space.dtype == np.uint8
     assert isinstance(new_space, BoxSpace)
     new_space = cast(BoxSpace, new_space)
     assert new_space.shape == true_shape
-    if enable_norm:
+    if normalize_type == "0to1":
         np.testing.assert_array_equal(new_space.low, np.full(true_shape, 0))
+        np.testing.assert_array_equal(new_space.high, np.full(true_shape, 1))
+    elif normalize_type == "-1to1":
+        np.testing.assert_array_equal(new_space.low, np.full(true_shape, -1))
         np.testing.assert_array_equal(new_space.high, np.full(true_shape, 1))
     else:
         np.testing.assert_array_equal(new_space.low, np.full(true_shape, 0))
@@ -65,8 +68,10 @@ def test_image(env_img_type, env_img_shape, img_type, true_shape, check_val, ena
 
     # --- decode
     image = np.ones(env_img_shape).astype(np.uint8)  # image
-    if enable_norm:
+    if normalize_type == "0to1":
         true_state = np.ones(true_shape).astype(np.float32) / 255
+    elif normalize_type == "-1to1":
+        true_state = np.ones(true_shape).astype(np.float32) / 255 * 2 - 1
     else:
         true_state = np.ones(true_shape).astype(np.uint8)
     new_obs = cast(np.ndarray, processor.remap_observation(image, None, env))
@@ -82,7 +87,7 @@ def test_image_atari():
     processor = ImageProcessor(
         image_type=SpaceTypes.GRAY_2ch,
         resize=(84, 84),
-        enable_norm=True,
+        normalize_type="0to1",
     )
     env = srl.make_env("ALE/Tetris-v5")
     env.setup()

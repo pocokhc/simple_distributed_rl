@@ -1,6 +1,5 @@
 from typing import Tuple
 
-from srl.base.define import ObservationModes
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_long_case import CommonLongCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -30,7 +29,7 @@ class LongCase(CommonLongCase):
 
     def test_Grid(self):
         rl_config = self._create_rl_config()
-        rl_config.observation_mode = ObservationModes.RENDER_IMAGE
+        rl_config.observation_mode = "render_image"
 
         runner = self.create_test_runner("Grid", rl_config)
 
@@ -46,7 +45,7 @@ class LongCase(CommonLongCase):
         # rnn
         rl_config.train_mode = 2
         rl_config.lr = 0.001
-        rl_config.memory_warmup_size = 100
+        rl_config.memory.warmup_size = 100
         runner.train_only(max_train_count=40_000)
 
         # controller

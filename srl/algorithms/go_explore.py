@@ -1,6 +1,8 @@
+import copy
+import pickle
 import random
 from dataclasses import dataclass, field
-from typing import Any, List
+from typing import Any, List, Optional
 
 import cv2
 import numpy as np
@@ -8,7 +10,6 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.base.define import SpaceTypes
-from srl.base.env.env_run import EnvRun
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
@@ -19,42 +20,46 @@ from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.space import SpaceBase
 from srl.rl import functions as funcs
 from srl.rl.models.config.dueling_network import DuelingNetworkConfig
-from srl.rl.models.config.input_config import RLConfigComponentInput
+from srl.rl.models.config.input_image_block import InputImageBlockConfig
+from srl.rl.models.config.input_value_block import InputValueBlockConfig
 from srl.rl.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
 
 
 class DownSamplingProcessor(RLProcessor):
-    def remap_observation_space(self, env_observation_space: BoxSpace, env: EnvRun, rl_config: "Config") -> SpaceBase:
-        self.space = env_observation_space
+    def remap_observation_space(self, prev_space: SpaceBase, rl_config: "Config", **kwargs) -> Optional[SpaceBase]:
         return BoxSpace(rl_config.downsampling_size, 0, 8, np.uint8, SpaceTypes.GRAY_2ch)
 
-    def remap_observation(self, state, worker: "Worker", env: EnvRun):
+    def remap_observation(
+        self,
+        state,
+        prev_space: SpaceBase,
+        new_space: SpaceBase,
+        rl_config: "Config",
+        **kwargs,
+    ):
         # (1) color -> gray
-        if self.space.stype == SpaceTypes.COLOR:
+        if prev_space.stype == SpaceTypes.COLOR:
             state = cv2.cvtColor(state, cv2.COLOR_RGB2GRAY)
-        elif self.space.stype == SpaceTypes.GRAY_3ch:
+        elif prev_space.stype == SpaceTypes.GRAY_3ch:
             state = np.squeeze(state, axis=-1)
 
         # (2) down sampling
         state = cv2.resize(
             state,
-            (worker.config.downsampling_size[1], worker.config.downsampling_size[0]),
+            (rl_config.downsampling_size[1], rl_config.downsampling_size[0]),
             interpolation=cv2.INTER_NEAREST,
         )
 
         # (3) 255->8
-        state = np.round(state * worker.config.downsampling_val / 255.0)
+        state = np.round(state * rl_config.downsampling_val / 255.0)
 
         return state.astype(np.uint8)
 
 
 @dataclass
-class Config(
-    RLConfig,
-    RLConfigComponentInput,
-):
+class Config(RLConfig):
     #: ε-greedy parameter for Test
     test_epsilon: float = 0
     epsilon: float = 0.01
@@ -81,13 +86,25 @@ class Config(
     discount: float = 0.99
     #: Synchronization interval to Target network
     target_model_update_interval: int = 2000
+    #: <:ref:`InputValueBlockConfig`>
+    input_value_block: InputValueBlockConfig = field(default_factory=lambda: InputValueBlockConfig())
+    #: <:ref:`InputImageBlockConfig`>
+    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig())
     #: <:ref:`DuelingNetworkConfig`> hidden layer
     hidden_block: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
 
-    def get_processors(self) -> List[RLProcessor]:
-        return RLConfigComponentInput.get_processors(self)
+    def get_name(self) -> str:
+        return "Go-Explore"
 
-    def get_render_image_processors(self) -> List[RLProcessor]:
+    def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
+        if prev_observation_space.is_image():
+            return self.input_image_block.get_processors()
+        return []
+
+    def get_framework(self) -> str:
+        return "tensorflow"
+
+    def get_render_image_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
         return [DownSamplingProcessor()]
 
     def use_render_image_state(self) -> bool:
@@ -95,16 +112,6 @@ class Config(
 
     def use_backup_restore(self) -> bool:
         return True
-
-    def get_framework(self) -> str:
-        return "tensorflow"
-
-    def get_name(self) -> str:
-        return "Go-Explore"
-
-    def assert_params(self) -> None:
-        super().assert_params()
-        self.assert_params_input()
 
 
 register(
@@ -117,37 +124,89 @@ register(
 
 
 class Memory(RLMemory[Config]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
-        self.archive = {}
+    def setup(self) -> None:
         self.memory_q = []
-        self.memory_demo = []
+
+        self.register_worker_func(self.add_q, pickle.dumps)
+        self.register_trainer_recv_func(self.sample_q)
 
     def call_backup(self, **kwargs) -> Any:
-        return [self.archive, self.memory_q, self.memory_demo]
+        return self.memory_q[:]
 
     def call_restore(self, dat: Any, **kwargs) -> None:
-        self.archive = dat[0]
-        self.memory_q = dat[1]
-        self.memory_demo = dat[2]
+        self.memory_q = dat
 
     def length(self):
         return len(self.memory_q)
 
-    def add(self, mode: str, batch) -> None:
-        if mode == "archive":
-            self.archive_update(batch)
-        elif mode == "q":
-            self.memory_q.append(batch)
-            if len(self.memory_q) > self.config.memory_capacity:
-                self.memory_q.pop(0)
-        elif mode == "demo":
-            self.memory_demo.append(batch)
-            if len(self.memory_demo) > self.config.memory_capacity:
-                self.memory_demo.pop(0)
+    def add_q(self, batch, serialized: bool = False) -> None:
+        if serialized:
+            batch = pickle.loads(batch)
+        self.memory_q.append(batch)
+        if len(self.memory_q) > self.config.memory_capacity:
+            self.memory_q.pop(0)
 
-    # -----------------------------------------------
+    def sample_q(self):
+        if len(self.memory_q) < self.config.memory_warmup_size:
+            return None
+        return random.sample(self.memory_q, self.config.batch_size)
+
+
+class QNetwork(KerasModelAddedSummary):
+    def __init__(self, config: Config, **kwargs):
+        super().__init__(**kwargs)
+
+        self.space = config.observation_space
+
+        if config.observation_space.is_value():
+            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
+        elif config.observation_space.is_image():
+            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
+        else:
+            raise ValueError(config.observation_space)
+
+        self.hidden_block = config.hidden_block.create_tf_block(config.action_space.n)
+
+        # build
+        self(np.zeros((1,) + self.space.np_shape))
+        self.loss_func = keras.losses.Huber()
+
+    def call(self, x, training=False):
+        x = self.in_block(x, training=training)
+        x = self.hidden_block(x, training=training)
+        return x
+
+    @tf.function
+    def compute_train_loss(self, state, onehot_action, target_q):
+        q = self(state, training=True)
+        q = tf.reduce_sum(q * onehot_action, axis=1)
+        loss = self.loss_func(target_q, q)
+        loss += tf.reduce_sum(self.losses)  # 正則化項
+        return loss
+
+
+class Parameter(RLParameter[Config]):
+    def setup(self):
+        self.q_online = QNetwork(self.config, name="Q_online")
+        self.q_target = QNetwork(self.config, name="Q_target")
+        self.q_target.set_weights(self.q_online.get_weights())
+        self.archive = {}
+
+    def call_restore(self, data, **kwargs):
+        self.q_online.set_weights(data[0])
+        self.q_target.set_weights(data[0])
+        self.archive = copy.deepcopy(data[1])
+
+    def call_backup(self, **kwargs):
+        return [
+            self.q_online.get_weights(),
+            copy.deepcopy(self.archive),
+        ]
+
+    def summary(self, **kwargs):
+        self.q_online.summary(**kwargs)
+
+    # -------------------------------------
 
     def create_cell(self, state):
         return ",".join([str(int(n)) for n in state.flatten().tolist()])
@@ -221,10 +280,21 @@ class Memory(RLMemory[Config]):
         cell["score"] = self._calc_score(cell)
         return cell
 
-    # -----------------------------------------------
+
+class Trainer(RLTrainer[Config, Parameter, Memory]):
+    def on_setup(self) -> None:
+        self.opt_q = keras.optimizers.Adam(self.config.lr)
+        self.sync_count = 0
+
+        self.demo_buffer = []
+        self.demo_size = int(self.config.batch_size * self.config.demo_batch_rate)
+        self.demo_size = self.demo_size if self.demo_size > 0 else 1
+
+        self.create_demo_memory()
+        self.info["demo_size"] = len(self.demo_buffer)
 
     def create_demo_memory(self):
-        for cell in self.archive.values():
+        for cell in self.parameter.archive.values():
             for i in range(cell["step"]):
                 batch = [
                     cell["states"][i],
@@ -233,88 +303,28 @@ class Memory(RLMemory[Config]):
                     cell["rewards"][i],
                     cell["undone"][i],
                 ]
-                self.memory_demo.append(batch)
-
-    def sample_q(self, batch_size):
-        return random.sample(self.memory_q, batch_size)
-
-    def sample_demo(self, batch_size):
-        return random.sample(self.memory_demo, batch_size)
-
-
-class QNetwork(KerasModelAddedSummary):
-    def __init__(self, config: Config, **kwargs):
-        super().__init__(**kwargs)
-
-        self.space = config.observation_space
-
-        self.in_block = config.create_input_block_tf()
-        self.hidden_block = config.hidden_block.create_block_tf(config.action_space.n)
-
-        # build
-        self(np.zeros((1,) + self.space.np_shape))
-        self.loss_func = keras.losses.Huber()
-
-    def call(self, x, training=False):
-        x = self.in_block(x, training=training)
-        x = self.hidden_block(x, training=training)
-        return x
-
-    @tf.function
-    def compute_train_loss(self, state, onehot_action, target_q):
-        q = self(state, training=True)
-        q = tf.reduce_sum(q * onehot_action, axis=1)
-        loss = self.loss_func(target_q, q)
-        loss += tf.reduce_sum(self.losses)  # 正則化項
-        return loss
-
-
-class Parameter(RLParameter[Config]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
-        self.q_online = QNetwork(self.config, name="Q_online")
-        self.q_target = QNetwork(self.config, name="Q_target")
-        self.q_target.set_weights(self.q_online.get_weights())
-
-    def call_restore(self, data, **kwargs):
-        self.q_online.set_weights(data)
-        self.q_target.set_weights(data)
-
-    def call_backup(self, **kwargs):
-        return self.q_online.get_weights()
-
-    def summary(self, **kwargs):
-        self.q_online.summary(**kwargs)
-
-
-class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
-        self.opt_q = keras.optimizers.Adam(self.config.lr)
-        self.sync_count = 0
+                self.demo_buffer.append(batch)
 
     def train(self) -> None:
-        if len(self.memory.memory_q) < self.config.memory_warmup_size:
+        batches = self.memory.sample_q()
+        if batches is None:
             return
-        batchs = self.memory.sample_q(self.config.batch_size)
+
         state = []
         n_state = []
         action = []
         reward = []
         undone = []
-        for b in batchs:
+        for b in batches:
             state.append(b[0])
             n_state.append(b[1])
             action.append(b[2])
             reward.append(b[3])
             undone.append(b[4])
-        demo_size = int(self.config.batch_size * self.config.demo_batch_rate)
-        demo_size = demo_size if demo_size > 0 else 1
-        if len(self.memory.memory_demo) > demo_size:
-            batchs = self.memory.sample_demo(demo_size)
-            for b in batchs:
+
+        if len(self.demo_buffer) > self.demo_size:
+            batches = random.sample(self.demo_buffer, self.demo_size)
+            for b in batches:
                 state.append(b[0])
                 n_state.append(b[1])
                 action.append(b[2])
@@ -351,33 +361,41 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.train_count += 1
 
 
-class Worker(RLWorker[Config, Parameter]):
+class Worker(RLWorker[Config, Parameter, Memory]):
     def on_setup(self, worker, context):
         assert not self.distributed
-        self.memory: Memory = self.memory
         self.screen = None
-
-        if self.training and not self.rollout:
-            self.memory.create_demo_memory()
-            self.info["demo_size"] = len(self.memory.memory_demo)
 
     def on_reset(self, worker):
         if self.rollout:
             self.action = self.sample_action()
-            batch = [
-                worker.render_img_state,
-                [worker.state],
-                [],
-                [],
-                [],
-                0,
-                0,
-                worker.backup(),
+            """
+            [
+                render_image,
+                states,
+                actions,
+                rewards,
+                undone,
+                step,
+                total_reward,
+                backup,
             ]
-            self.memory.add("archive", batch)
+            """
+            self.parameter.archive_update(
+                [
+                    worker.render_image_state,
+                    [worker.state],
+                    [],
+                    [],
+                    [],
+                    0,
+                    0,
+                    worker.backup(),
+                ]
+            )
 
             self.cell_step = 0
-            cell = self.memory.archive_select()
+            cell = self.parameter.archive_select()
             if cell is not None:
                 worker.restore(cell["backup"])
                 self.episode_step = cell["step"]
@@ -423,41 +441,55 @@ class Worker(RLWorker[Config, Parameter]):
             self.recent_actions.append(funcs.one_hot(worker.action, self.config.action_space.n))
             self.recent_rewards.append(worker.reward)
             self.recent_undone.append(int(not worker.terminated))
-            batch = [
-                worker.render_img_state,
-                self.recent_states[:],
-                self.recent_actions[:],
-                self.recent_rewards[:],
-                self.recent_undone[:],
-                self.episode_step,
-                self.episode_reward,
-                worker.backup(),
+            """
+            [
+                render_image,
+                states,
+                actions,
+                rewards,
+                undone,
+                step,
+                total_reward,
+                backup,
             ]
-            self.memory.add("archive", batch)
-            self.info["archive_size"] = len(self.memory.archive)
+            """
+            self.parameter.archive_update(
+                [
+                    worker.render_image_state,
+                    self.recent_states[:],
+                    self.recent_actions[:],
+                    self.recent_rewards[:],
+                    self.recent_undone[:],
+                    self.episode_step,
+                    self.episode_reward,
+                    worker.backup(),
+                ]
+            )
+            self.info["archive_size"] = len(self.parameter.archive)
 
             self.cell_step += 1
             if self.cell_step > self.config.explore_max_step:
                 worker.env.abort_episode()
 
         else:
-            batch = [
-                worker.prev_state,
-                worker.state,
-                funcs.one_hot(worker.action, self.config.action_space.n),
-                worker.reward,
-                int(not worker.terminated),
-            ]
-            self.memory.add("q", batch)
+            self.memory.add_q(
+                [
+                    worker.prev_state,
+                    worker.state,
+                    funcs.one_hot(worker.action, self.config.action_space.n),
+                    worker.reward,
+                    int(not worker.terminated),
+                ]
+            )
 
     def render_terminal(self, worker, **kwargs) -> None:
         # policy -> render -> env.step -> on_step
 
         # --- archive
-        print(f"size: {len(self.memory.archive)}")
-        key = self.memory.create_cell(worker.render_img_state)
-        if key in self.memory.archive:
-            cell = self.memory.archive[key]
+        print(f"size: {len(self.parameter.archive)}")
+        key = self.parameter.create_cell(worker.render_image_state)
+        if key in self.parameter.archive:
+            cell = self.parameter.archive[key]
             print(f"step        : {cell['step']}")
             print(f"total_reward: {cell['total_reward']}")
             print(f"score       : {cell['score']}")

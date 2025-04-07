@@ -1,39 +1,40 @@
 import logging
 import pickle
 from abc import ABC
-from typing import TYPE_CHECKING, Any
+from typing import Any, Optional
 
 from srl.base.spaces.space import SpaceBase
-
-if TYPE_CHECKING:
-    from srl.base.env.env_run import EnvRun
 
 logger = logging.getLogger(__name__)
 
 
 class EnvProcessor(ABC):
+    def remap_action_space(self, prev_space: SpaceBase, **kwargs) -> Optional[SpaceBase]:
+        """新しいSpaceを返す。適用しない場合はNoneを返す"""
+        return None
 
-    def remap_action_space(self, action_space: SpaceBase, env: "EnvRun") -> SpaceBase:
-        return action_space
+    def remap_observation_space(self, prev_space: SpaceBase, **kwargs) -> Optional[SpaceBase]:
+        """新しいSpaceを返す。適用しない場合はNoneを返す"""
+        return None
 
-    def remap_observation_space(self, observation_space: SpaceBase, env: "EnvRun") -> SpaceBase:
-        return observation_space
-
-    def setup(self, env: "EnvRun"):
+    def setup(self, **kwargs):
         pass
 
     # --- 実装されている場合に実行
-    # def remap_reset(self, state, env: "EnvRun") -> None:
+    # def remap_reset(self, **kwargs) -> None:
     #    return state
 
-    # def remap_step_action(self, action, env: "EnvRun"):
+    # def remap_action(self, action, prev_space: SpaceBase, new_space: SpaceBase, **kwargs):
     #    return action
 
-    # def remap_step(self, state, rewards: List[float], terminated: bool, truncated: bool, env: "EnvRun"):
-    #    return state, rewards, terminated, truncated
-
-    # def remap_step_invalid_actions(self, invalid_actions, env: "EnvRun"):
+    # def remap_invalid_actions(self, invalid_actions, prev_space: SpaceBase, new_space: SpaceBase, **kwargs):
     #    return invalid_actions
+
+    # def remap_observation(self, state: EnvObservationType, prev_space: SpaceBase, new_space: SpaceBase, **kwargs) -> EnvObservationType:
+    #    return state
+
+    # def remap_step(self, rewards: List[float], terminated: bool, truncated: bool, **kwargs):
+    #    return rewards, terminated, truncated
 
     def backup(self) -> Any:
         return None

@@ -6,7 +6,6 @@ import pytest
 from srl.algorithms import dqn
 from srl.base.context import RunContext, RunNameTypes
 from srl.base.env.config import EnvConfig
-from srl.utils import common
 
 
 class NotJsonClass:
@@ -20,7 +19,6 @@ def test_to_dict(framework):
         pytest.importorskip("tensorflow")
     elif framework == "torch":
         pytest.importorskip("torch")
-    common.logger_print()
 
     env_config = EnvConfig("Grid")
     rl_config = dqn.Config()
@@ -40,14 +38,16 @@ def test_to_dict(framework):
         (dqn.Config(), rl_config.make_parameter().backup()),
     ]
     if framework == "tensorflow":
+        assert isinstance(c.players[3], dqn.Config)
         c.players[3].set_tensorflow()
     elif framework == "torch":
+        assert isinstance(c.players[3], dqn.Config)
         c.players[3].set_torch()
 
     def _dummy():
         return 1
 
-    env_config.gym_make_func = _dummy  # type: ignore
+    env_config.gym_make_func = _dummy
     env_config.kwargs = {"a": 1, "not_json_class": NotJsonClass()}
 
     json_dict = c.to_dict()

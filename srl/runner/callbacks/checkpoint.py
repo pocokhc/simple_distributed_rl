@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Union
 
 from srl.base.context import RunContext
-from srl.base.run.callback import RunCallback, TrainCallback
+from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.callbacks.evaluate import Evaluate
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class Checkpoint(RunCallback, TrainCallback, Evaluate):
+class Checkpoint(RunCallback, Evaluate):
     save_dir: str = "checkpoints"
     interval: int = 60 * 20  # s
 

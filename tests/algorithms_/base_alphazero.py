@@ -14,7 +14,7 @@ class QuickCase(CommonQuickCase):
 
         rl_config.num_simulations = 2
         rl_config.sampling_steps = 2
-        rl_config.memory_warmup_size = 2
+        rl_config.memory.warmup_size = 2
         rl_config.batch_size = 2
         rl_config.input_image_block.set_alphazero_block(1, 2)
         rl_config.value_block.set((2, 2))
@@ -34,10 +34,10 @@ class LongCase(CommonLongCase):
             batch_size=32,
             discount=1.0,
         )
-        rl_config.lr = rl_config.create_scheduler()
-        rl_config.lr.add_constant(100, 0.02)
-        rl_config.lr.add_constant(1000, 0.002)
-        rl_config.lr.add_constant(1, 0.0002)
+        rl_config.lr_scheduler.set_piecewise(
+            [100, 1100],
+            [0.02, 0.002, 0.0002],
+        )
         rl_config.input_image_block.set_alphazero_block(1, 32)
         rl_config.value_block.set((32,))
         return rl_config
@@ -45,7 +45,7 @@ class LongCase(CommonLongCase):
     def test_Grid(self):
         rl_config = self._create_rl_config()
         rl_config.discount = 0.9
-        rl_config.memory_warmup_size = 100
+        rl_config.memory.warmup_size = 100
         runner = self.create_test_runner("Grid-layer", rl_config)
         runner.train(max_train_count=1000)
         assert runner.evaluate_compare_to_baseline_single_player()
@@ -53,6 +53,7 @@ class LongCase(CommonLongCase):
     def test_OX(self):
         rl_config = self._create_rl_config()
         rl_config.value_type = "rate"
+        rl_config.memory.warmup_size = 100
         runner = self.create_test_runner("OX-layer", rl_config)
         runner.train(max_train_count=200)
 
@@ -62,6 +63,7 @@ class LongCase(CommonLongCase):
     def test_OX_mp(self):
         rl_config = self._create_rl_config()
         rl_config.value_type = "rate"
+        rl_config.memory.warmup_size = 100
         runner = self.create_test_runner("OX-layer", rl_config)
         runner.set_seed(2)
         runner.train_mp(max_train_count=300)
@@ -73,11 +75,11 @@ class LongCase(CommonLongCase):
         rl_config = self._create_rl_config()
         rl_config.value_type = "rate"
         rl_config.batch_size = 32
-        rl_config.memory_warmup_size = 500
-        rl_config.lr = rl_config.create_scheduler()
-        rl_config.lr.add_constant(1000, 0.001)
-        rl_config.lr.add_constant(5000, 0.0005)
-        rl_config.lr.add_constant(1, 0.0002)
+        rl_config.memory.warmup_size = 500
+        rl_config.lr_scheduler.set_piecewise(
+            [1000, 6000],
+            [0.001, 0.0005, 0.0002],
+        )
         rl_config.input_image_block.set_alphazero_block(9, 32)
         rl_config.value_block.set((16, 16))
         rl_config.policy_block.set((32,))

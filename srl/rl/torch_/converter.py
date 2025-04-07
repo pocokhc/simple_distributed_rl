@@ -18,25 +18,31 @@ def convert_activation_torch(activation: str):
     raise ValueError(activation)
 
 
-def set_initializer_torch(x, initializer: str):
+def apply_initializer_torch(x, initializer: str):
+    """
+    指定された initializer を使用してテンソル x を初期化する。
+
+    :param x: 初期化対象のテンソル
+    :param initializer: 初期化関数名（例: "he_normal", "glorot_uniform"）
+    :return: 初期化後のテンソル
+    """
+
+    import torch
     import torch.nn.init as init
 
-    initializer = initializer.lower()
+    with torch.no_grad():
+        initializer = initializer.lower()
 
-    if "he_normal" == initializer:
-        return init.kaiming_normal_(x, mode="fan_in", nonlinearity="relu")
+        if "he_normal" == initializer:
+            return init.kaiming_normal_(x, mode="fan_in", nonlinearity="relu")
 
-    if "glorot_uniform" == initializer:
-        return init.xavier_uniform_(x)
+        if "glorot_uniform" == initializer:
+            return init.xavier_uniform_(x)
 
-    if hasattr(init, initializer):
-        return getattr(init, initializer)(x)
+        # init モジュール内の関数を検索
+        available_inits = {name.lower().replace("_", ""): name for name in dir(init) if not name.startswith("_")}
 
-    for name in dir(init):
-        if name.startswith("_"):
-            continue
-        name2 = name.replace("_", "")
-        if initializer == name2.lower():
-            return getattr(init, name)(x)
+        if initializer in available_inits:
+            return getattr(init, available_inits[initializer])(x)
 
-    raise ValueError(initializer)
+    raise ValueError(f"Unknown initializer: {initializer}")

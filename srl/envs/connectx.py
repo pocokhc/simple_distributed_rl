@@ -5,7 +5,7 @@ from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 
-from srl.base.define import EnvActionType, SpaceTypes
+from srl.base.define import SpaceTypes
 from srl.base.env import registration
 from srl.base.env.base import EnvBase
 from srl.base.env.env_run import EnvRun
@@ -112,7 +112,7 @@ class ConnectX(EnvBase):
                         _field[y][x][1] = 1
             return _field
         else:
-            return self.board
+            return self.board[:]
 
     def step(self, action: int) -> Tuple[Any, List[float], bool, bool]:
         column = action
@@ -237,7 +237,7 @@ class AlphaBeta(EnvWorker):
         self.timeout = timeout
         self.equal_cut = equal_cut
 
-    def call_policy(self, env: EnvRun) -> Tuple[EnvActionType, dict]:
+    def call_policy(self, env: EnvRun):
         self._count = 0
         self.t0 = time.time()
         scores, action = self._alphabeta(cast(ConnectX, cast(ConnectX, env.unwrapped).copy()))
@@ -252,7 +252,7 @@ class AlphaBeta(EnvWorker):
         self._time = time.time() - self.t0
 
         # action = int(np.random.choice(np.where(scores == scores.max())[0]))
-        return action, {}
+        return action
 
     def _alphabeta(self, env: ConnectX, alpha=-np.inf, beta=np.inf, depth: int = 0):
         if depth == self.max_depth:

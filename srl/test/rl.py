@@ -1,8 +1,6 @@
 import logging
 from pathlib import Path
-from typing import List, Union, cast
-
-import numpy as np
+from typing import List, Literal, Union
 
 import srl
 from srl.base.env.config import EnvConfig
@@ -18,7 +16,8 @@ def test_rl(
     use_layer_processor: bool = False,
     device: str = "AUTO",
     test_train_kwargs: dict = dict(max_train_count=2),
-    test_mp: bool = False,
+    test_mode: Literal["", "rollout", "mp"] = "",
+    enable_mp_memory: bool = True,
     test_render_terminal: bool = True,
     test_render_window: bool = True,
     test_backup: bool = True,
@@ -51,18 +50,39 @@ def test_rl(
         runner.set_device(device)
 
         # --- test train
-        if not test_mp:
+        if test_mode == "":
             print(f"--- {test_env_config.name} sequence test start ---")
             state = runner.train(**train_kwargs_)
             assert state.trainer is not None
             if train_kwargs_.get("max_train_count", 0) > 0:
                 assert state.trainer.get_train_count() > 0
-        else:
+
+        elif test_mode == "rollout":
+            warmup_size = 0
+            if hasattr(rl_config, "memory"):
+                if hasattr(rl_config.memory, "warmup_size"):  # type: ignore
+                    warmup_size = rl_config.memory.warmup_size  # type: ignore
+            print(f"--- {test_env_config.name} rollout test start {warmup_size=}---")
+            if warmup_size <= 0:
+                runner.rollout(timeout=5)
+            else:
+                runner.rollout(max_memory=warmup_size + 1)
+
+            runner.save_memory(str(tmp_dir_path / "_tmp.dat"))
+            runner.load_memory(str(tmp_dir_path / "_tmp.dat"))
+            state = runner.train_only(**test_train_kwargs)
+            assert state.trainer is not None
+            if train_kwargs_.get("max_train_count", 0) > 0:
+                assert state.trainer.get_train_count() > 0
+
+        elif test_mode == "mp":
             print(f"--- {test_env_config.name} mp check start ---")
             if "max_steps" in train_kwargs_:
                 train_kwargs_["max_train_count"] = train_kwargs_["max_steps"]
                 del train_kwargs_["max_steps"]
-            runner.train_mp(actor_num=2, **train_kwargs_)
+            runner.train_mp(actor_num=2, enable_mp_memory=enable_mp_memory, **train_kwargs_)
+        else:
+            raise ValueError(test_mode)
 
         # --- test eval
         runner.evaluate(max_episodes=2, max_steps=5)
@@ -97,6 +117,7 @@ def test_rl_rulebase(
         timeout=-1,
     ),
     test_mp: bool = False,
+    enable_mp_memory: bool = True,
     test_render_terminal: bool = True,
     test_render_window: bool = True,
     test_backup: bool = True,
@@ -109,6 +130,7 @@ def test_rl_rulebase(
         device,
         test_train_kwargs,
         test_mp,
+        enable_mp_memory,
         test_render_terminal,
         test_render_window,
         test_backup,

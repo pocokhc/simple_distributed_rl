@@ -3,7 +3,6 @@ from typing import Tuple
 import pytest
 
 import srl
-from srl.base.define import ObservationModes
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_long_case import CommonLongCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -24,9 +23,9 @@ class QuickCase(CommonQuickCase):
             num_simulations=2,
             print_ga_debug=False,
         )
-        rl_config.memory_warmup_size = 2
+        rl_config.memory.warmup_size = 2
 
-        rl_config.observation_mode = ObservationModes.RENDER_IMAGE
+        rl_config.observation_mode = "render_image"
         return rl_config, {}
 
 
@@ -59,8 +58,8 @@ class LongCase(CommonLongCase):
         env_config.max_episode_steps = 20
 
         rl_config = self._create_rl_config()
-        rl_config.memory_warmup_size = rl_config.batch_size + 1
-        rl_config.observation_mode = ObservationModes.RENDER_IMAGE
+        rl_config.memory.warmup_size = rl_config.batch_size + 1
+        rl_config.observation_mode = "render_image"
 
         runner = self.create_test_runner(env_config, rl_config)
 
@@ -76,8 +75,8 @@ class LongCase(CommonLongCase):
         env_config.max_episode_steps = 20
 
         rl_config = self._create_rl_config()
-        rl_config.memory_warmup_size = rl_config.batch_size + 1
-        rl_config.observation_mode = ObservationModes.RENDER_IMAGE
+        rl_config.memory.warmup_size = rl_config.batch_size + 1
+        rl_config.observation_mode = "render_image"
 
         runner = self.create_test_runner(env_config, rl_config)
 
@@ -111,8 +110,8 @@ class LongCase(CommonLongCase):
             num_simulations=5,
             print_ga_debug=False,
         )
-        rl_config.memory_warmup_size = rl_config.batch_size + 1
-        rl_config.observation_mode = ObservationModes.RENDER_IMAGE
+        rl_config.memory.warmup_size = rl_config.batch_size + 1
+        rl_config.observation_mode = "render_image"
 
         runner = self.create_test_runner(env_config, rl_config)
 

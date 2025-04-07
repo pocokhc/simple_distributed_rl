@@ -137,7 +137,7 @@ def test_server_trainer(mocker: pytest_mock.MockerFixture, server, dist_option):
 
     # --- create task
     rl_config = ql_agent57.Config()
-    rl_config.memory_warmup_size = 10
+    rl_config.memory.warmup_size = 10
     rl_config.batch_size = 1
     context = srl.RunContext(srl.EnvConfig("Grid"), rl_config)
     context.rl_config.setup(context.env_config.make())

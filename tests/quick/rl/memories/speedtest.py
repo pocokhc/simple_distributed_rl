@@ -5,19 +5,19 @@ import numpy as np
 from tqdm import tqdm
 
 from srl.rl.memories.priority_memories.proportional_memory import ProportionalMemory
-from srl.rl.memories.priority_memories.rankbase_memory import RankBaseMemory
-from srl.rl.memories.priority_memories.rankbase_memory_linear import RankBaseMemoryLinear
-from srl.rl.memories.priority_memories.replay_memory import ReplayMemory
+from srl.rl.memories.priority_memories.rankbased_memory import RankBasedMemory
+from srl.rl.memories.priority_memories.rankbased_memory_linear import RankBasedMemoryLinear
+from srl.rl.memories.priority_memories.replay_buffer import ReplayBuffer
 
 
 def speed_test():
     capacity = 1_000_000
 
     memories = [
-        ReplayMemory(capacity),
+        ReplayBuffer(capacity),
         ProportionalMemory(capacity, 0.8, 0.4, 1000, has_duplicate=True),
-        RankBaseMemory(capacity, 0.8, 0.4, 1000),
-        RankBaseMemoryLinear(capacity, 0.8, 0.4, 1000),
+        RankBasedMemory(capacity, 0.8, 0.4, 1000),
+        RankBasedMemoryLinear(capacity, 0.8, 0.4, 1000),
     ]
 
     for memory in memories:
@@ -45,13 +45,9 @@ def _speed_test(memory):
         step += 1
 
         # sample
-        (batchs, weights, update_args) = memory.sample(batch_size, step)
-        assert len(batchs) == batch_size
+        (batches, weights, update_args) = memory.sample(batch_size, step)
+        assert len(batches) == batch_size
         assert len(weights) == batch_size
-
-        # 重複がないこと
-        # li_uniq = list(set(batchs))
-        # assert len(li_uniq) == batch_size
 
         # update priority
         memory.update(update_args, [random.random() for _ in range(batch_size)])
@@ -79,8 +75,8 @@ def batch_speed_test():
     # --- for array
     t0 = time.time()
     for _ in tqdm(range(try_times)):
-        batchs = random.sample(buffer_arr, batch_size)
-        states, actions, rewards, next_states, dones = zip(*batchs)
+        batches = random.sample(buffer_arr, batch_size)
+        states, actions, rewards, next_states, dones = zip(*batches)
         states = np.array(states)
         actions = np.array(actions)
         rewards = np.array(rewards)
@@ -91,8 +87,8 @@ def batch_speed_test():
     # --- for asarray
     t0 = time.time()
     for _ in tqdm(range(try_times)):
-        batchs = random.sample(buffer_arr, batch_size)
-        states, actions, rewards, next_states, dones = zip(*batchs)
+        batches = random.sample(buffer_arr, batch_size)
+        states, actions, rewards, next_states, dones = zip(*batches)
         states = np.asarray(states)
         actions = np.asarray(actions)
         rewards = np.asarray(rewards)
@@ -103,12 +99,12 @@ def batch_speed_test():
     # --- for array one line
     t0 = time.time()
     for _ in tqdm(range(try_times)):
-        batchs = random.sample(buffer_arr, batch_size)
-        states = np.array([b[0] for b in batchs])
-        actions = np.array([b[1] for b in batchs])
-        rewards = np.array([b[2] for b in batchs])
-        next_states = np.array([b[3] for b in batchs])
-        dones = np.array([b[4] for b in batchs])
+        batches = random.sample(buffer_arr, batch_size)
+        states = np.array([b[0] for b in batches])
+        actions = np.array([b[1] for b in batches])
+        rewards = np.array([b[2] for b in batches])
+        next_states = np.array([b[3] for b in batches])
+        dones = np.array([b[4] for b in batches])
     print("for array one line: {}s".format(time.time() - t0))
 
     # --- for dict
@@ -135,15 +131,15 @@ def batch_speed_test():
     # --- for dict one line
     t0 = time.time()
     for _ in tqdm(range(try_times)):
-        batchs = random.sample(buffer_dict, batch_size)
-        states = np.array([b["states"] for b in batchs])
-        actions = np.array([b["actions"] for b in batchs])
-        rewards = np.array([b["rewards"] for b in batchs])
-        next_states = np.array([b["next_states"] for b in batchs])
-        dones = np.array([b["dones"] for b in batchs])
+        batches = random.sample(buffer_dict, batch_size)
+        states = np.array([b["states"] for b in batches])
+        actions = np.array([b["actions"] for b in batches])
+        rewards = np.array([b["rewards"] for b in batches])
+        next_states = np.array([b["next_states"] for b in batches])
+        dones = np.array([b["dones"] for b in batches])
     print("for dict one line: {}s".format(time.time() - t0))
 
 
 if __name__ == "__main__":
-    # speed_test()
-    batch_speed_test()
+    speed_test()
+    # batch_speed_test()

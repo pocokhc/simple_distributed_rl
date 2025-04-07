@@ -78,28 +78,27 @@ class SumTree:
     right    : 2i+2
     parent   : (i-1)/2
     data -> tree index : j + N - 1
-    tree index -> data : i - N + 1
+    tree index -> data : i - N
 
     --- N=5
     data_index, tree_index: priority
-    0, 4: 10
-    1, 5: 2
-    2, 6: 5
-    3, 7: 8
-    4, 8: 4
+    0, 5: 10
+    1, 6: 2
+    2, 7: 5
+    3, 8: 8
+    4, 9: 4
 
     index tree
-         0
-       1─┴─2
-      3┴4 5┴6
-     7┴8
+          0
+       1──┴──2
+     3─┴─4  5┴6
+    7┴8 9┘
 
     priority tree
-          29
-       22──┴──7
-      12┴10  2┴5
-     8┴4
-
+         29
+      17──┴──12
+    13─┴─4  10┴2
+    5┴8 4┘
     """
 
     def __init__(self, capacity):
@@ -196,7 +195,7 @@ class ProportionalMemory(IPriorityMemory):
 
     def sample(self, batch_size: int, step: int):
         indices = []
-        batchs = []
+        batches = []
         weights = np.empty(batch_size, dtype=self.dtype)
         total = self.tree.total()
 
@@ -214,12 +213,12 @@ class ProportionalMemory(IPriorityMemory):
                 idx, priority, batch = self.tree.get(r)
 
                 # 重複を許可しない場合はやり直す
-                if idx in indices and not self.has_duplicate:
+                if (idx in indices) and (not self.has_duplicate):
                     continue
                 break
 
             indices.append(idx)
-            batchs.append(batch)
+            batches.append(batch)
 
             # 重要度サンプリングを計算 w = (N * pi)
             prob = priority / total
@@ -228,7 +227,7 @@ class ProportionalMemory(IPriorityMemory):
         # 最大値で正規化
         weights = weights / weights.max()
 
-        return batchs, weights, indices
+        return batches, weights, indices
 
     def update(self, indices: List[Any], priorities: np.ndarray) -> None:
         priorities = (np.abs(priorities) + self.epsilon) ** self.alpha
@@ -239,14 +238,29 @@ class ProportionalMemory(IPriorityMemory):
                 self.max_priority = priority
 
     def backup(self):
-        data = []
-        for i in range(self.size):
-            d = self.tree.data[i]
-            priority = self.tree.tree[i + self.capacity - 1]
-            data.append([d, priority])
-        return data
+        return [
+            self.capacity,
+            self.max_priority,
+            self.size,
+            self.tree.write,
+            self.tree.tree[:],
+            self.tree.data[:],
+        ]
 
     def restore(self, data):
-        self.clear()
-        for d in data:
-            self.add(d[0], d[1], _restore_skip=True)
+        if self.capacity == data[0]:
+            self.max_priority = data[1]
+            self.size = data[2]
+            self.tree.write = data[3]
+            self.tree.tree = data[4][:]
+            self.tree.data = data[5][:]
+        else:
+            self.clear()
+            capacity = data[0]
+            size = data[2]
+            tree = data[4]
+            tree_data = data[5]
+            for i in range(size):
+                d = tree_data[i]
+                priority = tree[i + capacity - 1]
+                self.add(d, priority, _restore_skip=True)

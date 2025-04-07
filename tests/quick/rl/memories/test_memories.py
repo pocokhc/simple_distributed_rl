@@ -1,39 +1,31 @@
-from dataclasses import dataclass
-
 import numpy as np
-
-from srl.base.rl.config import DummyRLConfig
-from srl.base.rl.memory import RLMemory
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
-from srl.rl.memories.priority_experience_replay import (
-    PriorityExperienceReplay,
-    RLConfigComponentPriorityExperienceReplay,
-)
-from srl.rl.memories.sequence_memory import SequenceMemory
+import pytest
 
 
-def test_sequence_memory():
-    memory = SequenceMemory(DummyRLConfig())
+def test_single_use_buffer():
+    from srl.rl.memories.single_use_buffer import SingleUseBuffer
+
+    memory = SingleUseBuffer()
     assert memory.length() == 0
 
     memory.add((1, "A", [2, 2, 2]))
     memory.add((2, "B", [3, 3, 3]))
     assert memory.length() == 2
 
-    memory.restore(memory.backup(compress=False))
+    memory.call_restore(memory.call_backup())
     assert memory.length() == 2
 
-    memory.restore(memory.backup(compress=True))
+    memory.call_restore(memory.call_backup())
     assert memory.length() == 2
 
-    batchs = memory.sample()
+    batches = memory.sample()
     assert memory.length() == 0
-    assert len(batchs) == 2
-    assert batchs[0][0] == 1
+    assert len(batches) == 2
+    assert batches[0][0] == 1
 
 
 def _play_memory_sub(
-    memory: RLMemory,
+    memory,
     capacity: int,
     warmup_size: int,
     batch_size: int,
@@ -42,88 +34,116 @@ def _play_memory_sub(
     assert memory.length() == 0
     assert warmup_size <= capacity
 
+    # --- warmup前のsampleはNone
+    batches = memory.sample()
+    assert batches is None
+
     # --- warmup
+    assert capacity < 100
     for i in range(100):
         memory.add((i, i, i, i))
     assert memory.length() == capacity
 
-    # --- サイズ以上をsampleした場合の動作は未定義
-    # with pytest.raises(ValueError) as e:
-    #    memory.sample(0, batch_size=200)
-
-    memory.restore(memory.backup(compress=True))
+    memory.call_restore(memory.call_backup())
     assert memory.length() == capacity
+    assert memory.length() > warmup_size
 
     # --- loop
     for i in range(100):
         if not is_priority:
-            batchs = memory.sample()
-            assert len(batchs) == 5
+            batches = memory.sample()
+            assert len(batches) == batch_size
             assert memory.length() == capacity
         else:
-            batchs, weights, update_args = memory.sample(i)
-            assert len(batchs) == 5
-            assert len(weights) == 5
+            # sampleとupdateがずれても問題ないようにする
+            batches1, weights1, update_args1 = memory.sample(i)
+            assert len(batches1) == batch_size
+            assert len(weights1) == batch_size
+            assert isinstance(weights1, np.ndarray)
+            assert weights1.dtype == np.float32
 
-            memory.update(update_args, np.array([b[3] for b in batchs]))
+            batches2, weights2, update_args2 = memory.sample(i)
+            assert len(batches2) == batch_size
+            assert len(weights2) == batch_size
+
+            memory.update(update_args1, np.array([b[3] for b in batches1]), i)
+
+            batches3, weights3, update_args3 = memory.sample(i)
+            assert len(batches3) == batch_size
+            assert len(weights3) == batch_size
+
+            memory.update(update_args2, np.array([b[3] for b in batches2]), i)
+            memory.update(update_args3, np.array([b[3] for b in batches3]), i)
             assert memory.length() == capacity
 
 
-def test_experience_replay_buffer():
+@pytest.mark.parametrize("compress", [False, True])
+def test_replay_buffer(compress):
+    from srl.rl.memories.replay_buffer import ReplayBuffer, ReplayBufferConfig
+
     capacity = 10
     warmup_size = 5
     batch_size = 5
 
-    @dataclass
-    class C(DummyRLConfig, RLConfigComponentExperienceReplayBuffer):
-        pass
-
-    conf = C()
-    conf.memory_capacity = capacity
-    conf.memory_warmup_size = warmup_size
-    conf.batch_size = batch_size
-
-    memory = ExperienceReplayBuffer(conf)
+    memory = ReplayBuffer(ReplayBufferConfig(capacity, warmup_size, compress), batch_size)
     _play_memory_sub(memory, capacity, warmup_size, batch_size, is_priority=False)
 
 
-def _play_priority_memories(conf: RLConfigComponentPriorityExperienceReplay):
+@pytest.mark.parametrize("compress", [False, True])
+def test_priority_replay_buffer(compress):
+    from srl.rl.memories.priority_replay_buffer import PriorityReplayBuffer, PriorityReplayBufferConfig
+
     capacity = 10
     warmup_size = 5
     batch_size = 5
 
-    conf.memory_capacity = capacity
-    conf.memory_warmup_size = warmup_size
-    conf.batch_size = batch_size
-
-    memory = PriorityExperienceReplay(conf)
+    memory = PriorityReplayBuffer(
+        PriorityReplayBufferConfig(capacity, warmup_size, compress).set_replay_buffer(),
+        batch_size,
+    )
     _play_memory_sub(memory, capacity, warmup_size, batch_size, is_priority=True)
 
 
-@dataclass
-class _C_PER(DummyRLConfig, RLConfigComponentPriorityExperienceReplay):
-    pass
+@pytest.mark.parametrize("compress", [False, True])
+def test_priority_proportional_memory(compress):
+    from srl.rl.memories.priority_replay_buffer import PriorityReplayBuffer, PriorityReplayBufferConfig
+
+    capacity = 10
+    warmup_size = 5
+    batch_size = 5
+
+    memory = PriorityReplayBuffer(
+        PriorityReplayBufferConfig(capacity, warmup_size, compress).set_proportional(),
+        batch_size,
+    )
+    _play_memory_sub(memory, capacity, warmup_size, batch_size, is_priority=True)
 
 
-def test_replay_memory():
-    conf = _C_PER()
-    conf.set_replay_memory()
-    _play_priority_memories(conf)
+@pytest.mark.parametrize("compress", [False, True])
+def test_priority_rankbased_memory(compress):
+    from srl.rl.memories.priority_replay_buffer import PriorityReplayBuffer, PriorityReplayBufferConfig
+
+    capacity = 10
+    warmup_size = 5
+    batch_size = 5
+
+    memory = PriorityReplayBuffer(
+        PriorityReplayBufferConfig(capacity, warmup_size, compress).set_rankbased(),
+        batch_size,
+    )
+    _play_memory_sub(memory, capacity, warmup_size, batch_size, is_priority=True)
 
 
-def test_proportional_memory():
-    conf = _C_PER()
-    conf.set_proportional_memory()
-    _play_priority_memories(conf)
+@pytest.mark.parametrize("compress", [False, True])
+def test_priority_rankbased_memory_linear(compress):
+    from srl.rl.memories.priority_replay_buffer import PriorityReplayBuffer, PriorityReplayBufferConfig
 
+    capacity = 10
+    warmup_size = 5
+    batch_size = 5
 
-def test_rankbase_memory():
-    conf = _C_PER()
-    conf.set_rankbase_memory()
-    _play_priority_memories(conf)
-
-
-def test_rankbase_memory_linear():
-    conf = _C_PER()
-    conf.set_rankbase_memory_linear()
-    _play_priority_memories(conf)
+    memory = PriorityReplayBuffer(
+        PriorityReplayBufferConfig(capacity, warmup_size, compress).set_rankbased_linear(),
+        batch_size,
+    )
+    _play_memory_sub(memory, capacity, warmup_size, batch_size, is_priority=True)

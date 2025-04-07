@@ -9,7 +9,7 @@ from srl.base.context import RunContext, RunNameTypes
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.run import core_train_only
-from srl.base.run.callback import TrainCallback
+from srl.base.run.callback import RunCallback
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.base.system.device import setup_device
 from srl.runner.distribution.callback import TrainerServerCallback
@@ -110,7 +110,7 @@ def _parameter_communicate(
         logger.info("trainer parameter thread end.")
 
 
-class _TrainerInterruptThread(TrainCallback):
+class _TrainerInterruptThread(RunCallback):
     def __init__(self, memory_ps: threading.Thread, parameter_ps: threading.Thread, share_data: _ShareData) -> None:
         self.memory_ps = memory_ps
         self.parameter_ps = parameter_ps
@@ -134,7 +134,7 @@ class _TrainerInterruptThread(TrainCallback):
 # ------------------------------------------
 # no thread(add -> sample -> train -> update)
 # ------------------------------------------
-class _TrainerInterruptNoThread(TrainCallback):
+class _TrainerInterruptNoThread(RunCallback):
     def __init__(
         self,
         manager: ServerManager,
@@ -209,7 +209,7 @@ class _TrainerInterruptNoThread(TrainCallback):
 def _run_trainer(manager: ServerManager, task_config: TaskConfig, parameter: RLParameter):
     task_manager = manager.get_task_manager()
     parameter_writer = manager.get_parameter_writer()
-    callbacks = task_config.get_train_callback()
+    callbacks = task_config.callbacks[:]
 
     # --- parameter
     params = parameter.backup(to_cpu=True)
@@ -217,7 +217,7 @@ def _run_trainer(manager: ServerManager, task_config: TaskConfig, parameter: RLP
         parameter_writer.parameter_update(params)
 
     # --- memory
-    memory = task_config.context.rl_config.make_memory(is_load=False)
+    memory = task_config.context.rl_config.make_memory()
 
     memory_ps = None
     parameter_ps = None
@@ -296,7 +296,7 @@ def _task_assign(task_manager: TaskManager):
     if task_config is None:
         return None
     task_config.context.run_name = RunNameTypes.trainer
-    parameter = task_config.context.rl_config.make_parameter(is_load=False)
+    parameter = task_config.context.rl_config.make_parameter()
     task_manager.read_parameter(parameter)
 
     # --- アサイン時にhealthチェック ---

@@ -3,7 +3,7 @@ import numpy as np
 import srl
 from srl.base.context import RunContext
 from srl.base.run.play import play
-from srl.base.run.play_mp import MpData, train
+from srl.base.run.play_mp import MpConfig, train
 from srl.utils import common
 
 # --- env & algorithm load
@@ -21,8 +21,8 @@ def main():
     memory = rl_config.make_memory(env)
 
     # --- train
-    mp_data = MpData(RunContext(env_config, rl_config, max_train_count=10_000))
-    train(mp_data, parameter, memory, logger_config=True)
+    mp_data = MpConfig(RunContext(env_config, rl_config, max_train_count=10_000))
+    train(mp_data, parameter, memory)
 
     # --- evaluate
     workers = [srl.make_worker(rl_config, env, parameter, memory)]
@@ -35,6 +35,7 @@ def main():
     context = RunContext()
     context.max_episodes = 1
     context.render_mode = "terminal"
+    context.rendering = True
     state = play(context, env, workers, 0)
 
 

@@ -74,13 +74,10 @@ class TextSpace(SpaceBase[str]):
             return ""
         return "".join([self._sample_charset[0] for _ in range(self._max_length)])
 
-    def copy(self) -> "TextSpace":
-        return TextSpace(
-            self._max_length,
-            self._min_length,
-            self._sample_charset,
-            self._padding,
-        )
+    def copy(self, **kwargs) -> "TextSpace":
+        keys = ["max_length", "min_length", "sample_charset", "padding"]
+        args = [kwargs.get(key, getattr(self, f"_{key}")) for key in keys]
+        return TextSpace(*args)
 
     def copy_value(self, v: str) -> str:
         return v
@@ -88,11 +85,7 @@ class TextSpace(SpaceBase[str]):
     def __eq__(self, o: "TextSpace") -> bool:
         if not isinstance(o, TextSpace):
             return False
-        return (
-            self._min_length == o._min_length
-            and self._max_length == o._max_length
-            and self._sample_charset == o._sample_charset
-        )
+        return self._min_length == o._min_length and self._max_length == o._max_length and self._sample_charset == o._sample_charset
 
     def __str__(self) -> str:
         return f"Text({self._min_length}, {self._max_length})"

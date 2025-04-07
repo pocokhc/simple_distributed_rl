@@ -1,11 +1,10 @@
 import logging
-import os
 from typing import List, Optional, Tuple, Type, Union, cast
 
 from srl.base.define import PlayerType
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.config import DummyRLConfig, RLConfig
-from srl.base.rl.memory import DummyRLMemory, IRLMemoryWorker, RLMemory
+from srl.base.rl.memory import DummyRLMemory, RLMemory
 from srl.base.rl.parameter import DummyRLParameter, RLParameter
 from srl.base.rl.trainer import DummyRLTrainer, RLTrainer
 from srl.base.rl.worker import DummyRLWorker, RLWorker
@@ -25,7 +24,6 @@ def _check_rl_config(rl_config: RLConfig, env: Optional[EnvRun]) -> None:
         assert rl_config.is_setup, "Run 'rl_config.reset(env)' first"
     else:
         rl_config.setup(env)
-    rl_config.assert_params()
 
 
 def _create_registry_key(rl_config: RLConfig) -> str:
@@ -37,7 +35,7 @@ def _create_registry_key(rl_config: RLConfig) -> str:
     return key
 
 
-def make_memory(rl_config: RLConfig, env: Optional[EnvRun] = None, is_load: bool = True) -> RLMemory:
+def make_memory(rl_config: RLConfig, env: Optional[EnvRun] = None) -> RLMemory:
     _check_rl_config(rl_config, env)
 
     entry_point = _registry[_create_registry_key(rl_config)][0]
@@ -45,11 +43,6 @@ def make_memory(rl_config: RLConfig, env: Optional[EnvRun] = None, is_load: bool
         memory: RLMemory = DummyRLMemory(rl_config)
     else:
         memory: RLMemory = load_module(entry_point)(rl_config)
-    if is_load and rl_config.memory_path != "":
-        if not os.path.isfile(rl_config.memory_path):
-            logger.info(f"The file was not found and was not loaded.({rl_config.memory_path})")
-        else:
-            memory.load(rl_config.memory_path)
     return memory
 
 
@@ -63,7 +56,7 @@ def make_memory_class(rl_config: RLConfig, env: Optional[EnvRun] = None) -> Type
     return memory_cls
 
 
-def make_parameter(rl_config: RLConfig, env: Optional[EnvRun] = None, is_load: bool = True) -> RLParameter:
+def make_parameter(rl_config: RLConfig, env: Optional[EnvRun] = None) -> RLParameter:
     _check_rl_config(rl_config, env)
 
     entry_point = _registry[_create_registry_key(rl_config)][1]
@@ -71,11 +64,6 @@ def make_parameter(rl_config: RLConfig, env: Optional[EnvRun] = None, is_load: b
         parameter: RLParameter = DummyRLParameter(rl_config)
     else:
         parameter: RLParameter = load_module(entry_point)(rl_config)
-    if is_load and rl_config.parameter_path != "":
-        if not os.path.isfile(rl_config.parameter_path):
-            logger.info(f"The file was not found and was not loaded.({rl_config.parameter_path})")
-        else:
-            parameter.load(rl_config.parameter_path)
     return parameter
 
 
@@ -98,9 +86,8 @@ def make_worker(
     name_or_config: Union[str, RLConfig],
     env: EnvRun,
     parameter: Optional[RLParameter] = None,
-    memory: Optional[IRLMemoryWorker] = None,
+    memory: Optional[RLMemory] = None,
 ) -> WorkerRun:
-
     if isinstance(name_or_config, RLConfig):
         rl_config: RLConfig = name_or_config
         enable_log = True
@@ -157,7 +144,7 @@ def make_workers(
     env: EnvRun,
     rl_config: Optional[RLConfig] = None,
     parameter: Optional[RLParameter] = None,
-    memory: Optional[IRLMemoryWorker] = None,
+    memory: Optional[RLMemory] = None,
     main_worker: Optional[WorkerRun] = None,
 ) -> Tuple[List[WorkerRun], int]:
     players = players[:]

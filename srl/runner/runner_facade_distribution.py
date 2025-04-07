@@ -3,7 +3,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Union, cast
 
 from srl.base.define import PlayerType, RenderModes
-from srl.runner.runner_base import CallbackType, RunnerBase
+from srl.base.run.callback import RunCallback
+from srl.runner.runner_base import RunnerBase
 
 if TYPE_CHECKING:
     from srl.runner.distribution.callback import DistributionCallback
@@ -27,9 +28,6 @@ class RunnerFacadeDistribution(RunnerBase):
         # --- stop config
         timeout: float = -1,
         max_train_count: int = -1,
-        # --- thread
-        enable_train_thread: bool = False,
-        thread_queue_capacity: int = 10,
         # --- play config
         players: List[PlayerType] = [],
         shuffle_player: bool = True,
@@ -37,17 +35,17 @@ class RunnerFacadeDistribution(RunnerBase):
         enable_progress: bool = True,
         progress_interval: int = 60 * 1,
         # --- other
-        callbacks: List[Union[CallbackType, "DistributionCallback"]] = [],
+        callbacks: List[Union[RunCallback, "DistributionCallback"]] = [],
     ):
         from srl.runner.distribution.callback import DistributionCallback
 
         callbacks_dist: List[DistributionCallback] = []
-        callbacks_run: List[CallbackType] = []
+        callbacks_run: List[RunCallback] = []
         for c in callbacks:
             if issubclass(c.__class__, DistributionCallback):
                 callbacks_dist.append(cast(DistributionCallback, c))
             else:
-                callbacks_run.append(cast(CallbackType, c))
+                callbacks_run.append(cast(RunCallback, c))
 
         # --- mp config
         self.context.actor_num = actor_num
@@ -71,9 +69,6 @@ class RunnerFacadeDistribution(RunnerBase):
         self.context.rollout = False
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
-        # thread
-        self.context.enable_train_thread = enable_train_thread
-        self.context.thread_queue_capacity = thread_queue_capacity
 
         if enable_progress:
             self.apply_progress(callbacks_run, enable_eval=False)
@@ -106,7 +101,7 @@ class RunnerFacadeDistribution(RunnerBase):
             )
         finally:
             task_manager.finished("runner")
-            task_manager.read_parameter(self.make_parameter(is_load=False))
+            task_manager.read_parameter(self.make_parameter())
 
     def train_distribution_start(
         self,
@@ -121,15 +116,12 @@ class RunnerFacadeDistribution(RunnerBase):
         # --- stop config
         timeout: float = -1,
         max_train_count: int = -1,
-        # --- thread
-        enable_train_thread: bool = False,
-        thread_queue_capacity: int = 10,
         # --- play config
         players: List[PlayerType] = [],
         shuffle_player: bool = True,
         # --- other
         enable_progress: bool = True,
-        callbacks: List[CallbackType] = [],
+        callbacks: List[RunCallback] = [],
     ):
         callbacks = callbacks[:]
 
@@ -153,9 +145,6 @@ class RunnerFacadeDistribution(RunnerBase):
         self.context.training = True
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
-        # thread
-        self.context.enable_train_thread = enable_train_thread
-        self.context.thread_queue_capacity = thread_queue_capacity
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=False)

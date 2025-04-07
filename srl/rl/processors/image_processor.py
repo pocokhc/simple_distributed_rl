@@ -1,14 +1,12 @@
 import logging
 from dataclasses import dataclass
-from typing import Optional, Tuple, cast
+from typing import Literal, Optional, Tuple, cast
 
 import numpy as np
 
 from srl.base.define import EnvObservationType, SpaceTypes
-from srl.base.env.env_run import EnvRun
-from srl.base.rl.config import RLConfig
+from srl.base.env.processor import EnvProcessor
 from srl.base.rl.processor import RLProcessor
-from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.space import SpaceBase
 from srl.utils.common import is_package_installed
@@ -17,26 +15,23 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class ImageProcessor(RLProcessor):
+class ImageProcessor(RLProcessor, EnvProcessor):
+    """
+    EnvProcessorとしても使える
+    """
+
     image_type: SpaceTypes = SpaceTypes.GRAY_2ch
     resize: Optional[Tuple[int, int]] = None  # (w, h)
-    enable_norm: bool = False
+    normalize_type: Literal["", "0to1", "-1to1"] = ""
     trimming: Optional[Tuple[int, int, int, int]] = None  # (top, left, bottom, right)
 
-    def __post_init__(self):
-        self.before_observation_type = SpaceTypes.UNKNOWN
-        self.max_val = 0
-
-    def remap_observation_space(self, env_observation_space: SpaceBase, env: EnvRun, rl_config: RLConfig) -> SpaceBase:
-        self.before_observation_space = env_observation_space
-        self.is_valid = False
-
+    def remap_observation_space(self, prev_space: SpaceBase, **kwargs) -> Optional[SpaceBase]:
         # パッケージがなければ何もしない
         if not is_package_installed("cv2"):
-            return env_observation_space
+            return None
 
-        if not isinstance(env_observation_space, BoxSpace):
-            return env_observation_space
+        if not isinstance(prev_space, BoxSpace):
+            return None
 
         # Imageのみ対象
         assert self.image_type in [
@@ -44,28 +39,16 @@ class ImageProcessor(RLProcessor):
             SpaceTypes.GRAY_3ch,
             SpaceTypes.COLOR,
         ]
-        if env_observation_space.stype not in [
+        if prev_space.stype not in [
             SpaceTypes.GRAY_2ch,
             SpaceTypes.GRAY_3ch,
             SpaceTypes.COLOR,
         ]:
-            return env_observation_space
+            return None
 
-        # 予測する
-        if self.before_observation_type == SpaceTypes.UNKNOWN:
-            if len(env_observation_space.shape) == 2:
-                self.before_observation_type = SpaceTypes.GRAY_2ch
-            elif len(env_observation_space.shape) == 3:
-                # w,h,ch 想定
-                ch = env_observation_space.shape[-1]
-                if ch == 1:
-                    self.before_observation_type = SpaceTypes.GRAY_3ch
-                elif ch == 3:
-                    self.before_observation_type = SpaceTypes.COLOR
-
-        shape = env_observation_space.shape
-        low = env_observation_space.low
-        high = env_observation_space.high
+        shape = prev_space.shape
+        low = prev_space.low
+        high = prev_space.high
         new_shape = (shape[0], shape[1])
 
         # trimming
@@ -90,17 +73,23 @@ class ImageProcessor(RLProcessor):
             new_shape = self.resize
 
         # norm
-        new_dtype = env_observation_space.dtype
-        if "float" in str(env_observation_space.dtype):
-            self.enable_norm = False
-            logger.info("norm disable")
+        new_dtype = prev_space.dtype
+        if "float" in str(prev_space.dtype):
+            self.normalize_type = ""
+            logger.info("normalize disable")
         self.max_val = np.max(high)
-        if self.enable_norm:
+        self.min_val = np.min(low)
+        if self.normalize_type == "0to1":
+            low = 0
+            high = 1
+            new_dtype = np.float32
+        elif self.normalize_type == "-1to1":
+            low = -1
             high = 1
             new_dtype = np.float32
         else:
+            low = self.min_val
             high = self.max_val
-        low = np.min(low)
 
         # shape
         if self.image_type == SpaceTypes.GRAY_3ch:
@@ -108,36 +97,29 @@ class ImageProcessor(RLProcessor):
         elif self.image_type == SpaceTypes.COLOR:
             new_shape = new_shape + (3,)
 
-        self.is_valid = True
         new_space = BoxSpace(new_shape, low, high, new_dtype, self.image_type)
         return new_space
 
-    def remap_observation(self, state: EnvObservationType, worker: WorkerRun, env: EnvRun) -> EnvObservationType:
-        if not self.is_valid:
-            return state
-
+    def remap_observation(self, state: EnvObservationType, prev_space: SpaceBase, new_space: SpaceBase, **kwargs) -> EnvObservationType:
         import cv2
 
         state = cast(np.ndarray, state)
+        prev_stype = prev_space.stype
 
-        if self.image_type == SpaceTypes.COLOR and (
-            self.before_observation_type == SpaceTypes.GRAY_2ch or self.before_observation_type == SpaceTypes.GRAY_3ch
-        ):
+        if self.image_type == SpaceTypes.COLOR and (prev_stype == SpaceTypes.GRAY_2ch or prev_stype == SpaceTypes.GRAY_3ch):
             # gray -> color
-            if self.before_observation_type == SpaceTypes.GRAY_2ch:
+            if prev_stype == SpaceTypes.GRAY_2ch:
                 state = state[..., np.newaxis]
             state = np.tile(state, (1, 1, 3))
 
             # if "float" in str(state.dtype):
-            #    if self.before_observation_type == SpaceTypes.GRAY_2ch:
+            #    if prev_stype == SpaceTypes.GRAY_2ch:
             #        state = state[..., np.newaxis]
             #    state = np.tile(state, (1, 1, 3))
             # else:
             #    state = np.asarray(state).astype(np.uint8)
             #    state = cv2.applyColorMap(state, cv2.COLORMAP_HOT)
-        elif self.before_observation_type == SpaceTypes.COLOR and (
-            self.image_type == SpaceTypes.GRAY_2ch or self.image_type == SpaceTypes.GRAY_3ch
-        ):
+        elif prev_stype == SpaceTypes.COLOR and (self.image_type == SpaceTypes.GRAY_2ch or self.image_type == SpaceTypes.GRAY_3ch):
             # color -> gray
             if "float" in str(state.dtype):
                 pass
@@ -155,11 +137,14 @@ class ImageProcessor(RLProcessor):
                 state = cv2.resize(state, self.resize)
             assert state.shape[0] == self.resize[0] and state.shape[1] == self.resize[1]
 
-        state = cast(np.ndarray, state)
-        if self.enable_norm:
+        if self.normalize_type == "0to1":
             state = state.astype(np.float32)
             state /= self.max_val
+        elif self.normalize_type == "-1to1":
+            state = state.astype(np.float32)
+            state = (state / self.max_val) * 2 - 1
 
+        state = cast(np.ndarray, state)
         if len(state.shape) == 2 and self.image_type == SpaceTypes.GRAY_3ch:
             state = state[..., np.newaxis]
 

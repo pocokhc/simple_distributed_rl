@@ -1,8 +1,8 @@
 import logging
 import pickle
 import random
-from dataclasses import dataclass
-from typing import Any, Union
+from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
 
@@ -11,7 +11,7 @@ from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.rl import functions as funcs
-from srl.rl.memories.sequence_memory import SequenceMemory
+from srl.rl.memories.single_use_buffer import RLSingleUseBuffer
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 logger = logging.getLogger(__name__)
@@ -23,21 +23,20 @@ Other
 """
 
 
-# ------------------------------------------------------
-# config
-# ------------------------------------------------------
 @dataclass
 class Config(RLConfig):
-    epsilon: Union[float, SchedulerConfig] = 0.1
+    #: ε-greedy parameter for Test
     test_epsilon: float = 0
+    #: ε-greedy parameter for Train
+    epsilon: float = 0.1
+    #: <:ref:`SchedulerConfig`>
+    epsilon_scheduler: SchedulerConfig = field(default_factory=lambda: SchedulerConfig())
+    #: Discount rate
     discount: float = 0.9
-    lr: Union[float, SchedulerConfig] = 0.1
-
-    def __post_init__(self):
-        super().__post_init__()
-
-    def get_framework(self) -> str:
-        return ""
+    #: Learning rate
+    lr: float = 0.1
+    #: <:ref:`LRSchedulerConfig`>
+    lr_scheduler: SchedulerConfig = field(default_factory=lambda: SchedulerConfig())
 
     def get_name(self) -> str:
         return "Dyna-Q"
@@ -52,10 +51,7 @@ register(
 )
 
 
-# ------------------------------------------------------
-# Memory
-# ------------------------------------------------------
-class Memory(SequenceMemory):
+class Memory(RLSingleUseBuffer):
     pass
 
 
@@ -116,9 +112,9 @@ class _A_MDP:
     def sample(self, num):
         if len(self.state_action_history) < num:
             num = len(self.state_action_history)
-        batchs = []
+        batches = []
         for state, action in random.sample(self.state_action_history, num):
-            batchs.append(
+            batches.append(
                 {
                     "state": state,
                     "action": action,
@@ -129,7 +125,7 @@ class _A_MDP:
                     "next_invalid_actions": [],
                 }
             )
-        return batchs
+        return batches
 
     # 次の状態を返す
     def sample_next_state(self, state, action):
@@ -156,14 +152,8 @@ class _A_MDP:
         return random.random() < (self.done[state][action] / self.count[state][action])
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
 class Parameter(RLParameter):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-
+    def setup(self):
         self.Q = {}
         self.model = _A_MDP()
 
@@ -181,25 +171,18 @@ class Parameter(RLParameter):
         return self.Q[state]
 
 
-# ------------------------------------------------------
-# Trainer
-# ------------------------------------------------------
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
-
-        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
+    def on_setup(self) -> None:
+        self.lr_sch = self.config.lr_scheduler.create(self.config.lr)
 
     def train(self) -> None:
-        if self.memory.is_warmup_needed():
+        batches = self.memory.sample()
+        if batches is None:
             return
-        batchs = self.memory.sample()
 
         # --- 近似モデルの学習
         model = self.parameter.model
-        for batch in batchs:
+        for batch in batches:
             # データ形式を変形
             state = batch["state"]
             n_state = batch["next_state"]
@@ -213,10 +196,10 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             self.train_count += 1
 
         td_error = 0
-        lr = self.lr_sch.get_and_update_rate(self.train_count)
+        lr = self.lr_sch.update(self.train_count).to_float()
 
         # --- 近似モデルからランダムにサンプリング
-        for batch in model.sample(len(batchs) * 2):
+        for batch in model.sample(len(batches) * 2):
             # データ形式を変形
             s = batch["state"]
             n_s = batch["next_state"]
@@ -239,40 +222,28 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 
             td_error += td_error
 
-        if len(batchs) > 0:
-            td_error /= len(batchs)
+        if len(batches) > 0:
+            td_error /= len(batches)
 
         self.info["size"] = len(self.parameter.Q)
         self.info["td_error"] = td_error
 
 
-# ------------------------------------------------------
-# Worker
-# ------------------------------------------------------
-class Worker(RLWorker):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
-
-        self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
-
-    def on_reset(self, worker):
-        pass
+class Worker(RLWorker[Config, Parameter, Memory]):
+    def on_setup(self, worker, context) -> None:
+        self.epsilon_sch = self.config.epsilon_scheduler.create(self.config.epsilon)
 
     def policy(self, worker) -> int:
         self.state = self.config.observation_space.to_str(worker.state)
         self.invalid_actions = worker.get_invalid_actions()
 
         if self.training:
-            epsilon = self.epsilon_sch.get_and_update_rate(self.total_step)
+            epsilon = self.epsilon_sch.update(self.total_step).to_float()
         else:
             epsilon = self.config.test_epsilon
 
         if random.random() < epsilon:
-            self.action = random.choice(
-                [a for a in range(self.config.action_space.n) if a not in self.invalid_actions]
-            )
+            self.action = random.choice([a for a in range(self.config.action_space.n) if a not in self.invalid_actions])
         else:
             q = self.parameter.get_action_values(self.state, self.invalid_actions)
             q = np.asarray(q)

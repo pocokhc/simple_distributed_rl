@@ -46,6 +46,35 @@ def test_space_get_default():
     assert space.get_default() == [-2, -2, -2]
 
 
+def test_get_onehot():
+    space = ArrayDiscreteSpace(3, 0, [2, 5, 3])
+
+    # Valid input
+    onehot = space.get_onehot([1, 2, 0])
+    assert isinstance(onehot, list)
+    assert all(isinstance(inner, list) for inner in onehot)
+    assert all(isinstance(value, int) for inner in onehot for value in inner)
+
+    # Check onehot encoding correctness
+    assert onehot == [
+        [0, 1, 0],  # One-hot for 1 in range [0, 2]
+        [0, 0, 1, 0, 0, 0],  # One-hot for 2 in range [0, 5]
+        [1, 0, 0, 0],  # One-hot for 0 in range [0, 3]
+    ]
+
+    # Edge cases
+    onehot = space.get_onehot([0, 5, 3])
+    assert onehot == [
+        [1, 0, 0],  # One-hot for 0 in range [0, 2]
+        [0, 0, 0, 0, 0, 1],  # One-hot for 5 in range [0, 5]
+        [0, 0, 0, 1],  # One-hot for 3 in range [0, 3]
+    ]
+
+    # Invalid input (out of bounds)
+    with pytest.raises(ValueError):
+        space.get_onehot([3, 2, 1])  # 3 is out of bounds for the first dimension
+
+
 def test_space_encode():
     space = ArrayDiscreteSpace(3, 0, [2, 5, 3])
     print(space)

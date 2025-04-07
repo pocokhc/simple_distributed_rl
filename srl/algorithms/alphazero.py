@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Any, List, Union
+from typing import Any, List, Literal
 
 import numpy as np
 import tensorflow as tf
@@ -13,11 +13,12 @@ from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import RLProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
+from srl.base.spaces.space import SpaceBase
 from srl.rl import functions as funcs
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
-from srl.rl.models.config.input_config import RLConfigComponentInput
+from srl.rl.memories.replay_buffer import ReplayBufferConfig, RLReplayBuffer
+from srl.rl.models.config.input_image_block import InputImageBlockConfig
 from srl.rl.models.config.mlp_block import MLPBlockConfig
-from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 from srl.rl.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
@@ -34,30 +35,24 @@ https://github.com/AppliedDataSciencePartners/DeepReinforcementLearning
 """
 
 
-# ------------------------------------------------------
-# config
-# ------------------------------------------------------
 @dataclass
-class Config(
-    RLConfig,
-    RLConfigComponentExperienceReplayBuffer,
-    RLConfigComponentInput,
-):
-    """
-    <:ref:`RLConfigComponentExperienceReplayBuffer`>
-    <:ref:`RLConfigComponentInput`>
-    """
-
+class Config(RLConfig):
     #: シミュレーション回数
     num_simulations: int = 100
     #: 割引率
     discount: float = 1.0
-
     #: エピソード序盤の確率移動のステップ数
     sampling_steps: int = 1
 
-    #: <:ref:`scheduler`> Learning rate
-    lr: Union[float, SchedulerConfig] = 0.002
+    #: Batch size
+    batch_size: int = 32
+    #: <:ref:`ReplayBufferConfig`>
+    memory: ReplayBufferConfig = field(default_factory=lambda: ReplayBufferConfig())
+
+    #: Learning rate
+    lr: float = 0.002
+    #: <:ref:`LRSchedulerConfig`>
+    lr_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
 
     #: Root prior exploration noise.
     root_dirichlet_alpha: float = 0.3
@@ -69,51 +64,51 @@ class Config(
     #: PUCT
     c_init: float = 1.25
 
+    #: <:ref:`InputImageBlockConfig`>
+    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig().set_alphazero_block(3, 64))
     #: <:ref:`MLPBlockConfig`> value block
-    value_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    value_block: MLPBlockConfig = field(default_factory=lambda: MLPBlockConfig().set((64,)))
     #: <:ref:`MLPBlockConfig`> policy block
-    policy_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    policy_block: MLPBlockConfig = field(default_factory=lambda: MLPBlockConfig().set(()))
 
     #: "rate" or "linear"
-    value_type: str = "linear"
-
-    def __post_init__(self):
-        super().__post_init__()
-
-        self.input_image_block.set_alphazero_block(3, 64)
-        self.value_block.set((64,))
-        self.policy_block.set(())
+    value_type: Literal["rate", "linear"] = "linear"
 
     def set_go_config(self):
         self.num_simulations = 800
         self.capacity = 500_000
         self.discount = 1.0
         self.sampling_steps = 30
-        self.root_dirichlet_alpha = 0.03  # for Go, 0.3 for chess and 0.15 for shogi.
+        self.root_dirichlet_alpha = 0.03
         self.root_exploration_fraction = 0.25
         self.batch_size = 4096
-        self.memory_warmup_size = 10000
-        self.lr = self.create_scheduler()
-        self.lr.add_constant(300_000, 0.02)
-        self.lr.add_constant(200_000, 0.002)
-        self.lr.add_constant(1, 0.0002)
+        self.memory.warmup_size = 10000
+        self.lr_scheduler.set_piecewise(
+            [300_000, 500_000],
+            [0.02, 0.002, 0.0002],
+        )
         self.input_image_block.set_alphazero_block(19, 256)
         self.value_block.set((256,))
         self.policy_block.set(())
 
-    def get_processors(self) -> List[RLProcessor]:
-        return RLConfigComponentInput.get_processors(self)
+    def set_chess_config(self):
+        self.set_go_config()
+        self.root_dirichlet_alpha = 0.3
 
-    def get_framework(self) -> str:
-        return "tensorflow"
+    def set_shogi_config(self):
+        self.set_go_config()
+        self.root_dirichlet_alpha = 0.15
 
     def get_name(self) -> str:
         return "AlphaZero"
 
-    def assert_params(self) -> None:
-        super().assert_params()
-        self.assert_params_memory()
-        self.assert_params_input()
+    def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
+        if not prev_observation_space.is_image():
+            raise ValueError(f"The input supports only image format. {prev_observation_space}")
+        return self.input_image_block.get_processors()
+
+    def get_framework(self) -> str:
+        return "tensorflow"
 
     def use_backup_restore(self) -> bool:
         return True
@@ -128,23 +123,19 @@ register(
 )
 
 
-# ------------------------------------------------------
-# Memory
-# ------------------------------------------------------
-class Memory(ExperienceReplayBuffer):
+class Memory(RLReplayBuffer):
     pass
 
 
-# ------------------------------------------------------
-# network
-# ------------------------------------------------------
 class Network(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
         self.value_type = config.value_type
 
-        assert config.observation_space.is_image(), "The input supports only image format."
-        self.in_block = config.create_input_block_tf(image_flatten=False)
+        self.in_block = config.input_image_block.create_tf_block(
+            config.observation_space,
+            out_flatten=False,
+        )
 
         # --- policy image
         self.input_image_policy_layers = [
@@ -173,7 +164,7 @@ class Network(KerasModelAddedSummary):
         ]
 
         # --- policy output
-        self.policy_block = config.policy_block.create_block_tf()
+        self.policy_block = config.policy_block.create_tf_block()
         self.policy_out_layer = kl.Dense(
             config.action_space.n,
             activation="softmax",
@@ -181,7 +172,7 @@ class Network(KerasModelAddedSummary):
         )
 
         # --- value output
-        self.value_block = config.value_block.create_block_tf()
+        self.value_block = config.value_block.create_tf_block()
         if config.value_type == "rate":
             self.value_out_layer = kl.Dense(
                 1,
@@ -240,13 +231,8 @@ class Network(KerasModelAddedSummary):
         return loss, value_loss, policy_loss
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
 class Parameter(RLParameter[Config]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
+    def setup(self):
         self.network = Network(self.config)
 
         # cache用 (simulationで何回も使うので)
@@ -276,33 +262,17 @@ class Parameter(RLParameter[Config]):
         self.V = {}
 
 
-# ------------------------------------------------------
-# Trainer
-# ------------------------------------------------------
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
-
-        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
-
-        self.value_loss = tf.zeros((1,))
-        self.policy_loss = tf.zeros((1,))
+    def on_setup(self) -> None:
+        lr = self.config.lr_scheduler.apply_tf_scheduler(self.config.lr)
+        self.optimizer = keras.optimizers.Adam(learning_rate=lr)
 
     def train(self) -> None:
-        if self.memory.is_warmup_needed():
+        batches = self.memory.sample()
+        if batches is None:
             return
-        batchs = self.memory.sample()
 
-        states = []
-        policies = []
-        rewards = []
-        for b in batchs:
-            states.append(b["state"])
-            policies.append(b["policy"])
-            rewards.append([b["reward"]])
+        states, policies, rewards = zip(*batches)
         states = np.asarray(states)
         policies = np.asarray(policies, dtype=np.float32)
         rewards = np.asarray(rewards, dtype=np.float32)
@@ -316,11 +286,6 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 
         self.train_count += 1
 
-        # lr_schedule
-        if self.lr_sch.update(self.train_count):
-            lr = self.lr_sch.get_rate()
-            self.optimizer.learning_rate = lr
-
         # 学習したらキャッシュは削除
         self.parameter.reset_cache()
 
@@ -328,10 +293,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker[Config, Parameter]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
+class Worker(RLWorker[Config, Parameter, Memory]):
     def on_reset(self, worker):
         self.sampling_step = 0
         self.history = []
@@ -383,8 +345,8 @@ class Worker(RLWorker[Config, Parameter]):
 
         # 1step
         player_index = env.next_player
-        n_state, rewards = self.worker.env_step(env, action)
-        reward = rewards[player_index]
+        n_state: Any = env.step_from_rl(action, self.worker)
+        reward = env.rewards[player_index]
         n_state_str = self.config.observation_space.to_str(n_state)
         enemy_turn = player_index != env.next_player
 
@@ -469,13 +431,7 @@ class Worker(RLWorker[Config, Parameter]):
             reward = 0
             for state, step_policy, step_reward in reversed(self.history):
                 reward = step_reward + self.config.discount * reward
-                self.memory.add(
-                    {
-                        "state": state,
-                        "policy": step_policy,
-                        "reward": reward,
-                    }
-                )
+                self.memory.add([state, step_policy, reward])
 
     def render_terminal(self, worker, **kwargs) -> None:
         self._init_state(self.state_str)

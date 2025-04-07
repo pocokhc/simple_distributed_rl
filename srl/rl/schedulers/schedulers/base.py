@@ -1,15 +1,17 @@
 from abc import ABC, abstractmethod
 
 
-class BaseScheduler(ABC):
-    def get_and_update_rate(self, step: int) -> float:
-        self.update(step)
-        return self.get_rate()
-
+class Scheduler(ABC):
     @abstractmethod
-    def update(self, step: int) -> bool:
+    def update(self, step: int) -> "Scheduler":
         raise NotImplementedError()
 
     @abstractmethod
     def get_rate(self) -> float:
         raise NotImplementedError()
+
+    def __float__(self) -> float:
+        return self.get_rate()
+
+    def to_float(self) -> float:
+        return self.get_rate()

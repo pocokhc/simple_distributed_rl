@@ -1,7 +1,7 @@
 from typing import Optional
 
 from srl.base.rl.config import RLConfig
-from srl.base.rl.memory import IRLMemoryWorker
+from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.worker import RLWorker
 from srl.base.rl.worker_run import WorkerRun
@@ -13,7 +13,7 @@ class ExtendWorker(RLWorker):
         worker: RLWorker,
         config: RLConfig,
         parameter: Optional[RLParameter] = None,
-        memory: Optional[IRLMemoryWorker] = None,
+        memory: Optional[RLMemory] = None,
     ):
         super().__init__(config, parameter, memory)
         self.base_worker = worker

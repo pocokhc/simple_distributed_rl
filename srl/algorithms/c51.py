@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass, field
-from typing import Any, List, Union
+from typing import Any, List
 
 import numpy as np
 import tensorflow as tf
@@ -11,10 +11,13 @@ from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import RLProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
+from srl.base.spaces.space import SpaceBase
 from srl.rl import functions as funcs
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
-from srl.rl.models.config.input_config import RLConfigComponentInput
+from srl.rl.memories.replay_buffer import ReplayBufferConfig, RLReplayBuffer
+from srl.rl.models.config.input_image_block import InputImageBlockConfig
+from srl.rl.models.config.input_value_block import InputValueBlockConfig
 from srl.rl.models.config.mlp_block import MLPBlockConfig
+from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.model import KerasModelAddedSummary
 
@@ -30,44 +33,49 @@ Other
 """
 
 
-# ------------------------------------------------------
-# config
-# ------------------------------------------------------
 @dataclass
-class Config(
-    RLConfig,
-    RLConfigComponentExperienceReplayBuffer,
-    RLConfigComponentInput,
-):
+class Config(RLConfig):
+    #: ε-greedy parameter for Test
     test_epsilon: float = 0
 
-    epsilon: Union[float, SchedulerConfig] = 0.1
-    lr: Union[float, SchedulerConfig] = 0.001
+    #: ε-greedy parameter for Train
+    epsilon: float = 0.1
+    #: <:ref:`SchedulerConfig`>
+    epsilon_scheduler: SchedulerConfig = field(default_factory=lambda: SchedulerConfig())
+    #: Learning rate
+    lr: float = 0.001
+    #: <:ref:`LRSchedulerConfig`>
+    lr_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
 
+    #: Batch size
+    batch_size: int = 32
+    #: <:ref:`ReplayBufferConfig`>
+    memory: ReplayBufferConfig = field(default_factory=lambda: ReplayBufferConfig())
+
+    #: Discount rate
     discount: float = 0.9
 
-    hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    #: <:ref:`InputValueBlockConfig`>
+    input_value_block: InputValueBlockConfig = field(default_factory=lambda: InputValueBlockConfig())
+    #: <:ref:`InputImageBlockConfig`>
+    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig())
+    #: <:ref:`MLPBlockConfig`> hidden layer
+    hidden_block: MLPBlockConfig = field(default_factory=lambda: MLPBlockConfig())
 
     categorical_num_atoms: int = 51
     categorical_v_min: float = -10
     categorical_v_max: float = 10
 
-    def __post_init__(self):
-        super().__post_init__()
-
-    def get_processors(self) -> List[RLProcessor]:
-        return RLConfigComponentInput.get_processors(self)
-
-    def get_framework(self) -> str:
-        return "tensorflow"
-
     def get_name(self) -> str:
         return "C51"
 
-    def assert_params(self) -> None:
-        super().assert_params()
-        self.assert_params_memory()
-        self.assert_params_input()
+    def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
+        if prev_observation_space.is_image():
+            return self.input_image_block.get_processors()
+        return []
+
+    def get_framework(self) -> str:
+        return "tensorflow"
 
 
 register(
@@ -79,23 +87,22 @@ register(
 )
 
 
-# ------------------------------------------------------
-# Memory
-# ------------------------------------------------------
-class Memory(ExperienceReplayBuffer):
+class Memory(RLReplayBuffer):
     pass
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
 class QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
-        self.in_block = config.create_input_block_tf()
-        self.hidden_block = config.hidden_block.create_block_tf()
+        if config.observation_space.is_value():
+            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
+        elif config.observation_space.is_image():
+            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
+        else:
+            raise ValueError(config.observation_space)
 
+        self.hidden_block = config.hidden_block.create_tf_block()
         self.out_layers = [
             kl.Dense(config.action_space.n * config.categorical_num_atoms),
             kl.Reshape((config.action_space.n, config.categorical_num_atoms)),
@@ -113,9 +120,7 @@ class QNetwork(KerasModelAddedSummary):
 
 
 class Parameter(RLParameter[Config]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
+    def setup(self):
         self.Q = QNetwork(self.config)
 
     def call_restore(self, data: Any, **kwargs) -> None:
@@ -128,15 +133,10 @@ class Parameter(RLParameter[Config]):
         self.Q.summary(**kwargs)
 
 
-# ------------------------------------------------------
-# Trainer
-# ------------------------------------------------------
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
-        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
+    def on_setup(self) -> None:
+        lr = self.config.lr_scheduler.apply_tf_scheduler(self.config.lr)
+        self.optimizer = keras.optimizers.Adam(learning_rate=lr)
 
         self.n_atoms = self.config.categorical_num_atoms
         self.v_min = self.config.categorical_v_min
@@ -145,16 +145,16 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.delta_z = (self.v_max - self.v_min) / (self.n_atoms - 1)
 
     def train(self) -> None:
-        if self.memory.is_warmup_needed():
+        batches = self.memory.sample()
+        if batches is None:
             return
-        batchs = self.memory.sample()
 
         states = []
         actions = []
         n_states = []
         rewards = []
         dones = []
-        for b in batchs:
+        for b in batches:
             states.append(b["state"])
             actions.append(b["action"])
             n_states.append(b["next_state"])
@@ -218,32 +218,20 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.train_count += 1
         self.info["loss"] = loss.numpy()
 
-        if self.lr_sch.update(self.train_count):
-            lr = self.lr_sch.get_rate()
-            self.optimizer.learning_rate = lr
-            self.info["lr"] = lr
 
-
-# ------------------------------------------------------
-# Worker
-# ------------------------------------------------------
-class Worker(RLWorker):
+class Worker(RLWorker[Config, Parameter, Memory]):
     def __init__(self, *args):
         super().__init__(*args)
 
-        self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
-
+        self.epsilon_sch = self.config.epsilon_scheduler.create(self.config.epsilon)
         self.Z = np.linspace(self.config.categorical_v_min, self.config.categorical_v_max, self.config.categorical_num_atoms)
-
-    def on_reset(self, worker):
-        pass
 
     def policy(self, worker) -> int:
         state = worker.state
-        invalid_actions = worker.get_invalid_actions()
+        invalid_actions = worker.invalid_actions
 
         if self.training:
-            epsilon = self.epsilon_sch.get_and_update_rate(self.total_step)
+            epsilon = self.epsilon_sch.update(self.total_step).to_float()
         else:
             epsilon = self.config.test_epsilon
 

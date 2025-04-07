@@ -10,7 +10,7 @@ from typing import List, Optional
 from srl.base.context import RunContext, RunNameTypes
 from srl.base.env.env_run import EnvRun
 from srl.base.exception import DistributionError
-from srl.base.rl.memory import IRLMemoryWorker
+from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.run import core_play
 from srl.base.run.callback import RunCallback
@@ -38,13 +38,13 @@ class _ShareData:
         self.th_error = ""
 
 
-class _ActorRLMemoryThread(IRLMemoryWorker):
+class _ActorRLMemoryThread:
     def __init__(
         self,
         share_q: queue.Queue,
         share_data: _ShareData,
         dist_queue_capacity: int,
-        base_memory: IRLMemoryWorker,
+        base_memory: RLMemory,
     ):
         self.q = share_q
         self.share_data = share_data
@@ -201,8 +201,8 @@ def _parameter_communicate(
 # ------------------------------------------
 # no thread(step -> add)
 # ------------------------------------------
-class _ActorRLMemoryNoThread(IRLMemoryWorker):
-    def __init__(self, manager: ServerManager, dist_queue_capacity: int, base_memory: IRLMemoryWorker):
+class _ActorRLMemoryNoThread:
+    def __init__(self, manager: ServerManager, dist_queue_capacity: int, base_memory: RLMemory):
         self.task_manager = manager.get_task_manager()
         self.remote_memory = manager.get_memory_sender()
 
@@ -317,7 +317,7 @@ def _run_actor(
     actor_id: int,
 ):
     task_manager = manager.get_task_manager()
-    callbacks = task_config.get_run_callback()
+    callbacks = task_config.callbacks[:]
 
     # --- parameter
     params = manager.get_parameter_reader().parameter_read()
@@ -356,7 +356,7 @@ def _run_actor(
             share_q,
             share_data,
             task_config.queue_capacity,
-            task_config.context.rl_config.make_memory(is_load=False),
+            task_config.context.rl_config.make_memory(),
         )
         callbacks.append(_ActorInterruptThread(share_data, memory_ps, parameter_ps))
     else:
@@ -366,7 +366,7 @@ def _run_actor(
         memory = _ActorRLMemoryNoThread(
             manager,
             task_config.queue_capacity,
-            task_config.context.rl_config.make_memory(is_load=False),
+            task_config.context.rl_config.make_memory(),
         )
         callbacks.append(
             _ActorInterruptNoThread(
@@ -381,7 +381,6 @@ def _run_actor(
     context = task_config.context
     context.training = True
     context.disable_trainer = True
-    context.enable_train_thread = False
     # context.max_episodes = -1
     # context.max_memory = -1
     # context.max_steps = -1
@@ -440,7 +439,7 @@ def _task_assign(task_manager: TaskManager):
     if task_config is None:
         return None
     env = task_config.context.env_config.make()
-    parameter = task_config.context.rl_config.make_parameter(is_load=False)
+    parameter = task_config.context.rl_config.make_parameter()
     task_manager.read_parameter(parameter)
 
     now_utc = datetime.datetime.now(datetime.timezone.utc)

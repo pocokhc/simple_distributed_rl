@@ -1,14 +1,14 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Generic, List, Optional, cast
+from typing import TYPE_CHECKING, Generic, Optional
 
 import numpy as np
 
 from srl.base.define import DoneTypes, RLActionType, RLObservationType
 from srl.base.info import Info
 from srl.base.render import IRender
-from srl.base.rl.config import RLConfig, TRLConfig
-from srl.base.rl.memory import DummyRLMemoryWorker, IRLMemoryWorker
+from srl.base.rl.config import TRLConfig
+from srl.base.rl.memory import DummyRLMemory, TRLMemory
 from srl.base.rl.parameter import DummyRLParameter, TRLParameter
 from srl.base.spaces.space import SpaceBase, TActSpace, TActType, TObsSpace, TObsType
 
@@ -23,21 +23,18 @@ logger = logging.getLogger(__name__)
 
 class RLWorkerGeneric(
     IRender,
-    Generic[TRLConfig, TRLParameter, TActSpace, TActType, TObsSpace, TObsType],
+    Generic[TRLConfig, TRLParameter, TRLMemory, TActSpace, TActType, TObsSpace, TObsType],
     ABC,
 ):
     def __init__(
         self,
         config: TRLConfig,
         parameter: Optional[TRLParameter] = None,
-        memory: Optional[IRLMemoryWorker] = None,
+        memory: Optional[TRLMemory] = None,
     ) -> None:
         self.config = config
-        self.parameter: TRLParameter = cast(
-            TRLParameter,
-            DummyRLParameter(cast(RLConfig, config)) if parameter is None else parameter,
-        )
-        self.memory = DummyRLMemoryWorker() if memory is None else memory
+        self.parameter: TRLParameter = DummyRLParameter(config) if parameter is None else parameter
+        self.memory: TRLMemory = DummyRLMemory(config) if memory is None else memory
 
         # abstract value
         self.info = Info()
@@ -116,12 +113,6 @@ class RLWorkerGeneric(
     def total_step(self) -> int:
         return self.__worker_run.total_step
 
-    def get_invalid_actions(self) -> List[TActType]:
-        return self.__worker_run.get_invalid_actions()
-
-    def sample_action(self) -> TActType:
-        return self.__worker_run.sample_action()
-
     # --- env info (shortcut properties)
     @property
     def max_episode_steps(self) -> int:
@@ -135,12 +126,17 @@ class RLWorkerGeneric(
     def step(self) -> int:
         return self.__worker_run._env.step_num
 
+    # --- utils
+    def sample_action(self) -> TActType:
+        return self.__worker_run.sample_action()
+
 
 class RLWorker(
-    Generic[TRLConfig, TRLParameter],
+    Generic[TRLConfig, TRLParameter, TRLMemory],
     RLWorkerGeneric[
         TRLConfig,
         TRLParameter,
+        TRLMemory,
         SpaceBase,
         RLActionType,
         SpaceBase,

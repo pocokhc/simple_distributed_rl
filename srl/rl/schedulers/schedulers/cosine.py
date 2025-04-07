@@ -2,11 +2,11 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .base import BaseScheduler
+from .base import Scheduler
 
 
 @dataclass
-class Cosine(BaseScheduler):
+class Cosine(Scheduler):
     start_rate: float
     phase_steps: int
 
@@ -15,21 +15,20 @@ class Cosine(BaseScheduler):
         self.step_pi = (np.pi / 2) / self.phase_steps
         self.prev_rate = 0.0
 
-    def update(self, step: int) -> bool:
+    def update(self, step: int) -> Scheduler:
         if step >= self.phase_steps:
             rate = 0.0
         else:
             rate = np.cos(self.step_pi * step)
-        is_update = self.prev_rate != rate
         self.prev_rate = rate
-        return is_update
+        return self
 
     def get_rate(self) -> float:
         return self.prev_rate
 
 
 @dataclass
-class CosineWithHardRestarts(BaseScheduler):
+class CosineWithHardRestarts(Scheduler):
     start_rate: float
     phase_steps: int
     num_cycles: int
@@ -42,14 +41,13 @@ class CosineWithHardRestarts(BaseScheduler):
         self.prev_val = 0.0
         self.update(0)
 
-    def update(self, step: int) -> bool:
+    def update(self, step: int) -> Scheduler:
         if step >= self.phase_steps:
             val = 0.0
         else:
             val = np.cos(self.step_pi * (step % self.cycle_steps))
-        is_update = self.prev_val != val
         self.prev_val = val
-        return is_update
+        return self
 
     def get_rate(self) -> float:
         return self.prev_val

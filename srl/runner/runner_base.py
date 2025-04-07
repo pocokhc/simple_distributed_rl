@@ -18,7 +18,7 @@ from srl.base.rl.registration import make_memory, make_parameter, make_trainer, 
 from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run import play
-from srl.base.run.callback import CallbackType
+from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 
@@ -45,7 +45,6 @@ class RunnerBase:
     __setup_process = False
 
     def __post_init__(self):
-
         # --- config
         if isinstance(self.name_or_env_config, str):
             self.env_config: EnvConfig = EnvConfig(self.name_or_env_config)
@@ -152,10 +151,12 @@ class RunnerBase:
     def save_parameter(self, path: str):
         """save parameter"""
         self.make_parameter().save(path)
+        return self._parameter
 
     def load_parameter(self, path: str):
         """load parameter"""
         self.make_parameter().load(path)
+        return self._parameter
 
     def save_memory(self, path: str, compress: bool = True, **kwargs):
         """save memory
@@ -165,10 +166,12 @@ class RunnerBase:
             compress (bool, optional): 圧縮するかどうか。圧縮はlzma形式です. Defaults to True.
         """
         self.make_memory().save(path, compress, **kwargs)
+        return self._memory
 
     def load_memory(self, path: str, **kwargs):
         """load memory"""
         self.make_memory().load(path, **kwargs)
+        return self._memory
 
     # ------------------------------
     # make functions
@@ -181,21 +184,21 @@ class RunnerBase:
             logger.info(s)
         return self._env
 
-    def make_parameter(self, is_load: bool = True) -> RLParameter:
+    def make_parameter(self) -> RLParameter:
         self._setup_process()
         if self._parameter is None:
-            if not self.rl_config.is_setup(self.env_config.name):
+            if not self.rl_config.is_setup():
                 self.rl_config.setup(self.make_env())
-            self._parameter = make_parameter(self.rl_config, is_load=is_load)
+            self._parameter = make_parameter(self.rl_config)
             logger.info(f"[{self.context.run_name}]({self.context.flow_mode}) make cache: {repr(self._parameter)}")
         return self._parameter
 
-    def make_memory(self, is_load: bool = True) -> RLMemory:
+    def make_memory(self) -> RLMemory:
         self._setup_process()
         if self._memory is None:
-            if not self.rl_config.is_setup(self.env_config.name):
+            if not self.rl_config.is_setup():
                 self.rl_config.setup(self.make_env())
-            self._memory = make_memory(self.rl_config, is_load=is_load)
+            self._memory = make_memory(self.rl_config)
             logger.info(f"[{self.context.run_name}]({self.context.flow_mode}) make cache: {repr(self._memory)}")
         return self._memory
 
@@ -212,7 +215,7 @@ class RunnerBase:
             parameter = self.make_parameter()
         if memory is None:
             memory = self.make_memory()
-        if not self.rl_config.is_setup(self.env_config.name):
+        if not self.rl_config.is_setup():
             self.rl_config.setup(self.make_env())
         trainer = make_trainer(self.rl_config, parameter, memory)
         logger.debug(f"[{self.context.run_name}]({self.context.flow_mode}) make: {repr(trainer)}")
@@ -317,12 +320,7 @@ class RunnerBase:
         state = env.state
         if encode:
             worker = self.make_worker()
-            state = worker.state_encode(
-                state,
-                env,
-                enable_encode=True,
-                append_recent_state=False,
-            )
+            state = worker._config.state_encode_one_step(state, env)
         return state
 
     def copy(self, env_share: bool) -> "RunnerBase":
@@ -566,7 +564,7 @@ class RunnerBase:
         path = Checkpoint.get_parameter_path(save_dir)
         if os.path.isfile(path):
             try:
-                self.make_parameter(is_load=False).load(path)
+                self.make_parameter().load(path)
                 logger.info(f"Checkpoint parameter loaded: {path}")
             except Exception as e:
                 logger.info(e)
@@ -673,7 +671,7 @@ class RunnerBase:
 
         MLFlowCallback.load_parameter(
             experiment_name,
-            self.make_parameter(is_load=False),
+            self.make_parameter(),
             run_idx,
             parameter_idx,
         )
@@ -699,8 +697,7 @@ class RunnerBase:
         trainer: Optional[RLTrainer] = None,
         workers: Optional[List[WorkerRun]] = None,
         main_worker_idx: int = 0,
-        callbacks: List[CallbackType] = [],
-        logger_config: bool = False,
+        callbacks: List[RunCallback] = [],
     ):
         # --- make instance
         if workers is None:
@@ -715,7 +712,6 @@ class RunnerBase:
             main_worker_idx,
             trainer,
             callbacks,
-            logger_config=logger_config,
         )
         return self.state
 
@@ -726,8 +722,7 @@ class RunnerBase:
         trainer: Optional[RLTrainer] = None,
         workers: Optional[List[WorkerRun]] = None,
         main_worker_idx: int = 0,
-        callbacks: List[CallbackType] = [],
-        logger_config: bool = False,
+        callbacks: List[RunCallback] = [],
     ):
         # --- make instance
         if workers is None:
@@ -742,7 +737,6 @@ class RunnerBase:
             main_worker_idx,
             trainer,
             callbacks,
-            logger_config=logger_config,
         )
 
     def run_context_trainer_only(
@@ -750,8 +744,7 @@ class RunnerBase:
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
         trainer: Optional[RLTrainer] = None,
-        callbacks: List[CallbackType] = [],
-        logger_config: bool = False,
+        callbacks: List[RunCallback] = [],
     ):
         # --- make instance
         if trainer is None:
@@ -761,6 +754,5 @@ class RunnerBase:
             self.context,
             trainer,
             callbacks,
-            logger_config=logger_config,
         )
         return self.state

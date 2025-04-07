@@ -1,8 +1,8 @@
 import json
 import logging
 import random
-from dataclasses import dataclass
-from typing import Any, List, Union
+from dataclasses import dataclass, field
+from typing import Any, List, Literal
 
 import numpy as np
 
@@ -11,7 +11,7 @@ from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.rl import functions as funcs
-from srl.rl.memories.sequence_memory import SequenceMemory
+from srl.rl.memories.single_use_buffer import RLSingleUseBuffer
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 logger = logging.getLogger(__name__)
@@ -30,10 +30,16 @@ Other
 class Config(RLConfig):
     #: ε-greedy parameter for Test
     test_epsilon: float = 0
-    #: <:ref:`scheduler`> ε-greedy parameter for Train
-    epsilon: Union[float, SchedulerConfig] = 0.1
-    #: <:ref:`scheduler`> Learning rate
-    lr: Union[float, SchedulerConfig] = 0.1
+
+    #: ε-greedy parameter for Train
+    epsilon: float = 0.1
+    #: <:ref:`SchedulerConfig`>
+    epsilon_scheduler: SchedulerConfig = field(default_factory=lambda: SchedulerConfig())
+    #: Learning rate
+    lr: float = 0.1
+    #: <:ref:`SchedulerConfig`>
+    lr_scheduler: SchedulerConfig = field(default_factory=lambda: SchedulerConfig())
+
     #: Discount rate
     discount: float = 0.9
     #: How to initialize Q table
@@ -42,10 +48,7 @@ class Config(RLConfig):
     #:   "": 0
     #:   "random": random.random()
     #:   "normal": np.random.normal()
-    q_init: str = ""
-
-    def __post_init__(self):
-        super().__post_init__()
+    q_init: Literal["", "random", "normal"] = ""
 
     def get_name(self) -> str:
         return "QL"
@@ -63,7 +66,7 @@ register(
 # ------------------------------------------------------
 # Memory
 # ------------------------------------------------------
-class Memory(SequenceMemory):
+class Memory(RLSingleUseBuffer):
     pass
 
 
@@ -71,9 +74,7 @@ class Memory(SequenceMemory):
 # Parameter
 # ------------------------------------------------------
 class Parameter(RLParameter[Config]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
+    def setup(self):
         self.Q = {}
 
     def call_restore(self, data: Any, **kwargs) -> None:
@@ -99,19 +100,17 @@ class Parameter(RLParameter[Config]):
 # Trainer
 # ------------------------------------------------------
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
-        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
+    def on_setup(self) -> None:
+        self.lr_sch = self.config.lr_scheduler.create(self.config.lr)
 
     def train(self) -> None:
-        if self.memory.is_warmup_needed():
+        batches = self.memory.sample()
+        if batches is None:
             return
-        batchs = self.memory.sample()
 
         td_error = 0
-        lr = self.lr_sch.get_and_update_rate(self.train_count)
-        for batch in batchs:
+        lr = self.lr_sch.update(self.train_count).to_float()
+        for batch in batches:
             state = batch[0]
             n_state = batch[1]
             action = batch[2]
@@ -136,34 +135,35 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker[Config, Parameter]):
-    def __init__(self, *args):
-        super().__init__(*args)
+class Worker(RLWorker[Config, Parameter, Memory]):
+    def on_setup(self, worker, context) -> None:
+        self.epsilon_sch = self.config.epsilon_scheduler.create(self.config.epsilon)
 
-        self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
+    def on_teardown(self, worker) -> None:
+        pass
 
     def on_reset(self, worker):
         pass
 
     def policy(self, worker) -> int:
         self.state = self.config.observation_space.to_str(worker.state)
-        invalid_actions = worker.get_invalid_actions()
+        invalid_actions = worker.invalid_actions
 
         if self.training:
-            epsilon = self.epsilon_sch.get_and_update_rate(self.total_step)
+            epsilon = self.epsilon_sch.update(self.total_step).to_float()
         else:
             epsilon = self.config.test_epsilon
 
         if random.random() < epsilon:
             # epsilonより低いならランダムに移動
-            self.action = random.choice([a for a in range(self.config.action_space.n) if a not in invalid_actions])
+            action = random.choice([a for a in range(self.config.action_space.n) if a not in invalid_actions])
         else:
             # 最大値を選択
             q = self.parameter.get_action_values(self.state)
-            self.action = funcs.get_random_max_index(q, invalid_actions)
+            action = funcs.get_random_max_index(q, invalid_actions)
 
         self.info["epsilon"] = epsilon
-        return self.action
+        return action
 
     def on_step(self, worker):
         if not self.training:
@@ -178,15 +178,16 @@ class Worker(RLWorker[Config, Parameter]):
             next_invalid_actions,
         ]
         """
-        batch = [
-            self.state,
-            self.config.observation_space.to_str(worker.state),
-            self.action,
-            worker.reward,
-            worker.terminated,
-            worker.get_invalid_actions(),
-        ]
-        self.memory.add(batch)
+        self.memory.add(
+            [
+                self.state,
+                self.config.observation_space.to_str(worker.state),
+                worker.action,
+                worker.reward,
+                worker.terminated,
+                worker.invalid_actions,
+            ]
+        )
 
     def render_terminal(self, worker, **kwargs) -> None:
         q = self.parameter.get_action_values(self.state)

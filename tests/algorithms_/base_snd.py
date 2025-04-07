@@ -12,7 +12,7 @@ class QuickCase(CommonQuickCase):
         rl_config = snd.Config()
 
         rl_config.batch_size = 2
-        rl_config.memory_warmup_size = 2
+        rl_config.memory.warmup_size = 2
         rl_config.target_model_update_interval = 1
         rl_config.input_image_block.set_dqn_block(filters=2)
         rl_config.hidden_block.set((2,))

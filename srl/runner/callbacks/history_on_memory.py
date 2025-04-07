@@ -7,7 +7,7 @@ import numpy as np
 
 from srl.base.context import RunContext
 from srl.base.exception import UndefinedError
-from srl.base.run.callback import RunCallback, TrainCallback
+from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.callbacks.evaluate import Evaluate
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class HistoryOnMemory(RunCallback, TrainCallback, Evaluate):
+class HistoryOnMemory(RunCallback, Evaluate):
     interval: int = 1
     interval_mode: str = "step"
 
@@ -32,7 +32,7 @@ class HistoryOnMemory(RunCallback, TrainCallback, Evaluate):
         try:
             memory_percent = psutil_.read_memory()
             cpu_percent = psutil_.read_cpu()
-            if memory_percent != np.NaN:
+            if not np.isnan(memory_percent):
                 d["system_memory"] = memory_percent
                 d["cpu"] = cpu_percent
         except Exception:

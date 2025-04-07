@@ -23,7 +23,7 @@ def test_mlp(rnn, enable_noisy_dense):
     else:
         x = np.ones((batch_size, 256), dtype=np.float32)
 
-    block = config.create_block_tf(action_num, rnn=rnn, enable_noisy_dense=enable_noisy_dense)
+    block = config.create_tf_block(action_num, rnn=rnn, enable_noisy_dense=enable_noisy_dense)
     y = block(x)
     assert y is not None
     y = y.numpy()
@@ -48,7 +48,7 @@ def test_dueling_network(rnn, enable_noisy_dense):
     config = DuelingNetworkConfig()
     config.set_dueling_network((dense_units,))
 
-    block = config.create_block_tf(action_num, rnn=rnn, enable_noisy_dense=enable_noisy_dense)
+    block = config.create_tf_block(action_num, rnn=rnn, enable_noisy_dense=enable_noisy_dense)
 
     if rnn:
         x = np.ones((seq_size, batch_size, 128), dtype=np.float32)

@@ -120,8 +120,10 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
     def get_default(self) -> List[int]:
         return [0 if self._low[i] <= 0 <= self._high[i] else self._low[i] for i in range(self._size)]
 
-    def copy(self) -> "ArrayDiscreteSpace":
-        o = ArrayDiscreteSpace(self._size, self._low, self._high)
+    def copy(self, **kwargs) -> "ArrayDiscreteSpace":
+        keys = ["size", "low", "high"]
+        args = [kwargs.get(key, getattr(self, f"_{key}")) for key in keys]
+        o = ArrayDiscreteSpace(*args)
         o.decode_tbl = self.decode_tbl
         o.encode_tbl = self.encode_tbl
         return o
@@ -167,6 +169,17 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
 
     def encode_stack(self, val: List[List[int]]) -> List[int]:
         return [e for sublist in val for e in sublist]
+
+    # --- utils
+    def get_onehot(self, x: List[int]) -> List[List[int]]:
+        onehot = []
+        for i, val in enumerate(x):
+            if val < self._low[i] or val > self._high[i]:
+                raise ValueError(f"Value {val} at index {i} is out of bounds [{self._low[i]}, {self._high[i]}].")
+            vector = [0] * (self._high[i] - self._low[i] + 1)
+            vector[val - self._low[i]] = 1
+            onehot.append(vector)
+        return onehot
 
     # --------------------------------------
     # create_tbl

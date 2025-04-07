@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, List, Union
+from typing import Any, List
 
 import numpy as np
 import tensorflow as tf
@@ -10,10 +10,12 @@ from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import RLProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
-from srl.rl.models.config.input_config import RLConfigComponentInput
+from srl.base.spaces.space import SpaceBase
+from srl.rl.memories.replay_buffer import ReplayBufferConfig, RLReplayBuffer
+from srl.rl.models.config.input_image_block import InputImageBlockConfig
+from srl.rl.models.config.input_value_block import InputValueBlockConfig
 from srl.rl.models.config.mlp_block import MLPBlockConfig
-from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 from srl.rl.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
@@ -38,23 +40,26 @@ TD3
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(
-    RLConfig,
-    RLConfigComponentExperienceReplayBuffer,
-    RLConfigComponentInput,
-):
-    """
-    <:ref:`RLConfigComponentExperienceReplayBuffer`>
-    <:ref:`RLConfigComponentInput`>
-    """
+class Config(RLConfig):
+    #: Batch size
+    batch_size: int = 32
+    #: <:ref:`ReplayBufferConfig`>
+    memory: ReplayBufferConfig = field(default_factory=lambda: ReplayBufferConfig())
 
+    #: <:ref:`InputValueBlockConfig`>
+    input_value_block: InputValueBlockConfig = field(default_factory=lambda: InputValueBlockConfig())
+    #: <:ref:`InputImageBlockConfig`>
+    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig())
     #: <:ref:`MLPBlockConfig`> policy layers
     policy_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
     #: <:ref:`MLPBlockConfig`> q layers
     q_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
 
-    #: <:ref:`scheduler`> Learning rate
-    lr: Union[float, SchedulerConfig] = 0.005
+    #: Learning rate
+    lr: float = 0.005
+    #: <:ref:`LRSchedulerConfig`>
+    lr_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
+
     #: discount
     discount: float = 0.9
     #: soft_target_update_tau
@@ -71,22 +76,16 @@ class Config(
     #: Actorの学習間隔
     actor_update_interval: int = 2
 
-    def __post_init__(self):
-        super().__post_init__()
-
-    def get_processors(self) -> List[RLProcessor]:
-        return RLConfigComponentInput.get_processors(self)
-
-    def get_framework(self) -> str:
-        return "tensorflow"
-
     def get_name(self) -> str:
         return "DDPG"
 
-    def assert_params(self) -> None:
-        super().assert_params()
-        self.assert_params_memory()
-        self.assert_params_input()
+    def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
+        if prev_observation_space.is_image():
+            return self.input_image_block.get_processors()
+        return []
+
+    def get_framework(self) -> str:
+        return "tensorflow"
 
 
 register(
@@ -98,24 +97,22 @@ register(
 )
 
 
-# ------------------------------------------------------
-# Memory
-# ------------------------------------------------------
-class Memory(ExperienceReplayBuffer):
+class Memory(RLReplayBuffer):
     pass
 
 
-# ------------------------------------------------------
-# network
-# ------------------------------------------------------
 class ActorNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
-        self.in_block = config.create_input_block_tf()
-        self.hidden_block = config.policy_block.create_block_tf()
+        if config.observation_space.is_value():
+            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
+        elif config.observation_space.is_image():
+            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
+        else:
+            raise ValueError(config.observation_space)
 
-        # --- out layer
+        self.hidden_block = config.policy_block.create_tf_block()
         self.out_layer = kl.Dense(config.action_space.size, activation="tanh")
 
         # build
@@ -141,10 +138,15 @@ class CriticNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
-        self.in_block = config.create_input_block_tf()
+        if config.observation_space.is_value():
+            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
+        elif config.observation_space.is_image():
+            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
+        else:
+            raise ValueError(config.observation_space)
 
         # q1
-        self.q1_block = config.q_block.create_block_tf()
+        self.q1_block = config.q_block.create_tf_block()
         self.q1_output = kl.Dense(
             1,
             activation="linear",
@@ -153,7 +155,7 @@ class CriticNetwork(KerasModelAddedSummary):
         )
 
         # q2
-        self.q2_block = config.q_block.create_block_tf()
+        self.q2_block = config.q_block.create_tf_block()
         self.q2_output = kl.Dense(
             1,
             activation="linear",
@@ -195,13 +197,8 @@ class CriticNetwork(KerasModelAddedSummary):
         return loss
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
 class Parameter(RLParameter[Config]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
+    def setup(self):
         self.actor_online = ActorNetwork(self.config)
         self.actor_target = ActorNetwork(self.config)
         self.critic_online = CriticNetwork(self.config)
@@ -227,30 +224,23 @@ class Parameter(RLParameter[Config]):
         self.critic_online.summary(**kwargs)
 
 
-# ------------------------------------------------------
-# Trainer
-# ------------------------------------------------------
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
-        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
-        lr = self.lr_sch.get_rate()
-
+    def on_setup(self) -> None:
+        lr = self.config.lr_scheduler.apply_tf_scheduler(self.config.lr)
         self.actor_optimizer = keras.optimizers.Adam(learning_rate=lr)
         self.critic_optimizer = keras.optimizers.Adam(learning_rate=lr)
 
     def train(self) -> None:
-        if self.memory.is_warmup_needed():
+        batches = self.memory.sample()
+        if batches is None:
             return
-        batchs = self.memory.sample()
 
         states = []
         actions = []
         n_states = []
         rewards = []
         dones = []
-        for b in batchs:
+        for b in batches:
             states.append(b["state"])
             actions.append(b["action"])
             n_states.append(b["next_state"])
@@ -296,13 +286,6 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.critic_optimizer.apply_gradients(zip(grads, self.parameter.critic_online.trainable_variables))
         self.info["critic_loss"] = critic_loss.numpy()
 
-        # lr_schedule
-        if self.lr_sch.update(self.train_count):
-            lr = self.lr_sch.get_rate()
-            self.actor_optimizer.learning_rate = lr
-            self.critic_optimizer.learning_rate = lr
-            self.info["lr"] = lr
-
         # --- soft target update
         self.parameter.actor_target.set_weights((1 - self.config.soft_target_update_tau) * np.array(self.parameter.actor_target.get_weights(), dtype=object) + (self.config.soft_target_update_tau) * np.array(self.parameter.actor_online.get_weights(), dtype=object))
         self.parameter.critic_target.set_weights((1 - self.config.soft_target_update_tau) * np.array(self.parameter.critic_target.get_weights(), dtype=object) + (self.config.soft_target_update_tau) * np.array(self.parameter.critic_online.get_weights(), dtype=object))
@@ -319,12 +302,6 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 # Worker
 # ------------------------------------------------------
 class Worker(RLWorker):
-    def __init__(self, *args):
-        super().__init__(*args)
-
-    def on_reset(self, worker):
-        pass
-
     def policy(self, worker) -> List[float]:
         self.action = self.parameter.actor_online(worker.state[np.newaxis, ...]).numpy()[0]
 

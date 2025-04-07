@@ -80,8 +80,10 @@ class DiscreteSpace(SpaceBase[int]):
     def get_default(self) -> int:
         return self._start
 
-    def copy(self) -> "DiscreteSpace":
-        return DiscreteSpace(self._n, self._start)
+    def copy(self, **kwargs) -> "DiscreteSpace":
+        keys = ["n", "start"]
+        args = [kwargs.get(key, getattr(self, f"_{key}")) for key in keys]
+        return DiscreteSpace(*args)
 
     def copy_value(self, v: int) -> int:
         return v
@@ -102,6 +104,14 @@ class DiscreteSpace(SpaceBase[int]):
 
     def encode_stack(self, val: List[int]) -> List[int]:
         return val
+
+    # --- utils
+    def get_onehot(self, x: int) -> List[int]:
+        onehot = [0] * self._n
+        if x - self._start < 0:
+            raise IndexError(f"Invalid value. {x} {self._start} {self._n}")
+        onehot[x - self._start] = 1
+        return onehot
 
     # --------------------------------------
     # action discrete

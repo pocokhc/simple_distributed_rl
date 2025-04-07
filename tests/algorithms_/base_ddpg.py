@@ -11,7 +11,7 @@ class QuickCase(CommonQuickCase):
 
         rl_config = ddpg.Config()
         rl_config.batch_size = 2
-        rl_config.memory_warmup_size = 2
+        rl_config.memory.warmup_size = 2
 
         return rl_config, {}
 

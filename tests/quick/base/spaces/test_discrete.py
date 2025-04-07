@@ -45,6 +45,30 @@ def test_dtype():
     assert space.dtype == np.int64
 
 
+def test_get_onehot():
+    space = DiscreteSpace(5, start=1)
+
+    # Test valid input
+    onehot = space.get_onehot(3)
+    assert isinstance(onehot, list)
+    assert len(onehot) == 5
+    assert onehot == [0, 0, 1, 0, 0]
+
+    # Test boundary values
+    onehot = space.get_onehot(1)
+    assert onehot == [1, 0, 0, 0, 0]
+
+    onehot = space.get_onehot(4)
+    assert onehot == [0, 0, 0, 1, 0]
+
+    # Test invalid input
+    with pytest.raises(IndexError):
+        space.get_onehot(0)
+
+    with pytest.raises(IndexError):
+        space.get_onehot(6)
+
+
 def test_encode_decode():
     space = DiscreteSpace(5, start=1)
     print(space)

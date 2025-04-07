@@ -159,32 +159,19 @@ def calc_epsilon_greedy_probs(q, invalid_actions, epsilon, action_num):
 
 def render_discrete_action(maxa: int, action_space: DiscreteSpace, env: EnvRun, func) -> None:
     invalid_actions = env.get_invalid_actions()
-    view_actions_num = 10
-    for action in range(action_space.n):
+    view_actions_num = min(15, action_space.n)
+    for action in range(view_actions_num):
         if action in invalid_actions:
-            continue
-        if action > view_actions_num:
-            break
-        s = "*" if action == maxa else " "
+            s = "x"
+        elif action == max:
+            s = "*"
+        else:
+            s = " "
         rl_s = func(action)
         s += f"{env.action_to_str(action):3s}: {rl_s}"
         print(s)
     if action_space.n > view_actions_num:
         print("... Some actions have been omitted.")
-
-    if len(invalid_actions) > 0:
-        view_invalid_actions_num = 2
-        for action in range(action_space.n):
-            if action not in invalid_actions:
-                continue
-            if action > view_invalid_actions_num:
-                break
-            s = "x"
-            rl_s = func(action)
-            s += f"{env.action_to_str(action):3s}: {rl_s}"
-            print(s)
-        if action_space.n > view_invalid_actions_num:
-            print("... Some invalid actions have been omitted.")
 
 
 def create_fancy_index_for_invalid_actions(idx_list: List[List[int]]):
@@ -217,14 +204,10 @@ def image_processor(
     ]
     import cv2
 
-    if to_space_type == SpaceTypes.COLOR and (
-        from_space_type == SpaceTypes.GRAY_2ch or from_space_type == SpaceTypes.GRAY_3ch
-    ):
+    if to_space_type == SpaceTypes.COLOR and (from_space_type == SpaceTypes.GRAY_2ch or from_space_type == SpaceTypes.GRAY_3ch):
         # gray -> color
         rgb_array = cv2.applyColorMap(rgb_array, cv2.COLORMAP_HOT)
-    elif from_space_type == SpaceTypes.COLOR and (
-        to_space_type == SpaceTypes.GRAY_2ch or to_space_type == SpaceTypes.GRAY_3ch
-    ):
+    elif from_space_type == SpaceTypes.COLOR and (to_space_type == SpaceTypes.GRAY_2ch or to_space_type == SpaceTypes.GRAY_3ch):
         # color -> gray
         rgb_array = cv2.cvtColor(rgb_array, cv2.COLOR_RGB2GRAY)
 

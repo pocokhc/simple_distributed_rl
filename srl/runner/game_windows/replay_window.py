@@ -8,7 +8,7 @@ from srl.base.context import RunContext
 from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
 from srl.runner.game_windows.game_window import GameWindow, KeyStatus
-from srl.runner.runner_base import CallbackType, RunnerBase
+from srl.runner.runner_base import RunnerBase
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ class RePlayableGame(GameWindow):
         self,
         runner: RunnerBase,
         print_state: bool = True,
-        callbacks: List[CallbackType] = [],
+        callbacks: List[RunCallback] = [],
         _is_test: bool = False,  # for test
     ) -> None:
         super().__init__(_is_test=_is_test)

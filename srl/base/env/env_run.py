@@ -2,12 +2,12 @@ import logging
 import random
 import time
 import traceback
-from typing import Any, Callable, Generic, List, Optional, Tuple, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Generic, List, Optional, Tuple, Union, cast
 
 import numpy as np
 
 from srl.base.context import RunContext
-from srl.base.define import DoneTypes, KeyBindType, RenderModes
+from srl.base.define import DoneTypes, EnvObservationType, KeyBindType, RenderModes
 from srl.base.env.base import EnvBase
 from srl.base.env.config import EnvConfig
 from srl.base.env.registration import make_base
@@ -16,6 +16,11 @@ from srl.base.info import Info
 from srl.base.render import Render
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.space import SpaceBase, TActSpace, TActType, TObsSpace, TObsType
+
+if TYPE_CHECKING:
+    from srl.base.define import RLActionType, RLObservationType
+    from srl.base.rl.worker_run import WorkerRun
+
 
 logger = logging.getLogger(__name__)
 
@@ -29,17 +34,33 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
         # --- processor
         self._processors = [c.copy() for c in self.config.processors]
-        self._processors_reset: Any = [c for c in self._processors if hasattr(c, "remap_reset")]
-        self._processors_step_action: Any = [c for c in self._processors if hasattr(c, "remap_step_action")]
-        self._processors_step: Any = [c for c in self._processors if hasattr(c, "remap_step")]
-        self._processors_step_invalid_actions: Any = [c for c in self._processors if hasattr(c, "remap_step_invalid_actions")]
+        self._processors_action: List[Tuple[Any, SpaceBase, SpaceBase]] = []
+        self._processors_invalid_actions: List[Tuple[Any, SpaceBase, SpaceBase]] = []
+        self._processors_observation: List[Tuple[Any, SpaceBase, SpaceBase]] = []
+        self._processors_reset: List[Any] = [c for c in self._processors if hasattr(c, "remap_reset")]
+        self._processors_step: List[Any] = [c for c in self._processors if hasattr(c, "remap_step")]
 
         # --- space
         self._action_space = self.env.action_space
         self._observation_space = self.env.observation_space
         for p in self._processors:
-            self._action_space = p.remap_action_space(self._action_space, self)
-            self._observation_space = p.remap_observation_space(self._observation_space, self)
+            # action
+            prev_space = self._action_space
+            new_space = p.remap_action_space(self._action_space, env_run=self)
+            if new_space is not None:
+                self._action_space = new_space
+                if hasattr(p, "remap_action"):
+                    self._processors_action.append((p, prev_space, self._action_space))
+                if hasattr(p, "remap_invalid_actions"):
+                    self._processors_invalid_actions.append((p, prev_space, self._action_space))
+
+            # obs
+            prev_space = self._observation_space
+            new_space = p.remap_observation_space(self._observation_space, env_run=self)
+            if new_space is not None:
+                self._observation_space = new_space
+                if hasattr(p, "remap_observation"):
+                    self._processors_observation.append((p, prev_space, self._observation_space))
 
         # --- init val
         self.config._update_env_info(self.env)  # config update
@@ -171,7 +192,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._render.set_render_mode(render_mode)
 
         # --- processor
-        [p.setup(self) for p in self._processors]
+        [p.setup(env_run=self) for p in self._processors]
 
         # --- env
         kwargs = self.context.to_dict()
@@ -205,8 +226,10 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._prev_player = self.env.next_player
 
         # --- processor
+        for p in self._processors_observation:
+            self._state = p[0].remap_observation(self._state, p[1], [2], env_run=self)
         for p in self._processors_reset:
-            self._state = p.remap_reset(self._state, self)
+            p.remap_reset(env_run=self)
 
         # --- check
         if self.config.enable_assertion:
@@ -229,8 +252,8 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             raise SRLError("env does not support 'step' after 'direct_step'.")
 
         # --- action processor
-        for p in self._processors_step_action:
-            action = p.remap_step_action(action, self)
+        for p in self._processors_action:
+            action = p[0].remap_action(action, p[1], [2], env_run=self)
 
         # --- env step
         self._prev_player = self.env.next_player
@@ -260,8 +283,11 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         try:
             state, _rewards, terminated, truncated = self.env.step(action)
             rewards: List[float] = _rewards if isinstance(_rewards, list) else [_rewards]
+            for p in self._processors_observation:
+                state = p[0].remap_observation(state, p[1], [2], env_run=self)
             for p in self._processors_step:
-                state, rewards, terminated, truncated = p.remap_step(state, rewards, terminated, truncated, self)
+                rewards, terminated, truncated = p.remap_step(rewards, terminated, truncated, env_run=self)
+
         except Exception:
             f_except = traceback.format_exc()
 
@@ -298,8 +324,9 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._done = done
 
         invalid_actions = self.env.get_invalid_actions(self.env.next_player)
-        for p in self._processors_step_invalid_actions:
-            invalid_actions = p.remap_step_invalid_actions(invalid_actions, self)
+        for p in self._processors_invalid_actions:
+            invalid_actions = p[0].remap_invalid_actions(invalid_actions, p[1], [2], env_run=self)
+
         if self.config.enable_assertion:
             self.assert_invalid_actions(invalid_actions)
         elif self.config.enable_sanitize:
@@ -554,6 +581,15 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     def render_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
         return self._render.render_rgb_array(**kwargs)
+
+    # ------------------------------------
+    # simulation
+    # ------------------------------------
+    def step_from_rl(self, action: "RLActionType", worker: "WorkerRun", **step_kwargs) -> "RLObservationType":
+        env_action = cast(TActType, worker._config.action_decode(action))
+        self.step(env_action, **step_kwargs)
+        rl_state = worker._config.state_encode_one_step(cast(EnvObservationType, self.state), self)
+        return rl_state
 
     # ------------------------------------
     # direct

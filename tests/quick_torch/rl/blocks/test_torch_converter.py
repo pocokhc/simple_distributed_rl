@@ -38,5 +38,5 @@ def test_convert_initializer(initializer):
     import torch
 
     x = torch.randn([2, 4], dtype=torch.float32)
-    initializer = conv.set_initializer_torch(x, initializer)
+    initializer = conv.apply_initializer_torch(x, initializer)
     print(initializer)

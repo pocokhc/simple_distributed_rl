@@ -14,11 +14,13 @@ from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.spaces.space import SpaceBase
 from srl.rl import functions as funcs
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
-from srl.rl.models.config.input_config import RLConfigComponentInput
+from srl.rl.memories.replay_buffer import ReplayBufferConfig, RLReplayBuffer
+from srl.rl.models.config.input_image_block import InputImageBlockConfig
+from srl.rl.models.config.input_value_block import InputValueBlockConfig
 from srl.rl.models.config.mlp_block import MLPBlockConfig
-from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 from srl.rl.tf import functions as tf_funcs
 from srl.rl.tf.distributions.categorical_dist_block import CategoricalDistBlock
 from srl.rl.tf.distributions.normal_dist_block import NormalDistBlock
@@ -47,26 +49,23 @@ Other
 """
 
 
-# ------------------------------------------------------
-# config
-# ------------------------------------------------------
 @dataclass
-class Config(
-    RLConfig,
-    RLConfigComponentExperienceReplayBuffer,
-    RLConfigComponentInput,
-):
-    """
-    <:ref:`RLConfigComponentExperienceReplayBuffer`>
-    <:ref:`RLConfigComponentInput`>
-    """
+class Config(RLConfig):
+    #: Batch size
+    batch_size: int = 32
+    #: <:ref:`ReplayBufferConfig`>
+    memory: ReplayBufferConfig = field(default_factory=lambda: ReplayBufferConfig(capacity=2000))
 
+    #: <:ref:`InputValueBlockConfig`>
+    input_value_block: InputValueBlockConfig = field(default_factory=lambda: InputValueBlockConfig())
+    #: <:ref:`InputImageBlockConfig`>
+    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig())
     #: <:ref:`MLPBlockConfig`> hidden layers
-    hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig().set((64, 64)))
     #: <:ref:`MLPBlockConfig`> value layers
-    value_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    value_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig().set((64,)))
     #: <:ref:`MLPBlockConfig`> policy layers
-    policy_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
+    policy_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig().set((64,)))
 
     #: 割引報酬の計算方法
     #:
@@ -105,8 +104,10 @@ class Config(
     #: value clip range
     value_clip_range: float = 0.2
 
-    #: <:ref:`scheduler`> Learning rate
-    lr: Union[float, SchedulerConfig] = 0.01
+    #: Learning rate
+    lr: float = 0.02
+    #: <:ref:`LRSchedulerConfig`>
+    lr_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig().set_step(2000, 0.01))
     #: 状態価値の反映率
     value_loss_weight: float = 1.0
     #: エントロピーの反映率
@@ -126,28 +127,16 @@ class Config(
     #: enable_stable_gradients状態での標準偏差のclip
     stable_gradients_scale_range: tuple = (1e-10, 10)
 
-    def __post_init__(self):
-        super().__post_init__()
-
-        self.lr = self.create_scheduler().set_linear(2000, 0.02, 0.01)
-        self.memory_capacity = 2000
-        self.hidden_block.set((64, 64))
-        self.value_block.set((64,))
-        self.policy_block.set((64,))
+    def get_name(self) -> str:
+        return "PPO"
 
     def get_framework(self) -> str:
         return "tensorflow"
 
-    def get_processors(self) -> List[RLProcessor]:
-        return RLConfigComponentInput.get_processors(self)
-
-    def get_name(self) -> str:
-        return "PPO"
-
-    def assert_params(self) -> None:
-        super().assert_params()
-        self.assert_params_memory()
-        self.assert_params_input()
+    def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
+        if prev_observation_space.is_image():
+            return self.input_image_block.get_processors()
+        return []
 
 
 register(
@@ -159,10 +148,7 @@ register(
 )
 
 
-# ------------------------------------------------------
-# Memory
-# ------------------------------------------------------
-class Memory(ExperienceReplayBuffer):
+class Memory(RLReplayBuffer):
     pass
 
 
@@ -178,17 +164,20 @@ class ActorCriticNetwork(KerasModelAddedSummary):
         kernel_initializer = "orthogonal"
 
         # --- input
-        self.in_block = config.create_input_block_tf()
+        if config.observation_space.is_image():
+            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
+        else:
+            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
 
         # --- hidden block
-        self.hidden_block = config.hidden_block.create_block_tf()
+        self.hidden_block = config.hidden_block.create_tf_block()
 
         # --- value
-        self.value_block = config.value_block.create_block_tf()
+        self.value_block = config.value_block.create_tf_block()
         self.value_out_layer = kl.Dense(1, kernel_initializer=kernel_initializer)
 
         # --- policy
-        self.policy_block = config.policy_block.create_block_tf()
+        self.policy_block = config.policy_block.create_tf_block()
         if isinstance(config.action_space, DiscreteSpace):
             self.policy_dist_block = CategoricalDistBlock(config.action_space.n)
         elif isinstance(config.action_space, ArrayContinuousSpace):
@@ -202,8 +191,7 @@ class ActorCriticNetwork(KerasModelAddedSummary):
             raise UndefinedError(self.config.action_space)
 
         # build
-        self._in_shape = config.observation_space.shape
-        self(np.zeros((1,) + self._in_shape))
+        self(self.in_block.create_dummy_data(config.get_dtype("np")))
 
     def call(self, x, training=False):
         x = self.in_block(x, training=training)
@@ -242,8 +230,7 @@ class ActorCriticNetwork(KerasModelAddedSummary):
 
         # --- policy
         kl = 0
-        ratio = tf.exp(new_logpi - old_logpi)
-        ratio = tf.where(tf.math.is_inf(ratio), 0.0, ratio)  # for safety
+        ratio = tf.exp(tf.clip_by_value(new_logpi - old_logpi, -10, 10))
         if self.config.surrogate_type == "clip":
             # Clipped Surrogate Objective
             ratio_clipped = tf.clip_by_value(ratio, 1 - self.config.policy_clip_range, 1 + self.config.policy_clip_range)
@@ -295,10 +282,7 @@ class ActorCriticNetwork(KerasModelAddedSummary):
 # Parameter
 # ------------------------------------------------------
 class Parameter(RLParameter):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-
+    def setup(self):
         self.model = ActorCriticNetwork(self.config)
 
         # Adaptive KL penalty
@@ -318,26 +302,19 @@ class Parameter(RLParameter):
         self.model.summary(**kwargs)
 
 
-# ------------------------------------------------------
-# Trainer
-# ------------------------------------------------------
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
-
-        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
+    def on_setup(self) -> None:
+        lr = self.config.lr_scheduler.apply_tf_scheduler(self.config.lr)
+        self.optimizer = keras.optimizers.Adam(learning_rate=lr)
 
     def train(self) -> None:
-        if self.memory.is_warmup_needed():
+        batches = self.memory.sample()
+        if batches is None:
             return
-        batchs = self.memory.sample()
 
-        states = np.asarray([e["state"] for e in batchs])
-        v_target = np.asarray([e["discounted_reward"] for e in batchs])[..., np.newaxis]
-        advantage = np.asarray([e["discounted_reward"] for e in batchs])[..., np.newaxis]
+        states = np.asarray([e["state"] for e in batches])
+        v_target = np.asarray([e["discounted_reward"] for e in batches])[..., np.newaxis]
+        advantage = np.asarray([e["discounted_reward"] for e in batches])[..., np.newaxis]
 
         # --- 状態の正規化
         if self.config.enable_state_normalized:
@@ -363,18 +340,18 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         old_stddev = 0
         old_v = 0
         if self.config.action_space.stype == SpaceTypes.DISCRETE:
-            actions = np.asarray([e["action"] for e in batchs])
-            old_logpi = np.asarray([e["log_prob"] for e in batchs])[..., np.newaxis]
+            actions = np.asarray([e["action"] for e in batches])
+            old_logpi = np.asarray([e["log_prob"] for e in batches])[..., np.newaxis]
             if self.config.surrogate_type == "kl":
-                old_probs = np.asarray([e["probs"] for e in batchs])
+                old_probs = np.asarray([e["probs"] for e in batches])
         else:
-            actions = np.asarray([e["action"] for e in batchs])[..., np.newaxis]
-            old_logpi = np.asarray([e["log_prob"] for e in batchs])[..., np.newaxis]
+            actions = np.asarray([e["action"] for e in batches])[..., np.newaxis]
+            old_logpi = np.asarray([e["log_prob"] for e in batches])[..., np.newaxis]
             if self.config.surrogate_type == "kl":
-                old_mean = np.asarray([e["mean"] for e in batchs])
-                old_stddev = np.asarray([e["stddev"] for e in batchs])
+                old_mean = np.asarray([e["mean"] for e in batches])
+                old_stddev = np.asarray([e["stddev"] for e in batches])
         if self.config.enable_value_clip:
-            old_v = np.asarray([e["v"] for e in batchs])[..., np.newaxis]
+            old_v = np.asarray([e["v"] for e in batches])[..., np.newaxis]
 
         # --- Qモデルの学習
         with tf.GradientTape() as tape:
@@ -412,24 +389,10 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             self.info["kl_beta"] = self.parameter.adaptive_kl_beta
             # nanになる場合は adaptive_kl_target が小さすぎる可能性あり
 
-        # lr_schedule
-        if self.lr_sch.update(self.train_count):
-            lr = self.lr_sch.get_rate()
-            self.optimizer.learning_rate = lr
-            self.info["lr"] = lr
-
         self.train_count += 1
 
 
-# ------------------------------------------------------
-# Worker
-# ------------------------------------------------------
-class Worker(RLWorker[Config, Parameter]):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
-
+class Worker(RLWorker[Config, Parameter, Memory]):
     def on_reset(self, worker):
         self.recent_batch = []
         self.recent_rewards = []

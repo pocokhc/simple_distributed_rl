@@ -1,6 +1,6 @@
 import json
-from dataclasses import dataclass
-from typing import Any, Union
+from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
 
@@ -12,24 +12,20 @@ from srl.base.rl.trainer import RLTrainer
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.rl import functions as funcs
-from srl.rl.memories.sequence_memory import SequenceMemory
+from srl.rl.memories.single_use_buffer import RLSingleUseBuffer
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 
-# ------------------------------------------------------
-# config
-# ------------------------------------------------------
 @dataclass
 class Config(RLConfig):
     discount: float = 0.9
-    lr: Union[float, SchedulerConfig] = 0.1
+    lr: float = 0.1
+    #: <:ref:`SchedulerConfig`>
+    lr_scheduler: SchedulerConfig = field(default_factory=lambda: SchedulerConfig())
 
     update_max_mean: float = 1
     update_max_stddev: float = 5
     update_stddev_rate: float = 0.1
-
-    def get_framework(self) -> str:
-        return ""
 
     def get_name(self) -> str:
         return "VanillaPolicy"
@@ -44,21 +40,12 @@ register(
 )
 
 
-# ------------------------------------------------------
-# Memory
-# ------------------------------------------------------
-class Memory(SequenceMemory):
+class Memory(RLSingleUseBuffer):
     pass
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
 class Parameter(RLParameter[Config]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
-        # パラメータ
+    def setup(self):
         self.policy = {}
 
     def call_restore(self, data: Any, **kwargs) -> None:
@@ -94,30 +81,25 @@ class Parameter(RLParameter[Config]):
         return mean, stddev
 
 
-# ------------------------------------------------------
-# Trainer
-# ------------------------------------------------------
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
-        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
+    def on_setup(self) -> None:
+        self.lr_sch = self.config.lr_scheduler.create(self.config.lr)
 
     def train(self) -> None:
-        if self.memory.is_warmup_needed():
+        batches = self.memory.sample()
+        if batches is None:
             return
-        batchs = self.memory.sample()
 
         if self.config.action_space.stype == SpaceTypes.DISCRETE:
-            self._train_discrete(batchs)
+            self._train_discrete(batches)
         else:
-            self._train_continuous(batchs)
-        self.train_count += len(batchs)
+            self._train_continuous(batches)
+        self.train_count += len(batches)
 
-    def _train_discrete(self, batchs):
+    def _train_discrete(self, batches):
         loss = []
         lr = 0
-        for batch in batchs:
+        for batch in batches:
             state = batch["state"]
             action = batch["action"]
             reward = batch["reward"]
@@ -132,7 +114,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             diff_j = diff_logpi * reward
 
             # ポリシー更新
-            lr = self.lr_sch.get_and_update_rate(self.train_count)
+            lr = self.lr_sch.update(self.train_count).to_float()
             self.parameter.policy[state][action] += lr * diff_j
             loss.append(abs(diff_j))
 
@@ -140,16 +122,16 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.info["loss"] = np.mean(loss)
         self.info["lr"] = lr
 
-    def _train_continuous(self, batchs):
+    def _train_continuous(self, batches):
         loss_mean = []
         loss_stddev = []
-        for batch in batchs:
+        for batch in batches:
             state = batch["state"]
             action = batch["action"]
             reward = batch["reward"]
             mean, stddev = self.parameter.get_normal(state)
 
-            lr = self.lr_sch.get_and_update_rate(self.train_count)
+            lr = self.lr_sch.update(self.train_count).to_float()
 
             # 平均
             mean_diff_logpi = (action - mean) / (stddev**2)
@@ -159,9 +141,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             # 分散
             stddev_diff_logpi = (((action - mean) ** 2) - (stddev**2)) / (stddev**3)
             stddev_diff_j = stddev_diff_logpi * reward
-            new_stddev = (
-                self.parameter.policy[state]["stddev_logits"] + lr * stddev_diff_j * self.config.update_stddev_rate
-            )
+            new_stddev = self.parameter.policy[state]["stddev_logits"] + lr * stddev_diff_j * self.config.update_stddev_rate
 
             # 更新幅が大きすぎる場合は更新しない
             if abs(mean_diff_j) < self.config.update_max_mean and abs(stddev_diff_j) < self.config.update_max_stddev:
@@ -176,13 +156,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.info["loss_stddev"] = np.mean(loss_stddev)
 
 
-# ------------------------------------------------------
-# Worker
-# ------------------------------------------------------
-class Worker(RLWorker[Config, Parameter]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
+class Worker(RLWorker[Config, Parameter, Memory]):
     def on_reset(self, worker):
         self.state = self.config.observation_space.to_str(worker.state)
         self.invalid_actions = worker.get_invalid_actions()

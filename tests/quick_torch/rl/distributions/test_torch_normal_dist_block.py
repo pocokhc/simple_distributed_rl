@@ -55,10 +55,12 @@ def test_train(fixed_scale, enable_squashed, is_plot=False):
     if is_plot:
         import matplotlib.pyplot as plt
 
+        plt.figure()
         plt.plot(x_true, y_true, "ro", alpha=0.2, label="true")
         plt.plot(x_true, y_pred, "bo", alpha=0.2, label="pred")
         plt.legend()
         plt.show()
+        plt.close()
 
     rmse = np.sqrt(np.mean((y_true - y_pred) ** 2))
     print(f"rmse: {rmse}")

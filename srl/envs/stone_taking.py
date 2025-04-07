@@ -3,7 +3,6 @@ import random
 from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple, cast
 
-from srl.base.define import EnvActionType
 from srl.base.env.base import EnvBase
 from srl.base.env.env_run import EnvRun
 from srl.base.env.registration import register
@@ -105,16 +104,16 @@ class StoneTaking(EnvBase[DiscreteSpace, int, DiscreteSpace, int]):
 
 
 class CPU(EnvWorker):
-    def call_policy(self, env: EnvRun) -> Tuple[EnvActionType, dict]:
+    def call_policy(self, env: EnvRun):
         _env = cast(StoneTaking, env.unwrapped)
         if _env.field == 1:
-            return 0, {}
+            return 0
 
         if _env.field % 4 == 2:
-            return 1 - 1, {}
+            return 1 - 1
         if _env.field % 4 == 3:
-            return 2 - 1, {}
+            return 2 - 1
         if _env.field % 4 == 0:
-            return 3 - 1, {}
+            return 3 - 1
 
-        return random.randint(0, 2), {}
+        return random.randint(0, 2)

@@ -7,8 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from srl.base.context import RunContext
-from srl.base.rl.parameter import RLParameter
-from srl.base.run.callback import RunCallback, TrainCallback
+from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.callbacks.evaluate import Evaluate
@@ -18,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class PrintProgress(RunCallback, TrainCallback, Evaluate):
+class PrintProgress(RunCallback, Evaluate):
     """時間に対して少しずつ長く表示、学習し始めたら長くしていく"""
 
     # mode: str = "simple"
@@ -75,7 +74,14 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
                 return f"({to_str_reward(eval_rewards[self.progress_worker])}eval)"
 
     def on_start(self, context: RunContext, **kwargs) -> None:
-        s = f"### env: {context.env_config.name}, rl: {context.rl_config.get_name()}"
+        s = f"### env: {context.env_config.name}"
+        if context.env_config.player_num > 1:
+            s += f", {context.players}"
+        s += f", rl: {context.rl_config.get_name()}"
+        if context.framework == "tensorflow":
+            s += f", tf={context.used_device_tf}"
+        elif context.framework == "torch":
+            s += f", torch={context.used_device_torch}"
         if context.max_episodes > 0:
             s += f", max episodes: {context.max_episodes}"
         if context.timeout > 0:
@@ -211,8 +217,8 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
         else:
             s += f" {int(_c):4d}st/s"
 
-        # [thread train time]
-        if state.enable_train_thread:
+        # [train time]
+        if state.trainer is not None:
             _c = diff_train / diff_time
             if _c < 10:
                 s += f" {_c:4.2f}tr/s"
@@ -232,23 +238,16 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
             diff_q = state.actor_send_q - self.t0_actor_send_q
             s += f", {int(diff_q / diff_time):4d}send/s"
             self.t0_actor_send_q = state.actor_send_q
-            s += f" {state.sync_actor:4d}recv(param)"
+            s += f" {state.sync_actor:4d}sync"
 
         # [system]
         s += self._stats_str(context)
 
         # [all episode]
-        s += f" {state.episode_count:4d}ep"
+        s += f" {state.episode_count:5d}ep"
 
         # [all step]
         s += f" {state.total_step:6d}st"
-
-        # [thread]
-        if state.enable_train_thread:
-            assert state.thread_in_queue is not None
-            assert state.thread_out_queue is not None
-            s += f" {state.thread_in_queue.qsize():2d}q(in)"
-            s += f" {state.thread_out_queue.qsize():2d}q(out)"
 
         if diff_episode <= 0:
             if diff_step <= 0:
@@ -257,11 +256,11 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
             else:
                 # --- steps info
                 # [episode step]
-                s += f" {state.env.step_num}st/ep"
+                s += f" {state.env.step_num:3d}st/ep"
 
                 # [reward]
                 r_list = [to_str_reward(r) for r in state.env.episode_rewards]
-                s += " [" + ",".join(r_list) + "]reward"
+                s += " [" + ",".join(r_list) + "]"
 
         else:
             # --- episode info
@@ -309,7 +308,7 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
             try:
                 memory_percent = psutil_.read_memory()
                 cpu_percent = psutil_.read_cpu()
-                if memory_percent != np.NaN:
+                if not np.isnan(memory_percent):
                     s += f"[CPU{cpu_percent:3.0f}%,M{memory_percent:2.0f}%]"
             except Exception:
                 logger.debug(traceback.format_exc())
@@ -326,7 +325,7 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
             try:
                 memory_percent = psutil_.read_memory()
                 cpu_percent = psutil_.read_cpu()
-                if memory_percent != np.NaN:
+                if not np.isnan(memory_percent):
                     s += f"[CPU{cpu_percent:3.0f}%]"
             except Exception:
                 logger.debug(traceback.format_exc())
@@ -342,12 +341,9 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
             self.enable_eval = False
 
         self.progress_timeout = self.start_time
+        self.progress_t0 = time.time()
 
-        _time = time.time()
-        self.progress_t0 = _time
-        self.progress_history = []
-
-        self.t0_train_time = _time
+        self.t0_train_time = time.time()
         self.t0_train_count = 0
         self.t0_trainer_recv_q = 0
         self._run_print = False
@@ -414,20 +410,14 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
             diff_q = state.trainer_recv_q - self.t0_trainer_recv_q
             s += f", {int(diff_q / diff_time):4d}recv/s"
             self.t0_trainer_recv_q = state.trainer_recv_q
-            s += f" {state.sync_trainer:4d}send(param)"
+
+            s += f" {state.sync_trainer:4d}sync"
 
         # [system]
         s += self._stats_str(context)
 
         # [all train count]
         s += " {:5d}tr".format(train_count)
-
-        # [thread]
-        if state.enable_train_thread:
-            assert state.thread_in_queue is not None
-            assert state.thread_out_queue is not None
-            s += f" {state.thread_in_queue.qsize():2d}q(in)"
-            s += f" {state.thread_out_queue.qsize():2d}q(out)"
 
         if train_count == 0:
             # no info
@@ -448,4 +438,68 @@ class PrintProgress(RunCallback, TrainCallback, Evaluate):
         else:
             print(s)
             print("  " + s_info)
-        self.progress_history = []
+
+    # ----------------------------------
+    # memory
+    # ----------------------------------
+    def on_memory_start(self, context: "RunContext", info: dict, **kwargs) -> None:
+        self.progress_timeout = self.start_time
+        self.progress_t0 = time.time()
+        self.elapsed_t0 = time.time()
+
+        self.mem_to_train_names = [f.__name__ for f in info["memory"].get_trainer_recv_funcs()]
+
+        self.t0_diff_time = time.time()
+        self.t0_q_act_to_mem = 0
+        self.t0_q_mem_to_train = [0 for _ in range(len(self.mem_to_train_names))]
+        self.t0_q_train_to_mem = 0
+
+    def on_memory(self, context: RunContext, info: dict, **kwargs):
+        if time.time() - self.progress_t0 > self.progress_timeout:
+            self._print_memory(context, info)
+            self._update_progress()
+            self.progress_t0 = time.time()  # last
+
+    def on_memory_end(self, context: RunContext, info: dict, **kwargs) -> None:
+        self._print_memory(context, info)
+
+    def _print_memory(self, context: RunContext, info: dict):
+        _time = time.time()
+        elapsed_time = _time - self.elapsed_t0
+        diff_time = _time - self.t0_diff_time
+        if diff_time < 0.1:
+            diff_time = 0.1
+        self.t0_diff_time = _time
+
+        # [TIME] [actor] [elapsed time]
+        s = datetime.datetime.now().strftime("%H:%M:%S")
+        s += "  memory:"
+        s += f" {to_str_time(elapsed_time)}"
+
+        # [memory]
+        mem = info["memory"].length()
+        s += f" {mem:14d}mem"
+
+        # [q]
+        s += ",[act->mem]"
+        size = info["act_to_mem_size"]
+        diff = info["act_to_mem"] - self.t0_q_act_to_mem
+        s += f" {int(diff / diff_time):2d} recv/s {size:3d}"
+        self.t0_q_act_to_mem = info["act_to_mem"]
+
+        s += ",[train->mem]"
+        size = info["train_to_mem_size"]
+        diff = info["train_to_mem"] - self.t0_q_train_to_mem
+        s += f" {int(diff / diff_time):2d} recv/s {size:3d}"
+        self.t0_q_train_to_mem = info["train_to_mem"]
+        print(s)
+
+        for i in range(len(info["mem_to_train_size_list"])):
+            s2 = f"[{self.mem_to_train_names[i]}]"
+            s = " " * 32 + f"[mem->train]{s2:<10}"
+            size = info["mem_to_train_size_list"][i]
+            train = info["mem_to_train_list"][i]
+            diff = train - self.t0_q_mem_to_train[i]
+            s += f" {float(diff / diff_time):5.1f} send/s {size:3d}"
+            self.t0_q_mem_to_train[i] = train
+            print(s)

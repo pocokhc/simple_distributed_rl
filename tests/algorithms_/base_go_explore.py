@@ -23,6 +23,12 @@ class QuickCase(CommonQuickCase):
     def test_simple_mp(self, rl_param):
         pytest.skip("未対応")
 
+    def test_simple_mp_memory(self, rl_param):
+        pytest.skip("未対応")
+
+    def test_simple_rollout_train(self, rl_param):
+        pytest.skip("未対応")
+
 
 class LongCase(CommonLongCase):
     def _create_rl_config(self):

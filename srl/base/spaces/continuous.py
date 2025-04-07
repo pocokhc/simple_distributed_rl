@@ -84,8 +84,10 @@ class ContinuousSpace(SpaceBase[float]):
     def get_default(self) -> float:
         return 0.0 if self._low <= 0 <= self._high else self._low
 
-    def copy(self) -> "ContinuousSpace":
-        o = ContinuousSpace(self._low, self._high)
+    def copy(self, **kwargs) -> "ContinuousSpace":
+        keys = ["low", "high", "dtype"]
+        args = [kwargs.get(key, getattr(self, f"_{key}")) for key in keys]
+        o = ContinuousSpace(*args)
         o.division_tbl = self.division_tbl
         return o
 

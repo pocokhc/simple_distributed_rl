@@ -6,6 +6,7 @@ import numpy as np
 from srl.base.define import RLBaseActTypes, RLBaseObsTypes
 from srl.base.rl.config import RLConfig as RLConfigBase
 from srl.base.rl.config import TRLConfig
+from srl.base.rl.memory import TRLMemory
 from srl.base.rl.parameter import TRLParameter
 from srl.base.rl.worker import RLWorkerGeneric
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
@@ -23,10 +24,11 @@ class RLConfig(RLConfigBase[Union[DiscreteSpace, ArrayContinuousSpace], BoxSpace
 
 
 class RLWorker(
-    Generic[TRLConfig, TRLParameter],
+    Generic[TRLConfig, TRLParameter, TRLMemory],
     RLWorkerGeneric[
         TRLConfig,
         TRLParameter,
+        TRLMemory,
         Union[DiscreteSpace, ArrayContinuousSpace],
         Union[int, List[float]],
         BoxSpace,

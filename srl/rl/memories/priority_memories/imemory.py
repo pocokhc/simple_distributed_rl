@@ -19,7 +19,7 @@ class IPriorityMemory(ABC):
 
     @abstractmethod
     def sample(self, batch_size: int, step: int) -> Tuple[List[Any], np.ndarray, List[Any]]:
-        raise NotImplementedError()  # return (batchs, weights, update_args)
+        raise NotImplementedError()  # return (batches, weights, update_args)
 
     @abstractmethod
     def update(self, update_args: List[Any], priorities: np.ndarray) -> None:

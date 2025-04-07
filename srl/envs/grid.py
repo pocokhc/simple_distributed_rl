@@ -13,8 +13,7 @@ from srl.base.define import KeyBindType, SpaceTypes
 from srl.base.env import registration
 from srl.base.env.base import EnvBase
 from srl.base.env.env_run import EnvRun, SpaceBase
-from srl.base.rl.config import RLConfig
-from srl.base.rl.processor import RLProcessor
+from srl.base.env.processor import EnvProcessor
 from srl.base.spaces import ArrayDiscreteSpace, BoxSpace, DiscreteSpace
 from srl.base.spaces.space import TObsSpace, TObsType
 
@@ -482,6 +481,7 @@ class _GridBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSp
         plt.yticks(ticks=range(self.H), labels=range(0, self.H))
         plt.grid(False)
         plt.show()
+        plt.close()
 
     def print_action_values(self, Q):
         def _Q(x, y, a):
@@ -581,6 +581,7 @@ class _GridBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSp
                     # ax.text(cx + 0.2, cy - 0, f"{right}", fontsize=fontsize, ha="left", va="center")
 
         plt.show()
+        plt.close()
 
     def plot_action_count(self):
         self.plot_action_values(self.action_count)
@@ -654,7 +655,7 @@ class Grid(_GridBase[ArrayDiscreteSpace, List[int]]):
         return list(self.player_pos)
 
 
-class GridLayer(_GridBase[BoxSpace, np.array]):
+class GridLayer(_GridBase[BoxSpace, np.ndarray]):
     @property
     def observation_space(self):
         return BoxSpace(
@@ -677,9 +678,9 @@ class GridLayer(_GridBase[BoxSpace, np.array]):
         return _field
 
 
-class LayerProcessor(RLProcessor):
-    def remap_observation_space(self, env_observation_space: SpaceBase, env: EnvRun, rl_config: RLConfig) -> SpaceBase:
-        _env = cast(Grid, env.unwrapped)
+class LayerProcessor(EnvProcessor):
+    def remap_observation_space(self, prev_space: SpaceBase, env_run: EnvRun, **kwargs):
+        _env = cast(Grid, env_run.unwrapped)
         observation_space = BoxSpace(
             shape=(_env.H, _env.W, 1),
             low=0,
@@ -689,15 +690,20 @@ class LayerProcessor(RLProcessor):
         )
         return observation_space
 
-    def remap_observation(self, state, worker, env: EnvRun) -> np.ndarray:
-        _env = cast(Grid, env.unwrapped)
+    def remap_reset(self, env: EnvRun):
+        return self._remap_state(env)
 
-        px = _env.player_pos[0]
-        py = _env.player_pos[1]
+    def remap_step(self, rewards: List[float], terminated: bool, truncated: bool, env_run: EnvRun, **kwargs):
+        return self._remap_state(env), rewards, terminated, truncated
 
-        _field = np.zeros((_env.H, _env.W, 1))
-        for y in range(_env.H):
-            for x in range(_env.W):
+    def _remap_state(self, env):
+        env = cast(Grid, env.unwrapped)
+        px = env.player_pos[0]
+        py = env.player_pos[1]
+
+        _field = np.zeros((env.H, env.W, 1))
+        for y in range(env.H):
+            for x in range(env.W):
                 if y == py and x == px:
                     _field[y][x][0] = 1
         return _field

@@ -29,11 +29,11 @@ def test_processor():
     field[3][1][0] = 1
 
     # --- space
-    new_space = processor.remap_observation_space(env.observation_space, env, DummyRLConfig())
+    new_space = processor.remap_observation_space(env.observation_space, env)
     assert new_space == BoxSpace((env_org.H, env_org.W, 1), 0, 1, np.uint8, SpaceTypes.IMAGE)
 
     # --- decode
-    new_state = processor.remap_observation([1, 3], None, env)
+    new_state = processor._remap_state(env)
     assert isinstance(new_state, np.ndarray)
     assert (new_state == field).all()
 

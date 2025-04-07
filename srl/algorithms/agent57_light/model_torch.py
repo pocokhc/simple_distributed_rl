@@ -9,7 +9,6 @@ import torch.optim as optim
 
 from srl.base.rl.trainer import RLTrainer
 from srl.rl import functions as funcs
-from srl.rl.schedulers.scheduler import SchedulerConfig
 
 from .agent57_light import CommonInterfaceParameter, Config, Memory
 
@@ -25,7 +24,12 @@ class QNetwork(nn.Module):
         if not config.enable_intrinsic_reward:
             self.input_int_reward = False
 
-        self.in_block = config.create_input_block_torch()
+        if config.observation_space.is_value():
+            self.in_block = config.input_value_block.create_torch_block(config.observation_space.shape)
+        elif config.observation_space.is_image():
+            self.in_block = config.input_image_block.create_torch_block(config.observation_space)
+        else:
+            raise ValueError(config.observation_space)
 
         # --- UVFA
         in_size = self.in_block.out_size
@@ -38,10 +42,7 @@ class QNetwork(nn.Module):
         in_size += config.actor_num
 
         # out
-        self.hidden_block = config.hidden_block.create_block_torch(
-            in_size,
-            config.action_space.n,
-        )
+        self.hidden_block = config.hidden_block.create_torch_block(in_size, config.action_space.n)
 
     def forward(self, inputs):
         state = inputs[0]
@@ -75,11 +76,17 @@ class _EmbeddingNetwork(nn.Module):
     def __init__(self, config: Config):
         super().__init__()
 
-        self.in_block = config.create_input_block_torch()
-        self.emb_block = config.episodic_emb_block.create_block_torch(self.in_block.out_size)
+        if config.observation_space.is_value():
+            self.in_block = config.input_value_block.create_torch_block(config.observation_space.shape)
+        elif config.observation_space.is_image():
+            self.in_block = config.input_image_block.create_torch_block(config.observation_space)
+        else:
+            raise ValueError(config.observation_space)
+
+        self.emb_block = config.episodic_emb_block.create_torch_block(self.in_block.out_size)
 
         # --- out
-        self.out_block = config.episodic_out_block.create_block_torch(self.emb_block.out_size * 2)
+        self.out_block = config.episodic_out_block.create_torch_block(self.emb_block.out_size * 2)
         self.out_block_normalize = nn.LayerNorm(self.out_block.out_size)
         self.out_block_out1 = nn.Linear(self.out_block.out_size, config.action_space.n)
         self.out_block_out2 = nn.Softmax(dim=1)
@@ -110,8 +117,14 @@ class _LifelongNetwork(nn.Module):
     def __init__(self, config: Config):
         super().__init__()
 
-        self.in_block = config.create_input_block_torch()
-        self.hidden_block = config.lifelong_hidden_block.create_block_torch(self.in_block.out_size)
+        if config.observation_space.is_value():
+            self.in_block = config.input_value_block.create_torch_block(config.observation_space.shape)
+        elif config.observation_space.is_image():
+            self.in_block = config.input_image_block.create_torch_block(config.observation_space)
+        else:
+            raise ValueError(config.observation_space)
+
+        self.hidden_block = config.lifelong_hidden_block.create_torch_block(self.in_block.out_size)
         self.hidden_normalize = nn.LayerNorm(self.hidden_block.out_size)
 
     def forward(self, x):
@@ -121,14 +134,9 @@ class _LifelongNetwork(nn.Module):
         return x
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
 class Parameter(CommonInterfaceParameter):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-
+    def setup(self):
+        super().setup()
         self.device = torch.device(self.config.used_device_torch)
 
         self.q_ext_online = QNetwork(self.config).to(self.device)
@@ -273,28 +281,20 @@ class Parameter(CommonInterfaceParameter):
         return q
 
 
-# ------------------------------------------------------
-# Trainer
-# ------------------------------------------------------
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
-
-        self.lr_sch_ext = SchedulerConfig.create_scheduler(self.config.lr_ext)
-        self.lr_sch_int = SchedulerConfig.create_scheduler(self.config.lr_int)
-        self.lr_sch_emb = SchedulerConfig.create_scheduler(self.config.episodic_lr)
-        self.lr_sch_ll = SchedulerConfig.create_scheduler(self.config.lifelong_lr)
-
-        self.q_ext_optimizer = optim.Adam(self.parameter.q_ext_online.parameters(), lr=self.lr_sch_ext.get_rate())
-        self.q_int_optimizer = optim.Adam(self.parameter.q_int_online.parameters(), lr=self.lr_sch_int.get_rate())
+    def on_setup(self):
+        self.q_ext_optimizer = optim.Adam(self.parameter.q_ext_online.parameters(), lr=self.config.lr_ext)
+        self.q_ext_optimizer = self.config.lr_ext_scheduler.apply_torch_scheduler(self.q_ext_optimizer)
+        self.q_int_optimizer = optim.Adam(self.parameter.q_int_online.parameters(), lr=self.config.lr_int)
+        self.q_int_optimizer = self.config.lr_int_scheduler.apply_torch_scheduler(self.q_int_optimizer)
         self.q_criterion = nn.HuberLoss()
 
-        self.emb_optimizer = optim.Adam(self.parameter.emb_network.parameters(), lr=self.lr_sch_emb.get_rate())
+        self.emb_optimizer = optim.Adam(self.parameter.emb_network.parameters(), lr=self.config.episodic_lr)
+        self.emb_optimizer = self.config.episodic_lr_scheduler.apply_torch_scheduler(self.emb_optimizer)
         self.emb_criterion = nn.MSELoss()
 
-        self.lifelong_optimizer = optim.Adam(self.parameter.lifelong_train.parameters(), lr=self.lr_sch_ll.get_rate())
+        self.lifelong_optimizer = optim.Adam(self.parameter.lifelong_train.parameters(), lr=self.config.lifelong_lr)
+        self.lifelong_optimizer = self.config.lifelong_lr_scheduler.apply_torch_scheduler(self.lifelong_optimizer)
         self.lifelong_criterion = nn.MSELoss()
 
         self.beta_list = funcs.create_beta_list(self.config.actor_num)
@@ -303,9 +303,10 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.sync_count = 0
 
     def train(self) -> None:
-        if self.memory.is_warmup_needed():
+        batches = self.memory.sample()
+        if batches is None:
             return
-        batchs, weights, update_args = self.memory.sample(self.train_count)
+        batches, weights, update_args = batches
 
         device = self.parameter.device
 
@@ -323,7 +324,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             prev_rewards_int,
             actor_idx,
             actor_idx_onehot,
-        ) = self.parameter.change_batchs_format(batchs)
+        ) = self.parameter.change_batches_format(batches)
 
         batch_discount = np.array([self.discount_list[a] for a in actor_idx], np.float32)
 
@@ -358,7 +359,6 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             True,
             self.parameter.q_ext_online,
             self.q_ext_optimizer,
-            self.lr_sch_ext,
             rewards_ext,
             *_params,
         )
@@ -372,7 +372,6 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
                 False,
                 self.parameter.q_int_online,
                 self.q_int_optimizer,
-                self.lr_sch_int,
                 rewards_int,
                 *_params,
             )
@@ -390,11 +389,6 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             self.emb_optimizer.step()
             self.info["emb_loss"] = emb_loss.item()
 
-            if self.lr_sch_emb.update(self.train_count):
-                lr = self.lr_sch_emb.get_rate()
-                for param_group in self.emb_optimizer.param_groups:
-                    param_group["lr"] = lr
-
             # ----------------------------------------
             # lifelong network
             # ----------------------------------------
@@ -409,11 +403,6 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             self.lifelong_optimizer.step()
             self.info["lifelong_loss"] = lifelong_loss.item()
 
-            if self.lr_sch_ll.update(self.train_count):
-                lr = self.lr_sch_ll.get_rate()
-                for param_group in self.lifelong_optimizer.param_groups:
-                    param_group["lr"] = lr
-
         else:
             td_errors_int = 0.0
 
@@ -423,7 +412,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         else:
             batch_beta = np.array([self.beta_list[a] for a in actor_idx], np.float32)
             priorities = np.abs(td_errors_ext + batch_beta * td_errors_int)
-        self.memory.update(update_args, priorities)
+        self.memory.update(update_args, priorities, self.train_count)
 
         # --- sync target
         if self.train_count % self.config.target_model_update_interval == 0:
@@ -439,7 +428,6 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         is_ext: bool,
         model_q_online,
         optimizer,
-        lr_sch,
         rewards,  # (batch, 1)
         #
         n_states,
@@ -492,11 +480,6 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
-        if lr_sch.update(self.train_count):
-            lr = lr_sch.get_rate()
-            for param_group in optimizer.param_groups:
-                param_group["lr"] = lr
 
         td_errors = (target_q - q).to("cpu").detach().numpy()
         return td_errors, loss

@@ -24,7 +24,7 @@ class QuickCase(CommonQuickCase):
         from srl.algorithms import sac
 
         rl_config = sac.Config()
-        rl_config.memory_warmup_size = 2
+        rl_config.memory.warmup_size = 2
         rl_config.batch_size = 2
         rl_config.entropy_bonus_exclude_q = rl_param.get("entropy_bonus_exclude_q", True)
         rl_config.enable_normal_squashed = rl_param.get("enable_normal_squashed", True)
@@ -48,8 +48,8 @@ class LongCase(CommonLongCase):
         rl_config.batch_size = 32
         rl_config.lr_policy = 0.0002
         rl_config.lr_q = 0.001
-        rl_config.memory_capacity = 10000
-        rl_config.memory_warmup_size = 1000
+        rl_config.memory.capacity = 10000
+        rl_config.memory.warmup_size = 1000
         rl_config.policy_hidden_block.set((32, 32, 32))
         rl_config.q_hidden_block.set((32, 32, 32))
         rl_config.entropy_bonus_exclude_q = True
@@ -67,8 +67,8 @@ class LongCase(CommonLongCase):
         rl_config.batch_size = 32
         rl_config.lr_policy = 0.003
         rl_config.lr_q = 0.003
-        rl_config.memory_capacity = 10000
-        rl_config.memory_warmup_size = 1000
+        rl_config.memory.capacity = 10000
+        rl_config.memory.warmup_size = 1000
         rl_config.policy_hidden_block.set((64, 64, 64))
         rl_config.q_hidden_block.set((128, 128, 128))
 

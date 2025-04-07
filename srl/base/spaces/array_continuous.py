@@ -99,8 +99,10 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
     def get_default(self) -> List[float]:
         return [0 if self._low[i] <= 0 <= self._high[i] else self._low[i] for i in range(self._size)]
 
-    def copy(self) -> "ArrayContinuousSpace":
-        o = ArrayContinuousSpace(self._size, self._low, self._high)
+    def copy(self, **kwargs) -> "ArrayContinuousSpace":
+        keys = ["size", "low", "high", "dtype"]
+        args = [kwargs.get(key, getattr(self, f"_{key}")) for key in keys]
+        o = ArrayContinuousSpace(*args)
         o.division_tbl = self.division_tbl
         return o
 

@@ -7,7 +7,6 @@ from tensorflow import keras
 
 from srl.base.rl.trainer import RLTrainer
 from srl.rl import functions as funcs
-from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.model import KerasModelAddedSummary
 
 from .agent57_light import CommonInterfaceParameter, Config, Memory
@@ -25,11 +24,15 @@ class QNetwork(KerasModelAddedSummary):
         if not config.enable_intrinsic_reward:
             self.input_int_reward = False
 
-        self.in_block = config.create_input_block_tf()
-        self.concat_layer = kl.Concatenate(axis=-1)
+        if config.observation_space.is_value():
+            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
+        elif config.observation_space.is_image():
+            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
+        else:
+            raise ValueError(config.observation_space)
 
-        # out
-        self.hidden_block = config.hidden_block.create_block_tf(config.action_space.n)
+        self.concat_layer = kl.Concatenate(axis=-1)
+        self.hidden_block = config.hidden_block.create_tf_block(config.action_space.n)
 
         # build
         self(
@@ -78,17 +81,27 @@ class EmbeddingNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
-        self.in_block = config.create_input_block_tf()
-        self.emb_block = config.episodic_emb_block.create_block_tf()
+        if config.observation_space.is_value():
+            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
+        elif config.observation_space.is_image():
+            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
+        else:
+            raise ValueError(config.observation_space)
 
-        # out_block
+        self.emb_block = config.episodic_emb_block.create_tf_block()
+
         self.concat_layer = kl.Concatenate(axis=-1)
-        self.out_block = config.episodic_out_block.create_block_tf()
+        self.out_block = config.episodic_out_block.create_tf_block()
         self.out_block_normalize = kl.LayerNormalization()
         self.out_block_out = kl.Dense(config.action_space.n, activation="softmax")
 
         # build
-        self([np.zeros((1,) + config.observation_space.shape), np.zeros((1,) + config.observation_space.shape)])
+        self(
+            [
+                np.zeros((1,) + config.observation_space.shape),
+                np.zeros((1,) + config.observation_space.shape),
+            ]
+        )
         self.loss_func = keras.losses.MeanSquaredError()
 
     def _emb_block_call(self, x, training=False):
@@ -123,8 +136,14 @@ class LifelongNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
-        self.in_block = config.create_input_block_tf()
-        self.hidden_block = config.lifelong_hidden_block.create_block_tf()
+        if config.observation_space.is_value():
+            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
+        elif config.observation_space.is_image():
+            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
+        else:
+            raise ValueError(config.observation_space)
+
+        self.hidden_block = config.lifelong_hidden_block.create_tf_block()
         self.hidden_normalize = kl.LayerNormalization()
 
         # build
@@ -145,14 +164,9 @@ class LifelongNetwork(KerasModelAddedSummary):
         return loss
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
 class Parameter(CommonInterfaceParameter):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-
+    def setup(self):
+        super().setup()
         self.q_ext_online = QNetwork(self.config)
         self.q_ext_target = QNetwork(self.config)
         self.q_int_online = QNetwork(self.config)
@@ -210,26 +224,14 @@ class Parameter(CommonInterfaceParameter):
         return self.lifelong_train(x).numpy()
 
 
-# ------------------------------------------------------
-# Trainer
-# ------------------------------------------------------
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
-
-        self.lr_sch_ext = SchedulerConfig.create_scheduler(self.config.lr_ext)
-        self.lr_sch_int = SchedulerConfig.create_scheduler(self.config.lr_int)
-        self.lr_sch_emb = SchedulerConfig.create_scheduler(self.config.episodic_lr)
-        self.lr_sch_ll = SchedulerConfig.create_scheduler(self.config.lifelong_lr)
-
-        self.q_ext_optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch_ext.get_rate())
-        self.q_int_optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch_int.get_rate())
+    def on_setup(self):
+        self.q_ext_optimizer = keras.optimizers.Adam(learning_rate=self.config.lr_ext_scheduler.apply_tf_scheduler(self.config.lr_ext))
+        self.q_int_optimizer = keras.optimizers.Adam(learning_rate=self.config.lr_int_scheduler.apply_tf_scheduler(self.config.lr_int))
         self.q_loss = keras.losses.Huber()
 
-        self.emb_optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch_emb.get_rate())
-        self.lifelong_optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch_ll.get_rate())
+        self.emb_optimizer = keras.optimizers.Adam(learning_rate=self.config.episodic_lr_scheduler.apply_tf_scheduler(self.config.episodic_lr))
+        self.lifelong_optimizer = keras.optimizers.Adam(learning_rate=self.config.lifelong_lr_scheduler.apply_tf_scheduler(self.config.lifelong_lr))
 
         self.beta_list = funcs.create_beta_list(self.config.actor_num)
         self.discount_list = funcs.create_discount_list(self.config.actor_num)
@@ -237,9 +239,10 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.sync_count = 0
 
     def train(self) -> None:
-        if self.memory.is_warmup_needed():
+        batches = self.memory.sample()
+        if batches is None:
             return
-        batchs, weights, update_args = self.memory.sample(self.train_count)
+        batches, weights, update_args = batches
 
         (
             states,
@@ -255,7 +258,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             prev_rewards_int,
             actor_idx,
             actor_idx_onehot,
-        ) = self.parameter.change_batchs_format(batchs)
+        ) = self.parameter.change_batches_format(batches)
 
         batch_discount = np.array([self.discount_list[a] for a in actor_idx], np.float32)
 
@@ -283,7 +286,6 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             True,
             self.parameter.q_ext_online,
             self.q_ext_optimizer,
-            self.lr_sch_ext,
             rewards_ext,
             *_params,
         )
@@ -295,7 +297,6 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
                 False,
                 self.parameter.q_int_online,
                 self.q_int_optimizer,
-                self.lr_sch_int,
                 rewards_int,
                 *_params,
             )
@@ -310,9 +311,6 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             self.emb_optimizer.apply_gradients(zip(grads, self.parameter.emb_network.trainable_variables))
             self.info["emb_loss"] = emb_loss.numpy()
 
-            if self.lr_sch_emb.update(self.train_count):
-                self.emb_optimizer.learning_rate = self.lr_sch_emb.get_rate()
-
             # ----------------------------------------
             # lifelong network
             # ----------------------------------------
@@ -323,9 +321,6 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             self.lifelong_optimizer.apply_gradients(zip(grads, self.parameter.lifelong_train.trainable_variables))
             self.info["lifelong_loss"] = lifelong_loss.numpy()
 
-            if self.lr_sch_ll.update(self.train_count):
-                self.lifelong_optimizer.learning_rate = self.lr_sch_ll.get_rate()
-
         else:
             td_errors_int = 0.0
 
@@ -335,7 +330,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         else:
             batch_beta = np.array([self.beta_list[a] for a in actor_idx], np.float32)
             priorities = np.abs(td_errors_ext + batch_beta * td_errors_int)
-        self.memory.update(update_args, priorities)
+        self.memory.update(update_args, priorities, self.train_count)
 
         # --- sync target
         if self.train_count % self.config.target_model_update_interval == 0:
@@ -351,7 +346,6 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         is_ext: bool,
         model_q_online,
         optimizer,
-        lr_sch,
         rewards,  # (batch, 1)
         #
         n_states,
@@ -402,9 +396,6 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 
         grads = tape.gradient(loss, model_q_online.trainable_variables)
         optimizer.apply_gradients(zip(grads, model_q_online.trainable_variables))
-
-        if lr_sch.update(self.train_count):
-            optimizer.learning_rate = lr_sch.get_rate()
 
         td_errors = target_q - q.numpy()
 

@@ -12,7 +12,7 @@ class QuickCase(CommonQuickCase):
         rl_config = agent57.Config()
         rl_config.set_tensorflow()
 
-        rl_config.memory_warmup_size = 2
+        rl_config.memory.warmup_size = 2
         rl_config.batch_size = 2
         rl_config.lstm_units = 8
         rl_config.input_image_block.set_dqn_block(filters=2)
@@ -49,7 +49,7 @@ class LongCase(CommonLongCase):
         rl_config.hidden_block.set((64, 64))
         rl_config.lr_ext = 0.001
         rl_config.lr_int = 0.001
-        rl_config.set_replay_memory()
+        rl_config.memory.set_replay_buffer()
 
         return rl_config
 
@@ -76,7 +76,7 @@ class LongCase(CommonLongCase):
 
     def test_Pendulum_memory(self):
         rl_config = self._create_rl_config()
-        rl_config.set_proportional_memory(beta_steps=200 * 30)
+        rl_config.memory.set_proportional(beta_steps=200 * 30)
         runner = self.create_test_runner("Pendulum-v1", rl_config)
         runner.train(max_train_count=200 * 50)
         assert runner.evaluate_compare_to_baseline_single_player()

@@ -10,12 +10,9 @@ from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.rl import functions as funcs
-from srl.rl.memories.sequence_memory import SequenceMemory
+from srl.rl.memories.single_use_buffer import RLSingleUseBuffer
 
 
-# ------------------------------------------------------
-# config
-# ------------------------------------------------------
 @dataclass
 class Config(RLConfig):
     #: シミュレーション回数
@@ -26,9 +23,6 @@ class Config(RLConfig):
     discount: float = 1.0
     #: UCT C
     uct_c: float = np.sqrt(2.0)
-
-    def get_framework(self) -> str:
-        return ""
 
     def get_name(self) -> str:
         return "MCTS"
@@ -46,21 +40,12 @@ register(
 )
 
 
-# ------------------------------------------------------
-# Memory
-# ------------------------------------------------------
-class Memory(SequenceMemory):
+class Memory(RLSingleUseBuffer):
     pass
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
 class Parameter(RLParameter[Config]):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-
+    def setup(self):
         self.N = {}  # 訪問回数
         self.W = {}  # 累計報酬
 
@@ -85,21 +70,13 @@ class Parameter(RLParameter[Config]):
             self.N[state] = [0 for _ in range(self.config.action_space.n)]
 
 
-# ------------------------------------------------------
-# Trainer
-# ------------------------------------------------------
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
-
     def train(self) -> None:
-        if self.memory.is_warmup_needed():
+        batches = self.memory.sample()
+        if batches is None:
             return
-        batchs = self.memory.sample()
 
-        for batch in batchs:
+        for batch in batches:
             if self.distributed:
                 state = batch["state"]
                 action = batch["action"]
@@ -114,15 +91,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.info["size"] = len(self.parameter.N)
 
 
-# ------------------------------------------------------
-# Worker
-# ------------------------------------------------------
-class Worker(RLWorker[Config, Parameter]):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
-
+class Worker(RLWorker[Config, Parameter, Memory]):
     def policy(self, worker) -> int:
         self.state = self.config.observation_space.to_str(worker.state)
         self.invalid_actions = worker.get_invalid_actions()
@@ -147,7 +116,7 @@ class Worker(RLWorker[Config, Parameter]):
 
         # actionを選択
         uct_list = self._calc_uct(state, env.get_invalid_actions())
-        action = np.random.choice(np.where(uct_list == np.max(uct_list))[0])
+        action = int(np.random.choice(np.where(uct_list == np.max(uct_list))[0]))
 
         if self.parameter.N[state][action] < self.config.expansion_threshold:
             # アクション回数がすくないのでロールアウト
@@ -155,8 +124,8 @@ class Worker(RLWorker[Config, Parameter]):
         else:
             # 1step実行
             player_index = env.next_player
-            n_state, rewards = self.worker.env_step(env, action)
-            reward = rewards[player_index]
+            n_state: Any = env.step_from_rl(action, self.worker)
+            reward = env.rewards[player_index]
 
             if env.done:
                 pass  # 終了

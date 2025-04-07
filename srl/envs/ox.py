@@ -278,7 +278,7 @@ class OX(_OXBase[ArrayDiscreteSpace, List[int]]):
         return ArrayDiscreteSpace(self.H * self.W, low=-1, high=1)
 
     def _create_state(self):
-        return self.field
+        return self.field[:]
 
 
 class OXLayer(_OXBase[BoxSpace, np.ndarray]):
@@ -307,7 +307,7 @@ class OXLayer(_OXBase[BoxSpace, np.ndarray]):
 
 
 class Cpu(EnvWorker):
-    def call_policy(self, env: EnvRun) -> Tuple[int, dict]:
+    def call_policy(self, env: EnvRun):
         _env = cast(OX, env.unwrapped)
         scores = _env.calc_scores()
         self._render_scores = scores
@@ -315,7 +315,7 @@ class Cpu(EnvWorker):
         self._render_time = _env._scores_time
 
         action = int(np.random.choice(np.where(scores == np.max(scores))[0]))
-        return action, {}
+        return action
 
     def render_render(self, worker, **kwargs) -> None:
         _env = cast(OX, worker.env.unwrapped)

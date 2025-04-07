@@ -16,7 +16,7 @@ def test_mlp():
 
     x = np.ones((batch_size, 256), dtype=np.float32)
 
-    block = config.create_block_tf()
+    block = config.create_tf_block()
     y = block(x)
     assert y is not None
     y = y.numpy()

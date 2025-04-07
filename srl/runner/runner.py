@@ -24,6 +24,12 @@ class Runner(
         context = context.copy()
         return Runner(context.env_config, context.rl_config, context)
 
+    def summary(self):
+        parameter = self.make_parameter()  # and rl_config.setup()
+        self.env_config.summary()
+        self.rl_config.summary()
+        parameter.summary()
+
     def evaluate_compare_to_baseline_single_player(
         self,
         episode: int = -1,

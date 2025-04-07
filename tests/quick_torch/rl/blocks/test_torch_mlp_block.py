@@ -18,7 +18,7 @@ def test_torch_mlp():
     x = np.ones((batch_size, 256), dtype=np.float32)
 
     x = torch.tensor(x)
-    block = config.create_block_torch(256)
+    block = config.create_torch_block(256)
     y = block(x)
     y = y.detach().numpy()
 

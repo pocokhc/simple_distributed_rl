@@ -9,12 +9,16 @@ from srl.base.rl.config import DummyRLConfig, RLConfig, TRLConfig
 
 logger = logging.getLogger(__name__)
 
-TRLParameter = TypeVar("TRLParameter", bound="RLParameter")
+TRLParameter = TypeVar("TRLParameter", bound="RLParameter", covariant=True)
 
 
 class RLParameter(ABC, Generic[TRLConfig]):
     def __init__(self, config: Optional[TRLConfig]):
         self.config: TRLConfig = cast(TRLConfig, DummyRLConfig()) if config is None else config
+        self.setup()
+
+    def setup(self) -> None:
+        pass  # NotImplemented
 
     @abstractmethod
     def call_restore(self, data: Any, **kwargs) -> None:
@@ -37,7 +41,9 @@ class RLParameter(ABC, Generic[TRLConfig]):
             t0 = time.time()
             with open(path, "wb") as f:
                 pickle.dump(self.backup(), f)
-            logger.info(f"parameter saved({time.time() - t0:.1f}s): {path}")
+
+            file_size = os.path.getsize(path)
+            logger.info(f"parameter saved({file_size} bytes, {time.time() - t0:.1f}s): {os.path.basename(path)}")
         except Exception:
             if os.path.isfile(path):
                 os.remove(path)

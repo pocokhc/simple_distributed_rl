@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 
-from .base import BaseScheduler
+from .base import Scheduler
 
 
 @dataclass
-class Polynomial(BaseScheduler):
+class Polynomial(Scheduler):
     start_rate: float
     phase_steps: int
     power: float
@@ -15,14 +15,13 @@ class Polynomial(BaseScheduler):
         self.prev_rate = 0.0
         self.update(0)
 
-    def update(self, step: int) -> bool:
+    def update(self, step: int) -> Scheduler:
         if step >= self.phase_steps:
             rate = 0.0
         else:
             rate = self.start_rate * (1 - (step / float(self.phase_steps))) ** self.power
-        is_update = self.prev_rate != rate
         self.prev_rate = rate
-        return is_update
+        return self
 
     def get_rate(self) -> float:
         return self.prev_rate

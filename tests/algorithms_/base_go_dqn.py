@@ -11,7 +11,7 @@ class QuickCase(CommonQuickCase):
 
         rl_config = go_dqn.Config()
         rl_config.batch_size = 2
-        rl_config.memory_warmup_size = 2
+        rl_config.memory.warmup_size = 2
         rl_config.target_model_update_interval = 1
         rl_config.input_image_block.set_dqn_block(filters=2)
         rl_config.hidden_block.set((2,))
@@ -27,8 +27,10 @@ class LongCase(CommonLongCase):
 
         rl_config = go_dqn.Config(
             target_model_update_interval=200,
-            memory_warmup_size=200,
-            memory_capacity=10_000,
+            memory=go_dqn.ReplayBufferConfig(
+                warmup_size=200,
+                capacity=10_000,
+            ),
         )
         rl_config.hidden_block.set((64, 64))
         return rl_config

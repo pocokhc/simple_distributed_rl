@@ -8,19 +8,19 @@ from srl.rl.torch_.converter import convert_activation_torch
 from srl.rl.torch_.modules.noisy_linear import NoisyLinear
 
 
-def create_mlp_block_from_config(
+def create_block_from_config(
     config: DuelingNetworkConfig,
     in_size: int,
     out_size: int,
     enable_noisy_dense: bool = False,
 ):
-    if config._name == "MLP":
-        block = MLPBlock(in_size, enable_noisy_dense=enable_noisy_dense, **config._kwargs)
+    if config.name == "MLP":
+        block = MLPBlock(in_size, enable_noisy_dense=enable_noisy_dense, **config.kwargs)
         block.add_layer(nn.Linear(block.out_size, out_size), out_size)
         return block
 
-    if config._name == "DuelingNetwork":
-        layer_sizes = config._kwargs["layer_sizes"]
+    if config.name == "DuelingNetwork":
+        layer_sizes = config.kwargs["layer_sizes"]
         dueling_units = layer_sizes[-1]
         layer_sizes = layer_sizes[:-1]
 
@@ -28,7 +28,7 @@ def create_mlp_block_from_config(
             in_size,
             layer_sizes,
             enable_noisy_dense=enable_noisy_dense,
-            **config._kwargs["mlp_kwargs"],
+            **config.kwargs["mlp_kwargs"],
         )
         block.add_layer(
             DuelingNetworkBlock(
@@ -36,18 +36,18 @@ def create_mlp_block_from_config(
                 dueling_units,
                 out_size,
                 enable_noisy_dense=enable_noisy_dense,
-                **config._kwargs["dueling_kwargs"],
+                **config.kwargs["dueling_kwargs"],
             ),
             out_size,
         )
         return block
 
-    if config._name == "custom":
+    if config.name == "custom":
         from srl.utils.common import load_module
 
-        return load_module(config._kwargs["entry_point"])(in_size, out_size, **config._kwargs["kwargs"])
+        return load_module(config.kwargs["entry_point"])(in_size, out_size, **config.kwargs["kwargs"])
 
-    raise UndefinedError(config._name)
+    raise UndefinedError(config.name)
 
 
 class DuelingNetworkBlock(nn.Module):

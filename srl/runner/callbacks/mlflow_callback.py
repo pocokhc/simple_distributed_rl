@@ -9,11 +9,12 @@ from typing import Optional, cast
 
 import mlflow
 import mlflow.entities
+
 import srl
 from srl.base.context import RunContext
 from srl.base.rl.config import RLConfig
 from srl.base.rl.parameter import RLParameter
-from srl.base.run.callback import RunCallback, TrainCallback
+from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.callbacks.evaluate import Evaluate
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class MLFlowCallback(RunCallback, TrainCallback, Evaluate):
+class MLFlowCallback(RunCallback, Evaluate):
     experiment_name: str = ""
     run_name: str = ""
     tags: dict = field(default_factory=dict)

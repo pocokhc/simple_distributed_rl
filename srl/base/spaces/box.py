@@ -1,7 +1,7 @@
 import logging
 import random
 import time
-from typing import Any, List, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -20,6 +20,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
         high: Union[float, List[float], Tuple[float, ...], np.ndarray] = np.inf,
         dtype: Any = np.float32,
         stype: SpaceTypes = SpaceTypes.UNKNOWN,
+        is_stack_ch: Optional[bool] = None,  # None is auto
     ) -> None:
         self._low: np.ndarray = np.full(shape, low, dtype=dtype) if np.isscalar(low) else np.asarray(low)
         self._high: np.ndarray = np.full(shape, high, dtype=dtype) if np.isscalar(high) else np.asarray(high)
@@ -38,7 +39,13 @@ class BoxSpace(SpaceBase[np.ndarray]):
         self.division_tbl = None
         self.decode_int_tbl = None
         self.encode_int_tbl = None
-        self._is_stack_gray_2ch = False
+        if is_stack_ch is None:
+            if self._stype in [SpaceTypes.GRAY_2ch, SpaceTypes.GRAY_3ch]:
+                self._is_stack_ch = True
+            else:
+                self._is_stack_ch = False
+        else:
+            self._is_stack_ch = is_stack_ch
 
     @property
     def shape(self):
@@ -119,12 +126,13 @@ class BoxSpace(SpaceBase[np.ndarray]):
     def get_default(self) -> np.ndarray:
         return np.zeros(self.shape, self._dtype)
 
-    def copy(self) -> "BoxSpace":
-        o = BoxSpace(self._shape, self._low, self._high, self._dtype, self._stype)
+    def copy(self, **kwargs) -> "BoxSpace":
+        keys = ["shape", "low", "high", "dtype", "stype", "is_stack_ch"]
+        args = [kwargs.get(key, getattr(self, f"_{key}")) for key in keys]
+        o = BoxSpace(*args)
         o.division_tbl = self.division_tbl
         o.decode_int_tbl = self.decode_int_tbl
         o.encode_int_tbl = self.encode_int_tbl
-        o._is_stack_gray_2ch = self._is_stack_gray_2ch
         return o
 
     def copy_value(self, v: np.ndarray) -> np.ndarray:
@@ -137,7 +145,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
             (self._shape == o._shape)
             and (self._low == o._low).all()
             and (self._high == o._high).all()
-            and (self._dtype == o._dtype)
+            and (self._dtype == o._dtype)  #
             and (self._stype == o._stype)
         )
 
@@ -150,10 +158,9 @@ class BoxSpace(SpaceBase[np.ndarray]):
 
     # --- stack
     def create_stack_space(self, length: int):
-        if self._stype == SpaceTypes.GRAY_2ch:
-            self._is_stack_gray_2ch = True
+        if self._is_stack_ch:
             return BoxSpace(
-                self._shape + (length,),
+                (self._shape[0], self._shape[1], length),
                 np.min(self._low),
                 np.max(self._high),
                 self._dtype,
@@ -170,8 +177,13 @@ class BoxSpace(SpaceBase[np.ndarray]):
 
     def encode_stack(self, val: List[np.ndarray]) -> np.ndarray:
         state = np.asarray(val, self._dtype)
-        if self._is_stack_gray_2ch:
-            state = np.transpose(state, (1, 2, 0))
+        if self._is_stack_ch:
+            if self._stype == SpaceTypes.GRAY_2ch:
+                state = np.transpose(state, (1, 2, 0))
+            elif self._stype == SpaceTypes.GRAY_3ch:
+                state = np.transpose(np.squeeze(state, axis=-1), (1, 2, 0))
+            else:
+                raise ValueError(self._stype)
         return state
 
     # --------------------------------------

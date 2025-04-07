@@ -7,7 +7,7 @@ import pytest_timeout  # noqa F401
 import srl
 from srl.algorithms import ql, ql_agent57
 from srl.base.context import RunContext
-from srl.base.run.callback import RunCallback, TrainCallback
+from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor, play
 from srl.base.run.core_train_only import RunStateTrainer, play_trainer_only
 
@@ -33,6 +33,12 @@ class DummyCallback(RunCallback):
 
     def on_skip_step(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         pass  # do nothing
+
+    def on_train_before(self, context: RunContext, state: RunStateTrainer, **kwargs):
+        pass
+
+    def on_train_after(self, context: RunContext, state: RunStateTrainer, **kwargs) -> Optional[bool]:
+        return False
 
 
 def test_callback(mocker: pytest_mock.MockerFixture):
@@ -64,19 +70,11 @@ def test_callback(mocker: pytest_mock.MockerFixture):
     assert c.on_skip_step.call_count >= 1  # episode終了タイミングで変化する
 
 
-class DummyTrainCallback(TrainCallback):
-    def on_train_before(self, context: RunContext, state: RunStateTrainer, **kwargs):
-        pass
-
-    def on_train_after(self, context: RunContext, state: RunStateTrainer, **kwargs) -> Optional[bool]:
-        return False
-
-
 @pytest.mark.timeout(2)  # pip install pytest_timeout
 def test_trainer_callback(mocker: pytest_mock.MockerFixture):
     env_config = srl.EnvConfig("Grid")
     rl_config = ql_agent57.Config()
-    rl_config.memory_warmup_size = 100
+    rl_config.memory.warmup_size = 100
     rl_config.batch_size = 1
 
     env = env_config.make()
@@ -95,7 +93,7 @@ def test_trainer_callback(mocker: pytest_mock.MockerFixture):
     context.training = True
     context.max_train_count = 10
     trainer = rl_config.make_trainer(parameter, memory, env=env)
-    c = mocker.Mock(spec=DummyTrainCallback)
+    c = mocker.Mock(spec=DummyCallback)
     play_trainer_only(context, trainer, callbacks=[c])
 
     assert c.on_trainer_start.call_count == 1

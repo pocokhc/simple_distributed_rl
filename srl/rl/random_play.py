@@ -1,8 +1,7 @@
 import logging
 from dataclasses import dataclass
-from typing import Tuple
 
-from srl.base.define import RLActionType, RLBaseActTypes, RLBaseObsTypes
+from srl.base.define import RLBaseActTypes, RLBaseObsTypes
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register_rulebase
 from srl.base.rl.worker import RLWorker
@@ -18,9 +17,6 @@ class Config(RLConfig):
     def get_base_observation_type(self) -> RLBaseObsTypes:
         return RLBaseObsTypes.NONE
 
-    def get_framework(self) -> str:
-        return ""
-
     def get_name(self) -> str:
         return "random"
 
@@ -29,5 +25,5 @@ register_rulebase(Config(), __name__ + ":Worker")
 
 
 class Worker(RLWorker):
-    def policy(self, worker) -> Tuple[RLActionType, dict]:
-        return worker.sample_action(), {}
+    def policy(self, worker):
+        return worker.sample_action()

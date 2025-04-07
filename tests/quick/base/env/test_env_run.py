@@ -1,26 +1,60 @@
 import time
 from pprint import pprint
-from typing import cast
+from typing import Optional, cast
 
 import pytest
 
 import srl
-from srl.base.define import SpaceTypes
+from srl.base.define import RenderModes, SpaceTypes
 from srl.base.env import registration
 from srl.base.env.base import EnvBase
 from srl.base.env.env_run import EnvRun
 from srl.base.env.processor import EnvProcessor
 from srl.base.exception import SRLError
 from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.spaces.space import SpaceBase
 
 
 class StubProcessor(EnvProcessor):
     def __init__(self) -> None:
         self.n = 0
+        self._remap_action_space = 0
+        self._remap_observation_space = 0
+        self._setup = 0
+        self._remap_reset = 0
+        self._remap_action = 0
+        self._remap_invalid_actions = 0
+        self._remap_observation = 0
 
-    def remap_step(self, state, rewards, done, info, env: EnvRun):
+    def remap_action_space(self, prev_space: SpaceBase, env_run: EnvRun) -> Optional[SpaceBase]:
+        self._remap_action_space += 1
+        return prev_space
+
+    def remap_observation_space(self, prev_space: SpaceBase, env_run: EnvRun) -> Optional[SpaceBase]:
+        self._remap_observation_space += 1
+        return prev_space
+
+    def setup(self, env_run: EnvRun):
+        self._setup += 1
+
+    def remap_reset(self, env_run: EnvRun):
+        self._remap_reset += 1
+
+    def remap_action(self, action, prev_space: SpaceBase, new_space: SpaceBase, env_run: EnvRun):
+        self._remap_action += 1
+        return action
+
+    def remap_invalid_actions(self, invalid_actions, prev_space: SpaceBase, new_space: SpaceBase, env_run: EnvRun):
+        self._remap_invalid_actions += 1
+        return invalid_actions
+
+    def remap_observation(self, state, prev_space: SpaceBase, new_space: SpaceBase, env_run: EnvRun):
+        self._remap_observation += 1
+        return state
+
+    def remap_step(self, rewards, done, info, env_run: EnvRun):
         self.n += 1
-        return state, rewards, done, info
+        return rewards, done, info
 
     def backup(self):
         return self.n
@@ -53,6 +87,9 @@ class StubEnv(EnvBase):
     @property
     def next_player_index(self) -> int:
         return 0
+
+    def setup(self, render_mode, **kwargs):
+        self.render_mode = render_mode
 
     def reset(self, **kwargs):
         self._step = 0
@@ -103,6 +140,7 @@ def test_base():
         env.step(0)
 
     env.setup()
+    assert env_org.render_mode == RenderModes.none
     env.reset()
     assert env.step_num == 0
 
@@ -148,9 +186,11 @@ def test_timeout():
         env.step(0)
 
 
-def test_backup():
+def test_processor_backup():
     env_config = srl.EnvConfig("base_StubEnv", processors=[StubProcessor()])
     env = env_config.make()
+    proc = cast(StubProcessor, env._processors[0])
+
     env.setup()
     env.reset()
 
@@ -159,16 +199,26 @@ def test_backup():
     assert env.get_invalid_actions() == [1]
     assert env.get_valid_actions() == [0, 2, 3]
     assert env.unwrapped._step == 1
-    assert cast(StubProcessor, env._processors[0]).n == 1
+    assert proc.n == 1
     backup1 = env.backup()
 
     env.step(1)
     assert env.episode_rewards[0] == 2
     assert env.get_invalid_actions() == [2]
     assert env.get_valid_actions() == [0, 1, 3]
-    assert cast(StubProcessor, env._processors[0]).n == 2
+    assert proc.n == 2
     assert env.unwrapped._step == 2
 
+    # assert processor
+    assert proc._remap_action_space == 1
+    assert proc._remap_observation_space == 1
+    assert proc._setup == 1
+    assert proc._remap_reset == 1
+    assert proc._remap_action == 2
+    assert proc._remap_invalid_actions == 2
+    assert proc._remap_observation == 3
+
+    # assert restore
     pprint(backup1)
     env.restore(backup1)
     assert env.episode_rewards[0] == 1

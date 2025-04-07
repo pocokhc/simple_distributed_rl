@@ -46,7 +46,7 @@ def _run_actor(
 
     # make instance
     env = env_config.make()
-    parameter = rl_config.make_parameter(is_load=False)
+    parameter = rl_config.make_parameter()
     worker = rl_config.make_worker(env, parameter, remote_memory)
     env.setup(context)
     worker.setup(context)
@@ -146,7 +146,8 @@ def main():
     rl_config.setup(env)
 
     # bug fix
-    mp.set_start_method("spawn")
+    if mp.get_start_method() != "spawn":
+        mp.set_start_method("spawn")
 
     # --- async
     MPManager.register("RemoteMemory", make_memory_class(rl_config))

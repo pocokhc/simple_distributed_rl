@@ -1,13 +1,13 @@
 import ctypes
 import multiprocessing as mp
 import queue
-from typing import Any, List
+from typing import Any, Callable, List, cast
 
 import srl
 from srl.base.context import RunContext
 from srl.base.env.config import EnvConfig
 from srl.base.rl.config import RLConfig
-from srl.base.rl.memory import IRLMemoryWorker, RLMemory
+from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 
 # --- env & algorithm
@@ -15,20 +15,29 @@ from srl.envs import grid  # isort: skip # noqa F401
 from srl.algorithms import ql  # isort: skip
 
 
-class _ActorRLMemory(IRLMemoryWorker):
-    def __init__(self, remote_queue: queue.Queue, base_memory: IRLMemoryWorker):
+class _ActorRLMemoryInterceptor:
+    def __init__(self, remote_queue: queue.Queue, base_memory: RLMemory):
         self.remote_queue = remote_queue
         self.base_memory = base_memory
 
-    def add(self, *args) -> None:
-        raw = self.base_memory.serialize_add_args(*args)
-        self.remote_queue.put(raw)
+        # 登録されている関数を取得
+        self.serialize_funcs = {k: v[1] for k, v in base_memory.get_worker_funcs().items()}
+
+    def __getattr__(self, name: str) -> Callable:
+        if name not in self.serialize_funcs:
+            raise AttributeError(f"{name} is not a valid method")
+        serialize_func = self.serialize_funcs[name]
+
+        # 登録されている関数に割り込んでデータを送信
+        def wrapped(*args, **kwargs):
+            raw = serialize_func(*args, **kwargs)
+            raw = raw if isinstance(raw, tuple) else (raw,)
+            self.remote_queue.put((name, raw))
+
+        return wrapped
 
     def length(self) -> int:
         return self.remote_queue.qsize()
-
-    def serialize_add_args(self, *args):
-        raise NotImplementedError("Unused")
 
 
 def _run_actor(
@@ -46,9 +55,9 @@ def _run_actor(
 
     # make instance
     env = env_config.make()
-    parameter = rl_config.make_parameter(is_load=False)
-    memory = rl_config.make_memory(is_load=False)
-    remote_memory = _ActorRLMemory(remote_queue, memory)
+    parameter = rl_config.make_parameter()
+    memory = rl_config.make_memory()
+    remote_memory = cast(RLMemory, _ActorRLMemoryInterceptor(remote_queue, memory))
     worker = rl_config.make_worker(env, parameter, remote_memory)
     env.setup(context)
     worker.setup(context)
@@ -91,6 +100,9 @@ def _run_trainer(
     rl_config: RLConfig = config["rl_config"]
     context: RunContext = config["context"]
 
+    # 受信用のmemoryを準備
+    worker_funcs = {k: v[0] for k, v in memory.get_worker_funcs().items()}
+
     trainer = rl_config.make_trainer(parameter, memory)
     trainer.setup(context)
 
@@ -108,9 +120,8 @@ def _run_trainer(
 
         # recv memory
         if not remote_queue.empty():
-            batch = remote_queue.get()
-            batch = memory.deserialize_add_args(batch)
-            memory.add(*batch)
+            name, raw = remote_queue.get()
+            worker_funcs[name](*raw, serialized=True)
             recv_queue += 1
 
         # send parameter
@@ -151,7 +162,8 @@ def main():
     memory = rl_config.make_memory()
 
     # bug fix
-    mp.set_start_method("spawn")
+    if mp.get_start_method() != "spawn":
+        mp.set_start_method("spawn")
 
     # --- async
     with mp.Manager() as manager:

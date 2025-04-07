@@ -152,13 +152,7 @@ if __name__ == "__main__":
 
 # 3. フレームワークの概要
 
-+ 逐次処理フロー
-
 ![overview-sequence.drawio.png](diagrams/overview-sequence.drawio.png)
-
-+ 分散処理フロー
-
-![overview-mp.drawio.png](diagrams/overview-mp.drawio.png)
 
 + 疑似コード
 

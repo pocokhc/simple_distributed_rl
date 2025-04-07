@@ -1,9 +1,9 @@
 import copy
 import logging
+import pprint
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
 
-from srl.base.define import RenderModes
 from srl.base.env.processor import EnvProcessor
 from srl.utils.serialize import convert_for_json
 
@@ -79,7 +79,7 @@ class EnvConfig:
     # --- other
     #: action/observationの値をエラーが出ないように可能な限り変換します。
     #: ※エラー終了の可能性は減りますが、値の変換等による予期しない動作を引き起こす可能性が高くなります
-    enable_sanitize: bool = True
+    enable_sanitize: bool = False
     #: action/observationの値を厳密にチェックし、おかしい場合は例外を出力します。
     #: enable_assertionが有効な場合は、enable_sanitizeは無効です。
     enable_assertion: bool = False
@@ -110,3 +110,6 @@ class EnvConfig:
             elif type(v) in [list, dict]:
                 setattr(config, k, copy.deepcopy(v))
         return config
+
+    def summary(self):
+        print("--- EnvConfig ---\n" + pprint.pformat(self.to_dict()))

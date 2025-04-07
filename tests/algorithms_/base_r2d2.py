@@ -13,7 +13,7 @@ class QuickCase(CommonQuickCase):
         rl_config.set_atari_config()
 
         rl_config.batch_size = 2
-        rl_config.memory_warmup_size = 2
+        rl_config.memory.warmup_size = 2
         rl_config.lstm_units = 2
         rl_config.burnin = 2
         rl_config.sequence_length = 2
@@ -37,7 +37,7 @@ class LongCase(CommonLongCase):
             enable_retrace=False,
         )
         rl_config.hidden_block.set((16, 16))
-        rl_config.set_replay_memory()
+        rl_config.memory.set_replay_buffer()
         return rl_config
 
     def test_Pendulum(self):

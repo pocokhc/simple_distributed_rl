@@ -12,7 +12,7 @@ import numpy as np
 
 from srl.base.context import RunContext
 from srl.base.exception import UndefinedError
-from srl.base.run.callback import RunCallback, TrainCallback
+from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.callbacks.evaluate import Evaluate
@@ -161,7 +161,7 @@ class HistoryOnFileBase:
 
 
 @dataclass
-class HistoryOnFile(RunCallback, TrainCallback, Evaluate):
+class HistoryOnFile(RunCallback, Evaluate):
     save_dir: str = ""
     interval: int = 1
     interval_mode: str = "time"

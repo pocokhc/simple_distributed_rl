@@ -174,9 +174,7 @@ class HistoryViewer:
         ylabel_left = ylabel_left[:]
         ylabel_right = ylabel_right[:]
 
-        assert is_packages_installed(
-            ["matplotlib", "pandas"]
-        ), "To use plot you need to install the 'matplotlib', 'pandas'. (pip install matplotlib pandas)"
+        assert is_packages_installed(["matplotlib", "pandas"]), "To use plot you need to install the 'matplotlib', 'pandas'. (pip install matplotlib pandas)"
         assert len(ylabel_left) > 0
 
         df = self.get_df()
@@ -264,12 +262,12 @@ class HistoryViewer:
         ax1.set_xlabel(xlabel_plot)
 
         if _for_test:
+            plt.close()
             return
 
         plt.grid()
         plt.tight_layout()
         plt.show()
-        plt.clf()
         plt.close()
 
 
@@ -295,12 +293,11 @@ class HistoryViewers:
         title: str = "",
         _no_plot: bool = False,  # for test
     ):
-        assert is_packages_installed(
-            ["matplotlib", "pandas"]
-        ), "To use plot you need to install the 'matplotlib', 'pandas'. (pip install matplotlib pandas)"
+        assert is_packages_installed(["matplotlib", "pandas"]), "To use plot you need to install the 'matplotlib', 'pandas'. (pip install matplotlib pandas)"
 
         import matplotlib.pyplot as plt
 
+        plt.figure()
         color_idx = 0
         for name, h in self.histories:
             df = h.get_df()

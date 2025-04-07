@@ -1,7 +1,7 @@
 import random
 import time
-from dataclasses import dataclass
-from typing import Any, List, Optional, Union, cast
+from dataclasses import dataclass, field
+from typing import Any, List, Literal, Optional, cast
 
 import numpy as np
 import tensorflow as tf
@@ -14,10 +14,10 @@ from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import RLProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
-from srl.rl.models.config.input_config import RLConfigComponentInput
+from srl.base.spaces.space import SpaceBase
+from srl.rl.memories.replay_buffer import ReplayBufferConfig, RLReplayBuffer
 from srl.rl.processors.image_processor import ImageProcessor
-from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 from srl.rl.tf.model import KerasModelAddedSummary
 from srl.utils.common import compare_less_version
 
@@ -32,23 +32,18 @@ ref: https://github.com/danijar/dreamer
 """
 
 
-# ------------------------------------------------------
-# config
-# ------------------------------------------------------
 @dataclass
-class Config(
-    RLConfig,
-    RLConfigComponentExperienceReplayBuffer,
-    RLConfigComponentInput,
-):
-    """
-    <:ref:`RLConfigComponentExperienceReplayBuffer`>
-    <:ref:`RLConfigComponentInput`>
-    """
-
-    #: <:ref:`scheduler`> Learning rate
-    lr: Union[float, SchedulerConfig] = 0.001
+class Config(RLConfig):
+    #: Learning rate
+    lr: float = 0.001
+    #: <:ref:`LRSchedulerConfig`>
+    lr_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
     batch_length: int = 50
+
+    #: Batch size
+    batch_size: int = 32
+    #: <:ref:`ReplayBufferConfig`>
+    memory: ReplayBufferConfig = field(default_factory=lambda: ReplayBufferConfig())
 
     # Model
     deter_size: int = 200
@@ -63,7 +58,7 @@ class Config(
     max_overshooting_size: int = 5
 
     # GA
-    action_algorithm: str = "ga"  # "ga" or "random"
+    action_algorithm: Literal["ga", "random"] = "ga"
     pred_action_length: int = 5
     num_generation: int = 10
     num_individual: int = 5
@@ -72,34 +67,27 @@ class Config(
     print_ga_debug: bool = True
 
     # 経験取得方法
-    experience_acquisition_method: str = "episode"  # "episode" or "loop"
+    experience_acquisition_method: Literal["episode", "loop"] = "episode"
 
     # other
-    clip_rewards: str = "none"  # "none" or "tanh"
+    clip_rewards: Literal["none", "tanh"] = "none"
     dummy_state_val: float = 0.0
-
-    def __post_init__(self):
-        super().__post_init__()
-
-    def get_processors(self) -> List[RLProcessor]:
-        return [
-            ImageProcessor(
-                image_type=SpaceTypes.COLOR,
-                resize=(64, 64),
-                enable_norm=True,
-            )
-        ]
-
-    def get_framework(self) -> str:
-        return "tensorflow"
 
     def get_name(self) -> str:
         return "PlaNet"
 
-    def assert_params(self) -> None:
-        super().assert_params()
-        self.assert_params_memory()
-        self.assert_params_input()
+    def get_framework(self) -> str:
+        return "tensorflow"
+
+    def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
+        assert prev_observation_space.is_image(), "image only"
+        return [
+            ImageProcessor(
+                image_type=SpaceTypes.COLOR,
+                resize=(64, 64),
+                normalize_type="0to1",
+            )
+        ]
 
 
 register(
@@ -111,10 +99,7 @@ register(
 )
 
 
-# ------------------------------------------------------
-# Memory
-# ------------------------------------------------------
-class Memory(ExperienceReplayBuffer):
+class Memory(RLReplayBuffer):
     pass
 
 
@@ -253,14 +238,8 @@ class DenseDecoder(KerasModelAddedSummary):
         raise NotImplementedError(self._dist)
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
-class Parameter(RLParameter):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-
+class Parameter(RLParameter[Config]):
+    def setup(self):
         assert self.config.observation_space.is_image(), "The input supports only image format."
         self.encode = ConvEncoder(self.config.cnn_depth, self.config.cnn_act)
         self.dynamics = RSSM(self.config.stoch_size, self.config.deter_size, self.config.deter_size)
@@ -295,38 +274,29 @@ class Parameter(RLParameter):
         self.reward.summary(**kwargs)
 
 
-# ------------------------------------------------------
-# Trainer
-# ------------------------------------------------------
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
-
-        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
-
-        self.opt_encode = keras.optimizers.Adam(self.lr_sch.get_rate())
-        self.opt_dynamics = keras.optimizers.Adam(self.lr_sch.get_rate())
-        self.opt_decode = keras.optimizers.Adam(self.lr_sch.get_rate())
-        self.opt_reward = keras.optimizers.Adam(self.lr_sch.get_rate())
+    def on_setup(self) -> None:
+        self.opt_encode = keras.optimizers.Adam(self.config.lr_scheduler.apply_tf_scheduler(self.config.lr))
+        self.opt_dynamics = keras.optimizers.Adam(self.config.lr_scheduler.apply_tf_scheduler(self.config.lr))
+        self.opt_decode = keras.optimizers.Adam(self.config.lr_scheduler.apply_tf_scheduler(self.config.lr))
+        self.opt_reward = keras.optimizers.Adam(self.config.lr_scheduler.apply_tf_scheduler(self.config.lr))
 
     def train(self) -> None:
-        if self.memory.is_warmup_needed():
+        batches = self.memory.sample()
+        if batches is None:
             return
-        batchs = self.memory.sample()
 
         if self.config.enable_overshooting_loss:
-            self._train_latent_overshooting_loss(batchs)
+            self._train_latent_overshooting_loss(batches)
         else:
-            self._train(batchs)
+            self._train(batches)
 
         self.train_count += 1
 
-    def _train(self, batchs):
-        states = np.asarray([b["states"] for b in batchs], dtype=np.float32)
-        actions = [b["actions"] for b in batchs]
-        rewards = np.asarray([b["rewards"] for b in batchs], dtype=np.float32)[..., np.newaxis]
+    def _train(self, batches):
+        states = np.asarray([b["states"] for b in batches], dtype=np.float32)
+        actions = [b["actions"] for b in batches]
+        rewards = np.asarray([b["rewards"] for b in batches], dtype=np.float32)[..., np.newaxis]
 
         # onehot action
         actions = tf.one_hot(actions, self.config.action_space.n, axis=2)
@@ -355,9 +325,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             prior_mean = []
             prior_std = []
             for i in range(self.config.batch_length):
-                post, deter, prior = self.parameter.dynamics.obs_step(
-                    stoch, deter, actions[i], embed[i], training=True
-                )
+                post, deter, prior = self.parameter.dynamics.obs_step(stoch, deter, actions[i], embed[i], training=True)
                 stoch = post["stoch"]
                 stochs.append(stoch)
                 deters.append(deter)
@@ -415,21 +383,14 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.opt_decode.apply_gradients(zip(grads[2], variables[2]))
         self.opt_reward.apply_gradients(zip(grads[3], variables[3]))
 
-        if self.lr_sch.update(self.train_count):
-            lr = self.lr_sch.get_rate()
-            self.opt_encode.learning_rate = lr
-            self.opt_dynamics.learning_rate = lr
-            self.opt_decode.learning_rate = lr
-            self.opt_reward.learning_rate = lr
-
         self.info["img_loss"] = -image_loss.numpy() / (64 * 64 * 3)
         self.info["reward_loss"] = -reward_loss.numpy()
         self.info["kl_loss"] = kl_loss.numpy()
 
-    def _train_latent_overshooting_loss(self, batchs):
-        states = np.asarray([b["states"] for b in batchs], dtype=np.float32)
-        actions = [b["actions"] for b in batchs]
-        rewards = np.asarray([b["rewards"] for b in batchs], dtype=np.float32)[..., np.newaxis]
+    def _train_latent_overshooting_loss(self, batches):
+        states = np.asarray([b["states"] for b in batches], dtype=np.float32)
+        actions = [b["actions"] for b in batches]
+        rewards = np.asarray([b["rewards"] for b in batches], dtype=np.float32)[..., np.newaxis]
 
         # onehot action
         actions = tf.one_hot(actions, self.config.action_space.n, axis=2)
@@ -458,9 +419,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             overshooting_list = []
 
             for i in range(self.config.batch_length):
-                post, n_deter, prior = self.parameter.dynamics.obs_step(
-                    stoch, deter, actions[i], embed[i], training=True
-                )
+                post, n_deter, prior = self.parameter.dynamics.obs_step(stoch, deter, actions[i], embed[i], training=True)
 
                 # image/reward
                 stochs.append(post["stoch"])
@@ -521,27 +480,13 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.opt_decode.apply_gradients(zip(grads[2], variables[2]))
         self.opt_reward.apply_gradients(zip(grads[3], variables[3]))
 
-        if self.lr_sch.update(self.train_count):
-            lr = self.lr_sch.get_rate()
-            self.opt_encode.learning_rate = lr
-            self.opt_dynamics.learning_rate = lr
-            self.opt_decode.learning_rate = lr
-            self.opt_reward.learning_rate = lr
-
         self.info["img_loss"] = -image_loss.numpy() / (64 * 64 * 3)
         self.info["reward_loss"] = -reward_loss.numpy()
         self.info["kl_loss"] = kl_loss.numpy()
 
 
-# ------------------------------------------------------
-# Worker
-# ------------------------------------------------------
-class Worker(RLWorker):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
-
+class Worker(RLWorker[Config, Parameter, Memory]):
+    def on_setup(self, worker, context) -> None:
         self.dummy_state = np.full(self.config.observation_space.shape, self.config.dummy_state_val, dtype=np.float32)
         self.screen = None
 
@@ -584,10 +529,7 @@ class Worker(RLWorker):
 
     def _ga_policy(self, deter, stoch):
         # --- 初期個体
-        elite_actions = [
-            [random.randint(0, self.config.action_space.n - 1) for a in range(self.config.pred_action_length)]
-            for _ in range(self.config.num_individual)
-        ]
+        elite_actions = [[random.randint(0, self.config.action_space.n - 1) for a in range(self.config.pred_action_length)] for _ in range(self.config.num_individual)]
         best_actions = []
 
         # --- 世代ループ
@@ -611,7 +553,7 @@ class Worker(RLWorker):
 
             # debug
             if self.config.print_ga_debug:
-                print(f"--- {g}/{self.config.num_generation} {time.time()-t0:.1f}s")
+                print(f"--- {g}/{self.config.num_generation} {time.time() - t0:.1f}s")
                 print(f"*{best_idx} {elite_rewards[best_idx]:.5f} {elite_actions[best_idx]}")
                 for idx in range(len(elite_actions)):
                     if idx >= 4:

@@ -1,15 +1,13 @@
 import logging
-import queue
 import random
 import time
-import traceback
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, cast
+from typing import Any, List, Optional
 
 from srl.base.context import RunContext, RunNameTypes
 from srl.base.define import RenderModes
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.memory import IRLMemoryWorker
+from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun
@@ -25,7 +23,7 @@ class RunStateActor:
     env: EnvRun
     worker: WorkerRun  # main worker
     workers: List[WorkerRun]
-    memory: IRLMemoryWorker
+    memory: RLMemory
     parameter: RLParameter
     trainer: Optional[RLTrainer]
 
@@ -47,12 +45,6 @@ class RunStateActor:
     # train
     is_step_trained: bool = False
 
-    # thread
-    enable_train_thread: bool = False
-    thread_shared_dict: dict = field(default_factory=dict)
-    thread_in_queue: Optional[queue.Queue] = None
-    thread_out_queue: Optional[queue.Queue] = None
-
     # distributed
     sync_actor: int = 0
     actor_send_q: int = 0
@@ -70,35 +62,6 @@ class RunStateActor:
         return dat
 
 
-def _train_thread(
-    trainer: RLTrainer,
-    in_queue: queue.Queue,
-    out_queue: queue.Queue,
-    thread_shared_dict: dict,
-    thread_queue_capacity: int,
-):
-    try:
-        while not thread_shared_dict["end_signal"]:
-            if in_queue.empty() or (out_queue.qsize() >= thread_queue_capacity):
-                time.sleep(0.1)
-            else:
-                setup_data = in_queue.get(timeout=1)
-                run_data = trainer.thread_train(setup_data)
-                out_queue.put(run_data)
-    except MemoryError:
-        import gc
-
-        gc.collect()
-
-        logger.error(traceback.format_exc())
-        logger.info("[TrainerThread] MemoryError")
-    except Exception:
-        logger.error(traceback.format_exc())
-        logger.info("[TrainerThread] error")
-    finally:
-        logger.info("[TrainerThread] end")
-
-
 def play(
     context: RunContext,
     env: EnvRun,
@@ -107,7 +70,6 @@ def play(
     trainer: Optional[RLTrainer] = None,
     callbacks: List[RunCallback] = [],
 ):
-    # --- play tf
     if context.enable_tf_device and context.framework == "tensorflow":
         if common.is_enable_tf_device_name(context.used_device_tf):
             import tensorflow as tf
@@ -143,8 +105,6 @@ def _play(
         main_worker.worker.parameter,
         trainer,
     )
-    if context.enable_train_thread and (state.trainer is not None) and state.trainer.implement_thread_train():
-        state.enable_train_thread = True
 
     # render
     if context.rl_config is not None:
@@ -190,27 +150,6 @@ def _play(
         __skip_func_arg = None
 
     [c.on_episodes_begin(context=context, state=state) for c in callbacks]
-
-    # --- thread train
-    if state.enable_train_thread:
-        import threading
-
-        state.thread_shared_dict = {"end_signal": False}
-        state.thread_in_queue = queue.Queue()
-        state.thread_out_queue = queue.Queue()
-        train_ps = threading.Thread(
-            target=_train_thread,
-            args=(
-                state.trainer,
-                state.thread_in_queue,
-                state.thread_out_queue,
-                state.thread_shared_dict,
-                context.thread_queue_capacity,
-            ),
-        )
-        logger.info(f"[{context.run_name}] train thread start")
-        t0_train_count = cast(RLTrainer, state.trainer).train_count
-        train_ps.start()
 
     # --- 6 loop
     try:
@@ -270,7 +209,8 @@ def _play(
             state.env.render()
             [c.on_step_action_before(context=context, state=state) for c in _calls_on_step_action_before]
             state.action = state.workers[state.worker_idx].policy()
-            state.workers[state.worker_idx].render()
+            if context.rendering:
+                state.workers[state.worker_idx].render()
             [c.on_step_action_after(context=context, state=state) for c in _calls_on_step_action_after]
 
             # workerがenvを終了させた場合に対応
@@ -291,31 +231,9 @@ def _play(
 
             # --- trainer
             if state.trainer is not None:
-                if state.enable_train_thread:
-                    # Q send
-                    if cast(queue.Queue, state.thread_in_queue).qsize() < context.thread_queue_capacity:
-                        setup_data = state.trainer.thread_train_setup()
-                        if setup_data is not None:
-                            cast(queue.Queue, state.thread_in_queue).put(setup_data)
-                    # Q recv
-                    if not cast(queue.Queue, state.thread_out_queue).empty():
-                        for _ in range(cast(queue.Queue, state.thread_out_queue).qsize()):
-                            run_data = cast(queue.Queue, state.thread_out_queue).get(timeout=1)
-                            state.trainer.thread_train_teardown(run_data)
-
-                    state.is_step_trained = state.trainer.train_count > t0_train_count
-                    t0_train_count = state.trainer.train_count
-                elif not state.trainer.implement_thread_train():
-                    _prev_train = state.trainer.train_count
-                    state.trainer.train()
-                    state.is_step_trained = state.trainer.train_count > _prev_train
-                else:
-                    setup_data = state.trainer.thread_train_setup()
-                    if setup_data is not None:
-                        _prev_train = state.trainer.train_count
-                        train_data = state.trainer.thread_train(setup_data)
-                        state.trainer.thread_train_teardown(train_data)
-                        state.is_step_trained = state.trainer.train_count > _prev_train
+                _prev_train = state.trainer.train_count
+                state.trainer.train()
+                state.is_step_trained = state.trainer.train_count > _prev_train
                 state.train_count = state.trainer.train_count - state.start_train_count
 
             _stop_flags = [c.on_step_end(context=context, state=state) for c in _calls_on_step_end]
@@ -326,15 +244,16 @@ def _play(
             # ------------------------
             if state.env.done:
                 state.env.render()
-                for w in state.workers:
-                    if w.rendering:
-                        # 最後のrender用policyは実施しない(RLWorker側で対処)
-                        # try:
-                        #    w.policy()
-                        # except Exception:
-                        #    logger.info(traceback.format_exc())
-                        #    logger.info("Policy error in termination status (for rendering)")
-                        w.render()
+                if context.rendering:
+                    for w in state.workers:
+                        if w.rendering:
+                            # 最後のrender用policyは実施しない(RLWorker側で対処)
+                            # try:
+                            #    w.policy()
+                            # except Exception:
+                            #    logger.info(traceback.format_exc())
+                            #    logger.info("Policy error in termination status (for rendering)")
+                            w.render()
 
                 # reward
                 worker_rewards = [state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)]
@@ -349,9 +268,6 @@ def _play(
                 state.end_reason = "callback.intermediate_stop"
                 break
     finally:
-        if state.enable_train_thread:
-            state.thread_shared_dict["end_signal"] = True
-
         if context.run_name != RunNameTypes.eval:
             logger.info(f"[{context.run_name}] loop end({state.end_reason})")
 
@@ -373,8 +289,5 @@ def _play(
 
         # 8 callbacks
         [c.on_episodes_end(context=context, state=state) for c in callbacks]
-
-        if state.enable_train_thread:
-            train_ps.join(timeout=10)
 
     return state

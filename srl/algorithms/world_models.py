@@ -1,9 +1,9 @@
 import collections
 import pickle
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import reduce
-from typing import Any, List, Optional, Union, cast
+from typing import Any, List, Literal, Optional, cast
 
 import numpy as np
 import tensorflow as tf
@@ -16,10 +16,9 @@ from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import RLProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.rl.models.config.input_config import RLConfigComponentInput
+from srl.base.spaces.space import SpaceBase
 from srl.rl.processors.image_processor import ImageProcessor
-from srl.rl.schedulers.scheduler import SchedulerConfig
-from srl.rl.tf.blocks.input_block import create_image_reshape_layers
+from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 from srl.rl.tf.model import KerasModelAddedSummary
 from srl.utils.common import compare_less_version
 
@@ -32,20 +31,18 @@ ref: https://github.com/zacwellmer/WorldModels
 """
 
 
-# ------------------------------------------------------
-# config
-# ------------------------------------------------------
 @dataclass
-class Config(
-    RLConfig,
-    RLConfigComponentInput,
-):
-    train_mode: int = 1
+class Config(RLConfig):
+    train_mode: Literal["vae", "rnn", "controller"] = "vae"
 
-    lr: Union[float, SchedulerConfig] = 0.001
+    #: Learning rate
+    lr: float = 0.001
+    #: <:ref:`LRSchedulerConfig`>
+    lr_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
+
     batch_size: int = 32
     capacity: int = 100_000
-    memory_warmup_size: int = 100
+    warmup_size: int = 100
 
     # VAE
     z_size: int = 32
@@ -64,9 +61,6 @@ class Config(
     randn_sigma: float = 1.0
     blx_a: float = 0.1
 
-    # other
-    dummy_state_val: float = 0.0
-
     def get_changeable_parameters(self) -> List[str]:
         return [
             "train_mode",
@@ -79,27 +73,29 @@ class Config(
             "blx_a",
         ]
 
-    def get_processors(self) -> List[RLProcessor]:
-        return [
-            ImageProcessor(
-                image_type=SpaceTypes.COLOR,
-                resize=(64, 64),
-                enable_norm=True,
-            )
-        ]
+    def get_name(self) -> str:
+        return "WorldModels"
+
+    def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
+        if prev_observation_space.is_image():
+            if not (self.window_length == 1):
+                raise ValueError(f"assert {self.window_length} == 1")
+            return [
+                ImageProcessor(
+                    image_type=SpaceTypes.COLOR,
+                    resize=(64, 64),
+                    normalize_type="0to1",
+                )
+            ]
+        return []
 
     def get_framework(self) -> str:
         return "tensorflow"
 
-    def get_name(self) -> str:
-        return "WorldModels"
-
-    def assert_params(self) -> None:
-        super().assert_params()
-        self.assert_params_input()
-        assert self.memory_warmup_size <= self.capacity
-        assert self.batch_size <= self.memory_warmup_size
-        assert self.temperature >= 0
+    def validate_params(self) -> None:
+        super().validate_params()
+        if not (self.temperature >= 0):
+            raise ValueError(f"assert {self.temperature} >= 0")
 
 
 register(
@@ -111,61 +107,55 @@ register(
 )
 
 
-# ------------------------------------------------------
-# Memory
-# ------------------------------------------------------
-class Memory(RLMemory):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-
+class Memory(RLMemory[Config]):
+    def setup(self):
         self.vae_buffer = collections.deque(maxlen=self.config.capacity)
         self.rnn_buffer = collections.deque(maxlen=self.config.capacity)
 
         self.c_score = -np.inf
         self.c_params = None
 
+        self.register_worker_func(self.add_vae, pickle.dumps)
+        self.register_worker_func(self.add_rnn, pickle.dumps)
+        self.register_worker_func(self.add_c, lambda x1, x2: (x1, x2))
+        self.register_trainer_recv_func(self.sample_vae)
+        self.register_trainer_recv_func(self.sample_rnn)
+
     @property
     def memory_type(self) -> RLMemoryTypes:
         return RLMemoryTypes.BUFFER
 
     def length(self) -> int:
-        if self.config.train_mode == 1:
+        if self.config.train_mode == "vae":
             return len(self.vae_buffer)
-        elif self.config.train_mode == 2:
+        elif self.config.train_mode == "rnn":
             return len(self.rnn_buffer)
         return len(self.vae_buffer) + len(self.rnn_buffer)
 
-    def is_warmup_needed(self) -> bool:
-        if self.config.train_mode == 1:
-            return len(self.vae_buffer) < self.config.memory_warmup_size
-        elif self.config.train_mode == 2:
-            return len(self.rnn_buffer) < self.config.memory_warmup_size
-        else:
-            return False
-
-    def add(self, type_: str, batch: Any, serialized: bool = False) -> None:
+    def add_vae(self, batch: Any, serialized: bool = False) -> None:
         if serialized:
             batch = pickle.loads(batch)
-        if type_ == "vae":
-            self.vae_buffer.append(batch)
-        elif type_ == "rnn":
-            self.rnn_buffer.append(batch)
-        elif type_ == "c":
-            params, score = batch
-            if self.c_score < score:
-                self.c_score = score
-                self.c_params = params
-        else:
-            raise ValueError(type_)
+        self.vae_buffer.append(batch)
 
-    def sample(self) -> Any:
-        if self.config.train_mode == 1:
-            return random.sample(self.vae_buffer, self.config.batch_size)
-        elif self.config.train_mode == 2:
-            return random.sample(self.rnn_buffer, self.config.batch_size)
-        else:
-            return []
+    def add_rnn(self, batch: Any, serialized: bool = False) -> None:
+        if serialized:
+            batch = pickle.loads(batch)
+        self.rnn_buffer.append(batch)
+
+    def add_c(self, params, score, serialized: bool = False) -> None:
+        if self.c_score < score:
+            self.c_score = score
+            self.c_params = params
+
+    def sample_vae(self) -> Any:
+        if len(self.vae_buffer) < self.config.warmup_size:
+            return None
+        return random.sample(self.vae_buffer, self.config.batch_size)
+
+    def sample_rnn(self) -> Any:
+        if len(self.rnn_buffer) < self.config.warmup_size:
+            return None
+        return random.sample(self.rnn_buffer, self.config.batch_size)
 
     def call_restore(self, data: Any, **kwargs) -> None:
         self.vae_buffer = data[0]
@@ -187,9 +177,6 @@ class Memory(RLMemory):
         return self.c_params, self.c_score
 
 
-# ------------------------------------------------------
-# network
-# ------------------------------------------------------
 class VAE(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
@@ -200,9 +187,6 @@ class VAE(KerasModelAddedSummary):
 
         # --- encoder
         if self.use_image_head:
-            self.in_reshape_layers = create_image_reshape_layers(config.observation_space, rnn=False)
-
-            assert config.window_length == 1
             self.encoder_in_layers = [
                 kl.Conv2D(filters=32, kernel_size=4, strides=2, activation="relu"),
                 kl.Conv2D(filters=64, kernel_size=4, strides=2, activation="relu"),
@@ -245,9 +229,6 @@ class VAE(KerasModelAddedSummary):
         return self.decode(self.encode(x, training=training), training=training)
 
     def encode(self, x, training=False):
-        if self.use_image_head:
-            for h in self.in_reshape_layers:
-                x = h(x, training=training)
         for layer in self.encoder_in_layers:
             x = layer(x, training=training)
         z_mean = self.encoder_z_mean_layer(x, training=training)
@@ -403,13 +384,8 @@ class Controller(KerasModelAddedSummary):
         self.set_weights(weights)
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
 class Parameter(RLParameter[Config]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
+    def setup(self):
         self.vae = VAE(self.config)
         self.rnn = MDNRNN(self.config)
         self.controller = Controller(self.config)
@@ -432,17 +408,10 @@ class Parameter(RLParameter[Config]):
         self.controller.summary(**kwargs)
 
 
-# ------------------------------------------------------
-# Trainer
-# ------------------------------------------------------
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.memory = cast(Memory, self.memory)
-
-        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
-
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
+    def on_setup(self) -> None:
+        lr = self.config.lr_scheduler.apply_tf_scheduler(self.config.lr)
+        self.optimizer = keras.optimizers.Adam(learning_rate=lr)
         self.q_loss = keras.losses.Huber()
 
         self.c_score = -np.inf
@@ -450,24 +419,24 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.sync_count = 0
 
     def train(self) -> None:
-        if self.memory.is_warmup_needed():
-            return
-        batchs = self.memory.sample()
-
-        if self.config.train_mode == 1:
-            self._train_vae(batchs)
+        if self.config.train_mode == "vae":
+            self._train_vae()
+        elif self.config.train_mode == "rnn":
+            self._train_rnn()
             self.train_count += 1
-        elif self.config.train_mode == 2:
-            self._train_rnn(batchs)
-            self.train_count += 1
-        elif self.config.train_mode == 3:
+        elif self.config.train_mode == "controller":
             params, score = self.memory.c_get()
             if params is not None and self.c_score < score:
                 self.c_score = score
                 self.parameter.controller.set_flat_params(params)
 
-    def _train_vae(self, states):
-        x = np.asarray(states)
+    def _train_vae(self):
+        batches = self.memory.sample_vae()
+        if batches is None:
+            return
+        self.train_count += 1
+
+        x = np.asarray(batches)
 
         # --- VAE
         with tf.GradientTape() as tape:
@@ -507,17 +476,17 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         grads = tape.gradient(vae_loss, self.parameter.vae.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.vae.trainable_variables))
 
-        # lr_schedule
-        if self.lr_sch.update(self.train_count):
-            self.optimizer.learning_rate = self.lr_sch.get_rate()
-
         self.info["vae_loss"] = vae_loss.numpy() - (self.config.kl_tolerance * self.config.z_size)
         self.info["rc_loss"] = rc_loss.numpy()
         self.info["kl_loss"] = kl_loss.numpy() - (self.config.kl_tolerance * self.config.z_size)
 
-    def _train_rnn(self, batchs):
-        states = np.asarray([b["states"] for b in batchs])
-        actions = [b["actions"] for b in batchs]
+    def _train_rnn(self):
+        batches = self.memory.sample_rnn()
+        if batches is None:
+            return
+
+        states = np.asarray([b["states"] for b in batches])
+        actions = [b["actions"] for b in batches]
         onehot_actions = tf.one_hot(actions, self.config.action_space.n, axis=2)
 
         # encode
@@ -552,20 +521,14 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.info["rnn_loss"] = loss.numpy()
 
 
-# ------------------------------------------------------
-# Worker
-# ------------------------------------------------------
-class Worker(RLWorker[Config, Parameter]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
-        self.dummy_state = np.full(self.config.observation_space.shape, self.config.dummy_state_val, dtype=np.float32)
+class Worker(RLWorker[Config, Parameter, Memory]):
+    def on_setup(self, worker, context):
         self.screen = None
-
-        self.sample_collection = self.config.train_mode == 1 or self.config.train_mode == 2
+        self.dummy_state = np.zeros(self.config.observation_space.shape, dtype=np.float32)
+        self.sample_collection = self.config.train_mode == "vae" or self.config.train_mode == "rnn"
 
         # ----------- ES(GA)
-        if self.config.train_mode == 3:
+        if self.config.train_mode == "controller":
             best_params = self.parameter.controller.get_flat_params()
             self.param_length = len(best_params)
 
@@ -579,14 +542,14 @@ class Worker(RLWorker[Config, Parameter]):
 
     def on_reset(self, worker):
         if self.training and self.sample_collection:
-            self.memory.add("vae", worker.state)
-            self._recent_states = [worker.state]
+            self.memory.add_vae(worker.state)
+            self.recent_states = [worker.state]
             self.recent_actions = []
 
         self.hidden_state = self.parameter.rnn.get_initial_state()
         self.prev_hidden_state = self.hidden_state
 
-        if self.training and self.config.train_mode == 3:
+        if self.training and self.config.train_mode == "controller":
             self.parameter.controller.set_flat_params(self.elite_params[self.params_idx])
             self.total_reward = 0
 
@@ -615,26 +578,25 @@ class Worker(RLWorker[Config, Parameter]):
             return
 
         if self.sample_collection:
-            self.memory.add("vae", self.state)
+            self.memory.add_vae(self.state)
 
-            if len(self._recent_states) < self.config.sequence_length + 1:
-                self._recent_states.append(worker.state)
+            if len(self.recent_states) < self.config.sequence_length + 1:
+                self.recent_states.append(worker.state)
 
             if worker.done:
                 # states : sequence_length + next_state
                 # actions: sequence_length
                 for _ in range(self.config.sequence_length - len(self.recent_actions)):
-                    self._recent_states.append(self.dummy_state)
+                    self.recent_states.append(self.dummy_state)
                     self.recent_actions.append(random.randint(0, self.config.action_space.n - 1))
-                self.memory.add(
-                    "rnn",
+                self.memory.add_rnn(
                     {
-                        "states": self._recent_states,
+                        "states": self.recent_states,
                         "actions": self.recent_actions,
                     },
                 )
 
-        if self.config.train_mode == 3:
+        if self.config.train_mode == "controller":
             self.total_reward += worker.reward
             if worker.done:
                 self.elite_rewards[self.params_idx].append(self.total_reward)
@@ -647,10 +609,6 @@ class Worker(RLWorker[Config, Parameter]):
                     self.params_idx = 0
                     self.elite_rewards = [[] for _ in range(self.config.num_individual)]
 
-            return
-
-        return
-
     def _eval(self):
         elite_rewards = np.array(self.elite_rewards).mean(axis=1)
 
@@ -661,7 +619,7 @@ class Worker(RLWorker[Config, Parameter]):
         next_elite_params.append(best_params)
 
         # send parameter
-        self.memory.add("c", (best_params, elite_rewards[best_idx]))
+        self.memory.add_c(best_params, elite_rewards[best_idx])
 
         weights = elite_rewards - elite_rewards.min()
         if weights.sum() == 0:
@@ -714,9 +672,10 @@ class Worker(RLWorker[Config, Parameter]):
         _view_sample = 3
         IMG_W = 64
         IMG_H = 64
+        STR_H = 20
         PADDING = 4
-        WIDTH = (IMG_W + PADDING) * _view_action + 5
-        HEIGHT = (IMG_H + PADDING) * (_view_sample + 1) + 15 * 2 + 5
+        WIDTH = (IMG_W + PADDING) * _view_action + 10
+        HEIGHT = (IMG_H + PADDING) * (_view_sample + 1) + STR_H * 2 + 10
 
         if self.screen is None:
             self.screen = pw.create_surface(WIDTH, HEIGHT)
@@ -725,10 +684,10 @@ class Worker(RLWorker[Config, Parameter]):
         img1 = self.state * 255
         img2 = self.parameter.vae.decode(self.z)[0].numpy() * 255  # type:ignore , ignore check "None"
 
-        pw.draw_text(self.screen, 0, 0, "original", color=(255, 255, 255))
-        pw.draw_image_rgb_array(self.screen, 0, 15, img1)
+        pw.draw_text(self.screen, 0, 0, "origin", color=(255, 255, 255))
+        pw.draw_image_rgb_array(self.screen, 0, STR_H, img1)
         pw.draw_text(self.screen, IMG_W + PADDING, 0, "decode", color=(255, 255, 255))
-        pw.draw_image_rgb_array(self.screen, IMG_W + PADDING, 15, img2)
+        pw.draw_image_rgb_array(self.screen, IMG_W + PADDING, STR_H, img2)
 
         # 横にアクション後の結果を表示
         invalid_actions = worker.get_invalid_actions()
@@ -743,7 +702,7 @@ class Worker(RLWorker[Config, Parameter]):
                 self.screen,
                 (IMG_W + PADDING) * i,
                 20 + IMG_H,
-                f"action {worker.env.action_to_str(a)}",
+                f"act {worker.env.action_to_str(a)}",
                 color=(255, 255, 255),
             )
 
@@ -753,7 +712,7 @@ class Worker(RLWorker[Config, Parameter]):
                 n_img = self.parameter.vae.decode(n_z)[0].numpy() * 255
 
                 x = (IMG_W + PADDING) * i
-                y = 20 + IMG_H + 15 + (IMG_H + PADDING) * j
+                y = 20 + IMG_H + STR_H + (IMG_H + PADDING) * j
                 pw.draw_image_rgb_array(self.screen, x, y, n_img)
 
         return pw.get_rgb_array(self.screen)

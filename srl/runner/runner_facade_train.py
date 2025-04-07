@@ -6,7 +6,7 @@ from srl.base.define import PlayerType, RenderModes
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.trainer import RLTrainer
-from srl.base.run.callback import CallbackType
+from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.runner_base import RunnerBase
@@ -24,20 +24,16 @@ class RunnerFacadeTrain(RunnerBase):
         max_steps: int = -1,
         max_train_count: int = -1,
         max_memory: int = -1,
-        # --- thread
-        enable_train_thread: bool = False,
-        thread_queue_capacity: int = 10,
         # --- play config
         players: List[PlayerType] = [],
         shuffle_player: bool = True,
         # --- progress
         enable_progress: bool = True,
         # --- other
-        callbacks: List[CallbackType] = [],
+        callbacks: List[RunCallback] = [],
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
         trainer: Optional[RLTrainer] = None,
-        logger_config: bool = True,
     ):
         """train
 
@@ -50,7 +46,7 @@ class RunnerFacadeTrain(RunnerBase):
             shuffle_player (bool, optional): playersをシャッフルするかどうか. Defaults to True.
             enable_progress (bool, optional): 進捗を表示するか. Defaults to True.
             enable_eval (bool, optional): 評価用のシミュレーションを実行します. Defaults to False.
-            callbacks (List[CallbackType], optional): callbacks. Defaults to [].
+            callbacks (List[RunCallback], optional): callbacks. Defaults to [].
         """
         callbacks = callbacks[:]
 
@@ -73,9 +69,6 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.rollout = False
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
-        # thread
-        self.context.enable_train_thread = enable_train_thread
-        self.context.thread_queue_capacity = thread_queue_capacity
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=True)
@@ -88,7 +81,6 @@ class RunnerFacadeTrain(RunnerBase):
             memory=memory,
             trainer=trainer,
             callbacks=callbacks,
-            logger_config=logger_config,
         )
 
         self._after_history()
@@ -107,10 +99,9 @@ class RunnerFacadeTrain(RunnerBase):
         # --- progress
         enable_progress: bool = True,
         # --- other
-        callbacks: List[CallbackType] = [],
+        callbacks: List[RunCallback] = [],
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
-        logger_config: bool = True,
     ):
         """collect_memory"""
         callbacks = callbacks[:]
@@ -134,8 +125,6 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.rollout = True
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
-        # thread
-        self.context.enable_train_thread = False
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=False)
@@ -147,7 +136,6 @@ class RunnerFacadeTrain(RunnerBase):
             parameter=parameter,
             memory=memory,
             callbacks=callbacks,
-            logger_config=logger_config,
         )
 
         self._after_history()
@@ -158,17 +146,13 @@ class RunnerFacadeTrain(RunnerBase):
         # --- stop config
         timeout: float = -1,
         max_train_count: int = -1,
-        # --- thread
-        enable_train_thread: bool = False,
-        thread_queue_capacity: int = 10,
         # --- progress
         enable_progress: bool = True,
         # --- other
-        callbacks: List[CallbackType] = [],
+        callbacks: List[RunCallback] = [],
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
         trainer: Optional[RLTrainer] = None,
-        logger_config: bool = True,
     ):
         """Trainerが学習するだけでWorkerによるシミュレーションはありません。"""
         callbacks = callbacks[:]
@@ -191,9 +175,6 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.rollout = False
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
-        # thread
-        self.context.enable_train_thread = enable_train_thread
-        self.context.thread_queue_capacity = thread_queue_capacity
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=True)
@@ -206,7 +187,6 @@ class RunnerFacadeTrain(RunnerBase):
             memory=memory,
             trainer=trainer,
             callbacks=callbacks,
-            logger_config=logger_config,
         )
 
         self._after_history()
@@ -217,23 +197,22 @@ class RunnerFacadeTrain(RunnerBase):
         # mp
         actor_num: int = 1,
         queue_capacity: int = 1000,
-        trainer_parameter_send_interval: int = 1,
-        actor_parameter_sync_interval: int = 1,
+        trainer_parameter_send_interval: float = 1,
+        actor_parameter_sync_interval: float = 1,
         actor_devices: Union[str, List[str]] = "AUTO",
+        enable_mp_memory: bool = True,
+        train_to_mem_queue_capacity: int = 100,
+        mem_to_train_queue_capacity: int = 10,
         # --- stop config
         timeout: float = -1,
         max_train_count: int = -1,
-        # --- thread
-        enable_train_thread: bool = False,
-        thread_queue_capacity: int = 10,
         # --- play config
         players: List[PlayerType] = [],
         shuffle_player: bool = True,
         # --- progress
         enable_progress: bool = True,
         # --- other
-        callbacks: List[CallbackType] = [],
-        logger_config: bool = True,
+        callbacks: List[RunCallback] = [],
     ):
         """multiprocessingを使用した分散学習による学習を実施します。"""
         callbacks = callbacks[:]
@@ -261,9 +240,6 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.rollout = False
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
-        # thread
-        self.context.enable_train_thread = enable_train_thread
-        self.context.thread_queue_capacity = thread_queue_capacity
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=True)
@@ -271,20 +247,37 @@ class RunnerFacadeTrain(RunnerBase):
         self._apply_history(callbacks)
         self.apply_mlflow(callbacks)
 
-        from srl.base.run.play_mp import MpData, train
+        if enable_mp_memory:
+            from srl.base.run.play_mp_memory import MpConfig, train
 
-        train(
-            MpData(
-                self.context,
-                callbacks,
-                queue_capacity=queue_capacity,
-                trainer_parameter_send_interval=trainer_parameter_send_interval,
-                actor_parameter_sync_interval=actor_parameter_sync_interval,
-            ),
-            self.make_parameter(),
-            self.make_memory(),
-            logger_config,
-        )
+            train(
+                MpConfig(
+                    self.context,
+                    callbacks,
+                    queue_capacity=queue_capacity,
+                    trainer_parameter_send_interval=trainer_parameter_send_interval,
+                    actor_parameter_sync_interval=actor_parameter_sync_interval,
+                    train_to_mem_queue_capacity=train_to_mem_queue_capacity,
+                    mem_to_train_queue_capacity=mem_to_train_queue_capacity,
+                ),
+                self.make_parameter(),
+                self.make_memory(),
+            )
+
+        else:
+            from srl.base.run.play_mp import MpConfig, train
+
+            train(
+                MpConfig(
+                    self.context,
+                    callbacks,
+                    queue_capacity=queue_capacity,
+                    trainer_parameter_send_interval=trainer_parameter_send_interval,
+                    actor_parameter_sync_interval=actor_parameter_sync_interval,
+                ),
+                self.make_parameter(),
+                self.make_memory(),
+            )
 
         self._after_history()
 

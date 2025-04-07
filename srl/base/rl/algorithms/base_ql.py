@@ -4,6 +4,7 @@ from typing import Generic, List
 from srl.base.define import RLBaseActTypes, RLBaseObsTypes
 from srl.base.rl.config import RLConfig as RLConfigBase
 from srl.base.rl.config import TRLConfig
+from srl.base.rl.memory import TRLMemory
 from srl.base.rl.parameter import TRLParameter
 from srl.base.rl.worker import RLWorkerGeneric
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
@@ -23,10 +24,11 @@ class RLConfig(RLConfigBase[DiscreteSpace, ArrayDiscreteSpace]):
 
 
 class RLWorker(
-    Generic[TRLConfig, TRLParameter],
+    Generic[TRLConfig, TRLParameter, TRLMemory],
     RLWorkerGeneric[
         TRLConfig,
         TRLParameter,
+        TRLMemory,
         DiscreteSpace,
         int,
         ArrayDiscreteSpace,

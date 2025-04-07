@@ -8,7 +8,7 @@ from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
-from srl.runner.runner_base import CallbackType, RunnerBase
+from srl.runner.runner_base import RunnerBase
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class RunnerFacadePlay(RunnerBase):
         # --- progress
         enable_progress: bool = True,
         # --- other
-        callbacks: List[CallbackType] = [],
+        callbacks: List[RunCallback] = [],
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
     ) -> Union[List[float], List[List[float]]]:  # single play , multi play
@@ -44,7 +44,7 @@ class RunnerFacadePlay(RunnerBase):
             progress_env_info (bool, optional): 進捗表示にenv infoを表示するか. Defaults to False.
             progress_worker_info (bool, optional): 進捗表示にworker infoを表示するか. Defaults to True.
             progress_worker (int, optional): 進捗表示に表示するworker index. Defaults to 0.
-            callbacks (List[CallbackType], optional): callbacks. Defaults to [].
+            callbacks (List[RunCallback], optional): callbacks. Defaults to [].
 
         Returns:
             Union[List[float], List[List[float]]]: プレイヤー数が1人なら Lost[float]、複数なら List[List[float]]] を返します。
@@ -70,8 +70,6 @@ class RunnerFacadePlay(RunnerBase):
         self.context.rollout = False
         self.context.rendering = False
         self.context.render_mode = RenderModes.none
-        # thread
-        self.context.enable_train_thread = False
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=False)
@@ -96,7 +94,7 @@ class RunnerFacadePlay(RunnerBase):
         # --- play config
         players: List[PlayerType] = [],
         # --- other
-        callbacks: List[CallbackType] = [],
+        callbacks: List[RunCallback] = [],
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
     ):
@@ -122,8 +120,6 @@ class RunnerFacadePlay(RunnerBase):
         self.context.rollout = False
         self.context.rendering = True
         self.context.render_mode = mode
-        # thread
-        self.context.enable_train_thread = False
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -164,7 +160,7 @@ class RunnerFacadePlay(RunnerBase):
         # --- progress
         enable_progress: bool = True,
         # --- other
-        callbacks: List[CallbackType] = [],
+        callbacks: List[RunCallback] = [],
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
     ):
@@ -190,8 +186,6 @@ class RunnerFacadePlay(RunnerBase):
         self.context.rollout = False
         self.context.rendering = True
         self.context.render_mode = mode
-        # thread
-        self.context.enable_train_thread = False
 
         # --- rendering
         from srl.runner.callbacks.rendering import Rendering
@@ -239,7 +233,7 @@ class RunnerFacadePlay(RunnerBase):
         # --- progress
         enable_progress: bool = True,
         # --- other
-        callbacks: List[CallbackType] = [],
+        callbacks: List[RunCallback] = [],
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
     ):
@@ -265,8 +259,6 @@ class RunnerFacadePlay(RunnerBase):
         self.context.rollout = False
         self.context.rendering = True
         self.context.render_mode = mode
-        # thread
-        self.context.enable_train_thread = False
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -318,7 +310,7 @@ class RunnerFacadePlay(RunnerBase):
         # --- progress
         enable_progress: bool = True,
         # --- other
-        callbacks: List[CallbackType] = [],
+        callbacks: List[RunCallback] = [],
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
     ):
@@ -366,7 +358,7 @@ class RunnerFacadePlay(RunnerBase):
         # --- progress
         enable_progress: bool = True,
         # --- other
-        callbacks: List[CallbackType] = [],
+        callbacks: List[RunCallback] = [],
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
     ):
@@ -412,7 +404,7 @@ class RunnerFacadePlay(RunnerBase):
         # --- progress
         enable_progress: bool = True,
         # --- other
-        callbacks: List[CallbackType] = [],
+        callbacks: List[RunCallback] = [],
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
     ):
@@ -447,7 +439,7 @@ class RunnerFacadePlay(RunnerBase):
         # --- progress
         enable_progress: bool = True,
         # --- other
-        callbacks: List[CallbackType] = [],
+        callbacks: List[RunCallback] = [],
         _is_test: bool = False,  # for test
     ):
         callbacks = callbacks[:]
@@ -472,8 +464,6 @@ class RunnerFacadePlay(RunnerBase):
         self.context.rollout = False
         self.context.rendering = True
         self.context.render_mode = mode
-        # thread
-        self.context.enable_train_thread = False
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=False)
@@ -494,7 +484,7 @@ class RunnerFacadePlay(RunnerBase):
         timeout: float = -1,
         max_steps: int = -1,
         # --- other
-        callbacks: List[CallbackType] = [],
+        callbacks: List[RunCallback] = [],
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
     ):
@@ -520,8 +510,6 @@ class RunnerFacadePlay(RunnerBase):
         self.context.rollout = False
         self.context.rendering = True
         self.context.render_mode = mode
-        # thread
-        self.context.enable_train_thread = False
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -552,7 +540,7 @@ class RunnerFacadePlay(RunnerBase):
         # --- play config
         players: List[PlayerType] = [],
         # other
-        callbacks: List[CallbackType] = [],
+        callbacks: List[RunCallback] = [],
         _is_test: bool = False,  # for test
     ):
         callbacks2 = cast(List[RunCallback], [c for c in callbacks if issubclass(c.__class__, RunCallback)])
@@ -577,8 +565,6 @@ class RunnerFacadePlay(RunnerBase):
         self.context.rollout = enable_memory
         self.context.rendering = True
         self.context.render_mode = mode
-        # thread
-        self.context.enable_train_thread = False
 
         from srl.utils.common import is_packages_installed
 

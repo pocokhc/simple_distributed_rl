@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Literal
 
 from srl.base.exception import UndefinedError
 from srl.utils.common import is_package_installed
@@ -6,7 +7,7 @@ from srl.utils.common import is_package_installed
 
 @dataclass
 class RLConfigComponentFramework:
-    framework: str = "auto"
+    framework: Literal["auto", "tensorflow", "torch"] = "auto"
 
     def set_tensorflow(self):
         """use tensorflow"""
@@ -36,6 +37,3 @@ class RLConfigComponentFramework:
                 raise UndefinedError("'tensorflow' or 'torch' could not be found.")
 
         return self.framework
-
-    def assert_params_framework(self):
-        pass

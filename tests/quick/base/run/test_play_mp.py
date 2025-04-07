@@ -11,14 +11,13 @@ import pytest_mock
 import srl
 from srl.algorithms import ql_agent57
 from srl.base.context import RunContext
-from srl.base.run.callback import RunCallback, TrainCallback
+from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
-from srl.base.run.play_mp import MpData, _run_actor, _run_trainer
-from srl.utils import common
+from srl.base.run.play_mp import MpConfig, _run_actor, _run_trainer
 
 
-class _AssertTrainCallbacks(RunCallback, TrainCallback):
+class _AssertTrainCallbacks(RunCallback):
     def on_episodes_end(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         assert state.sync_actor > 1
 
@@ -37,8 +36,6 @@ class _DummyValue:
 @pytest.mark.parametrize("interrupt_stop", [False, True])
 @pytest.mark.timeout(5)  # pip install pytest_timeout
 def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
-    common.logger_print()
-
     remote_queue = queue.Queue()
     remote_qsize = cast(sharedctypes.Synchronized, mp.Value(ctypes.c_int, 0))
     remote_board = _DummyValue(None)
@@ -52,7 +49,7 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
     runner.context.training = True
     runner.context.distributed = True
 
-    mp_data = MpData(
+    mp_cfg = MpConfig(
         runner.context,
         [c],
         actor_parameter_sync_interval=0,
@@ -67,14 +64,13 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
             def on_episode_end(self, context: RunContext, state: RunStateActor) -> None:
                 self.end_signal.value = True
 
-        mp_data.callbacks.append(_c2(end_signal))
+        mp_cfg.callbacks.append(_c2(end_signal))
 
     # --- run
     _run_actor(
-        mp_data,
+        mp_cfg,
         remote_queue,
         remote_qsize,
-        1000,
         remote_board,
         0,
         end_signal,
@@ -92,17 +88,15 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
 @pytest.mark.parametrize("interrupt_stop", [False, True])
 @pytest.mark.timeout(5)  # pip install pytest_timeout
 def test_trainer(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
-    common.logger_print()
-
     remote_queue = queue.Queue()
     remote_qsize = cast(sharedctypes.Synchronized, mp.Value(ctypes.c_int, 0))
     remote_board = _DummyValue(None)
     end_signal = _DummyValue(False)
 
     # --- create task
-    c = mocker.Mock(spec=TrainCallback)
+    c = mocker.Mock(spec=RunCallback)
     rl_config = ql_agent57.Config()
-    rl_config.memory_warmup_size = 10
+    rl_config.memory.warmup_size = 10
     rl_config.batch_size = 1
     runner = srl.Runner("Grid", rl_config)
     if not interrupt_stop:
@@ -110,7 +104,7 @@ def test_trainer(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
     runner.context.timeout = 10
     runner.context.training = True
     runner.context.distributed = True
-    mp_data = MpData(
+    mp_cfg = MpConfig(
         runner.context,
         [c],
         trainer_parameter_send_interval=0,
@@ -118,7 +112,7 @@ def test_trainer(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
 
     if interrupt_stop:
 
-        class _c2(TrainCallback):
+        class _c2(RunCallback):
             def __init__(self, train_end_signal):
                 self.train_end_signal = train_end_signal
 
@@ -127,9 +121,10 @@ def test_trainer(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
                 if state.trainer.get_train_count() > 10:
                     self.train_end_signal.value = True
 
-        mp_data.callbacks.append(_c2(end_signal))
+        mp_cfg.callbacks.append(_c2(end_signal))
 
     # --- add queue
+    serialize_func = runner.make_memory().get_worker_funcs()["add"][1]
     for _ in range(100):
         batch = {
             "states": ["1,3", "1,2"],
@@ -141,11 +136,11 @@ def test_trainer(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
             "done": False,
             "discount": 0.9999,
         }
-        remote_queue.put(runner.make_memory().serialize_add_args(batch, -1))
+        remote_queue.put(("add", serialize_func(batch, -1)))
 
     # --- run
     _run_trainer(
-        mp_data,
+        mp_cfg,
         runner.make_parameter(),
         runner.make_memory(),
         remote_queue,
@@ -162,9 +157,8 @@ def test_trainer(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
 
 @pytest.mark.timeout(10)  # pip install pytest_timeout
 def test_train():
-    common.logger_print()
     rl_config = ql_agent57.Config(batch_size=2)
-    rl_config.memory_warmup_size = 10
+    rl_config.memory.warmup_size = 10
     runner = srl.Runner("Grid", rl_config)
     runner.set_progress(enable_eval=True)
     runner.train_mp(
@@ -173,6 +167,7 @@ def test_train():
         callbacks=[_AssertTrainCallbacks()],
         trainer_parameter_send_interval=0,
         actor_parameter_sync_interval=0,
+        enable_mp_memory=False,
     )
 
     # eval

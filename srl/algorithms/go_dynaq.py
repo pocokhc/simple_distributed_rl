@@ -16,7 +16,7 @@ from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.rl import functions as funcs
-from srl.rl.memories.sequence_memory import SequenceMemory
+from srl.rl.memories.single_use_buffer import RLSingleUseBuffer
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +26,8 @@ class Config(RLConfig):
     search_rate: float = 0.5
     test_search_rate: float = 0.01
 
-    #: 近似モデルの学習時に内部報酬を割り引く率
-    int_reward_discount: float = 0.9
+    #: 近似モデルの学習時のEMAの割合
+    int_reward_ema_rate: float = 0.5
 
     q_iter_interval_num: int = 1_000
     q_iter_interval_max: int = 100_000
@@ -60,14 +60,8 @@ class Config(RLConfig):
     #: lifelong rewardの減少率
     lifelong_decrement_rate: float = 0.999
 
-    def get_framework(self) -> str:
-        return ""
-
     def get_name(self) -> str:
         return "GoDynaQ"
-
-    def assert_params(self) -> None:
-        super().assert_params()
 
 
 register(
@@ -79,14 +73,12 @@ register(
 )
 
 
-class Memory(SequenceMemory):
+class Memory(RLSingleUseBuffer):
     pass
 
 
 class Parameter(RLParameter[Config]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
+    def setup(self):
         # [state][action][next_state] = [trans(count), reward, done, int_reward]
         self.mdp: Dict[str, List[Dict[str, List]]] = {}
         self.mdp_size = 0  # for info
@@ -285,16 +277,16 @@ class Parameter(RLParameter[Config]):
 
 
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
+    def on_setup(self) -> None:
         self.interval = self.config.q_iter_interval_num
         self.iteration_num = 0
 
     def train(self) -> None:
-        if self.memory.length() == 0:
+        batches = self.memory.sample()
+        if batches is None:
             return
-        for batch in self.memory.sample():
+
+        for batch in batches:
             (
                 state,
                 n_state,
@@ -323,8 +315,8 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             # update lifelong
             self.parameter.lifelong[state] *= self.config.lifelong_decrement_rate
             int_reward = self.parameter.lifelong[n_state] * episodic_reward
-            discount = self.config.int_reward_discount
-            m[3] = m[3] * discount + (int_reward - m[3] * discount) / m[0]
+            # int reward (ema)
+            m[3] = self.config.int_reward_ema_rate * m[3] + (1 - self.config.int_reward_ema_rate) * int_reward
 
             # --- q ext (greedy)
             n_q = self.parameter.calc_q(self.parameter.q_ext, n_state, self.config.q_ext_target_policy)
@@ -360,22 +352,15 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.info["mdp_size"] = self.parameter.mdp_size
 
 
-class Worker(RLWorker[Config, Parameter]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
-        self.archive_reached_area: Dict[str, dict] = {}
-        self.archive_state: Dict[str, dict] = {}
-        self.archive_action: Dict[str, dict] = {}
-
+class Worker(RLWorker[Config, Parameter, Memory]):
     def on_setup(self, worker, context):
+        # 1step毎に更新したいのでparameterの同期は最初と最後
+        self.archive_reached_area: Dict[str, dict] = copy.deepcopy(self.parameter.archive_reached_area)
+        self.archive_state: Dict[str, dict] = copy.deepcopy(self.parameter.archive_state)
+        self.archive_action: Dict[str, dict] = copy.deepcopy(self.parameter.archive_action)
+
         self.parameter.iteration_q("ext", self.config.q_iter_threshold / 10, self.config.q_iter_timeout)
         self.parameter.iteration_q("int", self.config.q_iter_threshold / 10, self.config.q_iter_timeout)
-
-        # 1step毎に更新したいのでparameterの同期は最初と最後
-        self.archive_reached_area = copy.deepcopy(self.parameter.archive_reached_area)
-        self.archive_state = copy.deepcopy(self.parameter.archive_state)
-        self.archive_action = copy.deepcopy(self.parameter.archive_action)
 
     def on_teardown(self, worker):
         if self.training:

@@ -1,21 +1,25 @@
 import random
 from dataclasses import dataclass, field
-from typing import List, Union
+from typing import List
 
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
+from srl.base.define import RLMemoryTypes
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import RLProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
+from srl.base.spaces.space import SpaceBase
 from srl.rl import functions as funcs
-from srl.rl.memories.experience_replay_buffer import RandomMemory
-from srl.rl.models.config.input_config import RLConfigComponentInput
+from srl.rl.memories.replay_buffer import ReplayBuffer, ReplayBufferConfig
+from srl.rl.models.config.input_image_block import InputImageBlockConfig
+from srl.rl.models.config.input_value_block import InputValueBlockConfig
 from srl.rl.models.config.mlp_block import MLPBlockConfig
+from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 from srl.rl.tf.model import KerasModelAddedSummary
 
@@ -33,27 +37,22 @@ SND-VIC : x
 
 
 @dataclass
-class Config(
-    RLConfig,
-    RLConfigComponentInput,
-):
-    """
-    <:ref:`RLConfigComponentInput`>
-    """
-
+class Config(RLConfig):
     #: ε-greedy parameter for Test
     test_epsilon: float = 0
     #: ε-greedy parameter for Train
     epsilon: float = 0.001
+    #: <:ref:`SchedulerConfig`>
+    epsilon_scheduler: SchedulerConfig = field(default_factory=lambda: SchedulerConfig())
     #: <:ref:`scheduler`> Learning rate
-    lr: Union[float, SchedulerConfig] = 0.001
+    lr: float = 0.001
+    #: <:ref:`LRSchedulerConfig`>
+    lr_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
 
     #: Batch size
     batch_size: int = 32
-    #: capacity
-    memory_capacity: int = 100_000
-    #: warmup_size
-    memory_warmup_size: int = 1_000
+    #: <:ref:`ReplayBufferConfig`>
+    memory: ReplayBufferConfig = field(default_factory=lambda: ReplayBufferConfig())
 
     #: Discount rate
     discount: float = 0.99
@@ -63,22 +62,28 @@ class Config(
     #: int reward scale
     int_reward_scale: float = 0.5
 
+    #: <:ref:`InputValueBlockConfig`>
+    input_value_block: InputValueBlockConfig = field(default_factory=lambda: InputValueBlockConfig())
+    #: <:ref:`InputImageBlockConfig`>
+    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig())
     #: <:ref:`MLPBlockConfig`> hidden layer
     hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
-
-    def get_processors(self) -> List[RLProcessor]:
-        return RLConfigComponentInput.get_processors(self)
-
-    def get_framework(self) -> str:
-        return "tensorflow"
 
     def get_name(self) -> str:
         return "SND"
 
-    def assert_params(self) -> None:
-        super().assert_params()
-        self.assert_params_input()
-        assert self.batch_size % 2 == 0
+    def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
+        if prev_observation_space.is_image():
+            return self.input_image_block.get_processors()
+        return []
+
+    def get_framework(self) -> str:
+        return "tensorflow"
+
+    def validate_params(self) -> None:
+        super().validate_params()
+        if not (self.batch_size % 2 == 0):
+            raise ValueError(f"assert {self.batch_size} % 2 == 0")
 
 
 register(
@@ -91,37 +96,65 @@ register(
 
 
 class Memory(RLMemory[Config]):
-    def __init__(self, *args):
-        super().__init__(*args)
+    def setup(self) -> None:
+        self.memory_snd = ReplayBuffer(self.config.memory, self.config.batch_size)
+        self.memory_q = ReplayBuffer(self.config.memory, self.config.batch_size)
 
-        self.memory_snd = RandomMemory(self.config.memory_capacity)
-        self.memory_q = RandomMemory(self.config.memory_capacity)
+        self.register_worker_func(self.add_snd, self.memory_snd.serialize)
+        self.register_worker_func(self.add_q, self.memory_q.serialize)
+        self.register_trainer_recv_func(self.sample_snd)
+        self.register_trainer_recv_func(self.sample_q)
+
+    @property
+    def memory_type(self) -> RLMemoryTypes:
+        return RLMemoryTypes.BUFFER
 
     def length(self):
-        return self.memory_q.length()
+        return self.memory_q.length() + self.memory_snd.length()
 
-    def add(self, mode: str, batch) -> None:
-        if mode == "snd":
-            self.memory_snd.add(batch)
-        else:
-            self.memory_q.add(batch)
+    def add_snd(self, batch, serialized: bool = False) -> None:
+        self.memory_snd.add(batch, serialized)
 
-    def sample_snd(self, batch_size):
-        return self.memory_snd.sample(batch_size)
+    def add_q(self, batch, serialized: bool = False) -> None:
+        self.memory_q.add(batch, serialized)
+
+    def sample_snd(self):
+        if self.memory_snd.is_warmup_needed():
+            return None
+        return [
+            self.memory_snd.sample(),
+            self.memory_snd.sample(batch_size=int(self.config.batch_size / 2)),
+        ]
 
     def sample_q(self):
-        return self.memory_q.sample(self.config.batch_size)
+        return self.memory_q.sample()
+
+    def call_backup(self, **kwargs):
+        return [
+            self.memory_snd.call_backup(),
+            self.memory_q.call_backup(),
+        ]
+
+    def call_restore(self, data, **kwargs) -> None:
+        self.memory_snd.call_restore(data[0])
+        self.memory_q.call_restore(data[1])
 
 
 class SNDNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
-        self.in_block = config.create_input_block_tf()
-        self.hidden_block = config.hidden_block.create_block_tf()
+        if config.observation_space.is_value():
+            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
+        elif config.observation_space.is_image():
+            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
+        else:
+            raise ValueError(config.observation_space)
+
+        self.hidden_block = config.hidden_block.create_tf_block()
 
         # build
-        self(np.zeros(self.in_block.create_batch_shape((1,)), config.dtype))
+        self(self.in_block.create_dummy_data(config.dtype))
 
         self.loss_mse = keras.losses.MeanSquaredError()
 
@@ -152,12 +185,18 @@ class QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
-        self.in_block = config.create_input_block_tf()
-        self.hidden_block = config.hidden_block.create_block_tf()
+        if config.observation_space.is_value():
+            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
+        elif config.observation_space.is_image():
+            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
+        else:
+            raise ValueError(config.observation_space)
+
+        self.hidden_block = config.hidden_block.create_tf_block()
         self.out_layer = kl.Dense(config.action_space.n, kernel_initializer="truncated_normal")
 
         # build
-        self(np.zeros(self.in_block.create_batch_shape((1,)), config.dtype))
+        self(self.in_block.create_dummy_data(config.dtype))
 
         self.loss_func = keras.losses.Huber()
 
@@ -177,9 +216,7 @@ class QNetwork(KerasModelAddedSummary):
 
 
 class Parameter(RLParameter[Config]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
+    def setup(self):
         self.q_online = QNetwork(self.config, name="Q_online")
         self.q_target = QNetwork(self.config, name="Q_target")
         self.q_target.set_weights(self.q_online.get_weights())
@@ -206,14 +243,10 @@ class Parameter(RLParameter[Config]):
 
 
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
-        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
-        self.opt_q = keras.optimizers.Adam(self.lr_sch.get_rate())
-        self.opt_snd_target = keras.optimizers.Adam(self.lr_sch.get_rate())
-        self.opt_snd_predictor = keras.optimizers.Adam(self.lr_sch.get_rate())
-
+    def on_setup(self) -> None:
+        self.opt_q = keras.optimizers.Adam(learning_rate=self.config.lr_scheduler.apply_tf_scheduler(self.config.lr))
+        self.opt_snd_target = keras.optimizers.Adam(learning_rate=self.config.lr_scheduler.apply_tf_scheduler(self.config.lr))
+        self.opt_snd_predictor = keras.optimizers.Adam(learning_rate=self.config.lr_scheduler.apply_tf_scheduler(self.config.lr))
         self.sync_count = 0
 
     def train(self) -> None:
@@ -221,15 +254,15 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self._train_q()
 
     def _train_snd(self):
-        if self.memory.memory_snd.length() < self.config.memory_warmup_size:
+        batches = self.memory.sample_snd()
+        if batches is None:
             return
+        state1, state2 = batches
 
         # 対照学習
         # (s1, s1) -> tau=0
         # (s1, s2) -> tau=1
         batch_half = int(self.config.batch_size / 2)
-        state1 = self.memory.sample_snd(self.config.batch_size)
-        state2 = self.memory.sample_snd(batch_half)
         state1 = np.asarray(state1, self.config.dtype)
         state2 = np.asarray(state2, self.config.dtype)
 
@@ -252,11 +285,13 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.opt_snd_target.apply_gradients(zip(grad, self.parameter.snd_target.trainable_variables))
         self.info["loss_snd_target"] = loss.numpy()
 
+        self.train_count += 1
+
     def _train_q(self):
-        if self.memory.memory_q.length() < self.config.memory_warmup_size:
+        batches = self.memory.sample_q()
+        if batches is None:
             return
-        batchs = self.memory.sample_q()
-        state, n_state, action, reward, undone = zip(*batchs)
+        state, n_state, action, reward, undone = zip(*batches)
         state = np.asarray(state, self.config.dtype)
         n_state = np.asarray(n_state, self.config.dtype)
         action = np.asarray(action, self.config.dtype)
@@ -296,12 +331,9 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.train_count += 1
 
 
-class Worker(RLWorker[Config, Parameter]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
+class Worker(RLWorker[Config, Parameter, Memory]):
     def on_reset(self, worker):
-        self.memory.add("snd", worker.state)
+        self.memory.add_snd(worker.state)
 
     def policy(self, worker) -> int:
         invalid_actions = worker.get_invalid_actions()
@@ -330,15 +362,16 @@ class Worker(RLWorker[Config, Parameter]):
         r_int = self._calc_intrinsic_reward(worker.state)
         reward = r_ext + self.config.int_reward_scale * r_int
 
-        batch = [
-            worker.prev_state,
-            worker.state,
-            funcs.one_hot(worker.action, self.config.action_space.n),
-            reward,
-            int(not worker.terminated),
-        ]
-        self.memory.add("q", batch)
-        self.memory.add("snd", worker.state)
+        self.memory.add_q(
+            [
+                worker.prev_state,
+                worker.state,
+                worker.get_onehot_action(),
+                reward,
+                int(not worker.terminated),
+            ]
+        )
+        self.memory.add_snd(worker.state)
 
     def _calc_intrinsic_reward(self, state):
         state = state[np.newaxis, ...]

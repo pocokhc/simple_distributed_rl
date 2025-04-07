@@ -1,6 +1,7 @@
 import enum
 import logging
 import pickle
+import pprint
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, List, Optional, Union
 
@@ -51,10 +52,6 @@ class RunContext:
     rollout: bool = False
     rendering: bool = False
     render_mode: Union[str, RenderModes] = RenderModes.none
-
-    # --- thread
-    enable_train_thread: bool = False
-    thread_queue_capacity: int = 10
 
     # --- mp
     actor_id: int = 0
@@ -126,9 +123,8 @@ class RunContext:
             ), "Please specify 'max_episodes', 'timeout' , 'max_steps' or 'max_train_count' or 'max_memory'."
             if self.max_memory > 0:
                 if hasattr(self.rl_config, "memory"):
-                    assert self.max_memory <= self.rl_config.memory_capacity
-                if hasattr(self.rl_config, "memory_capacity"):
-                    assert self.max_memory <= self.rl_config.memory_capacity
+                    if hasattr(self.rl_config.memory, "capacity"):  # type: ignore
+                        assert self.max_memory <= self.rl_config.memory.capacity  # type: ignore
 
     def get_name(self) -> str:
         if self.run_name == RunNameTypes.actor:
@@ -179,3 +175,16 @@ class RunContext:
         else:
             device = "CPU"
         return device
+
+    def to_str_context(self, include_env_config: bool = True, include_rl_config: bool = True, include_context: bool = True) -> str:
+        s = ""
+        if include_env_config and (self.env_config is not None):
+            s += "--- EnvConfig ---\n" + pprint.pformat(self.env_config.to_dict())
+        if include_rl_config and (self.rl_config is not None):
+            s += "--- RLConfig ---\n" + pprint.pformat(self.rl_config.to_dict())
+        if include_context:
+            s += "--- Context ---\n" + pprint.pformat(self.to_dict(include_env_config=False, include_rl_config=False))
+        return s
+
+    def print_context(self, include_env_config: bool = True, include_rl_config: bool = True, include_context: bool = True):
+        print(self.to_str_context(include_env_config, include_rl_config, include_context))

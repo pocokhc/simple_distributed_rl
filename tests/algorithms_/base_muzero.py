@@ -13,7 +13,7 @@ class QuickCase(CommonQuickCase):
         rl_config.set_atari_config()
 
         rl_config.batch_size = 2
-        rl_config.memory_warmup_size = 2
+        rl_config.memory.warmup_size = 2
         rl_config.num_simulations = 2
         rl_config.unroll_steps = 2
         rl_config.input_image_block.set_alphazero_block(1, 2)
@@ -30,13 +30,11 @@ class LongCase(CommonLongCase):
         rl_config = muzero.Config(
             batch_size=16,
         )
-        rl_config.memory_warmup_size = 50
+        rl_config.memory.warmup_size = 50
 
         return rl_config
 
     def test_EasyGrid(self):
-        from srl.envs import grid
-
         rl_config = self._create_rl_config()
         rl_config.__init__(
             num_simulations=20,
@@ -51,10 +49,9 @@ class LongCase(CommonLongCase):
         )
         rl_config.lr = 0.001
         rl_config.input_image_block.set_alphazero_block(1, 16)
-        rl_config.memory_warmup_size = 200
-        rl_config.set_replay_memory()
-        rl_config.processors = [grid.LayerProcessor()]
-        runner = self.create_test_runner("EasyGrid", rl_config)
+        rl_config.memory.warmup_size = 200
+        rl_config.memory.set_replay_buffer()
+        runner = self.create_test_runner("EasyGrid-Layer", rl_config)
         runner.train(max_train_count=3000)
         assert runner.evaluate_compare_to_baseline_single_player()
 
@@ -73,10 +70,10 @@ class LongCase(CommonLongCase):
             enable_rescale=False,
             weight_decay=0,
         )
-        rl_config.memory_warmup_size = 200
-        rl_config.lr = rl_config.create_scheduler().set_linear(10_000, 0.002, 0.0001)
+        rl_config.memory.warmup_size = 200
+        rl_config.lr = 0.002
+        rl_config.lr_scheduler.set_step(10_000, 0.0001)
         rl_config.input_image_block.set_alphazero_block(1, 16)
-        rl_config.processors = [grid.LayerProcessor()]
-        runner = self.create_test_runner("EasyGrid", rl_config)
+        runner = self.create_test_runner("EasyGrid-Layer", rl_config)
         runner.train(max_train_count=3000)
         assert runner.evaluate_compare_to_baseline_single_player()

@@ -69,11 +69,10 @@ class CategoricalDist:
             a = _one_hot(a, self.classes, dtype=tf.float32)
         return a
 
-    def rsample(self, onehot: bool = True):
+    def rsample(self):
         a = _categorical(self.logits, num_samples=1)
-        if onehot:
-            a = _squeeze(a, axis=1)
-            a = _one_hot(a, self.classes, dtype=tf.float32)
+        a = _squeeze(a, axis=1)
+        a = _one_hot(a, self.classes, dtype=tf.float32)
         return self._probs + tf.stop_gradient(a - self._probs)
 
     def log_probs(self):

@@ -4,7 +4,6 @@ from typing import Tuple, cast
 import pytest
 
 import srl
-from srl.base.define import ObservationModes
 from srl.base.rl.config import RLConfig
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.test import rl as test_rl
@@ -50,19 +49,65 @@ class CommonQuickCase(ABC):
             raise ValueError(self.use_device())
 
     def _setup_rl_config(self, rl_config: RLConfig):
-        rl_config.memory_compress = False
+        if hasattr(rl_config, "memory"):
+            if hasattr(rl_config.memory, "compress"):  # type: ignore
+                rl_config.memory.compress = False  # type: ignore
         if issubclass(rl_config.__class__, RLConfigComponentFramework):
             if self.use_framework() == "tensorflow":
                 cast(RLConfigComponentFramework, rl_config).set_tensorflow()
             elif self.use_framework() == "torch":
                 cast(RLConfigComponentFramework, rl_config).set_torch()
 
+    @pytest.mark.timeout(60)  # pip install pytest_timeout
     def test_simple(self, rl_param, tmpdir):
         self._check_test_params()
         rl_config, test_kwargs = self.create_rl_config(rl_param)
         self._setup_rl_config(rl_config)
         test_rl.test_rl(rl_config, device=self.use_device(), **test_kwargs, tmp_dir=tmpdir)
 
+    @pytest.mark.timeout(60)  # pip install pytest_timeout
+    def test_simple_rollout_train(self, rl_param, tmpdir):
+        self._check_test_params()
+        rl_config, test_kwargs = self.create_rl_config(rl_param)
+        self._setup_rl_config(rl_config)
+        test_rl.test_rl(
+            rl_config,
+            device=self.use_device(),
+            test_mode="rollout",
+            enable_mp_memory=True,
+            test_render_terminal=False,
+            test_render_window=False,
+            **test_kwargs,
+            tmp_dir=tmpdir,
+        )
+
+    @pytest.mark.timeout(120)  # pip install pytest_timeout
+    def test_simple_input_image(self, rl_param, tmpdir):
+        pytest.importorskip("PIL")
+        pytest.importorskip("pygame")
+        self._check_test_params()
+        rl_config, test_kwargs = self.create_rl_config(rl_param)
+        self._setup_rl_config(rl_config)
+        rl_config.observation_mode = "render_image"
+        test_rl.test_rl(rl_config, device=self.use_device(), **test_kwargs, tmp_dir=tmpdir)
+
+    @pytest.mark.timeout(120)  # pip install pytest_timeout
+    def test_simple_mp_memory(self, rl_param, tmpdir):
+        self._check_test_params()
+        rl_config, test_kwargs = self.create_rl_config(rl_param)
+        self._setup_rl_config(rl_config)
+        test_rl.test_rl(
+            rl_config,
+            device=self.use_device(),
+            test_mode="mp",
+            enable_mp_memory=True,
+            test_render_terminal=False,
+            test_render_window=False,
+            **test_kwargs,
+            tmp_dir=tmpdir,
+        )
+
+    @pytest.mark.timeout(120)  # pip install pytest_timeout
     def test_simple_mp(self, rl_param, tmpdir):
         self._check_test_params()
         rl_config, test_kwargs = self.create_rl_config(rl_param)
@@ -70,22 +115,15 @@ class CommonQuickCase(ABC):
         test_rl.test_rl(
             rl_config,
             device=self.use_device(),
-            test_mp=True,
+            test_mode="mp",
+            enable_mp_memory=False,
             test_render_terminal=False,
             test_render_window=False,
             **test_kwargs,
             tmp_dir=tmpdir,
         )
 
-    def test_simple_input_image(self, rl_param, tmpdir):
-        pytest.importorskip("PIL")
-        pytest.importorskip("pygame")
-        self._check_test_params()
-        rl_config, test_kwargs = self.create_rl_config(rl_param)
-        self._setup_rl_config(rl_config)
-        rl_config.observation_mode = ObservationModes.RENDER_IMAGE
-        test_rl.test_rl(rl_config, device=self.use_device(), **test_kwargs, tmp_dir=tmpdir)
-
+    @pytest.mark.timeout(30)  # pip install pytest_timeout
     def test_summary(self, rl_param):
         self._check_test_params()
         rl_config, test_kwargs = self.create_rl_config(rl_param)

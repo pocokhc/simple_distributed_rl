@@ -7,7 +7,6 @@ from srl.rl.memories.priority_memories.proportional_memory import ProportionalMe
 
 
 def main():
-
     capacity = 100_000_000
     memory = ProportionalMemory(capacity, 0.8, 0.4, 1000)
     # memory = RankBaseMemory(capacity, 0.8, 0.4, 1000)
@@ -16,7 +15,6 @@ def main():
 
 
 def _run(memory):
-
     warmup_size = 10_000
     batch_size = 64
     epochs = 10_000
@@ -29,15 +27,14 @@ def _run(memory):
         step += 1
 
     for _ in tqdm(range(epochs)):
-
         # add
         r = random.random()
         memory.add((step, step, step, step), r)
         step += 1
 
         # sample
-        batchs, weights, update_args = memory.sample(batch_size, step)
-        assert len(batchs) == batch_size
+        batches, weights, update_args = memory.sample(batch_size, step)
+        assert len(batches) == batch_size
         assert len(weights) == batch_size
 
         # update priority

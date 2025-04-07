@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass, field
-from typing import Any, List, Union
+from typing import Any, List
 
 import numpy as np
 import tensorflow as tf
@@ -11,15 +11,14 @@ from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import RLProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
+from srl.base.spaces.space import SpaceBase
 from srl.rl import functions as funcs
 from srl.rl.functions import create_epsilon_list, inverse_rescaling, rescaling
-from srl.rl.memories.priority_experience_replay import (
-    PriorityExperienceReplay,
-    RLConfigComponentPriorityExperienceReplay,
-)
+from srl.rl.memories.priority_replay_buffer import PriorityReplayBufferConfig, RLPriorityReplayBuffer
 from srl.rl.models.config.dueling_network import DuelingNetworkConfig
-from srl.rl.models.config.input_config import RLConfigComponentInput
-from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.rl.models.config.input_image_block import InputImageBlockConfig
+from srl.rl.models.config.input_value_block import InputValueBlockConfig
+from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 from srl.rl.tf.model import KerasModelAddedSummary
 from srl.utils.common import compare_less_version
 
@@ -57,34 +56,33 @@ Other
 """
 
 
-# ------------------------------------------------------
-# config
-# ------------------------------------------------------
 @dataclass
-class Config(
-    RLConfig,
-    RLConfigComponentPriorityExperienceReplay,
-    RLConfigComponentInput,
-):
-    """
-    <:ref:`RLConfigComponentPriorityExperienceReplay`>
-    <:ref:`RLConfigComponentInput`>
-    """
-
+class Config(RLConfig):
     test_epsilon: float = 0
-    epsilon: Union[float, SchedulerConfig] = 0.1
+    epsilon: float = 0.1
     actor_epsilon: float = 0.4
     actor_alpha: float = 7.0
 
+    #: Batch size
+    batch_size: int = 32
+    #: <:ref:`PriorityReplayBufferConfig`>
+    memory: PriorityReplayBufferConfig = field(default_factory=lambda: PriorityReplayBufferConfig())
+
+    #: <:ref:`InputValueBlockConfig`>
+    input_value_block: InputValueBlockConfig = field(default_factory=lambda: InputValueBlockConfig())
+    #: <:ref:`InputImageBlockConfig`>
+    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig())
     lstm_units: int = 512
-    hidden_block: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
+    hidden_block: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig().set_dueling_network())
 
     # lstm
     burnin: int = 5
     sequence_length: int = 5
 
     discount: float = 0.997
-    lr: Union[float, SchedulerConfig] = 0.001
+    lr: float = 0.001
+    #: <:ref:`LRSchedulerConfig`>
+    lr_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
     target_model_update_interval: int = 1000
 
     # double dqn
@@ -97,20 +95,18 @@ class Config(
     enable_retrace: bool = True
     retrace_h: float = 1.0
 
-    # other
-    dummy_state_val: float = 0.0
-
-    def __post_init__(self):
-        super().__post_init__()
-        self.hidden_block.set_dueling_network()
-
     def setup_from_actor(self, actor_num: int, actor_id: int) -> None:
-        e = create_epsilon_list(actor_num, epsilon=self.actor_epsilon, alpha=self.actor_alpha)[actor_id]
-        self.epsilon = e
+        self.epsilon = create_epsilon_list(
+            actor_num,
+            epsilon=self.actor_epsilon,
+            alpha=self.actor_alpha,
+        )[actor_id]
 
     def set_atari_config(self):
         # model
         self.lstm_units = 512
+        self.input_value_block.set(())
+        self.input_image_block.set_dqn_block()
         self.hidden_block.set_dueling_network((512,))
 
         # lstm
@@ -126,28 +122,30 @@ class Config(
         self.enable_rescale = True
         self.enable_retrace = False
 
-        self.memory_capacity = 1_000_000
-        self.set_proportional_memory(
+        self.memory.capacity = 1_000_000
+        self.memory.set_proportional(
             alpha=0.9,
             beta_initial=0.6,
             beta_steps=1_000_000,
         )
 
-    def get_processors(self) -> List[RLProcessor]:
-        return RLConfigComponentInput.get_processors(self)
+    def get_name(self) -> str:
+        return "R2D2"
+
+    def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
+        if prev_observation_space.is_image():
+            return self.input_image_block.get_processors()
+        return []
 
     def get_framework(self) -> str:
         return "tensorflow"
 
-    def get_name(self) -> str:
-        return "R2D2"
-
-    def assert_params(self) -> None:
-        super().assert_params()
-        self.assert_params_memory()
-        self.assert_params_input()
-        assert self.burnin >= 0
-        assert self.sequence_length >= 1
+    def validate_params(self) -> None:
+        super().validate_params()
+        if not (self.burnin >= 0):
+            raise ValueError(f"assert {self.burnin} >= 0")
+        if not (self.sequence_length >= 1):
+            raise ValueError(f"assert {self.sequence_length} >= 1")
 
 
 register(
@@ -159,21 +157,18 @@ register(
 )
 
 
-# ------------------------------------------------------
-# Memory
-# ------------------------------------------------------
-class Memory(PriorityExperienceReplay):
+class Memory(RLPriorityReplayBuffer):
     pass
 
 
-# ------------------------------------------------------
-# network
-# ------------------------------------------------------
 class QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
-        self.in_block = config.create_input_block_tf(rnn=True)
+        if config.observation_space.is_image():
+            self.in_block = config.input_image_block.create_tf_block(config.observation_space, rnn=True)
+        else:
+            self.in_block = config.input_value_block.create_tf_block(config.observation_space, rnn=True)
 
         # --- lstm
         self.lstm_layer = kl.LSTM(
@@ -183,10 +178,10 @@ class QNetwork(KerasModelAddedSummary):
         )
 
         # out
-        self.hidden_block = config.hidden_block.create_block_tf(config.action_space.n, rnn=True)
+        self.hidden_block = config.hidden_block.create_tf_block(config.action_space.n, rnn=True)
 
         # build
-        self(np.zeros((1, config.sequence_length) + config.observation_space.shape))
+        self(self.in_block.create_dummy_data(config.get_dtype("np"), timesteps=config.sequence_length))
 
     @tf.function()
     def call(self, x, hidden_states=None, training=False):
@@ -208,9 +203,6 @@ class QNetwork(KerasModelAddedSummary):
             return self.lstm_layer.cell.get_initial_state(batch_size)
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
 class Parameter(RLParameter[Config]):
     def __init__(self, *args):
         super().__init__(*args)
@@ -230,28 +222,22 @@ class Parameter(RLParameter[Config]):
         self.q_online.summary(**kwargs)
 
 
-# ------------------------------------------------------
-# Trainer
-# ------------------------------------------------------
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.config: Config = self.config
-        self.parameter: Parameter = self.parameter
-
-        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
-        self.optimizer = keras.optimizers.Adam(learning_rate=self.lr_sch.get_rate())
+    def on_setup(self) -> None:
+        lr = self.config.lr_scheduler.apply_tf_scheduler(self.config.lr)
+        self.optimizer = keras.optimizers.Adam(learning_rate=lr)
         self.loss = keras.losses.Huber()
 
         self.sync_count = 0
 
     def train(self) -> None:
-        if self.memory.is_warmup_needed():
+        batches = self.memory.sample()
+        if batches is None:
             return
-        batchs, weights, update_args = self.memory.sample(self.train_count)
+        batches, weights, update_args = batches
 
-        td_errors, loss = self._train_on_batchs(batchs, np.array(weights).reshape(-1, 1))
-        self.memory.update(update_args, np.array(td_errors))
+        td_errors, loss = self._train_on_batches(batches, np.array(weights).reshape(-1, 1))
+        self.memory.update(update_args, np.array(td_errors), self.train_count)
 
         # targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:
@@ -262,12 +248,12 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.info["loss"] = loss
         self.info["sync"] = self.sync_count
 
-    def _train_on_batchs(self, batchs, weights):
+    def _train_on_batches(self, batches, weights):
         # (batch, dict[x], step) -> (batch, step, x)
         burnin_states = []
         step_states = []
         step_actions = []
-        for b in batchs:
+        for b in batches:
             burnin_states.append([s for s in b["states"][: self.config.burnin]])
             step_states.append([s for s in b["states"][self.config.burnin :]])
             step_actions.append([s for s in b["actions"]])
@@ -280,7 +266,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         # (batch, list, hidden) -> (list, batch, hidden)
         states_h = []
         states_c = []
-        for b in batchs:
+        for b in batches:
             states_h.append(b["hidden_states"][0])
             states_c.append(b["hidden_states"][1])
         hidden_states = [tf.stack(states_h), tf.stack(states_c)]
@@ -307,7 +293,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 
             # --- TargetQを計算
             target_q_list = []
-            for idx, b in enumerate(batchs):
+            for idx, b in enumerate(batches):
                 retrace = 1
                 next_td_error = 0
                 td_errors = []
@@ -368,22 +354,17 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         grads = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.parameter.q_online.trainable_variables))
 
-        # lr_schedule
-        if self.lr_sch.update(self.train_count):
-            self.optimizer.learning_rate = self.lr_sch.get_rate()
-
         return td_errors_list, loss.numpy()
 
 
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker[Config, Parameter]):
+class Worker(RLWorker[Config, Parameter, Memory]):
     def __init__(self, *args):
         super().__init__(*args)
 
-        self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
-        self.dummy_state = np.full(self.config.observation_space.shape, self.config.dummy_state_val, dtype=np.float32)
+        self.dummy_state = np.zeros(self.config.observation_space.shape, dtype=np.float32)
 
     def on_reset(self, worker):
         # states : burnin + sequence_length + next_state
@@ -412,7 +393,7 @@ class Worker(RLWorker[Config, Parameter]):
         # TD誤差を計算するか
         if not self.distributed:
             self._calc_td_error = False
-        elif not self.config.requires_priority():
+        elif not self.config.memory.requires_priority():
             self._calc_td_error = False
         else:
             self._calc_td_error = True
@@ -424,7 +405,7 @@ class Worker(RLWorker[Config, Parameter]):
         q = q[0][0].numpy()  # (batch, time step, action_num)
 
         if self.training:
-            epsilon = self.epsilon_sch.get_and_update_rate(self.total_step)
+            epsilon = self.config.epsilon
         else:
             epsilon = self.config.test_epsilon
 

@@ -14,3 +14,14 @@ def test_copy():
     assert config2.kwargs["a"] == 100
     assert config2.kwargs["b"][0] == "a"
     assert config2.kwargs["b"][1] == 1
+
+
+def test_summary():
+    cfg = EnvConfig(
+        "Dummy",
+        kwargs={
+            "a": 100,
+            "b": ["a", 1],
+        },
+    )
+    cfg.summary()

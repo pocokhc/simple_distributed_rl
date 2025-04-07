@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 
-from .base import BaseScheduler
+from .base import Scheduler
 
 
 @dataclass
-class Linear(BaseScheduler):
+class Linear(Scheduler):
     start_rate: float
     end_rate: float
     phase_steps: int
@@ -18,7 +18,7 @@ class Linear(BaseScheduler):
         self.prev_rate = 0.0
         self.update(0)
 
-    def update(self, step: int) -> bool:
+    def update(self, step: int) -> Scheduler:
         if self.is_up:
             rate = self.start_rate + self.step_rate * step
             if rate > self.end_rate:
@@ -27,9 +27,8 @@ class Linear(BaseScheduler):
             rate = self.start_rate - self.step_rate * step
             if rate < self.end_rate:
                 rate = self.end_rate
-        is_update = self.prev_rate != rate
         self.prev_rate = rate
-        return is_update
+        return self
 
     def get_rate(self) -> float:
         return self.prev_rate

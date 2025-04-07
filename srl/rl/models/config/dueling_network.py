@@ -4,8 +4,12 @@ from typing import Tuple
 
 @dataclass
 class DuelingNetworkConfig:
-    _name: str = field(init=False, default="")
-    _kwargs: dict = field(init=False, default_factory=dict)
+    name: str = field(default="")
+    kwargs: dict = field(default_factory=dict)
+
+    def __post_init__(self):
+        if self.name == "":
+            self.set_dueling_network()
 
     def set(
         self,
@@ -23,12 +27,12 @@ class DuelingNetworkConfig:
             >>> mlp_conf = DuelingNetworkConfig()
             >>> mlp_conf.set((128, 64, 32))
         """
-        self._name = "MLP"
-        self._kwargs = dict(
+        self.name = "MLP"
+        self.kwargs = dict(
             layer_sizes=layer_sizes,
             activation=activation.lower(),
         )
-        self._kwargs.update(kwargs)
+        self.kwargs.update(kwargs)
         return self
 
     def set_dueling_network(
@@ -47,10 +51,10 @@ class DuelingNetworkConfig:
 
         """
 
-        self._name = "DuelingNetwork"
+        self.name = "DuelingNetwork"
         mlp_kwargs = dict(activation=activation.lower())
         mlp_kwargs.update(kwargs)
-        self._kwargs = dict(
+        self.kwargs = dict(
             layer_sizes=layer_sizes,
             mlp_kwargs=mlp_kwargs,
             dueling_kwargs=dict(
@@ -61,24 +65,18 @@ class DuelingNetworkConfig:
         return self
 
     def set_custom_block(self, entry_point: str, kwargs: dict):
-        self._name = "custom"
-        self._kwargs = dict(entry_point=entry_point, kwargs=kwargs)
+        self.name = "custom"
+        self.kwargs = dict(entry_point=entry_point, kwargs=kwargs)
         return self
 
     # ---------------------
 
-    def create_block_tf(self, out_size: int, rnn: bool = False, enable_noisy_dense: bool = False):
-        from srl.rl.tf.blocks.dueling_network import create_mlp_block_from_config
+    def create_tf_block(self, out_size: int, rnn: bool = False, enable_noisy_dense: bool = False):
+        from srl.rl.tf.blocks.dueling_network import create_block_from_config
 
-        if self._name == "":
-            self.set_dueling_network()
+        return create_block_from_config(self, out_size, rnn, enable_noisy_dense)
 
-        return create_mlp_block_from_config(self, out_size, rnn, enable_noisy_dense)
+    def create_torch_block(self, in_size: int, out_size: int, enable_noisy_dense: bool = False):
+        from srl.rl.torch_.blocks.dueling_network import create_block_from_config
 
-    def create_block_torch(self, in_size: int, out_size: int, enable_noisy_dense: bool = False):
-        from srl.rl.torch_.blocks.dueling_network import create_mlp_block_from_config
-
-        if self._name == "":
-            self.set_dueling_network()
-
-        return create_mlp_block_from_config(self, in_size, out_size, enable_noisy_dense)
+        return create_block_from_config(self, in_size, out_size, enable_noisy_dense)

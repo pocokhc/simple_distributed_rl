@@ -1,6 +1,6 @@
 import logging
 from abc import ABC
-from typing import Any, Generic, Optional
+from typing import Generic
 
 from srl.base.context import RunContext
 from srl.base.info import Info
@@ -26,6 +26,10 @@ class RLTrainer(ABC, Generic[TRLConfig, TRLParameter, TRLMemory]):
         return self.train_count
 
     @property
+    def context(self) -> RunContext:
+        return self.__context
+
+    @property
     def distributed(self) -> bool:
         return self.__context.distributed
 
@@ -49,31 +53,10 @@ class RLTrainer(ABC, Generic[TRLConfig, TRLParameter, TRLMemory]):
     def on_teardown(self) -> None:
         pass
 
-    # --- 1step train
     def train(self) -> None:
         raise NotImplementedError()
-
-    # --- 3step train
-    def implement_thread_train(self) -> bool:
-        #: 仮実装なので、これがTrueの場合のみ有効
-        return False
-
-    def thread_train_setup(self) -> Optional[Any]:
-        # return setup_data
-        return None
-
-    def thread_train(self, setup_data: Any) -> Any:
-        # return train_data
-        raise NotImplementedError()
-
-    def thread_train_teardown(self, train_data: Any) -> None:
-        pass
 
 
 class DummyRLTrainer(RLTrainer):
     def train(self) -> None:
         self.train_count += 1
-
-    def thread_train(self, setup_data: Any) -> Any:
-        self.train_count += 1
-        return None

@@ -1,18 +1,21 @@
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Union
+from typing import List
 
 import numpy as np
 
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import RLProcessor
+from srl.base.spaces.space import SpaceBase
 from srl.rl import functions as funcs
-from srl.rl.memories.experience_replay_buffer import ExperienceReplayBuffer, RLConfigComponentExperienceReplayBuffer
+from srl.rl.memories.replay_buffer import ReplayBufferConfig, RLReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
-from srl.rl.models.config.input_config import RLConfigComponentInput
+from srl.rl.models.config.input_image_block import InputImageBlockConfig
+from srl.rl.models.config.input_value_block import InputValueBlockConfig
 from srl.rl.models.config.mlp_block import MLPBlockConfig
+from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
 """
@@ -44,25 +47,27 @@ Other
 # config
 # ------------------------------------------------------
 @dataclass
-class Config(
-    RLConfig,
-    RLConfigComponentExperienceReplayBuffer,
-    RLConfigComponentFramework,
-    RLConfigComponentInput,
-):
+class Config(RLConfig, RLConfigComponentFramework):
     """
-    <:ref:`RLConfigComponentExperienceReplayBuffer`>
     <:ref:`RLConfigComponentFramework`>
-    <:ref:`RLConfigComponentInput`>
     """
 
     #: ε-greedy parameter for Test
     test_epsilon: float = 0
 
-    #: <:ref:`scheduler`> ε-greedy parameter for Train
-    epsilon: Union[float, SchedulerConfig] = 0.1
-    #: <:ref:`scheduler`> Learning rate
-    lr: Union[float, SchedulerConfig] = 0.001
+    #: Batch size
+    batch_size: int = 32
+    #: <:ref:`ReplayBufferConfig`>
+    memory: ReplayBufferConfig = field(default_factory=lambda: ReplayBufferConfig())
+
+    #: ε-greedy parameter for Train
+    epsilon: float = 0.1
+    #: <:ref:`SchedulerConfig`>
+    epsilon_scheduler: SchedulerConfig = field(default_factory=lambda: SchedulerConfig())
+    #: Learning rate
+    lr: float = 0.001
+    #: <:ref:`LRSchedulerConfig`>
+    lr_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
 
     #: Discount rate
     discount: float = 0.99
@@ -76,54 +81,44 @@ class Config(
     #: enable rescaling
     enable_rescale: bool = False
 
+    #: <:ref:`InputValueBlockConfig`>
+    input_value_block: InputValueBlockConfig = field(default_factory=lambda: InputValueBlockConfig())
+    #: <:ref:`InputImageBlockConfig`>
+    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig())
     #: <:ref:`MLPBlockConfig`> hidden layer
-    hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig())
-
-    def __post_init__(self):
-        super().__post_init__()
+    hidden_block: MLPBlockConfig = field(default_factory=lambda: MLPBlockConfig())
 
     def set_atari_config(self):
         """Set the Atari parameters written in the paper."""
         self.batch_size = 32
-        self.memory_capacity = 1_000_000
-        self.memory_warmup_size = 50_000
+        self.memory.capacity = 1_000_000
+        self.memory.warmup_size = 50_000
         self.input_image_block.set_dqn_block()
         self.hidden_block.set((512,))
         self.target_model_update_interval = 10000
         self.discount = 0.99
         self.lr = 0.00025
-        self.epsilon = self.create_scheduler().set_linear(1_000_000, 1.0, 0.1)
-
+        self.epsilon_scheduler.set_linear(1.0, 0.1, 1_000_000)
         self.enable_reward_clip = True
         self.enable_double_dqn = False
         self.enable_rescale = False
 
-    def get_processors(self) -> List[RLProcessor]:
-        return RLConfigComponentInput.get_processors(self)
-
-    def get_framework(self) -> str:
-        return RLConfigComponentFramework.get_framework(self)
-
     def get_name(self) -> str:
         return "DQN"
 
-    def assert_params(self) -> None:
-        super().assert_params()
-        self.assert_params_memory()
-        self.assert_params_framework()
-        self.assert_params_input()
+    def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
+        if prev_observation_space.is_image():
+            return self.input_image_block.get_processors()
+        return []
 
-    def get_changeable_parameters(self) -> List[str]:
-        return [
-            "test_epsilon",
-            "epsilon",
-        ]
+    def get_framework(self) -> str:
+        return RLConfigComponentFramework.get_framework(self)
 
 
 # ------------------------------------------------------
 # Memory
 # ------------------------------------------------------
-class Memory(ExperienceReplayBuffer):
+class Memory(RLReplayBuffer):
     pass
 
 
@@ -182,20 +177,21 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
 # ------------------------------------------------------
 # Worker
 # ------------------------------------------------------
-class Worker(RLWorker[Config, CommonInterfaceParameter]):
-    def __init__(self, *args):
-        super().__init__(*args)
+class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
+    def on_setup(self, worker, context) -> None:
+        self.epsilon_sch = self.config.epsilon_scheduler.create(self.config.epsilon)
 
-        self.epsilon_sch = SchedulerConfig.create_scheduler(self.config.epsilon)
+    def on_teardown(self, worker) -> None:
+        pass
 
     def on_reset(self, worker):
         pass
 
     def policy(self, worker) -> int:
-        invalid_actions = worker.get_invalid_actions()
+        invalid_actions = worker.invalid_actions
 
         if self.training:
-            epsilon = self.epsilon_sch.get_and_update_rate(self.total_step)
+            epsilon = self.epsilon_sch.update(self.total_step).to_float()
         else:
             epsilon = self.config.test_epsilon
 
@@ -236,16 +232,16 @@ class Worker(RLWorker[Config, CommonInterfaceParameter]):
             next_invalid_actions,
         ]
         """
-        # memory.add に直接入れるとなぜか遅くなる
-        batch = [
-            worker.prev_state,
-            worker.state,
-            funcs.one_hot(worker.action, self.config.action_space.n),
-            reward,
-            int(not worker.terminated),
-            worker.get_invalid_actions(),
-        ]
-        self.memory.add(batch)
+        self.memory.add(
+            [
+                worker.prev_state,
+                worker.state,
+                worker.get_onehot_action(),
+                reward,
+                int(not worker.terminated),
+                worker.invalid_actions,
+            ]
+        )
 
     def render_terminal(self, worker, **kwargs):
         # policy -> render -> env.step -> on_step

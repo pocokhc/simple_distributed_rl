@@ -24,9 +24,7 @@ class Evaluate:
     eval_players: List[PlayerType] = field(default_factory=list)
     eval_shuffle_player: bool = False
 
-    def create_eval_runner_if_not_exists(
-        self, context: RunContext, state: Union[RunStateActor, RunStateTrainer]
-    ) -> Runner:
+    def create_eval_runner_if_not_exists(self, context: RunContext, state: Union[RunStateActor, RunStateTrainer]) -> Runner:
         if "eval_runner" in state.shared_vars:
             return state.shared_vars["eval_runner"]
 
@@ -34,7 +32,7 @@ class Evaluate:
         runner = Runner(context.env_config, context.rl_config)
         runner.context.run_name = RunNameTypes.eval
         runner.context.seed = None  # mainと競合するのでNone
-        runner.make_memory(is_load=False)
+        runner.make_memory()
         state.shared_vars["eval_runner"] = runner
         return runner
 

@@ -24,7 +24,7 @@ def main():
     context = srl.RunContext(env_config, rl_config)
     context.max_episodes = 10000
     context.training = True
-    play(context, env, workers, 0, trainer, logger_config=True)
+    play(context, env, workers, 0, trainer)
 
     # --- evaluate
     context = srl.RunContext(env_config, rl_config)

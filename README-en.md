@@ -155,15 +155,9 @@ There is an example in [examples/sample_mlflow.py](examples/sample_mlflow.py).
 
 # 3. Framework Overview
 
-+ Sequence flow
-
 ![overview-sequence.drawio.png](diagrams/overview-sequence.drawio.png)
 
-+ Distributed flow
-
-![overview-mp.drawio.png](diagrams/overview-mp.drawio.png)
-
-+ Simplified pseudo code(train)
++ Simplified pseudo code
 
 For implementation details, see 'Making a Custom algorithm'.
 

@@ -167,17 +167,9 @@ def play_generator(
 
         # --- trainer
         if state.trainer is not None:
-            if not state.trainer.implement_thread_train():
-                _prev_train = state.trainer.train_count
-                state.trainer.train()
-                state.is_step_trained = state.trainer.train_count > _prev_train
-            else:
-                setup_data = state.trainer.thread_train_setup()
-                if setup_data is not None:
-                    _prev_train = state.trainer.train_count
-                    train_data = state.trainer.thread_train(setup_data)
-                    state.trainer.thread_train_teardown(train_data)
-                    state.is_step_trained = state.trainer.train_count > _prev_train
+            _prev_train = state.trainer.train_count
+            state.trainer.train()
+            state.is_step_trained = state.trainer.train_count > _prev_train
             state.train_count = state.trainer.train_count - state.start_train_count
 
         _stop_flags = [c.on_step_end(context=context, state=state) for c in _calls_on_step_end]

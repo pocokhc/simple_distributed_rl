@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass, field
-from typing import List, Union
+from typing import List, Optional
 
 import cv2
 import numpy as np
@@ -8,7 +8,6 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.base.define import SpaceTypes
-from srl.base.env.env_run import EnvRun
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import RLProcessor
@@ -18,13 +17,11 @@ from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.space import SpaceBase
 from srl.rl import functions as funcs
-from srl.rl.memories.experience_replay_buffer import (
-    ExperienceReplayBuffer,
-    RLConfigComponentExperienceReplayBuffer,
-)
+from srl.rl.memories.replay_buffer import ReplayBufferConfig, RLReplayBuffer
 from srl.rl.models.config.dueling_network import DuelingNetworkConfig
-from srl.rl.models.config.input_config import RLConfigComponentInput
-from srl.rl.schedulers.scheduler import SchedulerConfig
+from srl.rl.models.config.input_image_block import InputImageBlockConfig
+from srl.rl.models.config.input_value_block import InputValueBlockConfig
+from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 from srl.rl.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
@@ -33,14 +30,21 @@ kl = keras.layers
 
 
 class DownSamplingProcessor(RLProcessor):
-    def remap_observation_space(self, env_observation_space: BoxSpace, env: EnvRun, rl_config: "Config") -> SpaceBase:
-        self.space = env_observation_space
+    def remap_observation_space(self, prev_space: SpaceBase, rl_config: "Config", **kwargs) -> Optional[SpaceBase]:
         return BoxSpace(rl_config.downsampling_size, 0, 8, np.uint8, SpaceTypes.GRAY_2ch)
 
-    def remap_observation(self, img, worker: "Worker", env: EnvRun, _debug=False):
-        if self.space.stype == SpaceTypes.COLOR:
+    def remap_observation(
+        self,
+        img,
+        prev_space: SpaceBase,
+        new_space: SpaceBase,
+        rl_config: "Config",
+        _debug=False,
+        **kwargs,
+    ):
+        if prev_space.stype == SpaceTypes.COLOR:
             img1 = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-        elif self.space.stype == SpaceTypes.GRAY_3ch:
+        elif prev_space.stype == SpaceTypes.GRAY_3ch:
             img1 = np.squeeze(img, axis=-1)
         else:
             img1 = img
@@ -51,7 +55,7 @@ class DownSamplingProcessor(RLProcessor):
 
         img3 = cv2.resize(
             img2,
-            (worker.config.downsampling_size[1], worker.config.downsampling_size[0]),
+            (rl_config.downsampling_size[1], rl_config.downsampling_size[0]),
             interpolation=cv2.INTER_NEAREST,
         )
         img3 = np.where(img3 < 127, 0, 1).astype(np.uint8)
@@ -62,19 +66,26 @@ class DownSamplingProcessor(RLProcessor):
 
 
 @dataclass
-class Config(
-    RLConfig,
-    RLConfigComponentInput,
-    RLConfigComponentExperienceReplayBuffer,
-):
+class Config(RLConfig):
     epsilon: float = 0.001
     test_epsilon: float = 0.00001
 
     restore_rate: float = 0.9
 
-    #: <:ref:`scheduler`> Learning rate
-    lr: Union[float, SchedulerConfig] = 0.0001
-    batch_size: int = 64
+    #: Batch size
+    batch_size: int = 32
+    #: <:ref:`ReplayBufferConfig`>
+    memory: ReplayBufferConfig = field(
+        default_factory=lambda: ReplayBufferConfig(
+            warmup_size=2_000,
+            capacity=50_000,
+        )
+    )
+
+    #: Learning rate
+    lr: float = 0.0001
+    #: <:ref:`LRSchedulerConfig`>
+    lr_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
 
     downsampling_size: tuple = (12, 12)
 
@@ -83,21 +94,30 @@ class Config(
     ucb_scale: float = 0.1
     search_max_step: int = 100
 
-    memory_warmup_size: int = 2_000
-    memory_capacity: int = 50_000
-
     #: Discount rate
     discount: float = 0.995
     #: Synchronization interval to Target network
     target_model_update_interval: int = 2000
 
+    #: <:ref:`InputValueBlockConfig`>
+    input_value_block: InputValueBlockConfig = field(default_factory=lambda: InputValueBlockConfig())
+    #: <:ref:`InputImageBlockConfig`>
+    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig())
     #: <:ref:`MLPBlockConfig`> hidden layer
     hidden_block: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
 
-    def get_processors(self) -> List[RLProcessor]:
-        return RLConfigComponentInput.get_processors(self)
+    def get_name(self) -> str:
+        return "GoDQN"
 
-    def get_render_image_processors(self) -> List[RLProcessor]:
+    def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
+        if prev_observation_space.is_image():
+            return self.input_image_block.get_processors()
+        return []
+
+    def get_framework(self) -> str:
+        return "tensorflow"
+
+    def get_render_image_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
         return [DownSamplingProcessor()]
 
     def use_render_image_state(self) -> bool:
@@ -105,16 +125,6 @@ class Config(
 
     def use_backup_restore(self) -> bool:
         return True
-
-    def get_framework(self) -> str:
-        return "tensorflow"
-
-    def get_name(self) -> str:
-        return "GoDQN"
-
-    def assert_params(self) -> None:
-        super().assert_params()
-        self.assert_params_input()
 
 
 register(
@@ -126,7 +136,7 @@ register(
 )
 
 
-class Memory(ExperienceReplayBuffer):
+class Memory(RLReplayBuffer):
     pass
 
 
@@ -134,13 +144,17 @@ class QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
-        self.space = config.observation_space
+        if config.observation_space.is_value():
+            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
+        elif config.observation_space.is_image():
+            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
+        else:
+            raise ValueError(config.observation_space)
 
-        self.in_block = config.create_input_block_tf()
-        self.hidden_block = config.hidden_block.create_block_tf(config.action_space.n)
+        self.hidden_block = config.hidden_block.create_tf_block(config.action_space.n)
 
         # build
-        self(np.zeros(self.in_block.create_batch_shape((1,))))
+        self(self.in_block.create_dummy_data(config.get_dtype("np")))
         self.loss_func = keras.losses.Huber()
 
     def call(self, x, training=False):
@@ -158,39 +172,32 @@ class QNetwork(KerasModelAddedSummary):
 
 
 class Parameter(RLParameter[Config]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
+    def setup(self):
         self.q_ext_online = QNetwork(self.config)
         self.q_ext_target = QNetwork(self.config)
         self.q_ext_target.set_weights(self.q_ext_online.get_weights())
 
     def call_restore(self, data, **kwargs):
-        self.q_ext_online.set_weights(data[0])
-        self.q_ext_target.set_weights(data[0])
+        self.q_ext_online.set_weights(data)
+        self.q_ext_target.set_weights(data)
 
     def call_backup(self, **kwargs):
-        return [
-            self.q_ext_online.get_weights(),
-        ]
+        return self.q_ext_online.get_weights()
 
     def summary(self, **kwargs):
         self.q_ext_online.summary(**kwargs)
 
 
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
-        self.lr_sch = SchedulerConfig.create_scheduler(self.config.lr)
-        self.opt_q_ext = keras.optimizers.Adam(self.lr_sch.get_rate())
+    def on_setup(self) -> None:
+        self.opt_q_ext = keras.optimizers.Adam(self.config.lr_scheduler.apply_tf_scheduler(self.config.lr))
         self.sync_count = 0
 
     def train(self) -> None:
-        if self.memory.length() < self.config.memory_warmup_size:
+        batches = self.memory.sample()
+        if batches is None:
             return
-        batchs = self.memory.sample()
-        state, n_state, action, reward, undone = zip(*batchs)
+        state, n_state, action, reward, undone = zip(*batches)
         state = np.stack(state, axis=0)
         n_state = np.stack(n_state, axis=0)
         action = np.asarray(action, self.config.dtype)
@@ -221,7 +228,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.train_count += 1
 
 
-class Worker(RLWorker[Config, Parameter]):
+class Worker(RLWorker[Config, Parameter, Memory]):
     def __init__(self, *args):
         super().__init__(*args)
         self.screen = None
@@ -313,7 +320,7 @@ class Worker(RLWorker[Config, Parameter]):
         self.episode_step += 1
         self.episode_reward += worker.reward
 
-        key = self.create_cell(worker.render_img_state)
+        key = self.create_cell(worker.render_image_state)
         if key not in self.archive:
             self.archive[key] = {
                 "step": np.inf,
@@ -378,7 +385,7 @@ class Worker(RLWorker[Config, Parameter]):
 
         # --- archive
         print(f"size: {len(self.archive)}")
-        key = self.create_cell(worker.render_img_state)
+        key = self.create_cell(worker.render_image_state)
         if key in self.archive:
             cell = self.archive[key]
             print(f"step        : {cell['step']}")
@@ -418,8 +425,13 @@ class Worker(RLWorker[Config, Parameter]):
             return None
 
         processor = DownSamplingProcessor()
-        processor.space = BoxSpace((1, 1, 3), stype=SpaceTypes.COLOR)
-        img1, img2, img3 = processor.remap_observation(img, self, None, _debug=True)
+        img1, img2, img3 = processor.remap_observation(
+            img,
+            BoxSpace((1, 1, 3), stype=SpaceTypes.COLOR),
+            BoxSpace((1, 1, 3), stype=SpaceTypes.COLOR),
+            rl_config=self.config,
+            _debug=True,
+        )
 
         text_x = (IMG_W + PADDING) + 4
         y = (IMG_H + PADDING) * 0

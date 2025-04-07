@@ -14,7 +14,7 @@ class QuickCase(CommonQuickCase):
 
         rl_config.set_atari_config()
         rl_config.batch_size = 2
-        rl_config.memory_warmup_size = 2
+        rl_config.memory.warmup_size = 2
         rl_config.target_model_update_interval = 1
         rl_config.enable_double_dqn = True
         rl_config.enable_rescale = True

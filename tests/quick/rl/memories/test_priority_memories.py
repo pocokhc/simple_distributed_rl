@@ -6,9 +6,9 @@ import pytest
 
 from srl.rl.memories.priority_memories.imemory import IPriorityMemory
 from srl.rl.memories.priority_memories.proportional_memory import ProportionalMemory
-from srl.rl.memories.priority_memories.rankbase_memory import RankBaseMemory
-from srl.rl.memories.priority_memories.rankbase_memory_linear import RankBaseMemoryLinear
-from srl.rl.memories.priority_memories.replay_memory import ReplayMemory
+from srl.rl.memories.priority_memories.rankbased_memory import RankBasedMemory
+from srl.rl.memories.priority_memories.rankbased_memory_linear import RankBasedMemoryLinear
+from srl.rl.memories.priority_memories.replay_buffer import ReplayBuffer
 
 capacity = 10
 
@@ -16,10 +16,11 @@ capacity = 10
 @pytest.mark.parametrize(
     "memory, use_priority, check_dup",
     [
-        (ReplayMemory(capacity), False, True),
+        (ReplayBuffer(capacity), False, True),
         (ProportionalMemory(capacity, 0.8, 1, 10, has_duplicate=False), True, True),
-        (RankBaseMemory(capacity, 0.8, 1, 10), True, True),
-        (RankBaseMemoryLinear(capacity, 0.8, 1, 10), True, True),
+        (ProportionalMemory(capacity, 0.8, 1, 10, has_duplicate=True), True, False),
+        (RankBasedMemory(capacity, 0.8, 1, 10), True, True),
+        (RankBasedMemoryLinear(capacity, 0.8, 1, 10), True, True),
     ],
 )
 def test_priority_memory(memory: IPriorityMemory, use_priority: bool, check_dup: bool):
@@ -37,36 +38,33 @@ def test_priority_memory(memory: IPriorityMemory, use_priority: bool, check_dup:
     # --- 複数回やって比率をだす
     counter = []
     for i in range(10000):
-        (batchs, weights, update_args) = memory.sample(5, step=1)
-        assert len(batchs) == 5
+        (batches, weights, update_args) = memory.sample(5, step=1)
+        assert len(batches) == 5
         assert len(weights) == 5
 
         if check_dup:
             # 重複がないこと
-            assert len(list(set(batchs))) == 5, list(set(batchs))
+            assert len(list(set(batches))) == 5, list(set(batches))
 
         # batchの中身をカウント
-        for batch in batchs:
+        for batch in batches:
             counter.append(batch[0])
 
         # update priority
-        memory.update(update_args, np.array([b[3] for b in batchs]))
+        memory.update(update_args, np.array([b[3] for b in batches]))
         assert memory.length() == capacity
 
-        # save/load
-        d = memory.backup()
-        memory.restore(d)
-        d2 = memory.backup()
-        assert d == d2
+        # backup/restore
+        l1 = memory.length()
+        memory.restore(memory.backup())
+        assert l1 == memory.length()
 
     counter = collections.Counter(counter)
 
+    # keyは1～10まであること
+    keys = sorted(counter.keys())
     if check_dup:
-        # keyは1～10まであること
-        keys = sorted(counter.keys())
         assert keys == [i + 1 for i in range(capacity)]
-    else:
-        keys = []
 
     if use_priority:
         # priorityが高いほど数が増えている
@@ -94,8 +92,8 @@ def test_IS_Proportional(alpha):
 
 
 @pytest.mark.parametrize("alpha", [0, 0.2, 0.5, 0.8, 1.0])
-def test_IS_RankBase(alpha):
-    memory = RankBaseMemory(capacity=10, alpha=alpha, beta_initial=1)
+def test_IS_RankBased(alpha):
+    memory = RankBasedMemory(capacity=10, alpha=alpha, beta_initial=1)
 
     # --- true data
     td_errors = [1, 2, 4, 3]
@@ -109,8 +107,8 @@ def test_IS_RankBase(alpha):
 
 
 @pytest.mark.parametrize("alpha", [0.8])
-def test_IS_RankBaseLinear(alpha):
-    memory = RankBaseMemoryLinear(capacity=10, alpha=alpha, beta_initial=1)
+def test_IS_RankBasedLinear(alpha):
+    memory = RankBasedMemoryLinear(capacity=10, alpha=alpha, beta_initial=1)
 
     # --- true data
     td_errors = [1, 2, 4, 3]
@@ -144,9 +142,9 @@ def _check_weights(memory: IPriorityMemory, priorities, true_priorities):
     for i, priority in enumerate(priorities):
         assert priority >= 0
         memory.add((i, i, i, i), priority=priority)
-    batchs, weights, update_args = memory.sample(N, step=1)
+    batches, weights, update_args = memory.sample(N, step=1)
 
     # 順番が変わっているので batch より元のindexを取得し比較
-    for i, b in enumerate(batchs):
+    for i, b in enumerate(batches):
         idx = b[0]
         assert math.isclose(weights[i], true_weights[idx], rel_tol=1e-7), f"{weights[i]} != {true_weights[idx]}"

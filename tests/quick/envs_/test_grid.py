@@ -4,7 +4,6 @@ import numpy as np
 
 import srl
 from srl.base.define import SpaceTypes
-from srl.base.rl.config import DummyRLConfig
 from srl.base.spaces.box import BoxSpace
 from srl.envs import grid
 from srl.test.env import env_test
@@ -33,7 +32,7 @@ def test_processor():
     assert new_space == BoxSpace((env_org.H, env_org.W, 1), 0, 1, np.uint8, SpaceTypes.IMAGE)
 
     # --- decode
-    new_state = processor._remap_state(env)
+    new_state = processor.remap_observation(None, env.observation_space, new_space, env_run=env)
     assert isinstance(new_state, np.ndarray)
     assert (new_state == field).all()
 

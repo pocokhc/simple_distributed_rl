@@ -3,7 +3,6 @@ from typing import List, Optional
 import numpy as np
 
 import srl
-import srl.rl.random_play
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun

@@ -4,7 +4,6 @@ import numpy as np
 
 import srl
 from srl.algorithms import stochastic_muzero
-from srl.envs import grid
 
 
 def main():
@@ -19,13 +18,13 @@ def main():
         enable_rescale=False,
         codebook_size=4,
     )
-    rl_config.lr = rl_config.create_scheduler().set_linear(10_000, 0.01, 0.001)
-    rl_config.memory_capacity = 100_000
-    rl_config.memory_warmup_size = 200
+    rl_config.lr = 0.01
+    rl_config.lr_scheduler.set_step(10_000, 0.001)
+    rl_config.memory.capacity = 100_000
+    rl_config.memory.warmup_size = 200
     rl_config.input_image_block.set_alphazero_block(1, 16)
 
-    rl_config.processors = [grid.LayerProcessor()]
-    env_config = srl.EnvConfig("Grid")
+    env_config = srl.EnvConfig("Grid-layer")
     runner = srl.Runner(env_config, rl_config)
 
     runner.model_summary()

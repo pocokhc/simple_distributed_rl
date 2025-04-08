@@ -5,7 +5,7 @@ import mlflow
 import numpy as np
 
 import srl
-from srl.rl.processors.atari_processor import AtariPongProcessor
+from srl.envs.processors.atari_processor import AtariPongProcessor
 from srl.utils import common
 
 mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "mlruns"))
@@ -20,7 +20,7 @@ def _train(rl_config, is_mp=False, train_count=100_000):
         processors=[AtariPongProcessor()],
     )
     runner = srl.Runner(env_config, rl_config)
-    runner.model_summary()
+    runner.summary()
     runner.set_mlflow()
 
     if is_mp:
@@ -45,9 +45,11 @@ def train_dqn():
         enable_reward_clip=False,
         enable_double_dqn=True,
         enable_rescale=False,
-        memory_warmup_size=1000,
-        memory_capacity=10_000,
-        memory_compress=False,
+        memory=dqn.ReplayBufferConfig(
+            warmup_size=1000,
+            capacity=10_000,
+            compress=False,
+        ),
         window_length=4,
     )
     rl_config.input_image_block.set_dqn_block()

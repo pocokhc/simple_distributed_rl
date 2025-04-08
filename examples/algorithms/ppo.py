@@ -13,8 +13,8 @@ def main(mode: str):
 
     rl_config = ppo.Config(batch_size=32)
     rl_config.lr = 0.0005
-    rl_config.memory_capacity = 1000
-    rl_config.memory_warmup_size = 1000
+    rl_config.memory.capacity = 1000
+    rl_config.memory.warmup_size = 1000
     rl_config.hidden_block.set((64, 64))
     rl_config.value_block.set(())
     rl_config.policy_block.set((64,))
@@ -42,5 +42,5 @@ def main(mode: str):
 
 
 if __name__ == "__main__":
-    # main("DISCRETE")
-    main("CONTINUOUS")
+    main("DISCRETE")
+    # main("CONTINUOUS")

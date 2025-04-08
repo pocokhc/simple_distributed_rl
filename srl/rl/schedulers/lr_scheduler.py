@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import List, Literal
 
 
 @dataclass
@@ -20,8 +20,8 @@ class LRSchedulerConfig:
     decay_rate: float = 0.1
     min_lr: float = 1e-6
     warmup_steps: int = 0
-    piecewise_boundaries: list[int] = field(default_factory=lambda: [100000, 110000])
-    piecewise_values: list[float] = field(default_factory=lambda: [1.0, 0.5, 0.1])
+    piecewise_boundaries: List[int] = field(default_factory=lambda: [100000, 110000])
+    piecewise_values: List[float] = field(default_factory=lambda: [1.0, 0.5, 0.1])
 
     def _validate_params(self, lr: float) -> None:
         if not (lr > 0):
@@ -66,7 +66,7 @@ class LRSchedulerConfig:
         self.min_lr = min_lr
         return self
 
-    def set_piecewise(self, piecewise_boundaries: list[int], piecewise_values: list[float]):
+    def set_piecewise(self, piecewise_boundaries: List[int], piecewise_values: List[float]):
         self.schedule_type = "piecewise"
         self.piecewise_boundaries = piecewise_boundaries
         self.piecewise_values = piecewise_values

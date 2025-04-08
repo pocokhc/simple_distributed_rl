@@ -35,9 +35,11 @@ def main_dqn():
         lr=0.001,
         epsilon=0.5,
         target_model_update_interval=2000,
-        memory_warmup_size=1000,
-        memory_capacity=50_000,
-        memory_compress=False,
+        memory=dqn.ReplayBufferConfig(
+            capacity=10_000,
+            warmup_size=1000,
+            compress=False,
+        ),
     )
     rl_config.hidden_block.set((128,))
     run(rl_config, train=200_000)

@@ -92,7 +92,7 @@ def test_train():
     runner.set_progress(enable_eval=True)
     runner.train_mp(
         actor_num=1,
-        max_train_count=20_000,
+        max_train_count=30_000,
         callbacks=[_AssertTrainCallbacks()],
         trainer_parameter_send_interval=0,
         actor_parameter_sync_interval=0,

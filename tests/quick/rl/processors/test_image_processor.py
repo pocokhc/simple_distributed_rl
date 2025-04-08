@@ -4,9 +4,7 @@ import numpy as np
 import pytest
 
 import srl
-import srl.envs.grid
 from srl.base.define import SpaceTypes
-from srl.base.rl.config import DummyRLConfig
 from srl.base.spaces.box import BoxSpace
 from srl.rl.processors.image_processor import ImageProcessor
 
@@ -44,10 +42,9 @@ def test_image(env_img_type, env_img_shape, img_type, true_shape, check_val, nor
         dtype=np.uint8,
         stype=env_img_type,
     )
-    env = srl.make_env("Grid")
 
     # --- change space
-    new_space = processor.remap_observation_space(space, env, DummyRLConfig())
+    new_space = processor.remap_observation_space(space)
     assert new_space.stype == img_type
     if normalize_type == "0to1" or normalize_type == "-1to1":
         assert new_space.dtype == np.float32
@@ -74,7 +71,7 @@ def test_image(env_img_type, env_img_shape, img_type, true_shape, check_val, nor
         true_state = np.ones(true_shape).astype(np.float32) / 255 * 2 - 1
     else:
         true_state = np.ones(true_shape).astype(np.uint8)
-    new_obs = cast(np.ndarray, processor.remap_observation(image, None, env))
+    new_obs = cast(np.ndarray, processor.remap_observation(image, space, new_space))
     assert true_state.shape == new_obs.shape
     if check_val:
         np.testing.assert_array_equal(true_state, new_obs)
@@ -98,14 +95,15 @@ def test_image_atari():
     assert in_image.shape == env.state.shape
 
     # --- space
-    new_space = processor.remap_observation_space(env.observation_space, env, DummyRLConfig())
+    new_space = processor.remap_observation_space(env.observation_space)
+    assert new_space is not None
     assert new_space.stype == SpaceTypes.GRAY_2ch
     assert new_space.dtype == np.float32
     assert isinstance(new_space, BoxSpace)
     assert new_space.shape == out_image.shape
 
     # --- decode
-    new_state = processor.remap_observation(env.state, None, env)
+    new_state = processor.remap_observation(env.state, env.observation_space, new_space)
     assert isinstance(new_state, np.ndarray)
     assert new_state.shape == out_image.shape
 
@@ -119,10 +117,10 @@ def test_trimming():
         image_type=SpaceTypes.GRAY_2ch,
         trimming=(10, 10, 20, 20),
     )
-    env = srl.make_env("Grid")
 
     # --- space
-    new_space = processor.remap_observation_space(space, env, DummyRLConfig())
+    new_space = processor.remap_observation_space(space)
+    assert new_space is not None
     assert new_space.stype == SpaceTypes.GRAY_2ch
     assert isinstance(new_space, BoxSpace)
     new_space = cast(BoxSpace, new_space)
@@ -133,6 +131,6 @@ def test_trimming():
     # --- decode
     image = np.ones((210, 160, 3)).astype(np.uint8)  # image
     true_state = np.ones((10, 10)).astype(np.float32) / 255
-    new_state = processor.remap_observation(image, None, env)
+    new_state = processor.remap_observation(image, space, new_space)
     assert isinstance(new_state, np.ndarray)
     assert true_state.shape == new_state.shape

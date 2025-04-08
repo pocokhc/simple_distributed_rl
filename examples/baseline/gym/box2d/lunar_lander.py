@@ -2,6 +2,7 @@ import os
 
 import mlflow
 import numpy as np
+
 import srl
 from srl.utils import common
 
@@ -27,9 +28,11 @@ def main_dqn():
     rl_config = dqn.Config(
         lr=0.0005,
         target_model_update_interval=2000,
-        memory_warmup_size=1000,
-        memory_capacity=10_000,
-        memory_compress=False,
+        memory=dqn.ReplayBufferConfig(
+            capacity=10_000,
+            warmup_size=1000,
+            compress=False,
+        ),
     )
     rl_config.hidden_block.set((512,))
     _run(rl_config, train=50_000, continuous=False)

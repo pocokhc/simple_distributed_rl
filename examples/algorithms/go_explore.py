@@ -23,12 +23,12 @@ def main():
     rl_config.hidden_block.set((64, 64))
 
     runner = srl.Runner(env_config, rl_config)
-    runner.model_summary()
+    runner.set_progress(interval_limit=30, enable_eval=True)
+    runner.summary()
 
     # phase1
     runner.rollout(max_steps=10_000)
     # phase2
-    runner.set_progress(interval_limit=30, enable_eval=True)
     runner.train(max_train_count=10_000)
 
     # --- evaluate

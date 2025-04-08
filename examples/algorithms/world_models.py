@@ -6,17 +6,16 @@ import numpy as np
 
 import srl
 from srl.algorithms import world_models
-from srl.base.define import ObservationModes
 from srl.utils import common
 
 common.logger_print()
 
-param_path = os.path.join(os.path.dirname(__file__), "_world_models_param.dat")
+params_path = os.path.join(os.path.dirname(__file__), "_world_models_params.dat")
 memory_path = os.path.join(os.path.dirname(__file__), "_world_models_memory.dat")
 
 
 # WorldModelsのパラメータ
-def _create_runner():
+def _create_runner(is_load: bool = True):
     env_config = srl.EnvConfig("Grid")
     rl_config = world_models.Config(
         z_size=1,
@@ -25,13 +24,13 @@ def _create_runner():
         num_mixture=3,
         batch_size=64,
         temperature=0.1,
+        observation_mode="render_image",
     )
-    rl_config.observation_mode = ObservationModes.RENDER_IMAGE
 
     runner = srl.Runner(env_config, rl_config)
-    if os.path.isfile(param_path):
-        runner.load_parameter(param_path)
-    if os.path.isfile(memory_path):
+
+    if is_load:
+        runner.load_parameter(params_path)
         runner.load_memory(memory_path)
 
     return runner, rl_config
@@ -39,41 +38,43 @@ def _create_runner():
 
 # サンプルの収集
 def s1_collect_sample():
-    runner, rl_config = _create_runner()
-    rl_config.train_mode = 1
+    runner, rl_config = _create_runner(is_load=False)
+    runner.summary()
+    rl_config.train_mode = "vae"
     runner.rollout(max_memory=10_000)
+    runner.save_parameter(params_path)
     runner.save_memory(memory_path)
 
 
 # VAEの学習
 def s2_train_vae():
     runner, rl_config = _create_runner()
-    rl_config.train_mode = 1
+    rl_config.train_mode = "vae"
     rl_config.lr = 0.001
     rl_config.kl_tolerance = 4.0
     runner.train_only(max_train_count=20_000)
-    runner.save_parameter(param_path)
+    runner.save_parameter(params_path)
 
 
 # MDN-RNNの学習
 def s3_train_rnn():
     runner, rl_config = _create_runner()
-    rl_config.train_mode = 2
+    rl_config.train_mode = "rnn"
     rl_config.lr = 0.001
-    rl_config.memory_warmup_size = 100
+    rl_config.warmup_size = 100
     runner.train_only(max_train_count=50_000)
-    runner.save_parameter(param_path)
+    runner.save_parameter(params_path)
 
 
 # Controllerの学習
 def s4_train_controller():
     runner, rl_config = _create_runner()
-    rl_config.train_mode = 3
+    rl_config.train_mode = "controller"
     rl_config.num_simulations = 20
     rl_config.num_individual = 4
     max_episodes = rl_config.num_simulations * rl_config.num_individual * 300
     runner.train(max_episodes=max_episodes)
-    runner.save_parameter(param_path)
+    runner.save_parameter(params_path)
 
 
 def evaluate():

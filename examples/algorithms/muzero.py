@@ -4,7 +4,6 @@ import numpy as np
 
 import srl
 from srl.algorithms import muzero
-from srl.envs import grid
 from srl.utils import common
 
 common.logger_print()
@@ -22,13 +21,13 @@ def main():
         enable_rescale=False,
         weight_decay=0,
     )
-    rl_config.memory_warmup_size = 200
-    rl_config.lr = rl_config.create_scheduler().set_linear(10_000, 0.002, 0.001)
-    rl_config.memory_capacity = 100_000
+    rl_config.memory.warmup_size = 200
+    rl_config.lr = 0.002
+    rl_config.lr_scheduler.set_step(10_000, 0.001)
+    rl_config.memory.capacity = 100_000
     rl_config.input_image_block.set_alphazero_block(1, 16)
 
-    rl_config.processors = [grid.LayerProcessor()]
-    env_config = srl.EnvConfig("EasyGrid")
+    env_config = srl.EnvConfig("EasyGrid-layer")
     runner = srl.Runner(env_config, rl_config)
 
     runner.model_summary()

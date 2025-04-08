@@ -236,8 +236,6 @@ class SchedulerConfig:
 
         if (val is not None) and (len(self._schedulers) == 0):
             self.set_constant(val)
-        elif val is not None:
-            logger.info("The scheduler takes precedence over the fixed value.")
         assert len(self._schedulers) > 0, "Set at least one Scheduler."
 
         if len(self._schedulers) == 1:

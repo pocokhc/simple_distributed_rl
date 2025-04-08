@@ -5,25 +5,28 @@ import numpy as np
 
 import srl
 from srl.algorithms import dqn, rainbow
+from srl.utils import common
 
 
 def main():
+    common.logger_print()
+
     env_config = srl.EnvConfig("Pendulum-v1")
     rl_config = rainbow.Config(
         lr=0.0005,
         enable_double_dqn=True,
         enable_noisy_dense=False,
-        multisteps=1,
+        multisteps=3,
         enable_rescale=False,
     )
     rl_config.hidden_block.set_dueling_network((64, 64))
-    rl_config.set_proportional_memory()
+    rl_config.memory.set_proportional()
     runner = srl.Runner(env_config, rl_config)
-    runner.set_device("CPU")
-    runner.model_summary()
+    runner.summary()
 
     # --- train
     runner.set_history_on_memory()
+    runner.set_progress(interval_limit=30)
     runner.train(max_episodes=200)
     history = runner.get_history()
     history.plot()
@@ -53,7 +56,7 @@ def main_compare():
         enable_rescale=False,
     )
     rainbow_base_config.hidden_block.set((64, 64))
-    rainbow_base_config.set_replay_memory()
+    rainbow_base_config.memory.set_replay_buffer()
 
     rl_configs.append(("base", rainbow_base_config.copy()))
 
@@ -74,7 +77,7 @@ def main_compare():
     rl_configs.append(("multisteps 10", _c))
 
     _c = rainbow_base_config.copy()
-    _c.set_proportional_memory(alpha=1.0, beta_initial=1.0)
+    _c.memory.set_proportional(alpha=1.0, beta_initial=1.0)
     rl_configs.append(("ProportionalMemory", _c))
 
     _c = rainbow_base_config.copy()
@@ -82,7 +85,7 @@ def main_compare():
     _c.hidden_block.set_dueling_network((64, 64))
     _c.enable_noisy_dense = True
     _c.multisteps = 10
-    _c.set_proportional_memory(alpha=1.0, beta_initial=0.8, beta_steps=200 * 50)
+    _c.memory.set_proportional(alpha=1.0, beta_initial=0.8, beta_steps=200 * 50)
     rl_configs.append(("Rainbow", _c))
 
     results = []
@@ -108,5 +111,5 @@ def main_compare():
 
 
 if __name__ == "__main__":
-    main()
-    # main_compare()
+    # main()
+    main_compare()

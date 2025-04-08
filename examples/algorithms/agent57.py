@@ -24,9 +24,9 @@ def main():
         actor_num=1,
     )
     rl_config.hidden_block.set((64, 64))
-    rl_config.memory_capacity = 100_000
+    rl_config.memory.capacity = 100_000
     runner = srl.Runner(env_config, rl_config)
-    runner.model_summary()
+    runner.summary()
 
     # --- train
     runner.set_history_on_memory()
@@ -59,7 +59,7 @@ def main_compare():
         input_action=False,
     )
     base_config.hidden_block.set((64, 64))
-    base_config.memory_capacity = 100_000
+    base_config.memory.capacity = 100_000
 
     # base
     rl_configs.append(("base", base_config.copy()))

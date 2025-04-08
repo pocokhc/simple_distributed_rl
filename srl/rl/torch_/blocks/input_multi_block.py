@@ -36,7 +36,7 @@ class InputMultiBlockConcat(nn.Module, AInputBlock):
             if space.is_value():
                 d = value_block_config.create_torch_block(
                     space.shape,
-                    flatten=True,
+                    input_flatten=True,
                     reshape_for_rnn=reshape_for_rnn[i],
                 )
                 self.in_blocks.append(d)

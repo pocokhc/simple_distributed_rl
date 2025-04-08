@@ -5,7 +5,7 @@ import random
 import threading
 import time
 import traceback
-from typing import List, Optional
+from typing import Callable, List, Optional, cast
 
 from srl.base.context import RunContext, RunNameTypes
 from srl.base.env.env_run import EnvRun
@@ -49,34 +49,39 @@ class _ActorRLMemoryThread:
         self.q = share_q
         self.share_data = share_data
         self.dist_queue_capacity = dist_queue_capacity
-        self.base_memory = base_memory
-
-    def add(self, *args) -> None:
-        t0 = time.time()
-        while True:
-            if self.q.qsize() < self.dist_queue_capacity / 2:
-                raw = self.base_memory.serialize_add_args(*args)
-                self.q.put(raw)
-                break
-
-            if self.share_data.end_signal:
-                break
-
-            if time.time() - t0 > 10:
-                t0 = time.time()
-                s = "queue capacity over:"
-                s += f"local {self.q.qsize()}"
-                print(s)
-                logger.info(s)
-                break  # for safety
-
-            time.sleep(1)
+        self.serialize_funcs = {k: v[1] for k, v in base_memory.get_worker_funcs().items()}
 
     def length(self) -> int:
         return self.share_data.q_send_count
 
-    def serialize_add_args(self, *args):
-        raise NotImplementedError("Unused")
+    def __getattr__(self, name: str) -> Callable:
+        if name not in self.serialize_funcs:
+            raise AttributeError(f"{name} is not a valid method")
+        serialize_func = self.serialize_funcs[name]
+
+        def wrapped(*args, **kwargs):
+            t0 = time.time()
+            while True:
+                if self.q.qsize() < self.dist_queue_capacity / 2:
+                    raw = serialize_func(*args, **kwargs)
+                    raw = raw if isinstance(raw, tuple) else (raw,)
+                    self.q.put((name, raw))
+                    break
+
+                if self.share_data.end_signal:
+                    break
+
+                if time.time() - t0 > 9:
+                    t0 = time.time()
+                    s = "queue capacity over:"
+                    s += f"local {self.q.qsize()}"
+                    print(s)
+                    logger.info(s)
+                    break  # for safety
+
+                time.sleep(1)
+
+        return wrapped
 
 
 class _ActorInterruptThread(RunCallback):
@@ -210,59 +215,64 @@ class _ActorRLMemoryNoThread:
         self.q_send_count = 0
         self.q = queue.Queue()
         self.actor_num = self.task_manager.get_actor_num()
-        self.base_memory = base_memory
+        self.serialize_funcs = {k: v[1] for k, v in base_memory.get_worker_funcs().items()}
 
         self.keepalive_t0 = 0
-
-    def add(self, *args) -> None:
-        t0 = time.time()
-        while True:
-            # --- server check
-            remote_qsize = -1
-            if not self.remote_memory.is_connected:
-                self.remote_memory.ping()
-            if self.remote_memory.is_connected:
-                remote_qsize = self.remote_memory.memory_size()
-
-                # remote_qsizeが取得できない場合は受信と送信から予測
-                if remote_qsize < 0:
-                    qsize = self.q_send_count * self.actor_num
-                    q_recv_count = self.task_manager.get_trainer("q_recv_count")
-                    q_recv_count = 0 if q_recv_count == "" else int(q_recv_count)
-                    remote_qsize = qsize - q_recv_count
-
-                # --- qが一定以下のみ送信
-                if remote_qsize < self.dist_queue_capacity:
-                    try:
-                        raw = self.base_memory.serialize_add_args(*args)
-                        self.remote_memory.memory_add(raw)
-                        self.q_send_count += 1
-                    except Exception as e:
-                        logger.error(e)
-                    break
-
-            # --- keepalive
-            if time.time() - self.keepalive_t0 > self.task_manager.params.keepalive_interval:
-                self.keepalive_t0 = time.time()
-                if self.task_manager.is_finished():
-                    raise DistributionError("task is finished")
-
-            if time.time() - t0 > 10:
-                t0 = time.time()
-                s = "capacity over, wait:"
-                s += f"local {self.q.qsize()}"
-                s += f", remote_qsize {remote_qsize}"
-                print(s)
-                logger.info(s)
-                break
-
-            time.sleep(1)
 
     def length(self) -> int:
         return self.q_send_count
 
-    def serialize_add_args(self, *args):
-        raise NotImplementedError("Unused")
+    def __getattr__(self, name: str) -> Callable:
+        if name not in self.serialize_funcs:
+            raise AttributeError(f"{name} is not a valid method")
+        serialize_func = self.serialize_funcs[name]
+
+        def wrapped(*args, **kwargs):
+            t0 = time.time()
+            while True:
+                # --- server check
+                remote_qsize = -1
+                if not self.remote_memory.is_connected:
+                    self.remote_memory.ping()
+                if self.remote_memory.is_connected:
+                    remote_qsize = self.remote_memory.memory_size()
+
+                    # remote_qsizeが取得できない場合は受信と送信から予測
+                    if remote_qsize < 0:
+                        qsize = self.q_send_count * self.actor_num
+                        q_recv_count = self.task_manager.get_trainer("q_recv_count")
+                        q_recv_count = 0 if q_recv_count == "" else int(q_recv_count)
+                        remote_qsize = qsize - q_recv_count
+
+                    # --- qが一定以下のみ送信
+                    if remote_qsize < self.dist_queue_capacity:
+                        try:
+                            raw = serialize_func(*args, **kwargs)
+                            raw = raw if isinstance(raw, tuple) else (raw,)
+                            self.remote_memory.memory_add((name, raw))
+                            self.q_send_count += 1
+                        except Exception as e:
+                            logger.error(e)
+                        break
+
+                # --- keepalive
+                if time.time() - self.keepalive_t0 > self.task_manager.params.keepalive_interval:
+                    self.keepalive_t0 = time.time()
+                    if self.task_manager.is_finished():
+                        raise DistributionError("task is finished")
+
+                if time.time() - t0 > 10:
+                    t0 = time.time()
+                    s = "capacity over, wait:"
+                    s += f"local {self.q.qsize()}"
+                    s += f", remote_qsize {remote_qsize}"
+                    print(s)
+                    logger.info(s)
+                    break
+
+                time.sleep(1)
+
+        return wrapped
 
 
 class _ActorInterruptNoThread(RunCallback):
@@ -386,7 +396,12 @@ def _run_actor(
     # context.max_steps = -1
     # context.max_train_count = -1
     # context.timeout = -1
-    workers, main_worker_idx = context.rl_config.make_workers(context.players, env, parameter, memory)
+    workers, main_worker_idx = context.rl_config.make_workers(
+        context.players,
+        env,
+        parameter,
+        cast(RLMemory, memory),
+    )
     try:
         core_play.play(
             context=context,

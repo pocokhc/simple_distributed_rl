@@ -30,7 +30,7 @@ class InputMultiBlockConcat(KerasModelAddedSummary, AInputBlock):
             if not isinstance(space, BoxSpace):
                 continue
             if space.is_value():
-                self.in_blocks.append(value_block_config.create_tf_block(space, flatten=True))
+                self.in_blocks.append(value_block_config.create_tf_block(space, input_flatten=True))
             elif space.is_image():
                 self.in_blocks.append(image_block_config.create_tf_block(space, out_flatten=True))
             else:

@@ -273,7 +273,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             stacked_state = self._config.observation_space_one_step.encode_stack(
                 self._tracking_one_states[-self._config.window_length :],
             )
-            if len(self._tracking_stacked_states) == self._tracking_size:
+            if len(self._tracking_stacked_states) == self._tracking_size + 1:
                 del self._tracking_stacked_states[0]
             self._tracking_stacked_states.append(stacked_state)
         if self._use_render_image:
@@ -285,7 +285,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
                 stacked_img = self._config.obs_render_img_space_one_step.encode_stack(
                     self._tracking_one_render_images[-self._config.render_image_window_length :],
                 )
-                if len(self._tracking_stacked_render_images) == self._tracking_size:
+                if len(self._tracking_stacked_render_images) == self._tracking_size + 1:
                     del self._tracking_stacked_render_images[0]
                 self._tracking_stacked_render_images.append(stacked_img)
 
@@ -504,8 +504,12 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         assert max_size > 0
         self._tracking_episode = True
         self._tracking_size = max(self._tracking_size, max_size)
+        # add_resetの追加で1つ前のwindow_legthを取得したいので+1する
+        self._tracking_one_state_size = max(self._tracking_one_state_size, self.config.window_length + 1)
+        # next_state用に+1
         self._tracking_one_state_size = max(self._tracking_one_state_size, max_size + 1)
         if self._use_render_image and self._use_stacked_render_image:
+            self._tracking_one_render_image_size = max(self._tracking_one_render_image_size, self.config.render_image_window_length + 1)
             self._tracking_one_render_image_size = max(self._tracking_one_render_image_size, max_size + 1)
 
     def _check_tracking_key(self, data: Dict[str, Any]):
@@ -603,34 +607,47 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def add_dummy_step(self, state=None, action=None, invalid_actions=[], reward: float = 0.0, terminated: bool = False, tracking_data: Dict[str, Any] = {}, is_reset: bool = False):
         self._check_tracking_key(tracking_data)
 
-        # reset時はstateの挙動は複雑なので何もしない
-        if is_reset and (state is not None):
-            logger.warning("No state is added when resetting.")
-        if not is_reset:
-            if state is None:
-                state = self._config.observation_space_one_step.get_default()
-            if len(self._tracking_one_states) == self._tracking_one_state_size:
-                del self._tracking_one_states[0]
+        # reset時は初期stateの前に追加
+        if state is None:
+            state = self._config.observation_space_one_step.get_default()
+        if len(self._tracking_one_states) == self._tracking_one_state_size:
+            del self._tracking_one_states[0]
+        if is_reset:
+            self._tracking_one_states.insert(-1, state)
+        else:
             self._tracking_one_states.append(state)
-            if self._use_stacked_state:
+        if self._use_stacked_state:
+            if len(self._tracking_stacked_states) == self._tracking_size + 1:
+                del self._tracking_stacked_states[0]
+            if is_reset:
                 stacked_state = self._config.observation_space_one_step.encode_stack(
-                    self._tracking_one_states[-self._config.window_length :],
+                    self._tracking_one_states[-self._config.window_length - 1 : -1],
                 )
-                if len(self._tracking_stacked_states) == self._tracking_size:
-                    del self._tracking_stacked_states[0]
-                self._tracking_stacked_states.append(stacked_state)
-            if self._use_render_image:
-                render_image = self._config.render_image_state_encode_one_step(self._env)
-                if len(self._tracking_one_render_images) == self._tracking_one_render_image_size:
-                    del self._tracking_one_render_images[0]
+                self._tracking_stacked_states[-1] = stacked_state
+            stacked_state = self._config.observation_space_one_step.encode_stack(
+                self._tracking_one_states[-self._config.window_length :],
+            )
+            self._tracking_stacked_states.append(stacked_state)
+        if self._use_render_image:
+            render_image = self._config.render_image_state_encode_one_step(self._env)
+            if len(self._tracking_one_render_images) == self._tracking_one_render_image_size:
+                del self._tracking_one_render_images[0]
+            if is_reset:
+                self._tracking_one_render_images.insert(-1, render_image)
+            else:
                 self._tracking_one_render_images.append(render_image)
-                if self._use_stacked_render_image:
+            if self._use_stacked_render_image:
+                if len(self._tracking_stacked_render_images) == self._tracking_size + 1:
+                    del self._tracking_stacked_render_images[0]
+                if is_reset:
                     stacked_img = self._config.obs_render_img_space_one_step.encode_stack(
-                        self._tracking_one_render_images[-self._config.render_image_window_length :],
+                        self._tracking_one_render_images[-self._config.render_image_window_length - 1 : -1],
                     )
-                    if len(self._tracking_stacked_render_images) == self._tracking_size:
-                        del self._tracking_stacked_render_images[0]
-                    self._tracking_stacked_render_images.insert(-1, stacked_img)
+                    self._tracking_stacked_render_images[-1] = stacked_img
+                stacked_img = self._config.obs_render_img_space_one_step.encode_stack(
+                    self._tracking_one_render_images[-self._config.render_image_window_length :],
+                )
+                self._tracking_stacked_render_images.insert(-1, stacked_img)
 
         # action
         if action is None:

@@ -1,9 +1,6 @@
 import numpy as np
 import pytest
 
-import srl
-import srl.envs.grid
-from srl.base.rl.config import DummyRLConfig
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.box import BoxSpace
@@ -28,17 +25,15 @@ from srl.rl.processors.normalize_processor import NormalizeProcessor
     ],
 )
 def test_1(space, true_space, state, true_state):
-
     processor = NormalizeProcessor((-1, 2))
-    env = srl.make_env("Grid")
 
     # --- change space
-    new_space = processor.remap_observation_space(space, env, DummyRLConfig())
+    new_space = processor.remap_observation_space(space)
     print(new_space)
     assert new_space == true_space
 
     # --- decode
-    new_state = processor.remap_observation(state, None, env)
+    new_state = processor.remap_observation(state, space, new_space)
     print(new_state)
     if isinstance(true_state, np.ndarray):
         assert (new_state == true_state).all()

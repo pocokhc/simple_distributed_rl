@@ -41,6 +41,7 @@ def _memory_communicate(
     try:
         manager = ServerManager._copy(*manager_copy_args)
         memory_receiver = manager.get_memory_receiver()
+        worker_funcs = {k: v[0] for k, v in memory.get_worker_funcs().items()}
         q_recv_count = 0
 
         while not share_data.end_signal:
@@ -58,10 +59,10 @@ def _memory_communicate(
             if dat is None:
                 time.sleep(0.1)
             else:
+                name, raw = dat
+                worker_funcs[name](*raw, serialized=True)
                 q_recv_count += 1
                 share_data.q_recv_count = q_recv_count
-                dat = memory.deserialize_add_args(dat)
-                memory.add(*dat)
 
     except Exception:
         share_data.th_error = traceback.format_exc()
@@ -139,6 +140,7 @@ class _TrainerInterruptNoThread(RunCallback):
         self,
         manager: ServerManager,
         trainer_parameter_send_interval: int,
+        memory: RLMemory,
     ) -> None:
         self.memory_receiver = manager.get_memory_receiver()
         self.parameter_writer = manager.get_parameter_writer()
@@ -150,6 +152,8 @@ class _TrainerInterruptNoThread(RunCallback):
         self.sync_parameter_t0 = time.time()
         self.start_train_count = self.task_manager.get_train_count()
 
+        self.worker_funcs = {k: v[0] for k, v in memory.get_worker_funcs().items()}
+
     def on_train_after(self, context: RunContext, state: RunStateTrainer, **kwargs) -> bool:
         state.memory = cast(RLMemory, state.memory)
 
@@ -159,9 +163,9 @@ class _TrainerInterruptNoThread(RunCallback):
         if self.memory_receiver.is_connected:
             dat = self.memory_receiver.memory_recv()
             if dat is not None:
+                name, raw = dat
+                self.worker_funcs[name](*raw, serialized=True)
                 self.q_recv_count += 1
-                dat = state.memory.deserialize_add_args(dat)
-                state.memory.add(*dat)
                 state.trainer_recv_q = self.q_recv_count
         else:
             dat = None
@@ -249,6 +253,7 @@ def _run_trainer(manager: ServerManager, task_config: TaskConfig, parameter: RLP
                 _TrainerInterruptNoThread(
                     manager,
                     task_config.trainer_parameter_send_interval,
+                    memory,
                 )
             )
 

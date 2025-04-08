@@ -17,7 +17,7 @@ BASE_BLOCK = (64, 64)
 
 def _run(rl_config, is_mp, is_image, train):
     if is_image:
-        rl_config.observation_mode = "image"
+        rl_config.observation_mode = "render_image"
     runner = srl.Runner(ENV_NAME, rl_config)
     runner.model_summary()
 
@@ -37,9 +37,11 @@ def main_dqn(is_mp=False, is_image=False):
     rl_config = dqn.Config(
         lr=BASE_LR,
         target_model_update_interval=2000,
-        memory_warmup_size=1000,
-        memory_capacity=10_000,
-        memory_compress=False,
+        memory=dqn.ReplayBufferConfig(
+            capacity=10_000,
+            warmup_size=1000,
+            compress=False,
+        ),
     )
     rl_config.hidden_block.set(BASE_BLOCK)
     _run(rl_config, is_mp, is_image, BASE_TRAIN)
@@ -51,10 +53,10 @@ def main_rainbow(is_mp=False, is_image=False):
     rl_config = rainbow.Config(
         lr=BASE_LR,
         target_model_update_interval=2000,
-        memory_warmup_size=1000,
-        memory_capacity=10_000,
-        memory_compress=False,
     )
+    rl_config.memory.capacity = 10_000
+    rl_config.memory.warmup_size = 1000
+    rl_config.memory.compress = False
     rl_config.hidden_block.set_dueling_network(BASE_BLOCK)
     _run(rl_config, is_mp, is_image, BASE_TRAIN)
 
@@ -67,10 +69,10 @@ def main_r2d2(is_mp=False, is_image=False):
         target_model_update_interval=2000,
         burnin=5,
         sequence_length=2,
-        memory_warmup_size=1000,
-        memory_capacity=10_000,
-        memory_compress=False,
     )
+    rl_config.memory.capacity = 10_000
+    rl_config.memory.warmup_size = 1000
+    rl_config.memory.compress = False
     rl_config.hidden_block.set_dueling_network(BASE_BLOCK)
     _run(rl_config, is_mp, is_image, BASE_TRAIN)
 
@@ -85,10 +87,10 @@ def main_agent57(is_mp=False, is_image=False):
         burnin=5,
         sequence_length=2,
         enable_intrinsic_reward=False,
-        memory_warmup_size=1000,
-        memory_capacity=10_000,
-        memory_compress=False,
     )
+    rl_config.memory.capacity = 10_000
+    rl_config.memory.warmup_size = 1000
+    rl_config.memory.compress = False
     rl_config.hidden_block.set_dueling_network(BASE_BLOCK)
     _run(rl_config, is_mp, is_image, BASE_TRAIN)
 
@@ -98,9 +100,11 @@ def main_ppo(is_mp=False, is_image=False):
 
     rl_config = ppo.Config(
         lr=BASE_LR,
-        memory_warmup_size=1000,
-        memory_capacity=10_000,
-        memory_compress=False,
+        memory=ppo.ReplayBufferConfig(
+            capacity=10_000,
+            warmup_size=1000,
+            compress=False,
+        ),
     )
     rl_config.hidden_block.set((128,))
     rl_config.policy_block.set((128,))
@@ -113,9 +117,11 @@ def main_ddpg(is_mp=False, is_image=False):
 
     rl_config = ddpg.Config(
         lr=BASE_LR,
-        memory_warmup_size=1000,
-        memory_capacity=10_000,
-        memory_compress=False,
+        memory=ddpg.ReplayBufferConfig(
+            capacity=10_000,
+            warmup_size=1000,
+            compress=False,
+        ),
     )
     rl_config.policy_block.set(BASE_BLOCK)
     rl_config.q_block.set(BASE_BLOCK)
@@ -128,9 +134,11 @@ def main_sac(is_mp=False, is_image=False):
     rl_config = sac.Config(
         lr_policy=BASE_LR,
         lr_q=BASE_LR,
-        memory_warmup_size=1000,
-        memory_capacity=10_000,
-        memory_compress=False,
+        memory=sac.ReplayBufferConfig(
+            capacity=10_000,
+            warmup_size=1000,
+            compress=False,
+        ),
     )
     rl_config.policy_hidden_block.set(BASE_BLOCK)
     rl_config.q_hidden_block.set(BASE_BLOCK)
@@ -154,8 +162,8 @@ def main_dreamer_v3(is_mp=False, is_image=False):
     rl_config.batch_size = 32
     rl_config.batch_length = 15
     rl_config.horizon = 5
-    rl_config.memory_capacity = 10_000
-    rl_config.memory_warmup_size = 50
+    rl_config.memory.capacity = 10_000
+    rl_config.memory.warmup_size = 50
     rl_config.free_nats = 0.1
     rl_config.warmup_world_model = 1_000
     _run(rl_config, is_mp, is_image, BASE_TRAIN)

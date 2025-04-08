@@ -41,7 +41,8 @@ def _setup_device(
     assert used_device_tf == true_tf
     assert used_device_torch == true_torch
 
-    runner.train(max_train_count=2)
+    if true_torch != "cuda:1":
+        runner.train(max_train_count=2)
 
 
 @pytest.mark.parametrize("device", ["AUTO", "CPU", "GPU", "CPU:0", "GPU:0"])

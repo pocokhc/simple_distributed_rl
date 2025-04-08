@@ -690,14 +690,8 @@ class LayerProcessor(EnvProcessor):
         )
         return observation_space
 
-    def remap_reset(self, env: EnvRun):
-        return self._remap_state(env)
-
-    def remap_step(self, rewards: List[float], terminated: bool, truncated: bool, env_run: EnvRun, **kwargs):
-        return self._remap_state(env), rewards, terminated, truncated
-
-    def _remap_state(self, env):
-        env = cast(Grid, env.unwrapped)
+    def remap_observation(self, state, prev_space: SpaceBase, new_space: SpaceBase, env_run: EnvRun, **kwargs):
+        env = cast(Grid, env_run.unwrapped)
         px = env.player_pos[0]
         py = env.player_pos[1]
 

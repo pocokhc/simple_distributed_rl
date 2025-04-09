@@ -32,6 +32,8 @@ Making a Custom algorithm
 .. code-block:: python
 
    # 学習単位の初期化
+   parameter.setup()
+   memory.setup()
    worker.on_setup()
    trainer.on_setup()
 
@@ -85,6 +87,12 @@ Making a Custom algorithm
 
 分散学習は以下となり各クラスが非同期で動作します。
 
+・MemoryとTrainerが非同期
+
+.. image:: ../../diagrams/overview-mp_memory.drawio.png
+
+・MemoryとTrainerが同期
+
 .. image:: ../../diagrams/overview-mp.drawio.png
 
 同期的な学習と以下の点が異なります。  
@@ -101,10 +109,10 @@ Making a Custom algorithm
 2-1. Config
 --------------------------------------------
 
-強化学習アルゴリズムの種類やハイパーパラメータを管理するクラスです。  
-基底クラスは `srl.base.rl.base.RLConfig` でこれを継承して作成します。  
-
-RLConfig で実装が必要な関数・プロパティは以下です。  
+| 強化学習アルゴリズムの種類やハイパーパラメータを管理するクラスです。  
+| 基底クラスは `srl.base.rl.base.RLConfig` でこれを継承して作成します。  
+| 
+| RLConfig で実装が必要な関数・プロパティは以下です。  
 
 .. code-block:: python
 
@@ -119,10 +127,8 @@ RLConfig で実装が必要な関数・プロパティは以下です。
 
       # 任意のハイパーパラメータを定義
       hoo_param: float = 0
+      bar_param: float = 0
       
-      def __post_init__(self):
-         super().__post_init__()  # 親のコンストラクタも呼んでください
-
       def get_name(self) -> str:
          """ ユニークな名前を返す """
          raise NotImplementedError()
@@ -139,21 +145,21 @@ RLConfig で実装が必要な関数・プロパティは以下です。
          """
          raise NotImplementedError()
 
+      # ------------------------------------
+      # 以下は option です。（なくても問題ありません）
+      # ------------------------------------
       def get_framework(self) -> str:
          """
          使うフレームワークを指定してください。
-         return ""           : なし
+         return ""           : なし(default)
          return "tensorflow" : Tensorflow
          return "torch"      : Torch
          """
          raise NotImplementedError()
 
-      # ------------------------------------
-      # 以下は option です。（なくても問題ありません）
-      # ------------------------------------
-      def assert_params(self) -> None:
+      def validate_params(self) -> None:
          """ パラメータのassertを記載 """
-         super().assert_params()  # 親クラスも呼び出してください
+         super().validate_params()  # 定義する場合は親クラスも呼び出してください
 
       def setup_from_env(self, env: EnvRun) -> None:
          """ env初期化後に呼び出されます。env関係の初期化がある場合は記載してください。 """
@@ -163,7 +169,7 @@ RLConfig で実装が必要な関数・プロパティは以下です。
          """ 分散学習でactorが指定されたときに呼び出されます。Actor関係の初期化がある場合は記載してください。 """
          pass
 
-      def get_processors(self) -> List[Optional[RLProcessor]]:
+      def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
          """ 前処理を追加したい場合設定してください """
          return []
 
@@ -175,32 +181,33 @@ RLConfig で実装が必要な関数・プロパティは以下です。
       # これはenv.render_rgb_arrayの画像が入ります
       def use_render_image_state(self) -> bool:
          return False
-      def get_render_image_processors(self) -> List[RLProcessor]:
+      def get_render_image_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
          """render_img_stateに対する前処理"""
          return []
+
+
+※ __post_init__ の利用はコンストラクタの値が上書きされるので非推奨です。
 
 
 2-2. Memory
 --------------------------------------------
 
 | Workerが取得したサンプル(batch)をTrainerに渡す役割を持っているクラスです。
-| 以下の3種類から継承します。
-| （RLMemoryを直接継承することでオリジナルのMemoryを作成することも可能です）
-| （オリジナルのMemoryの作成例は`srl.algorithms.world_models`の実装を参考にしてください）
+| 以下の3種類から継承すると簡単です。
 
 .. list-table::
    :widths: 15 30
    :header-rows: 0
 
-   * - SequenceMemory
+   * - SingleUseBuffer
      - 来たサンプルを順序通りに取り出します。(Queueみたいな動作です)
-   * - ExperienceReplayBuffer
+   * - ReplayBuffer
      - サンプルをランダムに取り出します。
-   * - PriorityExperienceReplay
+   * - PriorityReplayBuffer
      - サンプルを優先順位に従い取り出します。
 
 
-SequenceMemory
+RLSingleUseBuffer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 順番通りにサンプルを取り出しますMemoryです。サンプルは取り出すとなくなります。
@@ -208,22 +215,21 @@ SequenceMemory
 .. literalinclude:: custom_algorithm1.py
 
 
-ExperienceReplayBuffer
+RLReplayBuffer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 | ランダムにサンプルを取り出すMemoryです。
-| これを使う場合は、Configに `RLConfigComponentExperienceReplayBuffer` を継承する必要があります。
+| これを使う場合は Configに `batch_size` と `ReplayBufferConfig` を実装する必要があります。
 
 .. literalinclude:: custom_algorithm2.py
 
 
-PriorityExperienceReplay
+RLPriorityReplayBuffer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 | 優先順位に従ってサンプルを取り出すMemoryです。
-| これを使う場合は、Configにも `RLConfigComponentPriorityExperienceReplay` を継承する必要があります。
-
-このアルゴリズムはConfigにより切り替えることができます。
+| これを使う場合は Configに `batch_size` と `PriorityReplayBufferConfig` を実装する必要があります。
+| また、このアルゴリズムはConfigのset関数により切り替えることができます。
 
 .. list-table::
    :widths: 15 50
@@ -231,38 +237,74 @@ PriorityExperienceReplay
 
    * - クラス名
      - 説明
-   * - ReplayMemory
-     - ExperienceReplayBufferと同じで、ランダムに取得します。（優先順位はありません）
-   * - ProportionalMemory
+   * - set_replay_buffer
+     - ReplayBufferと同じで、ランダムに取得します。（優先順位はありません）
+   * - set_proportional
      - サンプルの重要度によって確率が変わります。重要度が高いサンプルほど選ばれる確率が上がります。
-   * - RankBaseMemory
+   * - set_rankbased
      - サンプルの重要度のランキングによって確率が変わります。重要度が高いサンプルほど選ばれる確率が上がるのはProportionalと同じです。
+   * - set_rankbased_linear
+     - rankbasedと同じですが、指数的な計算で複雑なrankbasedをlinearを仮定することで高速化したアルゴリズムです。
 
 .. literalinclude:: custom_algorithm3.py
 
 
-2-3. Parameter
---------------------------------------------
+オリジナルMemoryの作成
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-| パラメータを管理するクラスです。
-| 深層学習の場合はここにニューラルネットワークを定義することを想定しています。
+| RLMemoryを継承して実装します。
+| 実装後にWorker/Trainerとやり取りする関数を登録します。
 
-実装が必要な関数は以下です。
+.. list-table::
+   :widths: 15 30
+   :header-rows: 0
 
+   * - register_worker_func
+     - Worker -> Memory の関数を登録します。
+   * - register_trainer_recv_func
+     - Memory -> Trainer の関数を登録します。
+   * - register_trainer_send_func
+     - Trainer -> Memory の関数を登録します。
 
 .. code-block:: python
 
-   from srl.base.rl.parameter import RLParameter
+   from srl.base.rl.memory import RLMemory
 
    import numpy as np
 
-   class MyParameter(RLParameter):
-      def __init__(self, *args):
-         """ コントラクタの引数は親に渡してください """
-         super().__init__(*args)
+   class MyMemory(RLMemory):
+      def setup(self) -> None:
+         # self.config に上で定義した MyConfig が入っています
 
-         # self.config に上で定義した MyConfig が入ります
-         self.config: MyConfig
+         # Worker -> Memory用の関数を登録、同時にシリアライズ用の関数も指定する必要あり
+         self.register_worker_func(self.add, self.serialize)
+
+         # Memory -> Trainer用の関数を登録
+         self.register_trainer_recv_func(self.sample)
+
+         # Trainer -> Memory用の関数を登録
+         self.register_trainer_send_func(self.update)
+
+      def add(self, batch, serialized: bool = False) -> None:
+         # Worker->Memory関数は引数に serialized を持つ必要があり、
+         #   Trueの場合、シリアライズされたデータになっている。
+         if serialized:
+            batch = pickle.loads(batch)  # デシリアライズ例
+
+      def serialize(self, batch):
+         # Worker->Memoryのデータをシリアライズする関数
+         return pickle.dumps(batch)  # シリアライズ例
+
+      def sample(self) -> Any:
+         # 引数はなし
+         raise NotImplementedError()
+
+      def update(self, batch) -> None:
+         raise NotImplementedError()
+
+      # オプションですが、定義すると表示してくれます。
+      def length(self) -> int:
+         return -1
 
       # call_restore/call_backupでパラメータが復元できるように作成
       def call_restore(self, data, **kwargs) -> None:
@@ -274,36 +316,65 @@ PriorityExperienceReplay
       # 分散学習ではTrainer/Worker間で値を保持できない点に注意（backup/restoreした値のみ共有されます）
 
 
+※ v0.19.0 より `__init__` の使用は非推奨となりました。代わりにsetupを使ってください。  
+
+
+2-3. Parameter
+--------------------------------------------
+
+| パラメータを管理するクラスです。
+| 深層学習の場合はここにニューラルネットワークを定義することを想定しています。
+
+.. code-block:: python
+
+   from srl.base.rl.parameter import RLParameter
+
+   import numpy as np
+
+   class MyParameter(RLParameter):
+      def setup(self):
+         # self.config に上で定義した MyConfig が入っています
+         pass
+
+      # call_restore/call_backupでパラメータが復元できるように作成
+      def call_restore(self, data, **kwargs) -> None:
+         raise NotImplementedError()
+      def call_backup(self, **kwargs):
+         raise NotImplementedError()
+
+      # その他任意の関数を作成できます。
+      # 分散学習ではTrainer/Worker間で値を保持できない点に注意（backup/restoreした値のみ共有されます）
+
+※ v0.19.0 より `__init__` の使用は非推奨となりました。代わりにsetupを使ってください。  
+
+
 2-4. Trainer
 --------------------------
 
 | 学習を定義する部分です。
 | Memoryから経験を受け取ってParameterを更新します。  
 
-実装が必要な関数は以下です。
-
 .. code-block:: python
 
    from srl.base.rl.trainer import RLTrainer
 
    class MyTrainer(RLTrainer):
-      def __init__(self, *args):
-         """ コントラクタの引数は親に渡してください """
-         super().__init__(*args)
-
+      def on_setup(self) -> None:
          # 以下の変数を持ちます。
-         self.config: MyConfig
-         self.parameter: MyParameter
-         self.memory: MyMemory
+         # self.config: MyConfig
+         # self.parameter: MyParameter
+         # self.memory: MyMemory
+         #
+         # 他にも以下のプロパティが使えます
+         # self.distributed  - property, bool : 分散実行中かどうかを返します
+         # self.train_only   - property, bool : 学習のみかどうかを返します
+         #
+         pass
 
       def train(self) -> None:
          """
-         self.memory から batch を受け取り学習を定義します。
-         self.memory は以下の関数が定義されています。
-
-         self.memory.sample()           : batchを返します
-         self.memory.update()           : ProportionalMemory の場合 update で使います
-
+         self.memory から batch を受け取り学習する事を想定しています。
+         
          ・学習したら回数を数えてください
          self.train_count += 1
 
@@ -312,14 +383,10 @@ PriorityExperienceReplay
          """
          raise NotImplementedError()
       
-
-   # --- 実装時に関数内で使う事を想定しているプロパティ・関数となります
-   trainer = MyTrainer()
-   trainer.distributed  # property, bool : 分散実行中かどうかを返します
-   trainer.train_only   # property, bool : 学習のみかどうかを返します
+※ v0.19.0 より `__init__` の使用は非推奨となりました。代わりにon_setupを使ってください。  
 
 
-Worker
+2-5. Worker
 --------------------------------------------
 
 | 実際に環境と連携して経験を収集するクラスです。
@@ -337,23 +404,21 @@ Worker
       worker.on_step()
       trainer.train()
 
-| ※v0.15.0からRLWorkerを直接継承する方法に変更しました
-| ※v0.16.0からInfoが戻り値ではなく、内部変数になりました
-
 .. code-block:: python
 
    from srl.base.rl.worker import RLWorker
    from srl.base.rl.worker_run import WorkerRun
 
    class MyWorker(RLWorker):
-      def __init__(self, *args):
-         """ コントラクタの引数は親に渡してください """
-         super().__init__(*args)
+      def on_setup(self, worker: WorkerRun, context: RunContext) -> None:
+         # 以下の変数を持ちます。
+         # self.config: MyConfig
+         # self.parameter: MyParameter
+         # self.memory: MyMemory
+         pass
 
-         # 以下の変数が設定されます
-         self.config: MyConfig 
-         self.parameter: MyParameter
-         self.memory: IRLMemoryWorker
+      def on_teardown(self, worker) -> None:
+         pass
 
       def on_reset(self, worker: WorkerRun):
          """ エピソードの最初に呼ばれる関数 """
@@ -386,17 +451,20 @@ Worker
          return None
 
    # --- 実装時に関数内で使う事を想定しているプロパティ・関数となります
-   worker = MyWorker()
-   worker.training     # property, bool : training かどうかを返します
-   worker.distributed  # property, bool : 分散実行中かどうかを返します
-   worker.rendering    # property, bool : renderがあるエピソードかどうかを返します
-   worker.observation_space  # property , SpaceBase : RLWorkerが受け取るobservation_spaceを返します
-   worker.action_space       # property , SpaceBase : RLWorkerが受け取るaction_spaceを返します
-   worker.get_invalid_actions() # function , List[RLAction] : 有効でないアクションを返します(離散限定)
-   worker.sample_action()       # function , RLAction : ランダムなアクションを返します
+   self.training     # property, bool : training かどうかを返します
+   self.distributed  # property, bool : 分散実行中かどうかを返します
+   self.rendering    # property, bool : renderがあるエピソードかどうかを返します
+   self.observation_space     # property , SpaceBase : RLWorkerが受け取るobservation_spaceを返します
+   self.action_space          # property , SpaceBase : RLWorkerが受け取るaction_spaceを返します
+   self.get_invalid_actions() # function , List[RLAction] : 有効でないアクションを返します(離散限定)
+   self.sample_action()       # function , RLAction : ランダムなアクションを返します
 
-また、情報は WorkerRun から基本取り出して使います。
-情報の例は以下です。
+| ※v0.15.0からRLWorkerを直接継承する方法に変更しました
+| ※v0.16.0からInfoが戻り値ではなく、内部変数になりました
+| ※v0.19.0 より `__init__` の使用は非推奨となりました。代わりにon_setupを使ってください。  
+| 
+| 各種情報は WorkerRun から取り出して使います。
+| 情報の例は以下です。
 
 .. code-block:: python
 
@@ -427,9 +495,9 @@ Worker
 3. 自作アルゴリズムの登録
 =========================
 
-以下で登録します。  
-第2引数以降の entry_point は、`モジュールパス + ":" + クラス名`で、  
-モジュールパスは `importlib.import_module` で呼び出せる形式である必要があります。
+| 以下で登録します。  
+| 第2引数以降の entry_point は、`モジュールパス + ":" + クラス名`で、  
+| モジュールパスは `importlib.import_module` で呼び出せる形式である必要があります。
 
 .. code-block:: python
 
@@ -446,9 +514,9 @@ Worker
 4. 型ヒント
 =========================
 
-動作に影響ないですが、可能な限り型ヒントが表示されるようにしています。（開発中の機能です）
-RLConfigとRLWorkerはimport先を変えることで型アノテーションが指定された状態になります。
-
+| 動作に影響ないですが、可能な限り型ヒントが表示されるようにしています。
+| ※VSCodeを想定しています
+| RLConfigとRLWorkerはimport先を変えることで型アノテーションが指定された状態になります。
 
 .. code-block:: python
    
@@ -458,7 +526,7 @@ RLConfigとRLWorkerはimport先を変えることで型アノテーションが�
    from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 
    # srl.base.rl.algorithms.base_XX の XX の部分を変更する事でアルゴリズムに合った型に変更できます
-   # XX の種類についてはソースコードを見てください。（開発中につき資料作成は後回し）
+   # XX の種類についてはソースコードを見てください。
 
 
 また、ジェネリック型を追加する事で各クラスの型を追加できます。
@@ -480,7 +548,8 @@ RLConfigとRLWorkerはimport先を変えることで型アノテーションが�
    # RLWorker[TConfig, TParameter]
    #   TConfig    : RLConfigを継承したクラス
    #   TParameter : RLParameterを継承したクラス
-   class Worker(RLWorker[Config, Parameter]):
+   #   TMemory    : RLMemoryを継承したクラス
+   class Worker(RLWorker[Config, Parameter, Memory]):
       pass
 
 
@@ -494,106 +563,182 @@ renderの表示例
 
 .. code-block:: text
 
-   ### 0, action None, rewards[0.000] (0.0s)
-   env   {}
-   work0 None
+   100エピソードの平均結果 0.7347999999999999
    ......
    .   G.
    . . X.
    .P   .
    ......
 
-   ←: 0.17756
-   ↓: 0.16355
-   →: 0.11174
-   *↑: 0.37473
-   ### 1, action 3(↑), rewards[-0.040] (0.0s)
+   ←: 0.15227
+   ↓: 0.13825
+   →: 0.08833
+   *↑: 0.36559
+   ### 0
+   state: 1,3
+   action : 3(↑)
+   rewards:[0.000]
    env   {}
    work0 {}
    ......
    .   G.
    .P. X.
-   .    .
+   .S   .
    ......
 
-   ←: 0.27779
-   ↓: 0.20577
-   →: 0.27886
-   *↑: 0.49146
-   ### 2, action 3(↑), rewards[-0.040] (0.0s)
+   ←: 0.24042
+   ↓: 0.17950
+   →: 0.23959
+   *↑: 0.48550
+   ### 1
+   state: 1,2
+   action : 3(↑)
+   rewards:[-0.040]
    env   {}
    work0 {}
    ......
    .P  G.
    . . X.
-   .    .
+   .S   .
    ......
 
-   ←: 0.34255
-   ↓: 0.29609
-   *→: 0.61361
-   ↑: 0.34684
-   ### 3, action 2(→), rewards[-0.040] (0.0s)
+   ←: 0.30830
+   ↓: 0.25582
+   *→: 0.60909
+   ↑: 0.31496
+   ### 2
+   state: 1,1
+   action : 2(→)
+   rewards:[-0.040]
+   env   {}
+   work0 {}
+   ......
+   .P  G.
+   . . X.
+   .S   .
+   ......
+
+   ←: 0.30830
+   ↓: 0.25582
+   *→: 0.60909
+   ↑: 0.31496
+   ### 3
+   state: 1,1
+   action : 2(→)
+   rewards:[-0.040]
    env   {}
    work0 {}
    ......
    .   G.
    .P. X.
-   .    .
+   .S   .
    ......
 
-   ←: 0.27779
-   ↓: 0.20577
-   →: 0.27886
-   *↑: 0.49146
-   ### 4, action 3(↑), rewards[-0.040] (0.0s)
+   ←: 0.24042
+   ↓: 0.17950
+   →: 0.23959
+   *↑: 0.48550
+   ### 4
+   state: 1,2
+   action : 3(↑)
+   rewards:[-0.040]
+   env   {}
+   work0 {}
+   ......
+   .   G.
+   .P. X.
+   .S   .
+   ......
+
+   ←: 0.24042
+   ↓: 0.17950
+   →: 0.23959
+   *↑: 0.48550
+   ### 5
+   state: 1,2
+   action : 3(↑)
+   rewards:[-0.040]
    env   {}
    work0 {}
    ......
    .P  G.
    . . X.
-   .    .
+   .S   .
    ......
 
-   ←: 0.34255
-   ↓: 0.29609
-   *→: 0.61361
-   ↑: 0.34684
-   ### 5, action 2(→), rewards[-0.040] (0.0s)
+   ←: 0.30830
+   ↓: 0.25582
+   *→: 0.60909
+   ↑: 0.31496
+   ### 6
+   state: 1,1
+   action : 2(→)
+   rewards:[-0.040]
+   env   {}
+   work0 {}
+   ......
+   .P  G.
+   . . X.
+   .S   .
+   ......
+
+   ←: 0.30830
+   ↓: 0.25582
+   *→: 0.60909
+   ↑: 0.31496
+   ### 7
+   state: 1,1
+   action : 2(→)
+   rewards:[-0.040]
    env   {}
    work0 {}
    ......
    . P G.
    . . X.
-   .    .
+   .S   .
    ......
 
-   ←: 0.37910
-   ↓: 0.44334
-   *→: 0.76733
-   ↑: 0.46368
-   ### 6, action 2(→), rewards[-0.040] (0.0s)
+   ←: 0.33411
+   ↓: 0.40200
+   *→: 0.76411
+   ↑: 0.41102
+   ### 8
+   state: 2,1
+   action : 2(→)
+   rewards:[-0.040]
    env   {}
    work0 {}
    ......
    .  PG.
    . . X.
-   .    .
+   .S   .
    ......
 
-   ←: 0.47941
-   ↓: 0.39324
-   *→: 0.92425
-   ↑: 0.59087
-   ### 7, action 2(→), rewards[1.000], done(env) (0.0s)
+   ←: 0.42417
+   ↓: 0.36094
+   *→: 0.92805
+   ↑: 0.54881
+   ### 9
+   state: 3,1
+   action : 2(→)
+   rewards:[-0.040]
    env   {}
    work0 {}
    ......
    .   P.
    . . X.
-   .    .
+   .S   .
    ......
 
-   [0.760000005364418]
+   ←: 0.42417
+   ↓: 0.36094
+   *→: 0.92805
+   ↑: 0.54881
+   ### 10, done()
+   state: 4,1
+   action : 2(→)
+   rewards:[1.000]
+   env   {}
+   work0 {}
 
 .. image:: custom_algorithm4.gif

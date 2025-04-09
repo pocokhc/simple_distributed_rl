@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Detailed Framework &mdash; SimpleDistributedRL 0.17.1.1 ドキュメント</title>
+  <title>Detailed Framework &mdash; SimpleDistributedRL 0.18.1.2 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=c6bea03a"></script>
+      <script src="../_static/documentation_options.js?v=e8c07f75"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -54,9 +54,9 @@
 <li class="toctree-l1"><a class="reference internal" href="custom_env.html">Making a Custom environment</a></li>
 <li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Making a Custom algorithm</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Detailed Framework</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#play-flow">Play flow</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#multiplay-flow">Multiplay flow</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#distributed-flow">Distributed flow</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#class-diagram">Class diagram</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#interface-type">Interface Type</a></li>
 </ul>
@@ -115,6 +115,12 @@
              
   <section id="detailed-framework">
 <span id="framework-detail"></span><h1>Detailed Framework<a class="headerlink" href="#detailed-framework" title="Link to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<img alt="../_images/overview-sequence.drawio.png" src="../_images/overview-sequence.drawio.png" />
+<img alt="../_images/overview-mp.drawio.png" src="../_images/overview-mp.drawio.png" />
+<img alt="../_images/overview-mp_memory.drawio.png" src="../_images/overview-mp_memory.drawio.png" />
+</section>
 <section id="play-flow">
 <h2>Play flow<a class="headerlink" href="#play-flow" title="Link to this heading"></a></h2>
 <img alt="../_images/playflow1.png" src="../_images/playflow1.png" />
@@ -124,10 +130,6 @@
 <section id="multiplay-flow">
 <h2>Multiplay flow<a class="headerlink" href="#multiplay-flow" title="Link to this heading"></a></h2>
 <img alt="../_images/overview-multiplay.drawio.png" src="../_images/overview-multiplay.drawio.png" />
-</section>
-<section id="distributed-flow">
-<h2>Distributed flow<a class="headerlink" href="#distributed-flow" title="Link to this heading"></a></h2>
-<img alt="../_images/runner_distributed_flow.png" src="../_images/runner_distributed_flow.png" />
 </section>
 <section id="class-diagram">
 <h2>Class diagram<a class="headerlink" href="#class-diagram" title="Link to this heading"></a></h2>

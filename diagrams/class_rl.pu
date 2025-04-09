@@ -17,23 +17,24 @@ abstract RLConfig {
     get_name() : str
     get_base_action_type() : RLBaseActTypes
     get_base_observation_type() : RLBaseObsTypes
-    get_framework() : str
     .. Runtime properties ..
     action_space : SpaceBase
     observation_space : SpaceBase
+    Other user params
+    .. utils ..
+    state_encode(env_state) : rl_state
+    action_decode(rl_action) : env_action
 }
 
 
-abstract IRLMemoryWorker {
-    add(*args)
-}
 abstract RLMemory {
     config : RLConfig
+    register_worker_func(func, serialize_func)
+    register_trainer_recv_func(func)
+    register_trainer_send_func(func)
     backup()
     restore()
-    Other user functions()
 }
-IRLMemoryWorker -|> RLMemory
 
 
 abstract RLParameter {
@@ -57,7 +58,7 @@ abstract RLTrainer {
 abstract RLWorker {
     config : RLConfig
     parameter : RLParameter
-    memory : <color red>IRLMemoryWorker</color>
+    memory : RLMemory
     on_setup()
     on_teardown()
     on_reset()
@@ -72,14 +73,14 @@ RLWorker -- WorkerRun
 class RunContext {}
 class WorkerRun {
     env : EnvRun
+    worker : RLWorker
     setup(context)
     teardown()
     reset(player_index)
     policy() : action
     on_step()
     render()
-    state_encode(env_state) : rl_state
-    action_decode(rl_action) : env_action
+
 }
 note "Keeps run-time state.\nAbsorbs the difference with the environment." as WorkerRunMemo
 WorkerRun . WorkerRunMemo
@@ -95,7 +96,7 @@ RLConfig -- RLMemory
 
 RLParameter -- RLWorker
 RLParameter -- RLTrainer
-IRLMemoryWorker -- RLWorker
+RLMemory -- RLWorker
 RLMemory -- RLTrainer
 
 @enduml

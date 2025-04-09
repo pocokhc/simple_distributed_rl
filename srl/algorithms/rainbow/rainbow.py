@@ -304,7 +304,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
 
     def on_reset(self, worker):
         for _ in range(self.config.multisteps - 1):
-            worker.add_dummy_step(
+            worker.add_tracking_dummy_step(
                 tracking_data={
                     "onehot_action": worker.get_onehot_action(random.randint(0, self.config.action_space.n - 1)),
                     "clip_reward": 0,
@@ -358,7 +358,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
             else:
                 reward = 0
 
-        worker.add_tracking(
+        worker.add_tracking_data(
             {
                 "onehot_action": worker.get_onehot_action(),
                 "clip_reward": reward,
@@ -368,8 +368,8 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
 
         batch = [
             worker.get_tracking("state", self.config.multisteps + 1),
-            worker.get_tracking("onehot_action", self.config.multisteps),
-            worker.get_tracking("clip_reward", self.config.multisteps),
+            worker.get_tracking_data("onehot_action", self.config.multisteps),
+            worker.get_tracking_data("clip_reward", self.config.multisteps),
             worker.get_tracking("terminated", self.config.multisteps),
             worker.get_tracking("invalid_actions", self.config.multisteps),
             # worker.get_tracking_data("prob", self.config.multisteps),  #[1]
@@ -391,7 +391,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
         if worker.done:
             # 残りstepも追加
             for _ in range(self.config.multisteps - 1):
-                worker.add_dummy_step(
+                worker.add_tracking_dummy_step(
                     terminated=True,
                     tracking_data={
                         "onehot_action": worker.get_onehot_action(random.randint(0, self.config.action_space.n - 1)),
@@ -402,8 +402,8 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
                 self.memory.add(
                     [
                         worker.get_tracking("state", self.config.multisteps + 1),
-                        worker.get_tracking("onehot_action", self.config.multisteps),
-                        worker.get_tracking("clip_reward", self.config.multisteps),
+                        worker.get_tracking_data("onehot_action", self.config.multisteps),
+                        worker.get_tracking_data("clip_reward", self.config.multisteps),
                         worker.get_tracking("terminated", self.config.multisteps),
                         worker.get_tracking("invalid_actions", self.config.multisteps),
                         # worker.get_tracking_data("prob", self.config.multisteps),  #[1]

@@ -204,9 +204,7 @@ class QNetwork(KerasModelAddedSummary):
 
 
 class Parameter(RLParameter[Config]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
+    def setup(self):
         self.q_online = QNetwork(self.config)
         self.q_target = QNetwork(self.config)
         self.q_target.set_weights(self.q_online.get_weights())

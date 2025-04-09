@@ -3,7 +3,6 @@ from typing import cast
 
 import srl
 from srl.algorithms import planet
-from srl.base.define import ObservationModes
 
 _parameter_path = os.path.join(os.path.dirname(__file__), "_planet_param.dat")
 
@@ -28,7 +27,7 @@ def _create_runner(is_load=True):
         print_ga_debug=False,
         # action_algorithm="random",
     )
-    rl_config.observation_mode = ObservationModes.RENDER_IMAGE
+    rl_config.observation_mode = "render_image"
     env_config = srl.EnvConfig("EasyGrid", max_episode_steps=10)
     runner = srl.Runner(env_config, rl_config)
     if is_load:

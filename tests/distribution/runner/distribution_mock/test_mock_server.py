@@ -1,6 +1,3 @@
-import pickle
-import zlib
-
 import pytest
 import pytest_mock
 import pytest_timeout  # noqa F401
@@ -162,22 +159,19 @@ def test_server_trainer(mocker: pytest_mock.MockerFixture, server, dist_option):
     # add batch
     memory_sender = memory_params2.create_memory_sender()
     base_memory = rl_config.make_memory()
+    serialize_func = base_memory.get_worker_funcs()["add"][1]
     for _ in range(100):
-        dat = (
-            {
-                "states": ["1,3", "1,3"],
-                "actions": [0],
-                "probs": [0.25],
-                "ext_rewards": [-0.03999999910593033],
-                "int_rewards": [5.0],
-                "invalid_actions": [[], []],
-                "done": False,
-                "discount": 0.9999,
-            },
-            0,
-        )
-        raw = base_memory.serialize_add_args(*dat)
-        memory_sender.memory_add(raw)
+        batch = {
+            "states": ["1,3", "1,3"],
+            "actions": [0],
+            "probs": [0.25],
+            "ext_rewards": [-0.03999999910593033],
+            "int_rewards": [5.0],
+            "invalid_actions": [[], []],
+            "done": False,
+            "discount": 0.9999,
+        }
+        memory_sender.memory_add(("add", serialize_func(batch, 0)))
 
     # --- run
     assert task_manager.get_trainer("train") == ""

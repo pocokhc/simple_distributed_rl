@@ -4,12 +4,7 @@ from typing import Any, Dict, Generic, List, Optional, Union, cast
 import numpy as np
 
 from srl.base.context import RunContext
-from srl.base.define import (
-    DoneTypes,
-    EnvActionType,
-    RenderModes,
-    SpaceTypes,
-)
+from srl.base.define import DoneTypes, EnvActionType, RenderModes
 from srl.base.env.env_run import EnvRun
 from srl.base.exception import SRLError
 from srl.base.info import Info
@@ -18,6 +13,7 @@ from srl.base.rl.config import RLConfig
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.worker import DummyRLWorker, RLWorkerGeneric
+from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.space import SpaceBase, TActSpace, TActType, TObsSpace, TObsType
 from srl.utils import render_functions as render_funcs
 
@@ -101,45 +97,45 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     @property
     def prev_state(self) -> TObsType:
-        return self._tracking_stacked_states[-2] if self._use_stacked_state else self._tracking_one_states[-2]
+        return self._prev_state
 
     @property
     def state(self) -> TObsType:
-        return self._tracking_stacked_states[-1] if self._use_stacked_state else self._tracking_one_states[-1]
+        return self._state
 
     @property
     def state_one_step(self) -> TObsType:
-        return self._tracking_one_states[-1]
+        return self._one_states[-1] if self._use_stacked_state else self._state
 
     @property
     def prev_render_image_state(self) -> np.ndarray:
-        return self._tracking_stacked_render_images[-2] if self._use_stacked_render_image else self._tracking_one_render_images[-2]
+        return self._prev_render_image
 
     @property
     def render_image_state(self) -> np.ndarray:
-        return self._tracking_stacked_render_images[-1] if self._use_stacked_render_image else self._tracking_one_render_images[-1]
+        return self._render_image
 
     @property
     def render_image_state_one_step(self) -> np.ndarray:
-        return self._tracking_one_render_images[-1]
+        return self._one_render_images[-1] if self._use_stacked_render_image else self._render_image
 
     @property
     def prev_action(self) -> TActType:
-        return self._tracking_action[-2]
+        return self._prev_action
 
     def get_onehot_prev_action(self):
-        return self._config.action_space.get_onehot(self._tracking_action[-2])
+        return self._config.action_space.get_onehot(self._prev_action)
 
     @property
     def action(self) -> TActType:
-        return self._tracking_action[-1]
+        return self._action
 
     def get_onehot_action(self, action=None):
-        return self._config.action_space.get_onehot(self._tracking_action[-1] if action is None else action)
+        return self._config.action_space.get_onehot(self._action if action is None else action)
 
     @property
     def reward(self) -> float:
-        return self._tracking_reward[-1]
+        return self._reward
 
     @property
     def done(self) -> bool:
@@ -159,11 +155,11 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     @property
     def prev_invalid_actions(self) -> List[TActType]:
-        return self._tracking_invalid_actions[-2]
+        return self._prev_invalid_actions
 
     @property
     def invalid_actions(self) -> List[TActType]:
-        return self._tracking_invalid_actions[-1]
+        return self._invalid_actions
 
     @property
     def total_step(self) -> int:
@@ -193,15 +189,12 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._context = context
         self._total_step: int = 0
 
-        # prev用に2は保持する
-        self._tracking_episode = False
-        self._tracking_size = 2
-        self._tracking_one_state_size = max(2, self._config.window_length)
         self._use_stacked_state = self._config.window_length > 1
-        # render image
         self._use_render_image = self._config.use_render_image_state()
         self._use_stacked_render_image = self._use_render_image and (self._config.render_image_window_length > 1)
-        self._tracking_one_render_image_size = max(2, self._config.render_image_window_length)
+
+        self._tracking_episode = False
+        self._tracking_size = 0  # 0: no tracking, -1: episode_tracking
 
     def teardown(self):
         logger.debug("teardown")
@@ -225,38 +218,36 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._is_ready_policy = False
 
         # --- state
-        self._tracking_one_states: List[TObsType] = [
-            self._config.observation_space_one_step.get_default()
-            for _ in range(self._tracking_one_state_size)  #
-        ]
-        if self._use_stacked_state:
-            self._tracking_stacked_states: List[TObsType] = [
-                self._config.observation_space.get_default()
-                for _ in range(2)  #
-            ]
+        self._state = self._config.observation_space.get_default()
+        self._prev_state = self._config.observation_space.get_default()
+        self._one_states = [self._config.observation_space_one_step.get_default() for _ in range(self._config.window_length)]
+
         if self._use_render_image:
-            self._tracking_one_render_images: List[np.ndarray] = [
-                self._config.obs_render_img_space_one_step.get_default()
-                for _ in range(self._tracking_one_render_image_size)  #
-            ]
-            if self._use_stacked_render_image:
-                self._tracking_stacked_render_images: List[np.ndarray] = [
-                    self._config.obs_render_img_space.get_default()
-                    for _ in range(2)  #
-                ]
+            self._render_image = self._config.obs_render_img_space.get_default()
+            self._prev_render_image = self._config.obs_render_img_space.get_default()
+            self._one_render_images = [self._config.obs_render_img_space_one_step.get_default() for _ in range(self._config.render_image_window_length)]
+        else:
+            self._render_image = np.zeros((1,))
+            self._prev_render_image = np.zeros((1,))
+            self._one_render_images = []
 
-        # action
-        self._tracking_action: List[TActType] = [
-            self._config.action_space.get_default()
-            for _ in range(2)  #
-        ]
-        # reward, done
-        self._tracking_reward: List[float] = [0.0]
-        self._tracking_terminate: List[int] = []
-        self._tracking_invalid_actions: List[List[TActType]] = [[], []]
-        self._tracking_user_data: List[Dict[str, Any]] = []
+        # action, reward, done
+        self._action = self._config.action_space.get_default()
+        self._prev_action = self._config.action_space.get_default()
+        self._step_reward: float = 0.0
+        self._reward: float = 0.0
+        self._invalid_actions: List[TActType] = []
+        self._prev_invalid_actions: List[TActType] = []
 
-        self._step_reward: float = 0
+        # tracking
+        if self._tracking_episode:
+            self._tracking_state: List[TObsType] = []
+            self._tracking_render_image: List[np.ndarray] = []
+            self._tracking_action: List[TActType] = []
+            self._tracking_reward: List[float] = []
+            self._tracking_terminate: List[int] = []
+            self._tracking_invalid_actions: List[List[TActType]] = []
+            self._tracking_user_data: List[Dict[str, Any]] = []
 
     def ready_policy(self):
         """policyの準備を実行。1週目は on_reset、2週目以降は on_step を実行。"""
@@ -265,56 +256,63 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             raise SRLError("'ready_policy' cannot be called consecutively.")
 
         # --- state
+        self._prev_state = self._state
         state = cast(TObsType, self._config.state_encode_one_step(self.env.state, self._env))
-        if len(self._tracking_one_states) == self._tracking_one_state_size:
-            del self._tracking_one_states[0]
-        self._tracking_one_states.append(state)
         if self._use_stacked_state:
-            stacked_state = self._config.observation_space_one_step.encode_stack(
-                self._tracking_one_states[-self._config.window_length :],
-            )
-            if len(self._tracking_stacked_states) == self._tracking_size + 1:
-                del self._tracking_stacked_states[0]
-            self._tracking_stacked_states.append(stacked_state)
+            del self._one_states[0]
+            self._one_states.append(state)
+            self._state = self._config.observation_space_one_step.encode_stack(self._one_states)
+        else:
+            self._state = state
+
+        # --- render image
         if self._use_render_image:
+            self._prev_render_image = self._render_image
             render_image = self._config.render_image_state_encode_one_step(self._env)
-            if len(self._tracking_one_render_images) == self._tracking_one_render_image_size:
-                del self._tracking_one_render_images[0]
-            self._tracking_one_render_images.append(render_image)
             if self._use_stacked_render_image:
-                stacked_img = self._config.obs_render_img_space_one_step.encode_stack(
-                    self._tracking_one_render_images[-self._config.render_image_window_length :],
-                )
-                if len(self._tracking_stacked_render_images) == self._tracking_size + 1:
-                    del self._tracking_stacked_render_images[0]
-                self._tracking_stacked_render_images.append(stacked_img)
+                del self._one_render_images[0]
+                self._one_render_images.append(render_image)
+                self._render_image = self._config.obs_render_img_space_one_step.encode_stack(self._one_render_images)
+            else:
+                self._render_image = render_image
 
-        # invalid_actions
-        if len(self._tracking_invalid_actions) == self._tracking_size:
-            del self._tracking_invalid_actions[0]
-        self._tracking_invalid_actions.append(
-            [
-                cast(TActType, self._config.action_encode(a))
-                for a in self._env.get_invalid_actions(self._player_index)  #
-            ]
-        )
+        # --- invalid_actions
+        self._prev_invalid_actions = self._invalid_actions
+        self._invalid_actions = [
+            cast(TActType, self._config.action_encode(a))
+            for a in self._env.get_invalid_actions(self._player_index)  #
+        ]
 
+        # --- tracking
+        if self._tracking_episode:
+            # state (+1)
+            if (self._tracking_size != -1) and (len(self._tracking_state) == self._tracking_size + 1):
+                del self._tracking_state[0]
+            self._tracking_state.append(self._state)
+            # render image
+            if self._use_render_image:
+                if (self._tracking_size != -1) and (len(self._tracking_render_image) == self._tracking_size + 1):
+                    del self._tracking_render_image[0]
+                self._tracking_render_image.append(self._render_image)
+
+        # --- reset/step
         if not self._is_reset:
             logger.debug("on_reset")
             self._worker.on_reset(self)
             self._is_reset = True
         else:
-            if self._tracking_episode:
-                if len(self._tracking_reward) == self._tracking_size:
-                    del self._tracking_reward[0]
-                self._tracking_reward.append(self._step_reward)
-                if len(self._tracking_terminate) == self._tracking_size:
-                    del self._tracking_terminate[0]
-                self._tracking_terminate.append(int(self.terminated))
-            else:
-                self._tracking_reward[0] = self._step_reward
-
+            self._reward = self._step_reward
             self._step_reward = 0.0
+
+            if self._tracking_episode:
+                if (self._tracking_size != -1) and (len(self._tracking_reward) == self._tracking_size):
+                    del self._tracking_reward[0]
+                    del self._tracking_terminate[0]
+                    del self._tracking_invalid_actions[0]
+                self._tracking_invalid_actions.append(self._invalid_actions[:])
+                self._tracking_reward.append(self._reward)
+                self._tracking_terminate.append(int(self.terminated))
+
             logger.debug("on_step")
             self._worker.on_step(self)
 
@@ -328,9 +326,13 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
         logger.debug("policy")
         action = self._worker.policy(self)
-        if len(self._tracking_action) == self._tracking_size:
-            del self._tracking_action[0]
-        self._tracking_action.append(action)
+        self._prev_action = self._action
+        self._action = action
+
+        if self._tracking_episode:
+            if len(self._tracking_action) == self._tracking_size:
+                del self._tracking_action[0]
+            self._tracking_action.append(action)
 
         env_action = self._config.action_decode(action)
 
@@ -360,7 +362,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     # ------------------------------------
     def get_invalid_actions(self, env: Optional[EnvRun] = None, player_index: int = -1) -> List[TActType]:
         if env is None:
-            return self._tracking_invalid_actions[-1]
+            return self._invalid_actions
         return [
             cast(TActType, self._config.action_encode(a))
             for a in env.get_invalid_actions(player_index)  #
@@ -372,7 +374,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def add_invalid_actions(self, invalid_actions: List[TActType], encode: bool = False) -> None:
         if encode:
             invalid_actions = [self._config.action_encode(a) for a in invalid_actions]  # type: ignore
-        self._tracking_invalid_actions[-1] = list(set(self._tracking_invalid_actions[-1] + invalid_actions))
+        self._invalid_actions = list(set(self._invalid_actions + invalid_actions))
 
     # ------------------------------------
     # render functions
@@ -406,26 +408,14 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return self._render.render_rgb_array(worker=self, **kwargs)
 
     def render_rl_image(self) -> Optional[np.ndarray]:
-        if not self._config._rl_obs_space_one_step.is_image():
+        if not self._config.observation_space_one_step.is_image():
             return None
-        img = cast(np.ndarray, self._tracking_one_states[-1]).copy()
-        if img.max() <= 1:
-            img *= 255
-        if self._config._rl_obs_space_one_step.stype == SpaceTypes.GRAY_2ch:
-            img = img[..., np.newaxis]
-            img = np.tile(img, (1, 1, 3))
-        elif self._config._rl_obs_space_one_step.stype == SpaceTypes.GRAY_3ch:
-            img = np.tile(img, (1, 1, 3))
-        elif self._config._rl_obs_space_one_step.stype == SpaceTypes.COLOR:
-            pass
-        elif self._config._rl_obs_space_one_step.stype == SpaceTypes.IMAGE:
-            if len(img.shape) == 3 and img.shape[-1] == 3:
-                pass
-            else:
-                return None
+        space = cast(BoxSpace, self._config.observation_space_one_step)
+        if self._use_stacked_state:
+            img = cast(np.ndarray, self._one_states[-1]).copy()
         else:
-            return None
-        return img.astype(np.uint8)
+            img = cast(np.ndarray, self._state).copy()
+        return space.to_image(img)
 
     def create_render_image(
         self,
@@ -497,83 +487,28 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     # ------------------------------------
     # tracking
     # ------------------------------------
-    def enable_tracking(self, max_size: int = 9999):
+    def enable_tracking(self, max_size: int = -1):
         """stateだけ max_size+1 確保"""
         if self._is_setup:
             raise SRLError("Please call it in 'on_setup()'")
-        assert max_size > 0
         self._tracking_episode = True
-        self._tracking_size = max(self._tracking_size, max_size)
-        # add_resetの追加で1つ前のwindow_legthを取得したいので+1する
-        self._tracking_one_state_size = max(self._tracking_one_state_size, self.config.window_length + 1)
-        # next_state用に+1
-        self._tracking_one_state_size = max(self._tracking_one_state_size, max_size + 1)
-        if self._use_render_image and self._use_stacked_render_image:
-            self._tracking_one_render_image_size = max(self._tracking_one_render_image_size, self.config.render_image_window_length + 1)
-            self._tracking_one_render_image_size = max(self._tracking_one_render_image_size, max_size + 1)
+        self._tracking_size = max_size
 
-    def _check_tracking_key(self, data: Dict[str, Any]):
-        for k in data.keys():
-            if k in [
-                "state",
-                "one_state",
-                "stacked_state",
-                "render_image",
-                "one_render_image",
-                "stacked_render_image",
-                "action",
-                "invalid_actions",
-                "reward",
-                "terminated",
-            ]:
-                raise ValueError(f"'{k}' is a reserved word.")
-
-    def update_tracking(self, data: Dict[str, Any], index: int = -1):
-        self._check_tracking_key(data)
+    def update_tracking_data(self, data: Dict[str, Any], index: int = -1):
         self._tracking_user_data[index].update(data)
 
-    def add_tracking(self, data: Dict[str, Any]):
-        self._check_tracking_key(data)
+    def add_tracking_data(self, data: Dict[str, Any]):
         if len(self._tracking_user_data) == self._tracking_size:
             del self._tracking_user_data[0]
         self._tracking_user_data.append(data)
 
-    def get_tracking(self, key: str, size: int = 0, dummy: Any = None) -> List[Any]:
-        if size <= 0:
-            size = self._tracking_size
-
+    def get_tracking(self, key: str, size: int = -1, dummy: Any = None) -> List[Any]:
         if key == "state":
-            if self._use_stacked_state:
-                arr = self._tracking_stacked_states
-                if dummy is None:
-                    dummy = self._config.observation_space.get_default()
-            else:
-                arr = self._tracking_one_states
-                if dummy is None:
-                    dummy = self._config.observation_space_one_step.get_default()
-        elif key == "one_state":
-            arr = self._tracking_one_states
-            if dummy is None:
-                dummy = self._config.observation_space_one_step.get_default()
-        elif key == "stacked_state":
-            arr = self._tracking_stacked_states
+            arr = self._tracking_state
             if dummy is None:
                 dummy = self._config.observation_space.get_default()
         elif key == "render_image":
-            if self._use_stacked_render_image:
-                arr = self._tracking_stacked_render_images
-                if dummy is None:
-                    dummy = self._config.obs_render_img_space.get_default()
-            else:
-                arr = self._tracking_one_render_images
-                if dummy is None:
-                    dummy = self._config.obs_render_img_space_one_step.get_default()
-        elif key == "one_render_image":
-            arr = self._tracking_one_render_images
-            if dummy is None:
-                dummy = self._config.obs_render_img_space_one_step.get_default()
-        elif key == "stacked_render_image":
-            arr = self._tracking_stacked_render_images
+            arr = self._tracking_render_image
             if dummy is None:
                 dummy = self._config.obs_render_img_space.get_default()
         elif key == "action":
@@ -593,87 +528,56 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             if dummy is None:
                 dummy = 0
         else:
+            raise ValueError(key)
+
+        if size > 0:
+            if len(arr) < size:
+                return [dummy] * (size - len(arr)) + arr
+            else:
+                return arr[-size:]
+        else:
+            return arr[:]
+
+    def get_tracking_data(self, key: str, size: int = 0, dummy: Any = None) -> List[Any]:
+        if size > 0:
             if len(self._tracking_user_data) < size:
                 arr = [d[key] if key in d else dummy for d in self._tracking_user_data[:]]
                 return [dummy for _ in range(size - len(arr))] + arr[:]
             else:
                 return [d[key] if key in d else dummy for d in self._tracking_user_data[-size:]]
+        return [d[key] if key in d else dummy for d in self._tracking_user_data]
 
-        if len(arr) < size:
-            return [dummy for _ in range(size - len(arr))] + arr[:]
-        else:
-            return arr[-size:]
-
-    def add_dummy_step(self, state=None, action=None, invalid_actions=[], reward: float = 0.0, terminated: bool = False, tracking_data: Dict[str, Any] = {}, is_reset: bool = False):
-        self._check_tracking_key(tracking_data)
-
-        # reset時は初期stateの前に追加
+    def add_tracking_dummy_step(self, state=None, action=None, invalid_actions=[], reward: float = 0.0, terminated: bool = False, tracking_data: Dict[str, Any] = {}, is_reset: bool = False):
         if state is None:
-            state = self._config.observation_space_one_step.get_default()
-        if len(self._tracking_one_states) == self._tracking_one_state_size:
-            del self._tracking_one_states[0]
+            state = self._config.observation_space.get_default()
+        if (self._tracking_size != -1) and (len(self._tracking_state) == self._tracking_size + 1):
+            del self._tracking_state[0]
+        # reset時は初期stateの前に追加
         if is_reset:
-            self._tracking_one_states.insert(-1, state)
+            self._tracking_state.insert(-1, state)
         else:
-            self._tracking_one_states.append(state)
-        if self._use_stacked_state:
-            if len(self._tracking_stacked_states) == self._tracking_size + 1:
-                del self._tracking_stacked_states[0]
-            if is_reset:
-                stacked_state = self._config.observation_space_one_step.encode_stack(
-                    self._tracking_one_states[-self._config.window_length - 1 : -1],
-                )
-                self._tracking_stacked_states[-1] = stacked_state
-            stacked_state = self._config.observation_space_one_step.encode_stack(
-                self._tracking_one_states[-self._config.window_length :],
-            )
-            self._tracking_stacked_states.append(stacked_state)
+            self._tracking_state.append(state)
         if self._use_render_image:
-            render_image = self._config.render_image_state_encode_one_step(self._env)
-            if len(self._tracking_one_render_images) == self._tracking_one_render_image_size:
-                del self._tracking_one_render_images[0]
+            render_image = self._config.obs_render_img_space.get_default()
+            if (self._tracking_size != -1) and (len(self._tracking_render_image) == self._tracking_size + 1):
+                del self._tracking_render_image[0]
             if is_reset:
-                self._tracking_one_render_images.insert(-1, render_image)
+                self._tracking_render_image.insert(-1, render_image)
             else:
-                self._tracking_one_render_images.append(render_image)
-            if self._use_stacked_render_image:
-                if len(self._tracking_stacked_render_images) == self._tracking_size + 1:
-                    del self._tracking_stacked_render_images[0]
-                if is_reset:
-                    stacked_img = self._config.obs_render_img_space_one_step.encode_stack(
-                        self._tracking_one_render_images[-self._config.render_image_window_length - 1 : -1],
-                    )
-                    self._tracking_stacked_render_images[-1] = stacked_img
-                stacked_img = self._config.obs_render_img_space_one_step.encode_stack(
-                    self._tracking_one_render_images[-self._config.render_image_window_length :],
-                )
-                self._tracking_stacked_render_images.insert(-1, stacked_img)
+                self._tracking_render_image.append(render_image)
 
-        # action
         if action is None:
             action = self._config.action_space.get_default()
-        if len(self._tracking_action) == self._tracking_size:
+        if (self._tracking_size != -1) and (len(self._tracking_action) == self._tracking_size):
             del self._tracking_action[0]
-        self._tracking_action.append(action)
-
-        # invalid action
-        if len(self._tracking_invalid_actions) == self._tracking_size:
             del self._tracking_invalid_actions[0]
-        self._tracking_invalid_actions.append(invalid_actions)
-
-        # reward
-        if len(self._tracking_reward) == self._tracking_size:
             del self._tracking_reward[0]
-        self._tracking_reward.append(reward)
-
-        # terminate
-        if len(self._tracking_terminate) == self._tracking_size:
             del self._tracking_terminate[0]
-        self._tracking_terminate.append(int(terminated))
-
-        # user
-        if len(self._tracking_user_data) == self._tracking_size:
             del self._tracking_user_data[0]
+        self._tracking_action.append(action)
+        self._tracking_invalid_actions.append(invalid_actions)
+        self._tracking_reward.append(reward)
+        self._tracking_terminate.append(int(terminated))
         self._tracking_user_data.append(tracking_data)
 
     # ------------------------------------
@@ -685,31 +589,42 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             # setup
             self._is_setup,
             self._total_step,
-            self._tracking_episode,
-            self._tracking_size,
-            self._tracking_one_state_size,
             self._use_stacked_state,
             self._use_render_image,
             self._use_stacked_render_image,
-            self._tracking_one_render_image_size,
+            self._tracking_episode,
+            self._tracking_size,
             # reset
             self._player_index,
             self._episode_seed,
             self._is_reset,
             self._is_ready_policy,
-            [self._config.observation_space_one_step.copy_value(s) for s in self._tracking_one_states],
-            ([self._config.observation_space.copy_value(s) for s in self._tracking_stacked_states] if self._use_stacked_state else []),
-            ([self._config.obs_render_img_space_one_step.copy_value(s) for s in self._tracking_one_render_images] if self._use_render_image else []),
-            ([self._config.obs_render_img_space.copy_value(s) for s in self._tracking_stacked_render_images] if self._use_stacked_render_image else []),
-            [self._config.action_space.copy_value(d) for d in self._tracking_action],
-            self._tracking_reward[:],
-            self._tracking_terminate[:],
-            self._tracking_invalid_actions[:],
-            [d.copy() for d in self._tracking_user_data],
+            self._config.observation_space.copy_value(self._state),
+            self._config.observation_space.copy_value(self._prev_state),
+            [self._config.observation_space_one_step.copy_value(s) for s in self._one_states],
+            self._config.obs_render_img_space.copy_value(self._render_image),
+            self._config.obs_render_img_space.copy_value(self._prev_render_image),
+            [self._config.obs_render_img_space_one_step.copy_value(s) for s in self._one_render_images],
+            self._config.action_space.copy_value(self._action),
+            self._config.action_space.copy_value(self._prev_action),
             self._step_reward,
+            self._reward,
+            self._invalid_actions[:],
+            self._prev_invalid_actions[:],
             # env
             self._env.backup(),
         ]
+        if self._tracking_episode:
+            d += [
+                [self._config.observation_space.copy_value(s) for s in self._tracking_state],
+                [self._config.obs_render_img_space.copy_value(s) for s in self._tracking_render_image],
+                [self._config.action_space.copy_value(d) for d in self._tracking_action],
+                self._tracking_reward[:],
+                self._tracking_terminate[:],
+                self._tracking_invalid_actions[:],
+                [d.copy() for d in self._tracking_user_data],
+            ]
+
         return d
 
     def restore(self, dat: Any):
@@ -717,30 +632,39 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         # setup
         self._is_setup = dat[0]
         self._total_step = dat[1]
-        self._tracking_episode = dat[2]
-        self._tracking_size = dat[3]
-        self._tracking_one_state_size = dat[4]
-        self._use_stacked_state = dat[5]
-        self._use_render_image = dat[6]
-        self._use_stacked_render_image = dat[7]
-        self._tracking_one_render_image_size = dat[8]
+        self._use_stacked_state = dat[2]
+        self._use_render_image = dat[3]
+        self._use_stacked_render_image = dat[4]
+        self._tracking_episode = dat[5]
+        self._tracking_size = dat[6]
         # reset
-        self._player_index = dat[9]
-        self._episode_seed = dat[10]
-        self._is_reset = dat[11]
-        self._is_ready_policy = dat[12]
-        self._tracking_one_states = dat[13][:]
-        self._tracking_stacked_states = dat[14][:]
-        self._tracking_one_render_images = dat[15][:]
-        self._tracking_stacked_render_images = dat[16][:]
-        self._tracking_action = dat[17][:]
-        self._tracking_reward = dat[18][:]
-        self._tracking_terminate = dat[19][:]
-        self._tracking_invalid_actions = dat[20][:]
-        self._tracking_user_data = dat[21][:]
-        self._step_reward = dat[22]
+        self._player_index = dat[7]
+        self._episode_seed = dat[8]
+        self._is_reset = dat[9]
+        self._is_ready_policy = dat[10]
+        self._state = dat[11]
+        self._prev_state = dat[12]
+        self._one_states = dat[13]
+        self._render_image = dat[14]
+        self._prev_render_image = dat[15]
+        self._one_render_images = dat[16]
+        self._action = dat[17]
+        self._prev_action = dat[18]
+        self._step_reward = dat[19]
+        self._reward = dat[20]
+        self._invalid_actions = dat[21]
+        self._prev_invalid_actions = dat[22]
         # env
         self._env.restore(dat[23])
+        # tracking
+        if self._tracking_episode:
+            self._tracking_state = dat[24][:]
+            self._tracking_render_image = dat[25][:]
+            self._tracking_action = dat[26][:]
+            self._tracking_reward = dat[27][:]
+            self._tracking_terminate = dat[28][:]
+            self._tracking_invalid_actions = dat[29][:]
+            self._tracking_user_data = dat[30][:]
 
         if self._context.rendering:
             self._render.cache_reset()

@@ -224,6 +224,11 @@ class HistoryViewer:
 
         import matplotlib.pyplot as plt
 
+        if _for_test:
+            import matplotlib
+
+            matplotlib.use("Agg")
+
         x = _df[xlabel]
         fig, ax1 = plt.subplots()
         color_idx = 0
@@ -262,12 +267,14 @@ class HistoryViewer:
         ax1.set_xlabel(xlabel_plot)
 
         if _for_test:
+            plt.clf()
             plt.close()
             return
 
         plt.grid()
         plt.tight_layout()
         plt.show()
+        plt.clf()
         plt.close()
 
 

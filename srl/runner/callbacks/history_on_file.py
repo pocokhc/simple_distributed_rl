@@ -197,7 +197,7 @@ class HistoryOnFile(RunCallback, Evaluate):
         try:
             memory_percent = psutil_.read_memory()
             cpu_percent = psutil_.read_cpu()
-            if memory_percent != np.NaN:
+            if not np.isnan(memory_percent):
                 d["system_memory"] = memory_percent
                 d["cpu"] = cpu_percent
         except Exception:

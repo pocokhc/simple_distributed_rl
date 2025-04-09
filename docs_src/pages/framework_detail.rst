@@ -4,6 +4,15 @@
 Detailed Framework
 =====================
 
+Overview
+----------------
+
+.. image:: ../../diagrams/overview-sequence.drawio.png
+
+.. image:: ../../diagrams/overview-mp.drawio.png
+
+.. image:: ../../diagrams/overview-mp_memory.drawio.png
+
 
 Play flow
 ----------------
@@ -19,12 +28,6 @@ Multiplay flow
 ----------------
 
 .. image:: ../../diagrams/overview-multiplay.drawio.png
-
-
-Distributed flow
-----------------
-
-.. image:: ../../diagrams/runner_distributed_flow.png
 
 
 Class diagram

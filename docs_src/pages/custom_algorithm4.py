@@ -1,4 +1,5 @@
 import json
+import pickle
 import random
 from dataclasses import dataclass
 
@@ -6,13 +7,13 @@ import numpy as np
 
 from srl.base.define import RLBaseActTypes, RLBaseObsTypes
 from srl.base.rl.config import RLConfig
+from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker import RLWorker
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.discrete import DiscreteSpace
-from srl.rl.memories.sequence_memory import SequenceMemory
 
 
 @dataclass
@@ -28,21 +29,46 @@ class Config(RLConfig[DiscreteSpace, ArrayDiscreteSpace]):
     def get_base_observation_type(self) -> RLBaseObsTypes:
         return RLBaseObsTypes.DISCRETE
 
-    def get_framework(self) -> str:
-        return ""
-
     def get_name(self) -> str:
         return "MyRL"
 
 
-class Memory(SequenceMemory):
-    pass
+# 継承する場合
+# from srl.rl.memories.single_use_buffer import RLSingleUseBuffer
+# class Memory(RLSingleUseBuffer):
+#     pass
+
+
+class Memory(RLMemory[Config]):
+    def setup(self):
+        self.buffer = []
+        self.register_worker_func(self.add, pickle.dumps)
+        self.register_trainer_recv_func(self.sample)
+
+    def length(self) -> int:
+        return len(self.buffer)
+
+    def add(self, batch, serialized: bool = False) -> None:
+        if serialized:
+            batch = pickle.loads(batch)
+        self.buffer.append(batch)
+
+    def sample(self):
+        if len(self.buffer) == 0:
+            return None
+        buffer = self.buffer
+        self.buffer = []
+        return buffer
+
+    def call_backup(self, **kwargs):
+        return self.buffer[:]
+
+    def call_restore(self, data, **kwargs) -> None:
+        self.buffer = data[:]
 
 
 class Parameter(RLParameter[Config]):
-    def __init__(self, *args):
-        super().__init__(*args)
-
+    def setup(self):
         self.Q = {}  # Q学習用のテーブル
 
     def call_restore(self, data, **kwargs) -> None:
@@ -59,16 +85,16 @@ class Parameter(RLParameter[Config]):
 
 
 class Trainer(RLTrainer[Config, Parameter, Memory]):
-    def __init__(self, *args):
-        super().__init__(*args)
+    def on_setup(self) -> None:
+        pass
 
     def train(self) -> None:
-        if self.memory.is_warmup_needed():
+        batches = self.memory.sample()
+        if batches is None:
             return
-        batchs = self.memory.sample()
 
         td_error = 0
-        for batch in batchs:
+        for batch in batches:
             # 各batch毎にQテーブルを更新する
             s = batch["state"]
             n_s = batch["next_state"]
@@ -90,17 +116,20 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             td_error += td_error
             self.train_count += 1  # 学習回数
 
-        if len(batchs) > 0:
-            td_error /= len(batchs)
+        if len(batches) > 0:
+            td_error /= len(batches)
 
         # 学習結果(任意)
         self.info["Q"] = len(self.parameter.Q)
         self.info["td_error"] = td_error
 
 
-class Worker(RLWorker[Config, Parameter]):
-    def __init__(self, *args):
-        super().__init__(*args)
+class Worker(RLWorker[Config, Parameter, Memory]):
+    def on_setup(self, worker, context) -> None:
+        pass
+
+    def on_teardown(self, worker) -> None:
+        pass
 
     def on_reset(self, worker):
         pass
@@ -116,28 +145,29 @@ class Worker(RLWorker[Config, Parameter]):
 
         if random.random() < epsilon:
             # epsilonより低いならランダムに移動
-            self.action = self.sample_action()
+            action = self.sample_action()
         else:
             q = self.parameter.get_action_values(self.state)
             q = np.asarray(q)
 
             # 最大値を選ぶ（複数あればランダム）
-            self.action = np.random.choice(np.where(q == q.max())[0])
+            action = np.random.choice(np.where(q == q.max())[0])
 
-        return int(self.action)
+        return int(action)
 
     def on_step(self, worker):
         if not self.training:
             return
 
-        batch = {
-            "state": self.state,
-            "next_state": self.config.observation_space.to_str(worker.state),
-            "action": self.action,
-            "reward": worker.reward,
-            "done": worker.terminated,
-        }
-        self.memory.add(batch)  # memoryはaddのみ
+        self.memory.add(
+            {
+                "state": self.state,
+                "next_state": self.config.observation_space.to_str(worker.state),
+                "action": worker.action,
+                "reward": worker.reward,
+                "done": worker.terminated,
+            }
+        )
 
     # 強化学習の可視化用、今回ですとQテーブルを表示しています。
     def render_terminal(self, worker, **kwargs):
@@ -164,29 +194,31 @@ register(
 )
 
 
-# ---------------------------------
-# テスト
-# ---------------------------------
-from srl.test.rl import TestRL
+def test():
+    from srl.test.rl import test_rl
 
-tester = TestRL()
-tester.test(Config())
+    test_rl(Config())
 
 
-# ---------------------------------
-# Grid環境の学習
-# ---------------------------------
-import srl
+def main():
+    # --- Grid環境の学習
+    import srl
 
-runner = srl.Runner(srl.EnvConfig("Grid"), Config(lr=0.001))
+    runner = srl.Runner(srl.EnvConfig("Grid"), Config(lr=0.001))
 
-# --- train
-runner.train(timeout=10)
+    # --- train
+    runner.train(timeout=10)
+    runner.train_mp(timeout=10)
 
-# --- test
-rewards = runner.evaluate(max_episodes=100)
-print("100エピソードの平均結果", np.mean(rewards))
+    # --- test
+    rewards = runner.evaluate(max_episodes=100)
+    print("100エピソードの平均結果", np.mean(rewards))
 
-runner.render_terminal()
+    runner.render_terminal()
 
-runner.animation_save_gif("_MyRL-Grid.gif", render_scale=2)
+    runner.animation_save_gif("_MyRL-Grid.gif", render_scale=2)
+
+
+if __name__ == "__main__":
+    # test()
+    main()

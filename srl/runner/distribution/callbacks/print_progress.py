@@ -35,7 +35,9 @@ class PrintProgress(DistributionCallback, Evaluate):
         parameter = task_manager.create_parameter()
         if parameter is None:
             return ""
-        eval_rewards = self.run_eval(task_config.context.env_config, task_config.context.rl_config, parameter)
+        if self._eval_runner is None:
+            self._eval_runner = self.create_eval_runner(task_config.context)
+        eval_rewards = self.run_eval(self._eval_runner, parameter)
         if eval_rewards is None:
             return ""
         eval_rewards = np.mean(eval_rewards, axis=0)

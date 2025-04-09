@@ -19,6 +19,7 @@ class HistoryOnFile(DistributionCallback, Evaluate):
 
     def __post_init__(self):
         self._base = HistoryOnFileBase(self.save_dir, self.add_history)
+        self._eval_runner = None
 
     def on_start(self, task_manager: TaskManager):
         self.task_config = task_manager.get_config()
@@ -51,11 +52,9 @@ class HistoryOnFile(DistributionCallback, Evaluate):
         if self.task_config is not None:
             parameter = task_manager.create_parameter()
             if parameter is not None:
-                eval_rewards = self.run_eval(
-                    self.task_config.context.env_config,
-                    self.task_config.context.rl_config,
-                    parameter,
-                )
+                if self._eval_runner is None:
+                    self._eval_runner = self.create_eval_runner(self.task_config.context)
+                eval_rewards = self.run_eval(self._eval_runner, parameter)
                 if eval_rewards is not None:
                     for i, r in enumerate(eval_rewards):
                         d[f"eval_reward{i}"] = r

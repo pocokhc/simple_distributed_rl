@@ -2,8 +2,6 @@
 
 [![(latest) release | GitHub](https://img.shields.io/github/release/pocokhc/simple_distributed_rl.svg?logo=github&style=popout)](https://github.com/pocokhc/simple_distributed_rl/releases/latest)
 
-※mainは間違ってv0.18.1.1で更新してしまいました。まだ一部機能が使えない可能性があるので気をつけてください。近いうちにv0.19.0をリリースします。
-
 # シンプルな分散強化学習フレームワーク（SRL ; Simple distributed Reinforcement Learning framework）
 
 シンプルな分散強化学習フレームワークを目指して作成しています。  

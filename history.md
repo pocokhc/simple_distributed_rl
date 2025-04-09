@@ -18,7 +18,7 @@
 
 # v0.19.0
 
-大幅アップデート
+大型アップデート
 
 **train_mp_memoryの追加**
 
@@ -66,10 +66,9 @@ RLMemoryですが、前はworkerで使える関数がaddのみ固定でしたが
 
 1. state_encode/action_decodeをRLConfigに移動、依存範囲が少なくなりました
    - processorもRLConfigで閉じるように移動
-1. trackingシステムを作成
-   - recentや、prev_state等をなくし、状態の保持をtackingシステム一括で管理するように変更
 1. reward_encodeを廃止。RLWorker内またはEnv側のProcessorで十分と判断。
 1. MCTS等のenv側のシミュレーションstepをEnvRun側に移動し、WorkerRunに依存しないように変更。
+1. trackingシステムを作成
 1. EnvProcessor,RLRrocessorを見直し
    - EnvProcessorは状態を保持してstepに割り込めるように変更
    - RLProcessorは状態を持たず、obsのみしか干渉できないように変更
@@ -120,6 +119,7 @@ RLMemoryですが、前はworkerで使える関数がaddのみ固定でしたが
 1. [base.spaces] add: copyにコンストラクタを上書きできる引数を追加
 1. [base.spaces] add: is_value,is_multi関数を追加
 1. [base.spaces.box] change: gray画像でstackする場合、chに追加するかどうかをコンストラクタで指定するように変更
+1. [base.spaces.box] add: to_image関数を追加
 1. [base.rl.trainer] add: contextプロパティを追加
 1. [base.spaces.space] TypeVerにboundとcovariantを追加
 1. RLMemory/RLParameterでsetup、RLTrainer/RLWorkerでon_setupを使うようにし、コンストラクタの使用を非推奨に（ドキュメントベース）
@@ -127,7 +127,10 @@ RLMemoryですが、前はworkerで使える関数がaddのみ固定でしたが
 1. [spaces] add: discreteなspaceにget_onehot関数を追加
 1. [base.run.callback] ref: クラスを分ける意味が薄かったのでRunCallbackに統一
 1. rename: batchs -> batches
+1. [runner.callbacks.evaluate] update: create_eval_runner_if_not_exitstsからcreate_eval_runnerを分割
 1. [runner.callbacks] update: np.NaNの判定をnp.isnanに変更
+1. [dockes] update: version更新
+1. [docs,diagrams] update: ドキュメント更新
 
 **Bug Fixes**
 

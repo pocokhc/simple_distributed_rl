@@ -82,7 +82,7 @@ loop episode
 
     User -> Trainer: train
         Trainer -> Memory: sample()
-        return batchs
+        return batches
         Trainer -> Parameter: update parameter
         return
     return

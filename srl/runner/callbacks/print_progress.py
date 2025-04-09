@@ -59,7 +59,7 @@ class PrintProgress(RunCallback, Evaluate):
             return ""
         if context.distributed:
             if context.actor_id == 0:
-                eval_rewards = self.run_eval(context, state)
+                eval_rewards = self.run_eval_state(context, state)
                 if eval_rewards is None:
                     return " " * 12
                 else:
@@ -67,7 +67,7 @@ class PrintProgress(RunCallback, Evaluate):
             else:
                 return " " * 12
         else:
-            eval_rewards = self.run_eval(context, state)
+            eval_rewards = self.run_eval_state(context, state)
             if eval_rewards is None:
                 return " " * 12
             else:

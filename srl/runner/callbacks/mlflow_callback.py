@@ -180,7 +180,7 @@ class MLFlowCallback(RunCallback, Evaluate):
             return
 
         t0 = time.time()
-        eval_rewards = self.run_eval(context, state)
+        eval_rewards = self.run_eval_state(context, state)
         if eval_rewards is not None:
             d = {f"eval_reward{i}": r for i, r in enumerate(eval_rewards)}
             mlflow.log_metrics(d, self._get_step(context, state), run_id=self.run_id)

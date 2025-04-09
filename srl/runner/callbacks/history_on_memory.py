@@ -120,7 +120,7 @@ class HistoryOnMemory(RunCallback, Evaluate):
         d.update(self._read_stats(context))
 
         # --- eval
-        eval_rewards = self.run_eval(context, state)
+        eval_rewards = self.run_eval_state(context, state)
         if eval_rewards is not None:
             for i, r in enumerate(eval_rewards):
                 d[f"eval_reward{i}"] = r

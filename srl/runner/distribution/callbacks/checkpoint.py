@@ -20,7 +20,7 @@ class Checkpoint(DistributionCallback, Evaluate):
         if not os.path.isdir(self.save_dir):
             os.makedirs(self.save_dir, exist_ok=True)
             logger.info(f"makedirs: {self.save_dir}")
-
+        self._eval_runner = None
         self.interval_t0 = time.time()
         self._save_parameter(task_manager, is_last=False)
 
@@ -39,12 +39,17 @@ class Checkpoint(DistributionCallback, Evaluate):
         parameter = task_manager.create_parameter()
         if parameter is None:
             return
-        eval_rewards = self.run_eval(
-            task_config.context.env_config,
-            task_config.context.rl_config,
-            parameter,
-        )
-        if eval_rewards is None:
+
+        try:
+            if self._eval_runner is None:
+                self._eval_runner = self.create_eval_runner(task_config.context)
+            eval_rewards = self.run_eval(self._eval_runner, parameter)
+            if eval_rewards is None:
+                eval_rewards = "None"
+        except Exception:
+            import traceback
+
+            logger.error(traceback.format_exc())
             eval_rewards = "None"
 
         fn = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")

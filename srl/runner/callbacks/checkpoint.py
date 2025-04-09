@@ -43,7 +43,7 @@ class Checkpoint(RunCallback, Evaluate):
             logger.info(f"makedirs: {self.save_dir}")
 
     def _save_parameter(self, context: RunContext, state: Union[RunStateActor, RunStateTrainer], is_last: bool):
-        eval_rewards = self.run_eval(context, state)
+        eval_rewards = self.run_eval_state(context, state)
         if eval_rewards is None:
             eval_rewards = "None"
 

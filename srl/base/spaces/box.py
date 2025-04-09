@@ -156,6 +156,40 @@ class BoxSpace(SpaceBase[np.ndarray]):
             s = f", division({self.int_size})"
         return f"Box{self.shape}, range[{np.min(self.low)}, {np.max(self.high)}]{s}, {self._dtype}, {self._stype}"
 
+    def to_image(self, x: np.ndarray) -> np.ndarray:
+        """
+        入力された x を画像データとして uint8 に変換する。
+        """
+        assert x.shape == self.shape, f"Shape mismatch: {x.shape} != {self.shape}"
+
+        # 無限範囲の場合はスケーリング不可
+        if self._is_inf:
+            raise ValueError("Cannot convert to image when low or high is infinite.")
+
+        if self._stype == SpaceTypes.GRAY_2ch:
+            assert x.ndim == 2, f"{self._stype.name} expects (H, W), got {x.shape}"
+            x = x[..., None]  # (H, W, 1)
+            x = np.repeat(x, 3, axis=2)  # (H, W, 3)
+        elif self._stype == SpaceTypes.GRAY_3ch:
+            assert x.ndim == 3 and x.shape[2] == 1, f"{self._stype.name} expects (H, W, 1), got {x.shape}"
+            x = np.repeat(x, 3, axis=2)  # (H, W, 3)
+        elif self._stype in {SpaceTypes.COLOR, SpaceTypes.IMAGE}:
+            assert x.ndim == 3, f"{self._stype.name} expects 3D shape (H, W, C), got {x.shape}"
+            if x.shape[2] == 1:
+                x = np.repeat(x, 3, axis=2)  # (H, W, 1) → (H, W, 3)
+            elif x.shape[2] != 3:
+                raise ValueError(f"{self._stype.name} expects channel=3, got {x.shape[2]}")
+        else:
+            raise ValueError(f"Unsupported stype for image conversion: {self._stype.name}")
+
+        # スケーリング
+        scale = np.where(self.high != self.low, 255.0 / (self.high - self.low), 0.0)
+        offset = -self.low * scale
+        x_scaled = x * scale + offset
+        x_clipped = np.clip(x_scaled, 0, 255)
+
+        return x_clipped.astype(np.uint8)
+
     # --- stack
     def create_stack_space(self, length: int):
         if self._is_stack_ch:

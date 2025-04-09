@@ -7,10 +7,6 @@ Distributed Learning (Online)
 
 .. image:: ../../diagrams/overview-mp.drawio.png
 
-フローイメージは以下です。
-
-.. image:: ../../diagrams/runner_distributed_flow.png
-
 各サーバとのやりとりのイメージは以下です。
 
 .. image:: ../../diagrams/overview-distribution.drawio.png

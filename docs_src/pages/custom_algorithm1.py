@@ -1,12 +1,12 @@
-from srl.rl.memories.sequence_memory import SequenceMemory
+from srl.base.rl.config import DummyRLConfig
+from srl.rl.memories.single_use_buffer import RLSingleUseBuffer
 
 
-class MyRemoteMemory(SequenceMemory):
+class MyRemoteMemory(RLSingleUseBuffer):
     pass
 
 
-# 実行例
-memory = MyRemoteMemory(None)
+memory = MyRemoteMemory(DummyRLConfig())
 memory.add([1, 2])
 memory.add([2, 3])
 memory.add([3, 4])

@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Memory &mdash; SimpleDistributedRL 0.17.1.1 ドキュメント</title>
+  <title>Memory &mdash; SimpleDistributedRL 0.18.1.2 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=c6bea03a"></script>
+      <script src="../_static/documentation_options.js?v=e8c07f75"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -61,20 +61,20 @@
 <li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="rl_config_tree.html">RLConfig Parameters</a><ul class="current">
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Memory</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#sequencememory">SequenceMemory</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.sequence_memory.SequenceMemory"><code class="docutils literal notranslate"><span class="pre">SequenceMemory</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#singleusebuffer">SingleUseBuffer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.single_use_buffer.SingleUseBuffer"><code class="docutils literal notranslate"><span class="pre">SingleUseBuffer</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#experiencereplaybuffer">ExperienceReplayBuffer</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentExperienceReplayBuffer</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#replaybuffer">ReplayBuffer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.replay_buffer.ReplayBufferConfig"><code class="docutils literal notranslate"><span class="pre">ReplayBufferConfig</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#priorityexperiencereplay">PriorityExperienceReplay</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentPriorityExperienceReplay</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_memories.replay_memory.ReplayMemory"><code class="docutils literal notranslate"><span class="pre">ReplayMemory</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#priorityreplaybuffer">PriorityReplayBuffer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_replay_buffer.PriorityReplayBufferConfig"><code class="docutils literal notranslate"><span class="pre">PriorityReplayBufferConfig</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_memories.replay_buffer.ReplayBuffer"><code class="docutils literal notranslate"><span class="pre">ReplayBuffer</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory"><code class="docutils literal notranslate"><span class="pre">ProportionalMemory</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory"><code class="docutils literal notranslate"><span class="pre">RankBaseMemory</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_memories.rankbase_memory_linear.RankBaseMemoryLinear"><code class="docutils literal notranslate"><span class="pre">RankBaseMemoryLinear</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_memories.rankbased_memory.RankBasedMemory"><code class="docutils literal notranslate"><span class="pre">RankBasedMemory</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#srl.rl.memories.priority_memories.rankbased_memory_linear.RankBasedMemoryLinear"><code class="docutils literal notranslate"><span class="pre">RankBasedMemoryLinear</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -85,6 +85,7 @@
 <li class="toctree-l2"><a class="reference internal" href="rl_config_model.html#mlpblock">MLPBlock</a></li>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_model.html#duelingnetwork">DuelingNetwork</a></li>
 <li class="toctree-l2"><a class="reference internal" href="rl_config_scheduler.html">Scheduler</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rl_config_scheduler.html#lrschaduler">LRSchaduler</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Configuration related)</a></li>
@@ -136,132 +137,83 @@
              
   <section id="memory">
 <h1>Memory<a class="headerlink" href="#memory" title="Link to this heading"></a></h1>
-<section id="sequencememory">
-<span id="id1"></span><h2>SequenceMemory<a class="headerlink" href="#sequencememory" title="Link to this heading"></a></h2>
+<section id="singleusebuffer">
+<span id="id1"></span><h2>SingleUseBuffer<a class="headerlink" href="#singleusebuffer" title="Link to this heading"></a></h2>
 <dl class="py class">
-<dt class="sig sig-object py" id="srl.rl.memories.sequence_memory.SequenceMemory">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.sequence_memory.</span></span><span class="sig-name descname"><span class="pre">SequenceMemory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.sequence_memory.SequenceMemory" title="Link to this definition"></a></dt>
-<dd><p>FIFO形式でやりとりするシンプルなメモリです。
-パラメータは特にありません。
-圧縮は行いません。</p>
-</dd></dl>
+<dt class="sig sig-object py" id="srl.rl.memories.single_use_buffer.SingleUseBuffer">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.single_use_buffer.</span></span><span class="sig-name descname"><span class="pre">SingleUseBuffer</span></span><a class="headerlink" href="#srl.rl.memories.single_use_buffer.SingleUseBuffer" title="Link to this definition"></a></dt>
+<dd></dd></dl>
 
 </section>
-<section id="experiencereplaybuffer">
-<span id="rlconfigcomponentexperiencereplaybuffer"></span><h2>ExperienceReplayBuffer<a class="headerlink" href="#experiencereplaybuffer" title="Link to this heading"></a></h2>
+<section id="replaybuffer">
+<span id="replaybufferconfig"></span><h2>ReplayBuffer<a class="headerlink" href="#replaybuffer" title="Link to this heading"></a></h2>
 <dl class="py class">
-<dt class="sig sig-object py" id="srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.experience_replay_buffer.</span></span><span class="sig-name descname"><span class="pre">RLConfigComponentExperienceReplayBuffer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_capacity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_warmup_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_compress</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_compress_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer" title="Link to this definition"></a></dt>
-<dd><p>ExperienceReplayBuffer</p>
-<p>これを継承しているアルゴリズムはbatch_size変数とmemory変数を持ちます。
-memory変数からパラメータを設定できます。</p>
-<dl class="simple">
-<dt>Parameter:</dt><dd><p>capacity(int): メモリに保存できる最大サイズ. default is 100_000
-warmup_size(int): warmup size. default is 1_000
-batch_size(int): Batch size. default is 32</p>
-</dd>
-</dl>
-<p class="rubric">サンプル</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.algorithms</span><span class="w"> </span><span class="kn">import</span> <span class="n">alphazero</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span> <span class="o">=</span> <span class="n">alphazero</span><span class="o">.</span><span class="n">Config</span><span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">=</span> <span class="mi">64</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">memory_capacity</span> <span class="o">=</span> <span class="mi">1000</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">memory_warmup_size</span> <span class="o">=</span> <span class="mi">1000</span>
-</pre></div>
-</div>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.batch_size">
-<span class="sig-name descname"><span class="pre">batch_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32</span></em><a class="headerlink" href="#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.batch_size" title="Link to this definition"></a></dt>
-<dd><p>Batch size</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.memory_capacity">
-<span class="sig-name descname"><span class="pre">memory_capacity</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">100000</span></em><a class="headerlink" href="#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.memory_capacity" title="Link to this definition"></a></dt>
-<dd><p>capacity</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.memory_warmup_size">
-<span class="sig-name descname"><span class="pre">memory_warmup_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1000</span></em><a class="headerlink" href="#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.memory_warmup_size" title="Link to this definition"></a></dt>
-<dd><p>warmup_size</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.memory_compress">
-<span class="sig-name descname"><span class="pre">memory_compress</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.memory_compress" title="Link to this definition"></a></dt>
-<dd><p>memoryデータを圧縮してやり取りするかどうか</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.memory_compress_level">
-<span class="sig-name descname"><span class="pre">memory_compress_level</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">-1</span></em><a class="headerlink" href="#srl.rl.memories.experience_replay_buffer.RLConfigComponentExperienceReplayBuffer.memory_compress_level" title="Link to this definition"></a></dt>
-<dd><p>memory(zlib)の圧縮レベル</p>
-</dd></dl>
-
-</dd></dl>
-
-</section>
-<section id="priorityexperiencereplay">
-<span id="rlconfigcomponentpriorityexperiencereplay"></span><h2>PriorityExperienceReplay<a class="headerlink" href="#priorityexperiencereplay" title="Link to this heading"></a></h2>
-<dl class="py class">
-<dt class="sig sig-object py" id="srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_experience_replay.</span></span><span class="sig-name descname"><span class="pre">RLConfigComponentPriorityExperienceReplay</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_capacity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_warmup_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_compress</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_compress_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay" title="Link to this definition"></a></dt>
-<dd><p>PriorityExperienceReplay</p>
-<p>これを継承しているアルゴリズムはbatch_size変数とmemory変数を持ちます。
-memory変数から関数を呼ぶことで各memoryを設定できます。
-また、memory変数から任意のパラメータを設定できます。</p>
-<p class="rubric">サンプル</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.algorithms</span><span class="w"> </span><span class="kn">import</span> <span class="n">dqn</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span> <span class="o">=</span> <span class="n">dqn</span><span class="o">.</span><span class="n">Config</span><span class="p">()</span>
-<span class="gp">&gt;&gt;&gt;</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="c1"># 各パラメータの設定例</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">=</span> <span class="mi">64</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">memory_capacity</span> <span class="o">=</span> <span class="mi">10000</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">memory_warmup_size</span> <span class="o">=</span> <span class="mi">10</span>
-<span class="gp">&gt;&gt;&gt;</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="c1"># ProportionalMemory の設定例</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">rl_config</span><span class="o">.</span><span class="n">set_proportional_memory</span><span class="p">()</span>
-</pre></div>
-</div>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.batch_size">
-<span class="sig-name descname"><span class="pre">batch_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32</span></em><a class="headerlink" href="#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.batch_size" title="Link to this definition"></a></dt>
-<dd><p>Batch size</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.memory_capacity">
-<span class="sig-name descname"><span class="pre">memory_capacity</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">100000</span></em><a class="headerlink" href="#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.memory_capacity" title="Link to this definition"></a></dt>
-<dd><p>capacity</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.memory_warmup_size">
-<span class="sig-name descname"><span class="pre">memory_warmup_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1000</span></em><a class="headerlink" href="#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.memory_warmup_size" title="Link to this definition"></a></dt>
-<dd><p>warmup_size</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.memory_compress">
-<span class="sig-name descname"><span class="pre">memory_compress</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.memory_compress" title="Link to this definition"></a></dt>
-<dd><p>memoryデータを圧縮してやり取りするかどうか</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.memory_compress_level">
-<span class="sig-name descname"><span class="pre">memory_compress_level</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">-1</span></em><a class="headerlink" href="#srl.rl.memories.priority_experience_replay.RLConfigComponentPriorityExperienceReplay.memory_compress_level" title="Link to this definition"></a></dt>
-<dd><p>memory(zlib)の圧縮レベル</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.replay_memory.ReplayMemory">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_memories.replay_memory.</span></span><span class="sig-name descname"><span class="pre">ReplayMemory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">capacity:</span> <span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype:</span> <span class="pre">type</span> <span class="pre">=</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_memories.replay_memory.ReplayMemory" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.rl.memories.replay_buffer.ReplayBufferConfig">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.replay_buffer.</span></span><span class="sig-name descname"><span class="pre">ReplayBufferConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">capacity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">warmup_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compress</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compress_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.replay_buffer.ReplayBufferConfig" title="Link to this definition"></a></dt>
 <dd><dl class="py attribute">
-<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.replay_memory.ReplayMemory.dtype">
-<span class="sig-name descname"><span class="pre">dtype</span></span><a class="headerlink" href="#srl.rl.memories.priority_memories.replay_memory.ReplayMemory.dtype" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.rl.memories.replay_buffer.ReplayBufferConfig.capacity">
+<span class="sig-name descname"><span class="pre">capacity</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">100000</span></em><a class="headerlink" href="#srl.rl.memories.replay_buffer.ReplayBufferConfig.capacity" title="Link to this definition"></a></dt>
+<dd><p>capacity</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.replay_buffer.ReplayBufferConfig.warmup_size">
+<span class="sig-name descname"><span class="pre">warmup_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1000</span></em><a class="headerlink" href="#srl.rl.memories.replay_buffer.ReplayBufferConfig.warmup_size" title="Link to this definition"></a></dt>
+<dd><p>warmup_size</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.replay_buffer.ReplayBufferConfig.compress">
+<span class="sig-name descname"><span class="pre">compress</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.rl.memories.replay_buffer.ReplayBufferConfig.compress" title="Link to this definition"></a></dt>
+<dd><p>memoryデータを圧縮してやり取りするかどうか</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.replay_buffer.ReplayBufferConfig.compress_level">
+<span class="sig-name descname"><span class="pre">compress_level</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">-1</span></em><a class="headerlink" href="#srl.rl.memories.replay_buffer.ReplayBufferConfig.compress_level" title="Link to this definition"></a></dt>
+<dd><p>memory(zlib)の圧縮レベル</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="priorityreplaybuffer">
+<span id="priorityreplaybufferconfig"></span><h2>PriorityReplayBuffer<a class="headerlink" href="#priorityreplaybuffer" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="srl.rl.memories.priority_replay_buffer.PriorityReplayBufferConfig">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_replay_buffer.</span></span><span class="sig-name descname"><span class="pre">PriorityReplayBufferConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">capacity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">warmup_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compress</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compress_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_replay_buffer.PriorityReplayBufferConfig" title="Link to this definition"></a></dt>
+<dd><dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.priority_replay_buffer.PriorityReplayBufferConfig.capacity">
+<span class="sig-name descname"><span class="pre">capacity</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">100000</span></em><a class="headerlink" href="#srl.rl.memories.priority_replay_buffer.PriorityReplayBufferConfig.capacity" title="Link to this definition"></a></dt>
+<dd><p>capacity</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.priority_replay_buffer.PriorityReplayBufferConfig.warmup_size">
+<span class="sig-name descname"><span class="pre">warmup_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1000</span></em><a class="headerlink" href="#srl.rl.memories.priority_replay_buffer.PriorityReplayBufferConfig.warmup_size" title="Link to this definition"></a></dt>
+<dd><p>warmup_size</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.priority_replay_buffer.PriorityReplayBufferConfig.compress">
+<span class="sig-name descname"><span class="pre">compress</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.rl.memories.priority_replay_buffer.PriorityReplayBufferConfig.compress" title="Link to this definition"></a></dt>
+<dd><p>memoryデータを圧縮してやり取りするかどうか</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.priority_replay_buffer.PriorityReplayBufferConfig.compress_level">
+<span class="sig-name descname"><span class="pre">compress_level</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">-1</span></em><a class="headerlink" href="#srl.rl.memories.priority_replay_buffer.PriorityReplayBufferConfig.compress_level" title="Link to this definition"></a></dt>
+<dd><p>memory(zlib)の圧縮レベル</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.replay_buffer.ReplayBuffer">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_memories.replay_buffer.</span></span><span class="sig-name descname"><span class="pre">ReplayBuffer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">capacity:</span> <span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype:</span> <span class="pre">type</span> <span class="pre">=</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_memories.replay_buffer.ReplayBuffer" title="Link to this definition"></a></dt>
+<dd><dl class="py attribute">
+<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.replay_buffer.ReplayBuffer.dtype">
+<span class="sig-name descname"><span class="pre">dtype</span></span><a class="headerlink" href="#srl.rl.memories.priority_memories.replay_buffer.ReplayBuffer.dtype" title="Link to this definition"></a></dt>
 <dd><p>:py:class:<a href="#id2"><span class="problematic" id="id3">`</span></a>~numpy.float32`の別名です。</p>
 </dd></dl>
 
@@ -269,7 +221,7 @@ memory変数から関数を呼ぶことで各memoryを設定できます。
 
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_memories.proportional_memory.</span></span><span class="sig-name descname"><span class="pre">ProportionalMemory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">capacity:</span> <span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_initial:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_steps:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">has_duplicate:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epsilon:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype:</span> <span class="pre">type</span> <span class="pre">=</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_memories.proportional_memory.</span></span><span class="sig-name descname"><span class="pre">ProportionalMemory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">capacity:</span> <span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_initial:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_steps:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">has_duplicate:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epsilon:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype:</span> <span class="pre">type</span> <span class="pre">=</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory" title="Link to this definition"></a></dt>
 <dd><dl class="py attribute">
 <dt class="sig sig-object py" id="srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.alpha">
 <span class="sig-name descname"><span class="pre">alpha</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.6</span></em><a class="headerlink" href="#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.alpha" title="Link to this definition"></a></dt>
@@ -309,40 +261,40 @@ memory変数から関数を呼ぶことで各memoryを設定できます。
 </dd></dl>
 
 <dl class="py class">
-<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_memories.rankbase_memory.</span></span><span class="sig-name descname"><span class="pre">RankBaseMemory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">capacity:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_initial:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_steps:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype:</span> <span class="pre">type</span> <span class="pre">=</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.rankbased_memory.RankBasedMemory">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_memories.rankbased_memory.</span></span><span class="sig-name descname"><span class="pre">RankBasedMemory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">capacity:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_initial:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_steps:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype:</span> <span class="pre">type</span> <span class="pre">=</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbased_memory.RankBasedMemory" title="Link to this definition"></a></dt>
 <dd><dl class="py attribute">
-<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.alpha">
-<span class="sig-name descname"><span class="pre">alpha</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.6</span></em><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.alpha" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.rankbased_memory.RankBasedMemory.alpha">
+<span class="sig-name descname"><span class="pre">alpha</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.6</span></em><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbased_memory.RankBasedMemory.alpha" title="Link to this definition"></a></dt>
 <dd><p>priorityの反映度、0の場合は完全ランダム、1に近づくほどpriorityによるランダム度になります。</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.beta_initial">
-<span class="sig-name descname"><span class="pre">beta_initial</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.4</span></em><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.beta_initial" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.rankbased_memory.RankBasedMemory.beta_initial">
+<span class="sig-name descname"><span class="pre">beta_initial</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.4</span></em><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbased_memory.RankBasedMemory.beta_initial" title="Link to this definition"></a></dt>
 <dd><p>βはISを反映させる割合。ただβは少しずつ増やし、最後に1(完全反映)にします。そのβの初期値です。</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.beta_steps">
-<span class="sig-name descname"><span class="pre">beta_steps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1000000</span></em><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.beta_steps" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.rankbased_memory.RankBasedMemory.beta_steps">
+<span class="sig-name descname"><span class="pre">beta_steps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1000000</span></em><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbased_memory.RankBasedMemory.beta_steps" title="Link to this definition"></a></dt>
 <dd><p>βを何stepで1にするか</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.dtype">
-<span class="sig-name descname"><span class="pre">dtype</span></span><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbase_memory.RankBaseMemory.dtype" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.rankbased_memory.RankBasedMemory.dtype">
+<span class="sig-name descname"><span class="pre">dtype</span></span><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbased_memory.RankBasedMemory.dtype" title="Link to this definition"></a></dt>
 <dd><p>:py:class:<a href="#id6"><span class="problematic" id="id7">`</span></a>~numpy.float32`の別名です。</p>
 </dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
-<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.rankbase_memory_linear.RankBaseMemoryLinear">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_memories.rankbase_memory_linear.</span></span><span class="sig-name descname"><span class="pre">RankBaseMemoryLinear</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">capacity:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_initial:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_steps:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype:</span> <span class="pre">type</span> <span class="pre">=</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbase_memory_linear.RankBaseMemoryLinear" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.rankbased_memory_linear.RankBasedMemoryLinear">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.rl.memories.priority_memories.rankbased_memory_linear.</span></span><span class="sig-name descname"><span class="pre">RankBasedMemoryLinear</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">capacity:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_initial:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_steps:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype:</span> <span class="pre">type</span> <span class="pre">=</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbased_memory_linear.RankBasedMemoryLinear" title="Link to this definition"></a></dt>
 <dd><dl class="py attribute">
-<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.rankbase_memory_linear.RankBaseMemoryLinear.dtype">
-<span class="sig-name descname"><span class="pre">dtype</span></span><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbase_memory_linear.RankBaseMemoryLinear.dtype" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="srl.rl.memories.priority_memories.rankbased_memory_linear.RankBasedMemoryLinear.dtype">
+<span class="sig-name descname"><span class="pre">dtype</span></span><a class="headerlink" href="#srl.rl.memories.priority_memories.rankbased_memory_linear.RankBasedMemoryLinear.dtype" title="Link to this definition"></a></dt>
 <dd><p>:py:class:<a href="#id8"><span class="problematic" id="id9">`</span></a>~numpy.float32`の別名です。</p>
 </dd></dl>
 

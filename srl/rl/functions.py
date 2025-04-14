@@ -163,7 +163,7 @@ def render_discrete_action(maxa: int, action_space: DiscreteSpace, env: EnvRun, 
     for action in range(view_actions_num):
         if action in invalid_actions:
             s = "x"
-        elif action == max:
+        elif action == maxa:
             s = "*"
         else:
             s = " "

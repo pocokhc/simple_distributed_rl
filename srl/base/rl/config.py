@@ -77,6 +77,12 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     #: 2以上で過去Nステップをまとめて状態とします(use_render_image_stateが有効なアルゴリズムの場合適用)
     render_image_window_length: int = 1
 
+    # --- render
+    #: render時にRLへ入力される画像を描画するか
+    render_rl_image: bool = True
+    #: render時にRLへ入力される画像のサイズ
+    render_rl_image_size: Tuple[int, int] = (64, 64)
+
     # --- other
     #: action/observationの値をエラーが出ないように可能な限り変換します。
     #: ※エラー終了の可能性は減りますが、値の変換等による予期しない動作を引き起こす可能性が高くなります

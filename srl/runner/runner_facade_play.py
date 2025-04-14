@@ -150,7 +150,6 @@ class RunnerFacadePlay(RunnerBase):
         render_worker: int = 0,
         render_add_rl_terminal: bool = True,
         render_add_rl_rgb: bool = True,
-        render_add_rl_state: bool = True,
         render_add_info_text: bool = True,
         # --- stop config
         timeout: float = -1,
@@ -200,7 +199,6 @@ class RunnerFacadePlay(RunnerBase):
                 render_worker=render_worker,
                 render_add_rl_terminal=render_add_rl_terminal,
                 render_add_rl_rgb=render_add_rl_rgb,
-                render_add_rl_state=render_add_rl_state,
                 render_add_info_text=render_add_info_text,
             )
         )
@@ -223,7 +221,6 @@ class RunnerFacadePlay(RunnerBase):
         render_worker: int = 0,
         render_add_rl_terminal: bool = True,
         render_add_rl_rgb: bool = True,
-        render_add_rl_state: bool = True,
         render_add_info_text: bool = True,
         # --- stop config
         timeout: float = -1,
@@ -271,7 +268,6 @@ class RunnerFacadePlay(RunnerBase):
             render_worker=render_worker,
             render_add_rl_terminal=render_add_rl_terminal,
             render_add_rl_rgb=render_add_rl_rgb,
-            render_add_rl_state=render_add_rl_state,
             render_add_info_text=render_add_info_text,
         )
         callbacks.append(render)
@@ -300,7 +296,6 @@ class RunnerFacadePlay(RunnerBase):
         render_worker: int = 0,
         render_add_rl_terminal: bool = True,
         render_add_rl_rgb: bool = True,
-        render_add_rl_state: bool = True,
         render_add_info_text: bool = True,
         # --- stop config
         timeout: float = -1,
@@ -321,7 +316,6 @@ class RunnerFacadePlay(RunnerBase):
             render_worker,
             render_add_rl_terminal,
             render_add_rl_rgb,
-            render_add_rl_state,
             render_add_info_text,
             timeout,
             max_steps,
@@ -347,7 +341,6 @@ class RunnerFacadePlay(RunnerBase):
         render_worker: int = 0,
         render_add_rl_terminal: bool = True,
         render_add_rl_rgb: bool = True,
-        render_add_rl_state: bool = True,
         render_add_info_text: bool = True,
         codec: str = "XVID",
         # --- stop config
@@ -369,7 +362,6 @@ class RunnerFacadePlay(RunnerBase):
             render_worker,
             render_add_rl_terminal,
             render_add_rl_rgb,
-            render_add_rl_state,
             render_add_info_text,
             timeout,
             max_steps,
@@ -394,7 +386,6 @@ class RunnerFacadePlay(RunnerBase):
         render_worker: int = 0,
         render_add_rl_terminal: bool = True,
         render_add_rl_rgb: bool = True,
-        render_add_rl_state: bool = True,
         render_add_info_text: bool = True,
         # --- stop config
         timeout: float = -1,
@@ -415,7 +406,6 @@ class RunnerFacadePlay(RunnerBase):
             render_worker,
             render_add_rl_terminal,
             render_add_rl_rgb,
-            render_add_rl_state,
             render_add_info_text,
             timeout,
             max_steps,

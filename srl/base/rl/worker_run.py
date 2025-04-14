@@ -421,7 +421,6 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self,
         add_terminal: bool = True,
         add_rgb_array: bool = True,
-        add_rl_state: bool = True,
         info_text: str = "",
     ) -> np.ndarray:
         """
@@ -443,11 +442,14 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         env_img = render_funcs.add_padding(env_img, padding, padding, padding, padding, border_color)
 
         # [rl state]
-        if add_rl_state:
+        if self._config.render_rl_image_size:
             # 同じ場合は省略
             if self.env.observation_space != self.config._rl_obs_space_one_step:
                 rl_state_img = self.render_rl_image()
                 if rl_state_img is not None:
+                    import cv2
+
+                    rl_state_img = cv2.resize(rl_state_img, self._config.render_rl_image_size, interpolation=cv2.INTER_LINEAR)
                     rl_state_img = render_funcs.add_padding(rl_state_img, padding, padding, padding, padding, border_color)
                     env_img = render_funcs.vconcat(env_img, rl_state_img)
 

@@ -24,7 +24,6 @@ class Rendering(RunCallback):
     render_worker: int = 0
     render_add_rl_terminal: bool = True
     render_add_rl_rgb: bool = True
-    render_add_rl_state: bool = True
     render_add_info_text: bool = True
 
     def __post_init__(self):
@@ -91,7 +90,6 @@ class Rendering(RunCallback):
             img = worker.create_render_image(
                 add_terminal=self.render_add_rl_terminal,
                 add_rgb_array=self.render_add_rl_rgb,
-                add_rl_state=self.render_add_rl_state,
                 info_text=info_text if self.render_add_info_text else "",
             )
             self.img_maxw = max(self.img_maxw, img.shape[1])

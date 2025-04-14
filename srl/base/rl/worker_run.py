@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Generic, List, Optional, Union, cast
+from typing import Any, Dict, Generic, List, Literal, Optional, Union, cast
 
 import numpy as np
 
@@ -193,7 +193,6 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._use_render_image = self._config.use_render_image_state()
         self._use_stacked_render_image = self._use_render_image and (self._config.render_image_window_length > 1)
 
-        self._tracking_episode = False
         self._tracking_size = 0  # 0: no tracking, -1: episode_tracking
 
     def teardown(self):
@@ -240,14 +239,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._prev_invalid_actions: List[TActType] = []
 
         # tracking
-        if self._tracking_episode:
-            self._tracking_state: List[TObsType] = []
-            self._tracking_render_image: List[np.ndarray] = []
-            self._tracking_action: List[TActType] = []
-            self._tracking_reward: List[float] = []
-            self._tracking_terminate: List[int] = []
-            self._tracking_invalid_actions: List[List[TActType]] = []
-            self._tracking_user_data: List[Dict[str, Any]] = []
+        self._tracking_data: List[Dict[str, Any]] = []
 
     def ready_policy(self):
         """policyの準備を実行。1週目は on_reset、2週目以降は on_step を実行。"""
@@ -283,18 +275,6 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             for a in self._env.get_invalid_actions(self._player_index)  #
         ]
 
-        # --- tracking
-        if self._tracking_episode:
-            # state (+1)
-            if (self._tracking_size != -1) and (len(self._tracking_state) == self._tracking_size + 1):
-                del self._tracking_state[0]
-            self._tracking_state.append(self._state)
-            # render image
-            if self._use_render_image:
-                if (self._tracking_size != -1) and (len(self._tracking_render_image) == self._tracking_size + 1):
-                    del self._tracking_render_image[0]
-                self._tracking_render_image.append(self._render_image)
-
         # --- reset/step
         if not self._is_reset:
             logger.debug("on_reset")
@@ -303,16 +283,6 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         else:
             self._reward = self._step_reward
             self._step_reward = 0.0
-
-            if self._tracking_episode:
-                if (self._tracking_size != -1) and (len(self._tracking_reward) == self._tracking_size):
-                    del self._tracking_reward[0]
-                    del self._tracking_terminate[0]
-                    del self._tracking_invalid_actions[0]
-                self._tracking_invalid_actions.append(self._invalid_actions[:])
-                self._tracking_reward.append(self._reward)
-                self._tracking_terminate.append(int(self.terminated))
-
             logger.debug("on_step")
             self._worker.on_step(self)
 
@@ -328,11 +298,6 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         action = self._worker.policy(self)
         self._prev_action = self._action
         self._action = action
-
-        if self._tracking_episode:
-            if len(self._tracking_action) == self._tracking_size:
-                del self._tracking_action[0]
-            self._tracking_action.append(action)
 
         env_action = self._config.action_decode(action)
 
@@ -489,98 +454,57 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     # ------------------------------------
     # tracking
     # ------------------------------------
-    def enable_tracking(self, max_size: int = -1):
-        """stateだけ max_size+1 確保"""
-        if self._is_setup:
-            raise SRLError("Please call it in 'on_setup()'")
-        self._tracking_episode = True
+    def set_tracking_max_size(self, max_size: int = -1):
+        """-1 は無制限"""
+        if len(self._tracking_data) > max_size:
+            for _ in range(max_size - len(self._tracking_data)):
+                del self._tracking_data[0]
         self._tracking_size = max_size
 
-    def update_tracking_data(self, data: Dict[str, Any], index: int = -1):
-        self._tracking_user_data[index].update(data)
+    def get_tracking_length(self) -> int:
+        return len(self._tracking_data)
 
-    def add_tracking_data(self, data: Dict[str, Any]):
-        if len(self._tracking_user_data) == self._tracking_size:
-            del self._tracking_user_data[0]
-        self._tracking_user_data.append(data)
+    def add_tracking(self, data: Dict[str, Any]):
+        if (self._tracking_size > 0) and (len(self._tracking_data) == self._tracking_size):
+            del self._tracking_data[0]
+        self._tracking_data.append(data)
 
     def get_tracking(self, key: str, size: int = -1, dummy: Any = None) -> List[Any]:
-        if key == "state":
-            arr = self._tracking_state
-            if dummy is None:
-                dummy = self._config.observation_space.get_default()
-        elif key == "render_image":
-            arr = self._tracking_render_image
-            if dummy is None:
-                dummy = self._config.obs_render_img_space.get_default()
-        elif key == "action":
-            arr = self._tracking_action
-            if dummy is None:
-                dummy = self._config.action_space.get_default()
-        elif key == "invalid_actions":
-            arr = self._tracking_invalid_actions
-            if dummy is None:
-                dummy = []
-        elif key == "reward":
-            arr = self._tracking_reward
-            if dummy is None:
-                dummy = 0.0
-        elif key == "terminated":
-            arr = self._tracking_terminate
-            if dummy is None:
-                dummy = 0
-        else:
-            raise ValueError(key)
-
         if size > 0:
-            if len(arr) < size:
-                return [dummy] * (size - len(arr)) + arr
-            else:
-                return arr[-size:]
-        else:
-            return arr[:]
-
-    def get_tracking_data(self, key: str, size: int = 0, dummy: Any = None) -> List[Any]:
-        if size > 0:
-            if len(self._tracking_user_data) < size:
-                arr = [d[key] if key in d else dummy for d in self._tracking_user_data[:]]
+            if len(self._tracking_data) < size:
+                arr = [d[key] if key in d else dummy for d in self._tracking_data[:]]
                 return [dummy for _ in range(size - len(arr))] + arr[:]
             else:
-                return [d[key] if key in d else dummy for d in self._tracking_user_data[-size:]]
-        return [d[key] if key in d else dummy for d in self._tracking_user_data]
+                return [d[key] if key in d else dummy for d in self._tracking_data[-size:]]
+        return [d[key] if key in d else dummy for d in self._tracking_data]
 
-    def add_tracking_dummy_step(self, state=None, action=None, invalid_actions=[], reward: float = 0.0, terminated: bool = False, tracking_data: Dict[str, Any] = {}, is_reset: bool = False):
-        if state is None:
-            state = self._config.observation_space.get_default()
-        if (self._tracking_size != -1) and (len(self._tracking_state) == self._tracking_size + 1):
-            del self._tracking_state[0]
-        # reset時は初期stateの前に追加
-        if is_reset:
-            self._tracking_state.insert(-1, state)
-        else:
-            self._tracking_state.append(state)
-        if self._use_render_image:
-            render_image = self._config.obs_render_img_space.get_default()
-            if (self._tracking_size != -1) and (len(self._tracking_render_image) == self._tracking_size + 1):
-                del self._tracking_render_image[0]
-            if is_reset:
-                self._tracking_render_image.insert(-1, render_image)
+    def get_trackings(
+        self,
+        keys: List[str] = [],
+        size: int = 0,
+        padding_data: dict = {},
+        padding_direct: Literal["head", "tail"] = "head",
+    ) -> list:
+        if size > 0:
+            if len(self._tracking_data) < size:
+                pad = [
+                    [padding_data[k] if k in padding_data else None for k in keys]
+                    for _ in range(size - len(self._tracking_data))  #
+                ]
+                arr = [
+                    [d[k] if k in d else None for k in keys]
+                    for d in self._tracking_data[:]  #
+                ]
+                if padding_direct == "head":
+                    return pad + arr
+                elif padding_direct == "tail":
+                    return arr + pad
+                else:
+                    raise ValueError(padding_direct)
             else:
-                self._tracking_render_image.append(render_image)
-
-        if action is None:
-            action = self._config.action_space.get_default()
-        if (self._tracking_size != -1) and (len(self._tracking_action) == self._tracking_size):
-            del self._tracking_action[0]
-            del self._tracking_invalid_actions[0]
-            del self._tracking_reward[0]
-            del self._tracking_terminate[0]
-            del self._tracking_user_data[0]
-        self._tracking_action.append(action)
-        self._tracking_invalid_actions.append(invalid_actions)
-        self._tracking_reward.append(reward)
-        self._tracking_terminate.append(int(terminated))
-        self._tracking_user_data.append(tracking_data)
+                return [[d[k] for k in keys] for d in self._tracking_data[-size:]]
+        else:
+            return [[d[k] for k in keys] for d in self._tracking_data]
 
     # ------------------------------------
     # backup/restore
@@ -594,7 +518,6 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._use_stacked_state,
             self._use_render_image,
             self._use_stacked_render_image,
-            self._tracking_episode,
             self._tracking_size,
             # reset
             self._player_index,
@@ -615,17 +538,9 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._prev_invalid_actions[:],
             # env
             self._env.backup(),
+            # tracking
+            [d.copy() for d in self._tracking_data],
         ]
-        if self._tracking_episode:
-            d += [
-                [self._config.observation_space.copy_value(s) for s in self._tracking_state],
-                [self._config.obs_render_img_space.copy_value(s) for s in self._tracking_render_image],
-                [self._config.action_space.copy_value(d) for d in self._tracking_action],
-                self._tracking_reward[:],
-                self._tracking_terminate[:],
-                self._tracking_invalid_actions[:],
-                [d.copy() for d in self._tracking_user_data],
-            ]
 
         return d
 
@@ -637,36 +552,28 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._use_stacked_state = dat[2]
         self._use_render_image = dat[3]
         self._use_stacked_render_image = dat[4]
-        self._tracking_episode = dat[5]
-        self._tracking_size = dat[6]
+        self._tracking_size = dat[5]
         # reset
-        self._player_index = dat[7]
-        self._episode_seed = dat[8]
-        self._is_reset = dat[9]
-        self._is_ready_policy = dat[10]
-        self._state = dat[11]
-        self._prev_state = dat[12]
-        self._one_states = dat[13]
-        self._render_image = dat[14]
-        self._prev_render_image = dat[15]
-        self._one_render_images = dat[16]
-        self._action = dat[17]
-        self._prev_action = dat[18]
-        self._step_reward = dat[19]
-        self._reward = dat[20]
-        self._invalid_actions = dat[21]
-        self._prev_invalid_actions = dat[22]
+        self._player_index = dat[6]
+        self._episode_seed = dat[7]
+        self._is_reset = dat[8]
+        self._is_ready_policy = dat[9]
+        self._state = dat[10]
+        self._prev_state = dat[11]
+        self._one_states = dat[12]
+        self._render_image = dat[13]
+        self._prev_render_image = dat[14]
+        self._one_render_images = dat[15]
+        self._action = dat[16]
+        self._prev_action = dat[17]
+        self._step_reward = dat[18]
+        self._reward = dat[19]
+        self._invalid_actions = dat[20]
+        self._prev_invalid_actions = dat[21]
         # env
-        self._env.restore(dat[23])
+        self._env.restore(dat[22])
         # tracking
-        if self._tracking_episode:
-            self._tracking_state = dat[24][:]
-            self._tracking_render_image = dat[25][:]
-            self._tracking_action = dat[26][:]
-            self._tracking_reward = dat[27][:]
-            self._tracking_terminate = dat[28][:]
-            self._tracking_invalid_actions = dat[29][:]
-            self._tracking_user_data = dat[30][:]
+        self._tracking_data = dat[23][:]
 
         if self._context.rendering:
             self._render.cache_reset()
@@ -692,5 +599,5 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             rl_action = cast(TActType, self._config.action_encode(env_action))
         else:
             rl_action = cast(TActType, env_action)
-        self._tracking_action[-1] = rl_action
+        self._action = rl_action
         return rl_action

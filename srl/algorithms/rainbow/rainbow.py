@@ -8,6 +8,7 @@ import numpy as np
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import RLProcessor
+from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces.space import SpaceBase
 from srl.rl import functions as funcs
 from srl.rl.functions import create_epsilon_list, inverse_rescaling, rescaling
@@ -195,17 +196,16 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
         multi_discounts = np.tile(self.multi_discounts, (batch_size, 1))
 
         # (batch, multistep, shape)
-        states_list, onehot_actions_list, rewards, dones, _ = zip(*batches)
-        states_list = np.asarray(states_list)
-        onehot_actions_list = np.asarray(onehot_actions_list, dtype=np.float32)
-        rewards = np.array(rewards, dtype=np.float32)
-        dones = np.array(dones, dtype=np.float32)
+        state_list = np.asarray([[b[0] for b in steps] for steps in batches])
+        action_list = np.asarray([[b[1] for b in steps[1:]] for steps in batches], dtype=np.float32)
+        reward = np.array([[b[2] for b in steps[1:]] for steps in batches], dtype=np.float32)
+        done = np.array([[b[3] for b in steps[1:]] for steps in batches], dtype=np.float32)
 
         # 1step目はretraceで使わない、retraceで使うのは 2step以降
-        states = states_list[:, 0, :]
-        n_states = states_list[:, 1:, :]
-        onehot_actions = onehot_actions_list[:, 0, :]
-        n_onehot_actions = onehot_actions_list[:, 1:, :]
+        state = state_list[:, 0, :]
+        n_state = state_list[:, 1:, :]
+        action = action_list[:, 0, :]
+        n_action = action_list[:, 1:, :]
 
         """
         - actionQ (online) 1step ～ N step
@@ -218,34 +218,37 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
             (target) 1step ～ N+1 step
         """
         if self.config.enable_double_dqn:
-            online_states = n_states
-            target_states = n_states
+            online_state = n_state
+            target_state = n_state
         else:
-            online_states = n_states[:, :-1, :]
-            target_states = n_states
+            online_state = n_state[:, :-1, :]
+            target_state = n_state
 
         # (batch, multistep, shape) -> (batch * multistep, shape)
-        online_shape1 = online_states.shape[1]
-        online_states = np.reshape(online_states, (batch_size * online_shape1,) + online_states.shape[2:])
-        target_states = np.reshape(target_states, (batch_size * self.config.multisteps,) + target_states.shape[2:])
+        online_shape1 = online_state.shape[1]
+        online_state = np.reshape(online_state, (batch_size * online_shape1,) + online_state.shape[2:])
+        target_state = np.reshape(target_state, (batch_size * self.config.multisteps,) + target_state.shape[2:])
 
-        q_online = self.pred_batch_q(online_states)
-        q_target = self.pred_batch_target_q(target_states)
+        q_online = self.pred_batch_q(online_state)
+        q_target = self.pred_batch_target_q(target_state)
 
         # (batch * multistep, shape) -> (batch, multistep, shape)
         q_online = np.reshape(q_online, (batch_size, online_shape1) + q_online.shape[1:])
         q_target = np.reshape(q_target, (batch_size, self.config.multisteps) + q_target.shape[1:])
 
         # --- action Q
-        q = np.sum(q_online[:, : self.config.multisteps - 1, :] * n_onehot_actions, axis=2)
+        q = np.sum(q_online[:, : self.config.multisteps - 1, :] * n_action, axis=2)
         # 1step目は学習側で計算するので0をいれる
         q = np.insert(q, 0, 0, axis=1)
 
         # --- calc TD error
         # ファンシーインデックス
-        idx1 = [i for i, b in enumerate(batches) for e in b[4] for e2 in e]
-        idx2 = [i for b in batches for i, e in enumerate(b[4]) for e2 in e]
-        idx3 = [e2 for b in batches for e in b[4] for e2 in e]
+        # idx1: batch index
+        # idx2: step index
+        # idx3: invalid action
+        idx1 = [i for i, steps in enumerate(batches) for b in steps for e in b[4]]
+        idx2 = [i for steps in batches for i, b in enumerate(steps) for e in b[4]]
+        idx3 = [e for steps in batches for b in steps for e in b[4]]
         if self.config.enable_double_dqn:
             q_online[idx1, idx2, idx3] = -np.inf
             n_act_idx = np.argmax(q_online, axis=2)
@@ -258,7 +261,7 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
         if self.config.enable_rescale:
             maxq = inverse_rescaling(maxq)
 
-        gains = rewards + (1 - dones) * self.config.discount * maxq
+        gains = reward + (1 - done) * self.config.discount * maxq
 
         if self.config.enable_rescale:
             gains = rescaling(gains)
@@ -268,7 +271,7 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
         # --- calc retrace
         # 各batchで最大のアクションを選んでるかどうか
         # greedyな方策なので、最大アクションなら確率1.0 #[1]
-        pi_probs = np.argmax(n_onehot_actions, axis=2) == n_act_idx[:, 1:]
+        pi_probs = np.argmax(n_action, axis=2) == n_act_idx[:, 1:]
 
         #  (batch, multistep, shape) -> (multistep, batch, shape)
         # mu_probs = np.transpose(mu_probs, (1, 0)) #[1]
@@ -289,7 +292,7 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
         target_q = np.sum(td_errors * multi_discounts * retrace_list, axis=1, dtype=np.float32)
 
         if training:
-            return target_q, states, onehot_actions
+            return target_q, state, action
         else:
             return target_q
 
@@ -299,19 +302,20 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
         self.np_dtype = self.config.get_dtype("np")
         self.epsilon_sch = self.config.epsilon_scheduler.create(self.config.epsilon)
 
-        # tracking機能を有効化
-        worker.enable_tracking(max_size=self.config.multisteps)
+        # tracking機能を利用
+        worker.set_tracking_max_size(self.config.multisteps + 1)
 
     def on_reset(self, worker):
-        for _ in range(self.config.multisteps - 1):
-            worker.add_tracking_dummy_step(
-                tracking_data={
-                    "onehot_action": worker.get_onehot_action(random.randint(0, self.config.action_space.n - 1)),
-                    "clip_reward": 0,
-                    # "prob": 1.0,  # [1]
-                },
-                is_reset=True,
-            )
+        worker.add_tracking(
+            {
+                "state": worker.state,
+                "action": worker.get_onehot_action(random.randint(0, self.config.action_space.n - 1)),
+                "reward": 0.0,
+                "terminated": 0,
+                "invalid_actions": [],
+                # "prob": 1.0,  # [1]
+            }
+        )
 
     def policy(self, worker) -> int:
         state = worker.state
@@ -358,22 +362,18 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
             else:
                 reward = 0
 
-        worker.add_tracking_data(
+        worker.add_tracking(
             {
-                "onehot_action": worker.get_onehot_action(),
-                "clip_reward": reward,
+                "state": worker.state,
+                "action": worker.get_onehot_action(),
+                "reward": reward,
+                "terminated": int(worker.terminated),
+                "invalid_actions": worker.invalid_actions,
                 # "prob": self.prob,  # [1]
             }
         )
 
-        batch = [
-            worker.get_tracking("state", self.config.multisteps + 1),
-            worker.get_tracking_data("onehot_action", self.config.multisteps),
-            worker.get_tracking_data("clip_reward", self.config.multisteps),
-            worker.get_tracking("terminated", self.config.multisteps),
-            worker.get_tracking("invalid_actions", self.config.multisteps),
-            # worker.get_tracking_data("prob", self.config.multisteps),  #[1]
-        ]
+        batch = self._get_batch(worker)
 
         if not self.distributed:
             priority = None
@@ -391,25 +391,38 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
         if worker.done:
             # 残りstepも追加
             for _ in range(self.config.multisteps - 1):
-                worker.add_tracking_dummy_step(
-                    terminated=True,
-                    tracking_data={
-                        "onehot_action": worker.get_onehot_action(random.randint(0, self.config.action_space.n - 1)),
-                        "clip_reward": 0,
+                worker.add_tracking(
+                    {
+                        "state": worker.state,
+                        "action": worker.get_onehot_action(random.randint(0, self.config.action_space.n - 1)),
+                        "reward": 0,
+                        "terminated": 1,
+                        "invalid_actions": [],
                         # "prob": 1.0,  # [1]
                     },
                 )
-                self.memory.add(
-                    [
-                        worker.get_tracking("state", self.config.multisteps + 1),
-                        worker.get_tracking_data("onehot_action", self.config.multisteps),
-                        worker.get_tracking_data("clip_reward", self.config.multisteps),
-                        worker.get_tracking("terminated", self.config.multisteps),
-                        worker.get_tracking("invalid_actions", self.config.multisteps),
-                        # worker.get_tracking_data("prob", self.config.multisteps),  #[1]
-                    ],
-                    priority,
-                )
+                self.memory.add(self._get_batch(worker), priority)
+
+    def _get_batch(self, worker: WorkerRun):
+        batch = worker.get_trackings(
+            [
+                "state",
+                "action",
+                "reward",
+                "terminated",
+                "invalid_actions",
+                # "prob"  # [1]
+            ],
+            size=self.config.multisteps + 1,
+            padding_data={
+                "state": self.config.observation_space.get_default(),
+                "action": worker.get_onehot_action(0),
+                "reward": 0,
+                "terminated": 0,
+                "invalid_actions": [],
+            },
+        )
+        return batch
 
     def render_terminal(self, worker, **kwargs) -> None:
         if self.q is None:

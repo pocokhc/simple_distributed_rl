@@ -260,7 +260,11 @@ class PrintProgress(RunCallback, Evaluate):
 
                 # [reward]
                 r_list = [to_str_reward(r) for r in state.env.episode_rewards]
-                s += " [" + ",".join(r_list) + "]"
+                if len(r_list) == 1:
+                    s2 = "(ongoing) " + r_list[0]
+                else:
+                    s2 = "ongoing(" + ",".join(r_list) + ")"
+                s += f"{s2:>21s} re"  # 6+1+6+1+6
 
         else:
             # --- episode info
@@ -273,7 +277,7 @@ class PrintProgress(RunCallback, Evaluate):
             _r_min = to_str_reward(min(_r))
             _r_mid = to_str_reward(float(np.mean(_r)), check_skip=True)
             _r_max = to_str_reward(max(_r))
-            s += f"|{_r_min} {_r_mid} {_r_max} re"
+            s += f" {_r_min} {_r_mid} {_r_max} re"
 
             # [eval reward]
             s += self._eval_str(context, state)

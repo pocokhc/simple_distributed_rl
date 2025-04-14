@@ -313,7 +313,6 @@ RLPriorityReplayBuffer
          raise NotImplementedError()
 
       # その他任意の関数を作成できます。
-      # 分散学習ではTrainer/Worker間で値を保持できない点に注意（backup/restoreした値のみ共有されます）
 
 
 ※ v0.19.0 より `__init__` の使用は非推奨となりました。代わりにsetupを使ってください。  
@@ -532,6 +531,11 @@ RLPriorityReplayBuffer
 また、ジェネリック型を追加する事で各クラスの型を追加できます。
 
 .. code-block:: python
+
+   # RLMemory[TConfig]
+   #   TConfig : RLConfigを継承したクラス
+   class Memoryr(RLMemory[Config]):
+      pass
 
    # RLParameter[TConfig]
    #   TConfig : RLConfigを継承したクラス

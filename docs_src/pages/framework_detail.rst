@@ -9,9 +9,14 @@ Overview
 
 .. image:: ../../diagrams/overview-sequence.drawio.png
 
-.. image:: ../../diagrams/overview-mp.drawio.png
+・Multiprocessing flow (Worker-Memory-Trainer)
 
 .. image:: ../../diagrams/overview-mp_memory.drawio.png
+
+・Multiprocessing flow (Worker-Trainer)
+
+.. image:: ../../diagrams/overview-mp.drawio.png
+
 
 
 Play flow

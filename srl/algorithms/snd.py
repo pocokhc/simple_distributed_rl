@@ -44,7 +44,7 @@ class Config(RLConfig):
     epsilon: float = 0.001
     #: <:ref:`SchedulerConfig`>
     epsilon_scheduler: SchedulerConfig = field(default_factory=lambda: SchedulerConfig())
-    #: <:ref:`scheduler`> Learning rate
+    #: Learning rate
     lr: float = 0.001
     #: <:ref:`LRSchedulerConfig`>
     lr_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())

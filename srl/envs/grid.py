@@ -52,6 +52,18 @@ registration.register(
 )
 
 
+registration.register(
+    id="EasyGrid-layer",
+    entry_point=__name__ + ":GridLayer",
+    kwargs={
+        "move_reward": 0.0,
+        "move_prob": 1.0,
+        "reward_baseline_": {"episode": 100, "baseline": 0.9},
+    },
+    check_duplicate=False,
+)
+
+
 class Action(enum.Enum):
     LEFT = 0
     DOWN = 1
@@ -148,10 +160,10 @@ class _GridBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSp
         return self._create_state()
 
     def backup(self) -> Any:
-        return self.player_pos
+        return self.player_pos[:]
 
     def restore(self, data: Any) -> None:
-        self.player_pos = data
+        self.player_pos = data[:]
 
     @abstractmethod
     def _create_state(self):

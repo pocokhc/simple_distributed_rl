@@ -22,7 +22,7 @@ def make_base(config: Union[str, EnvConfig], env_run: Optional["EnvRun"] = None)
 
     if env_name not in _registry:
         # --- srl内のenvはloadする
-        if env_name in ["Grid", "EasyGrid", "Grid-layer"]:
+        if env_name in ["Grid", "EasyGrid", "Grid-layer", "EasyGrid-layer"]:
             import srl.envs.grid  # noqa F401
         elif env_name == "IGrid":
             import srl.envs.igrid  # noqa F401

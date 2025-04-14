@@ -19,6 +19,7 @@
 # v0.19.0
 
 大型アップデート
+アルゴリズムの実装方法としてRLConfig,RLMemory,RLWorkerが変わりましたので、自作アルゴリズムを実装している場合はドキュメントを参照してください。
 
 **train_mp_memoryの追加**
 
@@ -39,7 +40,7 @@
 
 **MemoryUpdates**
 
-RLMemoryですが、前はworkerで使える関数がaddのみ固定でしたが、登録方式に変更する事で複数指定可能に変更。
+RLMemoryですが、前はworkerで使える関数がaddのみ固定でしたが、登録方式に変更する事で複数指定可能に変更しました。
 また上記memoryのmp化に伴い、Trainer側で使う関数も登録方式に変更。
 合わせてrl.memories配下をすべて見直しました。
 
@@ -121,6 +122,7 @@ RLMemoryですが、前はworkerで使える関数がaddのみ固定でしたが
 1. [base.spaces.box] change: gray画像でstackする場合、chに追加するかどうかをコンストラクタで指定するように変更
 1. [base.spaces.box] add: to_image関数を追加
 1. [base.rl.trainer] add: contextプロパティを追加
+1. [base.rl.worker_run] change: render_rl_imageの設定をRLConfigに移動し、サイズ変更できるように修正
 1. [base.spaces.space] TypeVerにboundとcovariantを追加
 1. RLMemory/RLParameterでsetup、RLTrainer/RLWorkerでon_setupを使うようにし、コンストラクタの使用を非推奨に（ドキュメントベース）
 1. [rl.processors] change: image_processorの正規化引数をenable_normからnormalize_typeに変更し-1～1への変換も追加

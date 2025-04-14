@@ -183,10 +183,13 @@ class BoxSpace(SpaceBase[np.ndarray]):
             raise ValueError(f"Unsupported stype for image conversion: {self._stype.name}")
 
         # スケーリング
-        scale = np.where(self.high != self.low, 255.0 / (self.high - self.low), 0.0)
-        offset = -self.low * scale
-        x_scaled = x * scale + offset
-        x_clipped = np.clip(x_scaled, 0, 255)
+        high = np.max(self.high)
+        low = np.min(self.low)
+        if low < high:
+            scale = 255.0 / (high - low)
+            offset = -low * scale
+            x = x * scale + offset
+        x_clipped = np.clip(x, 0, 255)
 
         return x_clipped.astype(np.uint8)
 

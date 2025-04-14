@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Making a Custom algorithm &mdash; SimpleDistributedRL 0.18.1.2 ドキュメント</title>
+  <title>Making a Custom algorithm &mdash; SimpleDistributedRL 0.19.0 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=e8c07f75"></script>
+      <script src="../_static/documentation_options.js?v=52e18afe"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -550,7 +550,6 @@
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
    <span class="c1"># その他任意の関数を作成できます。</span>
-   <span class="c1"># 分散学習ではTrainer/Worker間で値を保持できない点に注意（backup/restoreした値のみ共有されます）</span>
 </pre></div>
 </div>
 <p>※ v0.19.0 より <cite>__init__</cite> の使用は非推奨となりました。代わりにsetupを使ってください。</p>
@@ -758,7 +757,12 @@
 </pre></div>
 </div>
 <p>また、ジェネリック型を追加する事で各クラスの型を追加できます。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># RLParameter[TConfig]</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># RLMemory[TConfig]</span>
+<span class="c1">#   TConfig : RLConfigを継承したクラス</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Memoryr</span><span class="p">(</span><span class="n">RLMemory</span><span class="p">[</span><span class="n">Config</span><span class="p">]):</span>
+   <span class="k">pass</span>
+
+<span class="c1"># RLParameter[TConfig]</span>
 <span class="c1">#   TConfig : RLConfigを継承したクラス</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Parameter</span><span class="p">(</span><span class="n">RLParameter</span><span class="p">[</span><span class="n">Config</span><span class="p">]):</span>
    <span class="k">pass</span>

@@ -1,0 +1,212 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="ja" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Q-Learning &mdash; SimpleDistributedRL 0.19.0 ドキュメント</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=52e18afe"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/translations.js?v=4755f45a"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="../../genindex.html" />
+    <link rel="search" title="検索" href="../../search.html" />
+    <link rel="next" title="Deep Q-Networks" href="dqn.html" />
+    <link rel="prev" title="Runner(Configuration related)" href="../runner.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            SimpleDistributedRL
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../howtouse.html">How To Use</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../distributed.html">Distributed Learning (Online)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Custom</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../custom_env.html">Making a Custom environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../custom_algorithm.html">Making a Custom algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../framework_detail.html">Detailed Framework</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../env_config.html">EnvConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rl_config.html">RLConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rl_config_tree.html">RLConfig Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../runner.html">Runner(Configuration related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../runner.html#runner-train-related">Runner(Train related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../runner.html#runner-distribution-related">Runner(Distribution related)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Q-Learning</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#srl.algorithms.ql.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.ql.Config.test_epsilon"><code class="docutils literal notranslate"><span class="pre">Config.test_epsilon</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.ql.Config.epsilon"><code class="docutils literal notranslate"><span class="pre">Config.epsilon</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.ql.Config.epsilon_scheduler"><code class="docutils literal notranslate"><span class="pre">Config.epsilon_scheduler</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.ql.Config.lr"><code class="docutils literal notranslate"><span class="pre">Config.lr</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.ql.Config.lr_scheduler"><code class="docutils literal notranslate"><span class="pre">Config.lr_scheduler</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.ql.Config.discount"><code class="docutils literal notranslate"><span class="pre">Config.discount</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.ql.Config.q_init"><code class="docutils literal notranslate"><span class="pre">Config.q_init</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="dqn.html">Deep Q-Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rainbow.html">Rainbow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="agent57.html">Agent57</a></li>
+<li class="toctree-l1"><a class="reference internal" href="agent57_light.html">Agent57 light</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ppo.html">PPO(Proximal Policy Optimization)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ddpg.html">DDPG(Deep Deterministic Policy Gradient)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sac.html">SAC(Soft-Actor-Critic)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="snd.html">SND(Self-supervised Network Distillation)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mcts.html">Monte Carlo tree search</a></li>
+<li class="toctree-l1"><a class="reference internal" href="alphazero.html">AlphaZero</a></li>
+<li class="toctree-l1"><a class="reference internal" href="muzero.html">MuZero</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dreamer_v3.html">DreamerV3</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">SimpleDistributedRL</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Q-Learning</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/pages/algorithms/ql.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="q-learning">
+<h1>Q-Learning<a class="headerlink" href="#q-learning" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="srl.algorithms.ql.Config">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.algorithms.ql.</span></span><span class="sig-name descname"><span class="pre">Config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">observation_mode:</span> <span class="pre">Literal[''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">'render_image']</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override_observation_type:</span> <span class="pre">srl.base.define.SpaceTypes</span> <span class="pre">=</span> <span class="pre">&lt;SpaceTypes.UNKNOWN:</span> <span class="pre">0&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override_action_type:</span> <span class="pre">Union[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">srl.base.define.RLBaseActTypes]</span> <span class="pre">=</span> <span class="pre">&lt;RLBaseActTypes.NONE:</span> <span class="pre">1&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action_division_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">observation_division_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frameskip:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extend_worker:</span> <span class="pre">Optional[Type[ForwardRef('ExtendWorker')]]</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">processors:</span> <span class="pre">List[ForwardRef('RLProcessor')]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">render_image_processors:</span> <span class="pre">List[ForwardRef('RLProcessor')]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_rl_processors:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_state_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_action_decode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_length:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">render_image_window_length:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">render_rl_image:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">render_rl_image_size:</span> <span class="pre">Tuple[int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">int]</span> <span class="pre">=</span> <span class="pre">(64</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">64)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_sanitize:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_assertion:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'float32'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">test_epsilon:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epsilon:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epsilon_scheduler:</span> <span class="pre">srl.rl.schedulers.scheduler.SchedulerConfig</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr_scheduler:</span> <span class="pre">srl.rl.schedulers.scheduler.SchedulerConfig</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discount:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.9</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q_init:</span> <span class="pre">Literal[''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">'random'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">'normal']</span> <span class="pre">=</span> <span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.algorithms.ql.Config" title="Link to this definition"></a></dt>
+<dd><dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.ql.Config.test_epsilon">
+<span class="sig-name descname"><span class="pre">test_epsilon</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.algorithms.ql.Config.test_epsilon" title="Link to this definition"></a></dt>
+<dd><p>ε-greedy parameter for Test</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.ql.Config.epsilon">
+<span class="sig-name descname"><span class="pre">epsilon</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.1</span></em><a class="headerlink" href="#srl.algorithms.ql.Config.epsilon" title="Link to this definition"></a></dt>
+<dd><p>ε-greedy parameter for Train</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.ql.Config.epsilon_scheduler">
+<span class="sig-name descname"><span class="pre">epsilon_scheduler</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig" title="srl.rl.schedulers.scheduler.SchedulerConfig"><span class="pre">SchedulerConfig</span></a></em><a class="headerlink" href="#srl.algorithms.ql.Config.epsilon_scheduler" title="Link to this definition"></a></dt>
+<dd><p>&lt;<a class="reference internal" href="../rl_config_scheduler.html#schedulerconfig"><span class="std std-ref">Scheduler</span></a>&gt;</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.ql.Config.lr">
+<span class="sig-name descname"><span class="pre">lr</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.1</span></em><a class="headerlink" href="#srl.algorithms.ql.Config.lr" title="Link to this definition"></a></dt>
+<dd><p>Learning rate</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.ql.Config.lr_scheduler">
+<span class="sig-name descname"><span class="pre">lr_scheduler</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig" title="srl.rl.schedulers.scheduler.SchedulerConfig"><span class="pre">SchedulerConfig</span></a></em><a class="headerlink" href="#srl.algorithms.ql.Config.lr_scheduler" title="Link to this definition"></a></dt>
+<dd><p>&lt;<a class="reference internal" href="../rl_config_scheduler.html#schedulerconfig"><span class="std std-ref">Scheduler</span></a>&gt;</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.ql.Config.discount">
+<span class="sig-name descname"><span class="pre">discount</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.9</span></em><a class="headerlink" href="#srl.algorithms.ql.Config.discount" title="Link to this definition"></a></dt>
+<dd><p>Discount rate</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.ql.Config.q_init">
+<span class="sig-name descname"><span class="pre">q_init</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">''</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'random'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'normal'</span></span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">''</span></em><a class="headerlink" href="#srl.algorithms.ql.Config.q_init" title="Link to this definition"></a></dt>
+<dd><p>How to initialize Q table</p>
+<dl class="field-list simple">
+<dt class="field-odd">パラメータ<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>&quot;&quot;</strong> -- 0</p></li>
+<li><p><strong>&quot;random&quot;</strong> -- random.random()</p></li>
+<li><p><strong>&quot;normal&quot;</strong> -- np.random.normal()</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../runner.html" class="btn btn-neutral float-left" title="Runner(Configuration related)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="dqn.html" class="btn btn-neutral float-right" title="Deep Q-Networks" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, poco.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

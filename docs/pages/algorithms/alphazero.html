@@ -1,0 +1,259 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="ja" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AlphaZero &mdash; SimpleDistributedRL 0.19.0 ドキュメント</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=52e18afe"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/translations.js?v=4755f45a"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="../../genindex.html" />
+    <link rel="search" title="検索" href="../../search.html" />
+    <link rel="next" title="MuZero" href="muzero.html" />
+    <link rel="prev" title="Monte Carlo tree search" href="mcts.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            SimpleDistributedRL
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../howtouse.html">How To Use</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../distributed.html">Distributed Learning (Online)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Custom</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../custom_env.html">Making a Custom environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../custom_algorithm.html">Making a Custom algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../framework_detail.html">Detailed Framework</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../env_config.html">EnvConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rl_config.html">RLConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rl_config_tree.html">RLConfig Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../runner.html">Runner(Configuration related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../runner.html#runner-train-related">Runner(Train related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../runner.html#runner-distribution-related">Runner(Distribution related)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="ql.html">Q-Learning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dqn.html">Deep Q-Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rainbow.html">Rainbow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="agent57.html">Agent57</a></li>
+<li class="toctree-l1"><a class="reference internal" href="agent57_light.html">Agent57 light</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ppo.html">PPO(Proximal Policy Optimization)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ddpg.html">DDPG(Deep Deterministic Policy Gradient)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sac.html">SAC(Soft-Actor-Critic)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="snd.html">SND(Self-supervised Network Distillation)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mcts.html">Monte Carlo tree search</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">AlphaZero</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#srl.algorithms.alphazero.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.alphazero.Config.num_simulations"><code class="docutils literal notranslate"><span class="pre">Config.num_simulations</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.alphazero.Config.discount"><code class="docutils literal notranslate"><span class="pre">Config.discount</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.alphazero.Config.sampling_steps"><code class="docutils literal notranslate"><span class="pre">Config.sampling_steps</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.alphazero.Config.batch_size"><code class="docutils literal notranslate"><span class="pre">Config.batch_size</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.alphazero.Config.memory"><code class="docutils literal notranslate"><span class="pre">Config.memory</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.alphazero.Config.lr"><code class="docutils literal notranslate"><span class="pre">Config.lr</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.alphazero.Config.lr_scheduler"><code class="docutils literal notranslate"><span class="pre">Config.lr_scheduler</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.alphazero.Config.root_dirichlet_alpha"><code class="docutils literal notranslate"><span class="pre">Config.root_dirichlet_alpha</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.alphazero.Config.root_exploration_fraction"><code class="docutils literal notranslate"><span class="pre">Config.root_exploration_fraction</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.alphazero.Config.c_base"><code class="docutils literal notranslate"><span class="pre">Config.c_base</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.alphazero.Config.c_init"><code class="docutils literal notranslate"><span class="pre">Config.c_init</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.alphazero.Config.input_image_block"><code class="docutils literal notranslate"><span class="pre">Config.input_image_block</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.alphazero.Config.value_block"><code class="docutils literal notranslate"><span class="pre">Config.value_block</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.alphazero.Config.policy_block"><code class="docutils literal notranslate"><span class="pre">Config.policy_block</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.alphazero.Config.value_type"><code class="docutils literal notranslate"><span class="pre">Config.value_type</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="muzero.html">MuZero</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dreamer_v3.html">DreamerV3</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">SimpleDistributedRL</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">AlphaZero</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/pages/algorithms/alphazero.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="alphazero">
+<h1>AlphaZero<a class="headerlink" href="#alphazero" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="srl.algorithms.alphazero.Config">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.algorithms.alphazero.</span></span><span class="sig-name descname"><span class="pre">Config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">observation_mode:</span> <span class="pre">Literal[''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">'render_image']</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override_observation_type:</span> <span class="pre">srl.base.define.SpaceTypes</span> <span class="pre">=</span> <span class="pre">&lt;SpaceTypes.UNKNOWN:</span> <span class="pre">0&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override_action_type:</span> <span class="pre">Union[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">srl.base.define.RLBaseActTypes]</span> <span class="pre">=</span> <span class="pre">&lt;RLBaseActTypes.NONE:</span> <span class="pre">1&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action_division_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">observation_division_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frameskip:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extend_worker:</span> <span class="pre">Optional[Type[ForwardRef('ExtendWorker')]]</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">processors:</span> <span class="pre">List[ForwardRef('RLProcessor')]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">render_image_processors:</span> <span class="pre">List[ForwardRef('RLProcessor')]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_rl_processors:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_state_encode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_action_decode:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_length:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">render_image_window_length:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">render_rl_image:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">render_rl_image_size:</span> <span class="pre">Tuple[int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">int]</span> <span class="pre">=</span> <span class="pre">(64</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">64)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_sanitize:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_assertion:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'float32'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_simulations:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discount:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sampling_steps:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory:</span> <span class="pre">srl.rl.memories.replay_buffer.ReplayBufferConfig</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.002</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr_scheduler:</span> <span class="pre">srl.rl.schedulers.lr_scheduler.LRSchedulerConfig</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">root_dirichlet_alpha:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">root_exploration_fraction:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_base:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">19652</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_init:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_image_block:</span> <span class="pre">srl.rl.models.config.input_image_block.InputImageBlockConfig</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value_block:</span> <span class="pre">srl.rl.models.config.mlp_block.MLPBlockConfig</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">policy_block:</span> <span class="pre">srl.rl.models.config.mlp_block.MLPBlockConfig</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value_type:</span> <span class="pre">Literal['rate'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">'linear']</span> <span class="pre">=</span> <span class="pre">'linear'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.algorithms.alphazero.Config" title="Link to this definition"></a></dt>
+<dd><dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.alphazero.Config.num_simulations">
+<span class="sig-name descname"><span class="pre">num_simulations</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">100</span></em><a class="headerlink" href="#srl.algorithms.alphazero.Config.num_simulations" title="Link to this definition"></a></dt>
+<dd><p>シミュレーション回数</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.alphazero.Config.discount">
+<span class="sig-name descname"><span class="pre">discount</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#srl.algorithms.alphazero.Config.discount" title="Link to this definition"></a></dt>
+<dd><p>割引率</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.alphazero.Config.sampling_steps">
+<span class="sig-name descname"><span class="pre">sampling_steps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#srl.algorithms.alphazero.Config.sampling_steps" title="Link to this definition"></a></dt>
+<dd><p>エピソード序盤の確率移動のステップ数</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.alphazero.Config.batch_size">
+<span class="sig-name descname"><span class="pre">batch_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">32</span></em><a class="headerlink" href="#srl.algorithms.alphazero.Config.batch_size" title="Link to this definition"></a></dt>
+<dd><p>Batch size</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.alphazero.Config.memory">
+<span class="sig-name descname"><span class="pre">memory</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_memory.html#srl.rl.memories.replay_buffer.ReplayBufferConfig" title="srl.rl.memories.replay_buffer.ReplayBufferConfig"><span class="pre">ReplayBufferConfig</span></a></em><a class="headerlink" href="#srl.algorithms.alphazero.Config.memory" title="Link to this definition"></a></dt>
+<dd><p>&lt;<a class="reference internal" href="../rl_config_memory.html#replaybufferconfig"><span class="std std-ref">ReplayBuffer</span></a>&gt;</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.alphazero.Config.lr">
+<span class="sig-name descname"><span class="pre">lr</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.002</span></em><a class="headerlink" href="#srl.algorithms.alphazero.Config.lr" title="Link to this definition"></a></dt>
+<dd><p>Learning rate</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.alphazero.Config.lr_scheduler">
+<span class="sig-name descname"><span class="pre">lr_scheduler</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_scheduler.html#srl.rl.schedulers.lr_scheduler.LRSchedulerConfig" title="srl.rl.schedulers.lr_scheduler.LRSchedulerConfig"><span class="pre">LRSchedulerConfig</span></a></em><a class="headerlink" href="#srl.algorithms.alphazero.Config.lr_scheduler" title="Link to this definition"></a></dt>
+<dd><p>&lt;<a class="reference internal" href="../rl_config_scheduler.html#lrschedulerconfig"><span class="std std-ref">LRSchaduler</span></a>&gt;</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.alphazero.Config.root_dirichlet_alpha">
+<span class="sig-name descname"><span class="pre">root_dirichlet_alpha</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.3</span></em><a class="headerlink" href="#srl.algorithms.alphazero.Config.root_dirichlet_alpha" title="Link to this definition"></a></dt>
+<dd><p>Root prior exploration noise.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.alphazero.Config.root_exploration_fraction">
+<span class="sig-name descname"><span class="pre">root_exploration_fraction</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.25</span></em><a class="headerlink" href="#srl.algorithms.alphazero.Config.root_exploration_fraction" title="Link to this definition"></a></dt>
+<dd><p>Root prior exploration noise.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.alphazero.Config.c_base">
+<span class="sig-name descname"><span class="pre">c_base</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">19652</span></em><a class="headerlink" href="#srl.algorithms.alphazero.Config.c_base" title="Link to this definition"></a></dt>
+<dd><p>PUCT</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.alphazero.Config.c_init">
+<span class="sig-name descname"><span class="pre">c_init</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.25</span></em><a class="headerlink" href="#srl.algorithms.alphazero.Config.c_init" title="Link to this definition"></a></dt>
+<dd><p>PUCT</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.alphazero.Config.input_image_block">
+<span class="sig-name descname"><span class="pre">input_image_block</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_model.html#srl.rl.models.config.input_image_block.InputImageBlockConfig" title="srl.rl.models.config.input_image_block.InputImageBlockConfig"><span class="pre">InputImageBlockConfig</span></a></em><a class="headerlink" href="#srl.algorithms.alphazero.Config.input_image_block" title="Link to this definition"></a></dt>
+<dd><p>&lt;<a class="reference internal" href="../rl_config_model.html#inputimageblockconfig"><span class="std std-ref">InputImageBlock</span></a>&gt;</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.alphazero.Config.value_block">
+<span class="sig-name descname"><span class="pre">value_block</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_model.html#srl.rl.models.config.mlp_block.MLPBlockConfig" title="srl.rl.models.config.mlp_block.MLPBlockConfig"><span class="pre">MLPBlockConfig</span></a></em><a class="headerlink" href="#srl.algorithms.alphazero.Config.value_block" title="Link to this definition"></a></dt>
+<dd><p>&lt;<a class="reference internal" href="../rl_config_model.html#mlpblockconfig"><span class="std std-ref">MLPBlock</span></a>&gt; value block</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.alphazero.Config.policy_block">
+<span class="sig-name descname"><span class="pre">policy_block</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../rl_config_model.html#srl.rl.models.config.mlp_block.MLPBlockConfig" title="srl.rl.models.config.mlp_block.MLPBlockConfig"><span class="pre">MLPBlockConfig</span></a></em><a class="headerlink" href="#srl.algorithms.alphazero.Config.policy_block" title="Link to this definition"></a></dt>
+<dd><p>&lt;<a class="reference internal" href="../rl_config_model.html#mlpblockconfig"><span class="std std-ref">MLPBlock</span></a>&gt; policy block</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.algorithms.alphazero.Config.value_type">
+<span class="sig-name descname"><span class="pre">value_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'rate'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'linear'</span></span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'linear'</span></em><a class="headerlink" href="#srl.algorithms.alphazero.Config.value_type" title="Link to this definition"></a></dt>
+<dd><p>&quot;rate&quot; or &quot;linear&quot;</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="mcts.html" class="btn btn-neutral float-left" title="Monte Carlo tree search" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="muzero.html" class="btn btn-neutral float-right" title="MuZero" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, poco.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

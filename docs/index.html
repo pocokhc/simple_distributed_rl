@@ -1,0 +1,302 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="ja" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to SimpleDistributedRL&#39;s documentation! &mdash; SimpleDistributedRL 0.19.0 ドキュメント</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=52e18afe"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/translations.js?v=4755f45a"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="genindex.html" />
+    <link rel="search" title="検索" href="search.html" />
+    <link rel="next" title="Installation" href="pages/install.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            SimpleDistributedRL
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/howtouse.html">How To Use</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/distributed.html">Distributed Learning (Online)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Custom</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/custom_env.html">Making a Custom environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/custom_algorithm.html">Making a Custom algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/framework_detail.html">Detailed Framework</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/env_config.html">EnvConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config.html">RLConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_tree.html">RLConfig Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/runner.html">Runner(Configuration related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/runner.html#runner-train-related">Runner(Train related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/runner.html#runner-distribution-related">Runner(Distribution related)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/ql.html">Q-Learning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/dqn.html">Deep Q-Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/rainbow.html">Rainbow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/agent57.html">Agent57</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/agent57_light.html">Agent57 light</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/ppo.html">PPO(Proximal Policy Optimization)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/ddpg.html">DDPG(Deep Deterministic Policy Gradient)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/sac.html">SAC(Soft-Actor-Critic)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/snd.html">SND(Self-supervised Network Distillation)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/mcts.html">Monte Carlo tree search</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/alphazero.html">AlphaZero</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/muzero.html">MuZero</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/dreamer_v3.html">DreamerV3</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">SimpleDistributedRL</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Welcome to SimpleDistributedRL's documentation!</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="welcome-to-simpledistributedrl-s-documentation">
+<h1>Welcome to SimpleDistributedRL's documentation!<a class="headerlink" href="#welcome-to-simpledistributedrl-s-documentation" title="Link to this heading"></a></h1>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/install.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/install.html#id1">必須ライブラリ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/install.html#id2">その他のライブラリ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/install.html#id4">インストール</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/install.html#download-no-install">Download(No install)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/howtouse.html">How To Use</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/howtouse.html#envconfig">1. EnvConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/howtouse.html#rlconfig">2. RLConfig</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/howtouse.html#runner">3. Runner</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/howtouse.html#runner-functions">4. Runner functions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/distributed.html">Distributed Learning (Online)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/distributed.html#id1">0. 必要なライブラリのインストール</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/distributed.html#redis">1. Redisサーバの起動</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/distributed.html#trainerserver-actorserver">2. TrainerServer/ActorServerの起動</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/distributed.html#id2">3. 学習の実施</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Custom</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/custom_env.html">Making a Custom environment</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id1">1. 環境クラスの実装</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#space">2. Spaceクラスについて</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id5">3. 自作環境の登録</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#id6">4. 実装例</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_env.html#q">5. Q学習による学習例</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/custom_algorithm.html">Making a Custom algorithm</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id1">1. 概要</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id2">2. 実装する各クラスの説明</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id4">3. 自作アルゴリズムの登録</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#id7">4. 型ヒント</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/custom_algorithm.html#q">5. 実装例(Q学習)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/framework_detail.html">Detailed Framework</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/framework_detail.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/framework_detail.html#play-flow">Play flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/framework_detail.html#multiplay-flow">Multiplay flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/framework_detail.html#class-diagram">Class diagram</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/framework_detail.html#interface-type">Interface Type</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/env_config.html">EnvConfig</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/env_config.html#srl.base.env.config.EnvConfig"><code class="docutils literal notranslate"><span class="pre">EnvConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config.html">RLConfig</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config.html#srl.base.rl.config.RLConfig"><code class="docutils literal notranslate"><span class="pre">RLConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_tree.html">RLConfig Parameters</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_memory.html">Memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html">RLConfigComponentFramework</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html#inputvalueblock">InputValueBlock</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html#inputimageblock">InputImageBlock</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html#mlpblock">MLPBlock</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html#duelingnetwork">DuelingNetwork</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_scheduler.html">Scheduler</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_scheduler.html#lrschaduler">LRSchaduler</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/runner.html">Runner(Configuration related)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/runner.html#srl.runner.runner_base.RunnerBase"><code class="docutils literal notranslate"><span class="pre">RunnerBase</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/runner.html#runner-train-related">Runner(Train related)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/runner.html#srl.runner.runner_facade_train.RunnerFacadeTrain"><code class="docutils literal notranslate"><span class="pre">RunnerFacadeTrain</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/runner.html#runner-runtime-related">Runner(Runtime related)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/runner.html#srl.runner.runner_facade_play.RunnerFacadePlay"><code class="docutils literal notranslate"><span class="pre">RunnerFacadePlay</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/runner.html#runner-distribution-related">Runner(Distribution related)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/runner.html#srl.runner.runner_facade_distribution.RunnerFacadeDistribution"><code class="docutils literal notranslate"><span class="pre">RunnerFacadeDistribution</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/ql.html">Q-Learning</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/algorithms/ql.html#srl.algorithms.ql.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/dqn.html">Deep Q-Networks</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/rainbow.html">Rainbow</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/algorithms/rainbow.html#srl.algorithms.rainbow.rainbow.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/agent57.html">Agent57</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/algorithms/agent57.html#srl.algorithms.agent57.agent57.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/agent57_light.html">Agent57 light</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/algorithms/agent57_light.html#srl.algorithms.agent57_light.agent57_light.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/ppo.html">PPO(Proximal Policy Optimization)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/algorithms/ppo.html#srl.algorithms.ppo.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/ddpg.html">DDPG(Deep Deterministic Policy Gradient)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/algorithms/ddpg.html#srl.algorithms.ddpg.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/sac.html">SAC(Soft-Actor-Critic)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/algorithms/sac.html#srl.algorithms.sac.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/snd.html">SND(Self-supervised Network Distillation)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/algorithms/snd.html#srl.algorithms.snd.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/mcts.html">Monte Carlo tree search</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/algorithms/mcts.html#srl.algorithms.mcts.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/alphazero.html">AlphaZero</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/algorithms/alphazero.html#srl.algorithms.alphazero.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/muzero.html">MuZero</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/algorithms/muzero.html#srl.algorithms.muzero.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/dreamer_v3.html">DreamerV3</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config"><code class="docutils literal notranslate"><span class="pre">Config</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading"></a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">索引</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">モジュール索引</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">検索ページ</span></a></p></li>
+</ul>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="pages/install.html" class="btn btn-neutral float-right" title="Installation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, poco.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

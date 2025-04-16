@@ -63,23 +63,31 @@ RLMemoryですが、前はworkerで使える関数がaddのみ固定でしたが
    1. [tests.rl.memories] update: 合わせてテストを更新
 
 
-**WorkeruRunUpdates**
+**WorkerRunUpdates**
 
+1. workerのon_stepとrenderの状態をpolicyと同じ状態に変更
+   - on_step時のprev_state,stateをstate,next_stateに変更し、prev_stateを廃止
+   - on_step時のprev_invalid_actions,invalid_actionsをinvalid_actions,next_invalid_actionsに変更
+   - prev_action, prev_invalid_actionsを廃止
+   - renderもon_stepと同じ状態に変更
+      - contextからrender_modeを削除し、worker_run,env_run毎に持つように変更
+      - RenderModesをenumからLiteralに変更
+      - on_step_beginの位置をaction,env.render()の前に変更
 1. state_encode/action_decodeをRLConfigに移動、依存範囲が少なくなりました
    - processorもRLConfigで閉じるように移動
 1. reward_encodeを廃止。RLWorker内またはEnv側のProcessorで十分と判断。
-1. MCTS等のenv側のシミュレーションstepをEnvRun側に移動し、WorkerRunに依存しないように変更。
-1. trackingシステムを作成
 1. EnvProcessor,RLRrocessorを見直し
    - EnvProcessorは状態を保持してstepに割り込めるように変更
    - RLProcessorは状態を持たず、obsのみしか干渉できないように変更
    - actionとobsの変更に前後のspace情報を参照できるように、prev_spaceとnew_spaceの引数を追加
    - remap_xxx_spaceでspaceの変更がなかった場合にNoneを返すと無視するように変更
+1. MCTS等のenv側のシミュレーションstepをEnvRun側に移動し、WorkerRunに依存しないように変更。
+1. trackingシステムを作成
 
 
 ・その他の変更
 
-1. defineからObservationModeを廃止し、Literal["", "render_image"] に変更
+1. ObservationModeをenumからLiteral["", "render_image"] に変更
 1. RLConfigからget_frameworkの実装を必須から任意に変更
 1. RLConfigからparameter_pathとmemory_pathの優位性があまりなかったので削除
 1. RLConfigにdtypeを指定するget_dtypeを追加

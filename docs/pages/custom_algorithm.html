@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Making a Custom algorithm &mdash; SimpleDistributedRL 0.19.0 ドキュメント</title>
+  <title>Making a Custom algorithm &mdash; SimpleDistributedRL 0.19.0.0 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=52e18afe"></script>
+      <script src="../_static/documentation_options.js?v=f7e50419"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -700,25 +700,34 @@
    <span class="k">def</span><span class="w"> </span><span class="nf">on_reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">):</span>
       <span class="n">worker</span><span class="o">.</span><span class="n">state</span>           <span class="c1"># 初期状態</span>
       <span class="n">worker</span><span class="o">.</span><span class="n">player_index</span>    <span class="c1"># 初期プレイヤーのindex</span>
-      <span class="n">worker</span><span class="o">.</span><span class="n">invalid_action</span>  <span class="c1"># 初期有効ではないアクションリスト</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">invalid_actions</span> <span class="c1"># 初期有効ではないアクションリスト</span>
 
    <span class="k">def</span><span class="w"> </span><span class="nf">policy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">)</span> <span class="p">:</span>
       <span class="n">worker</span><span class="o">.</span><span class="n">state</span>           <span class="c1"># 状態</span>
       <span class="n">worker</span><span class="o">.</span><span class="n">player_index</span>    <span class="c1"># プレイヤーのindex</span>
-      <span class="n">worker</span><span class="o">.</span><span class="n">invalid_action</span>  <span class="c1"># 有効ではないアクションリスト</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">invalid_actions</span> <span class="c1"># 有効ではないアクションリスト</span>
 
    <span class="k">def</span><span class="w"> </span><span class="nf">on_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">:</span> <span class="s2">&quot;WorkerRun&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-      <span class="n">worker</span><span class="o">.</span><span class="n">prev_state</span>      <span class="c1"># step前の状態(policyのworker.stateと等価)</span>
-      <span class="n">worker</span><span class="o">.</span><span class="n">state</span>           <span class="c1"># step後の状態</span>
-      <span class="n">worker</span><span class="o">.</span><span class="n">prev_action</span>     <span class="c1"># step前の前のアクション</span>
-      <span class="n">worker</span><span class="o">.</span><span class="n">action</span>          <span class="c1"># step前のアクション(policyで返したアクションと等価)</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">state</span>           <span class="c1"># policy時のworker.state</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">next_state</span>      <span class="c1"># step後の状態</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">action</span>          <span class="c1"># policyで返したアクション</span>
       <span class="n">worker</span><span class="o">.</span><span class="n">reward</span>          <span class="c1"># step後の即時報酬</span>
       <span class="n">worker</span><span class="o">.</span><span class="n">done</span>            <span class="c1"># step後に終了フラグが立ったか</span>
       <span class="n">worker</span><span class="o">.</span><span class="n">terminated</span>      <span class="c1"># step後にenvが終了フラグを立てたか</span>
       <span class="n">worker</span><span class="o">.</span><span class="n">player_index</span>    <span class="c1"># 次のプレイヤーのindex</span>
-      <span class="n">worker</span><span class="o">.</span><span class="n">prev_invalid_action</span>  <span class="c1"># step前の有効ではないアクションリスト</span>
-      <span class="n">worker</span><span class="o">.</span><span class="n">invalid_action</span>       <span class="c1"># step後の有効ではないアクションリスト</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">invalid_action</span>       <span class="c1"># policy時のworker.invalid_action</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">next_invalid_actions</span> <span class="c1"># step後の有効ではないアクションリスト</span>
+
+   <span class="k">def</span><span class="w"> </span><span class="nf">render_terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">):</span>  <span class="c1"># 及び render_rgb_array</span>
+      <span class="c1"># policy -&gt; render -&gt; env.step -&gt; on_step -&gt; policy</span>
+      <span class="c1"># 以下はpolicyと同じ情報</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">state</span>           <span class="c1"># 状態</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">player_index</span>    <span class="c1"># プレイヤーのindex</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">invalid_actions</span> <span class="c1"># 有効ではないアクションリスト</span>
 </pre></div>
+</div>
+<div class="line-block">
+<div class="line">※v0.19.0 より on_step 内の prev_state/state → state/next_state に変更になりました</div>
 </div>
 </section>
 </section>
@@ -949,7 +958,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
             <span class="p">{</span>
                 <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">,</span>
-                <span class="s2">&quot;next_state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">observation_space</span><span class="o">.</span><span class="n">to_str</span><span class="p">(</span><span class="n">worker</span><span class="o">.</span><span class="n">state</span><span class="p">),</span>
+                <span class="s2">&quot;next_state&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">observation_space</span><span class="o">.</span><span class="n">to_str</span><span class="p">(</span><span class="n">worker</span><span class="o">.</span><span class="n">next_state</span><span class="p">),</span>
                 <span class="s2">&quot;action&quot;</span><span class="p">:</span> <span class="n">worker</span><span class="o">.</span><span class="n">action</span><span class="p">,</span>
                 <span class="s2">&quot;reward&quot;</span><span class="p">:</span> <span class="n">worker</span><span class="o">.</span><span class="n">reward</span><span class="p">,</span>
                 <span class="s2">&quot;done&quot;</span><span class="p">:</span> <span class="n">worker</span><span class="o">.</span><span class="n">terminated</span><span class="p">,</span>

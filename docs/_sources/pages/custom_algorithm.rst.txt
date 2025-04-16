@@ -471,24 +471,32 @@ RLPriorityReplayBuffer
       def on_reset(self, worker):
          worker.state           # 初期状態
          worker.player_index    # 初期プレイヤーのindex
-         worker.invalid_action  # 初期有効ではないアクションリスト
+         worker.invalid_actions # 初期有効ではないアクションリスト
 
       def policy(self, worker) :
          worker.state           # 状態
          worker.player_index    # プレイヤーのindex
-         worker.invalid_action  # 有効ではないアクションリスト
+         worker.invalid_actions # 有効ではないアクションリスト
 
       def on_step(self, worker: "WorkerRun") -> dict:
-         worker.prev_state      # step前の状態(policyのworker.stateと等価)
-         worker.state           # step後の状態
-         worker.prev_action     # step前の前のアクション
-         worker.action          # step前のアクション(policyで返したアクションと等価)
+         worker.state           # policy時のworker.state
+         worker.next_state      # step後の状態
+         worker.action          # policyで返したアクション
          worker.reward          # step後の即時報酬
          worker.done            # step後に終了フラグが立ったか
          worker.terminated      # step後にenvが終了フラグを立てたか
          worker.player_index    # 次のプレイヤーのindex
-         worker.prev_invalid_action  # step前の有効ではないアクションリスト
-         worker.invalid_action       # step後の有効ではないアクションリスト
+         worker.invalid_action       # policy時のworker.invalid_action
+         worker.next_invalid_actions # step後の有効ではないアクションリスト
+
+      def render_terminal(self, worker):  # 及び render_rgb_array
+         # policy -> render -> env.step -> on_step -> policy
+         # 以下はpolicyと同じ情報
+         worker.state           # 状態
+         worker.player_index    # プレイヤーのindex
+         worker.invalid_actions # 有効ではないアクションリスト
+
+| ※v0.19.0 より on_step 内の prev_state/state → state/next_state に変更になりました
 
 
 3. 自作アルゴリズムの登録

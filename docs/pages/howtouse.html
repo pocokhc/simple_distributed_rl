@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>How To Use &mdash; SimpleDistributedRL 0.19.0 ドキュメント</title>
+  <title>How To Use &mdash; SimpleDistributedRL 0.19.0.0 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=52e18afe"></script>
+      <script src="../_static/documentation_options.js?v=f7e50419"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -386,17 +386,12 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">srl.algorithms</span><span class="w"> </span><span class="kn">import</span> <span class="n">ql</span>
 
 <span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
 <span class="n">rewards</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">max_episodes</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;evaluate episodes: </span><span class="si">{</span><span class="n">rewards</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">evaluate episodes: [</span>
-<span class="sd">    -2.0399999544024467,</span>
-<span class="sd">    -2.079999975860119,</span>
-<span class="sd">    -1.719999983906746,</span>
-<span class="sd">    -2.0399999544024467,</span>
-<span class="sd">    -2.079999975860119</span>
-<span class="sd">]</span>
+<span class="sd">evaluate episodes: [0.76, 0.8, 0.72, 0.76, 0.84]</span>
 <span class="sd">&quot;&quot;&quot;</span>
 </pre></div>
 </div>
@@ -413,79 +408,127 @@
 <span class="n">runner</span><span class="o">.</span><span class="n">render_terminal</span><span class="p">()</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">### 0, action 0(←), rewards[0.000]</span>
+<span class="sd">### 0</span>
+<span class="sd">state  : 1,3</span>
+<span class="sd">action : None</span>
+<span class="sd">rewards:[0.000]</span>
+<span class="sd">total rewards:[0.000]</span>
 <span class="sd">env   {}</span>
-<span class="sd">work0 {}</span>
+<span class="sd">work0 {&#39;epsilon&#39;: 0.1}</span>
 <span class="sd">......</span>
 <span class="sd">.   G.</span>
 <span class="sd">. . X.</span>
 <span class="sd">.P   .</span>
 <span class="sd">......</span>
 
-<span class="sd"> ←  : 0.26995</span>
-<span class="sd"> ↓  : 0.27021</span>
-<span class="sd"> →  : 0.22059</span>
-<span class="sd">*↑  : 0.35530</span>
-<span class="sd">### 1, action 3(↑), rewards[-0.040]</span>
+<span class="sd"> 0(←)  : 0.31790</span>
+<span class="sd"> 1(↓)  : 0.30021</span>
+<span class="sd"> 2(→)  : 0.22420</span>
+<span class="sd">*3(↑)  : 0.40947</span>
+
+<span class="sd">### 1</span>
+<span class="sd">state  : 1,2</span>
+<span class="sd">action : 3(↑)</span>
+<span class="sd">rewards:[-0.040]</span>
+<span class="sd">total rewards:[-0.040]</span>
 <span class="sd">env   {}</span>
 <span class="sd">work0 {&#39;epsilon&#39;: 0}</span>
 <span class="sd">......</span>
 <span class="sd">.   G.</span>
 <span class="sd">.P. X.</span>
-<span class="sd">.    .</span>
+<span class="sd">.S   .</span>
 <span class="sd">......</span>
 
-<span class="sd"> ←  : 0.37256</span>
-<span class="sd"> ↓  : 0.30609</span>
-<span class="sd"> →  : 0.36743</span>
-<span class="sd">*↑  : 0.46822</span>
-<span class="sd">### 2, action 3(↑), rewards[-0.040]</span>
+<span class="sd"> 0(←)  : 0.41061</span>
+<span class="sd"> 1(↓)  : 0.30757</span>
+<span class="sd"> 2(→)  : 0.37957</span>
+<span class="sd">*3(↑)  : 0.51605</span>
+
+<span class="sd">### 2</span>
+<span class="sd">state  : 1,2</span>
+<span class="sd">action : 3(↑)</span>
+<span class="sd">rewards:[-0.040]</span>
+<span class="sd">total rewards:[-0.080]</span>
+<span class="sd">env   {}</span>
+<span class="sd">work0 {&#39;epsilon&#39;: 0}</span>
+<span class="sd">......</span>
+<span class="sd">.   G.</span>
+<span class="sd">.P. X.</span>
+<span class="sd">.S   .</span>
+<span class="sd">......</span>
+
+<span class="sd"> 0(←)  : 0.41061</span>
+<span class="sd"> 1(↓)  : 0.30757</span>
+<span class="sd"> 2(→)  : 0.37957</span>
+<span class="sd">*3(↑)  : 0.51605</span>
+
+<span class="sd">### 3</span>
+<span class="sd">state  : 1,1</span>
+<span class="sd">action : 3(↑)</span>
+<span class="sd">rewards:[-0.040]</span>
+<span class="sd">total rewards:[-0.120]</span>
 <span class="sd">env   {}</span>
 <span class="sd">work0 {&#39;epsilon&#39;: 0}</span>
 <span class="sd">......</span>
 <span class="sd">.P  G.</span>
 <span class="sd">. . X.</span>
-<span class="sd">.    .</span>
+<span class="sd">.S   .</span>
 <span class="sd">......</span>
 
-<span class="sd"> ←  : 0.47177</span>
-<span class="sd"> ↓  : 0.42313</span>
-<span class="sd">*→  : 0.59930</span>
-<span class="sd"> ↑  : 0.51255</span>
-<span class="sd">### 3, action 2(→), rewards[-0.040]</span>
+<span class="sd"> 0(←)  : 0.50963</span>
+<span class="sd"> 1(↓)  : 0.47168</span>
+<span class="sd">*2(→)  : 0.63577</span>
+<span class="sd"> 3(↑)  : 0.52524</span>
+
+<span class="sd">### 4</span>
+<span class="sd">state  : 2,1</span>
+<span class="sd">action : 2(→)</span>
+<span class="sd">rewards:[-0.040]</span>
+<span class="sd">total rewards:[-0.160]</span>
 <span class="sd">env   {}</span>
 <span class="sd">work0 {&#39;epsilon&#39;: 0}</span>
 <span class="sd">......</span>
 <span class="sd">. P G.</span>
 <span class="sd">. . X.</span>
-<span class="sd">.    .</span>
+<span class="sd">.S   .</span>
 <span class="sd">......</span>
 
-<span class="sd"> ←  : 0.51241</span>
-<span class="sd"> ↓  : 0.64351</span>
-<span class="sd">*→  : 0.76673</span>
-<span class="sd"> ↑  : 0.59747</span>
-<span class="sd">### 4, action 2(→), rewards[-0.040]</span>
+<span class="sd"> 0(←)  : 0.55444</span>
+<span class="sd"> 1(↓)  : 0.65966</span>
+<span class="sd">*2(→)  : 0.76021</span>
+<span class="sd"> 3(↑)  : 0.64972</span>
+
+<span class="sd">### 5</span>
+<span class="sd">state  : 3,1</span>
+<span class="sd">action : 2(→)</span>
+<span class="sd">rewards:[-0.040]</span>
+<span class="sd">total rewards:[-0.200]</span>
 <span class="sd">env   {}</span>
 <span class="sd">work0 {&#39;epsilon&#39;: 0}</span>
 <span class="sd">......</span>
 <span class="sd">.  PG.</span>
 <span class="sd">. . X.</span>
-<span class="sd">.    .</span>
+<span class="sd">.S   .</span>
 <span class="sd">......</span>
 
-<span class="sd"> ←  : 0.60441</span>
-<span class="sd"> ↓  : 0.30192</span>
-<span class="sd">*→  : 0.93905</span>
-<span class="sd"> ↑  : 0.71430</span>
-<span class="sd">### 5, action 2(→), rewards[1.000], done(env)</span>
-<span class="sd">env   {}</span>
-<span class="sd">work0 {}</span>
+<span class="sd"> 0(←)  : 0.65326</span>
+<span class="sd"> 1(↓)  : 0.51852</span>
+<span class="sd">*2(→)  : 0.95872</span>
+<span class="sd"> 3(↑)  : 0.78929</span>
 <span class="sd">......</span>
 <span class="sd">.   P.</span>
 <span class="sd">. . X.</span>
-<span class="sd">.    .</span>
+<span class="sd">.S   .</span>
 <span class="sd">......</span>
+
+
+<span class="sd">### 6, done()</span>
+<span class="sd">state  : 4,1</span>
+<span class="sd">action : 2(→)</span>
+<span class="sd">rewards:[1.000]</span>
+<span class="sd">total rewards:[0.800]</span>
+<span class="sd">env   {}</span>
+<span class="sd">work0 {&#39;epsilon&#39;: 0}</span>
 <span class="sd">&quot;&quot;&quot;</span>
 </pre></div>
 </div>
@@ -511,6 +554,7 @@ pygameのwindowが表示できる環境である必要があります。</p>
 <span class="kn">from</span><span class="w"> </span><span class="nn">srl.algorithms</span><span class="w"> </span><span class="kn">import</span> <span class="n">ql</span>
 
 <span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">())</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
 <span class="n">runner</span><span class="o">.</span><span class="n">animation_save_gif</span><span class="p">(</span><span class="s2">&quot;_Grid.gif&quot;</span><span class="p">)</span>
 <span class="c1"># runner.animation_display()  # for notebook</span>

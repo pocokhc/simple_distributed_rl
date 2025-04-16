@@ -168,7 +168,14 @@ def render_discrete_action(maxa: int, action_space: DiscreteSpace, env: EnvRun, 
         else:
             s = " "
         rl_s = func(action)
-        s += f"{env.action_to_str(action):3s}: {rl_s}"
+
+        act_s = env.action_to_str(action)
+        if act_s == str(action):
+            act_s = f"{act_s:3s}"
+        else:
+            act_s = f"{action}({act_s})"
+            act_s = f"{act_s:6s}"
+        s += f"{act_s}: {rl_s}"
         print(s)
     if action_space.n > view_actions_num:
         print("... Some actions have been omitted.")

@@ -375,11 +375,11 @@ class Worker(RLWorker[Config, Parameter, Memory]):
 
     def on_step(self, worker):
         self.prev_episode_reward += worker.reward
-        n_state = self.config.observation_space.to_str(worker.state)
+        n_state = self.config.observation_space.to_str(worker.next_state)
         self._recent_states.pop(0)
         self._recent_states.append(n_state)
         self.recent_invalid_actions.pop(0)
-        self.recent_invalid_actions.append(worker.invalid_actions)
+        self.recent_invalid_actions.append(worker.next_invalid_actions)
 
         if not self.training:
             return

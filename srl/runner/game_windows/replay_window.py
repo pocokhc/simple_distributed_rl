@@ -18,7 +18,7 @@ class _GetRGBCallback(RunCallback):
         self.steps = []
         self.interval = state.env.get_render_interval()
 
-    def on_step_begin(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
+    def on_step_action_after(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         self._read(context, state)
 
     def on_skip_step(self, context: RunContext, state: RunStateActor, **kwargs) -> None:

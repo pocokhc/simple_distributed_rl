@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable, Generic, List, Optional, Tuple,
 import numpy as np
 
 from srl.base.context import RunContext
-from srl.base.define import DoneTypes, EnvObservationType, KeyBindType, RenderModes
+from srl.base.define import DoneTypes, EnvObservationType, KeyBindType, RenderModeType
 from srl.base.env.base import EnvBase
 from srl.base.env.config import EnvConfig
 from srl.base.env.registration import make_base
@@ -176,12 +176,12 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def setup(
         self,
         context: Optional[RunContext] = None,
-        render_mode: Union[str, RenderModes] = RenderModes.none,
+        render_mode: RenderModeType = "",
     ):
         logger.debug(f"setup: {render_mode=}")
         if context is not None:
             self.context = context
-        if render_mode == RenderModes.none:
+        if render_mode == "":
             render_mode = self.context.render_mode
 
         # --- reset前の状態を設定

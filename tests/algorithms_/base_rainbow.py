@@ -126,7 +126,7 @@ class LongCase(CommonLongCase):
         runner.train(max_train_count=200 * 100)
         assert runner.evaluate_compare_to_baseline_single_player()
 
-    def test_Pendulum_window_multi(self):
+    def test_Pendulum_window_multistep(self):
         rl_config = self._create_pendulum_config()
         rl_config.window_length = 4
         rl_config.multisteps = 3

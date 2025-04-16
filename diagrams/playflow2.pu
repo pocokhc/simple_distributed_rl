@@ -58,13 +58,12 @@ loop episode
         note left
         action = <color red>decode(action)</color>
         end note
+
+        WorkerRun -> Worker: render()
+        return
+
     return action
 
-    User -> WorkerRun: render()
-        WorkerRun -> Worker: rendering
-        return
-    return
-    
     User -> EnvRun: step(action)
         EnvRun -> EnvBase: step(action)
         return state, rewards, terminated, truncated
@@ -91,10 +90,6 @@ end
 
 User -> EnvRun: render()
     EnvRun -> EnvBase: rendering
-    return
-return
-User -> WorkerRun: render()
-    WorkerRun -> Worker: rendering
     return
 return
 

@@ -234,12 +234,12 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
         """
         self.memory.add(
             [
-                worker.prev_state,
                 worker.state,
+                worker.next_state,
                 worker.get_onehot_action(),
                 reward,
                 int(not worker.terminated),
-                worker.invalid_actions,
+                worker.next_invalid_actions,
             ]
         )
 

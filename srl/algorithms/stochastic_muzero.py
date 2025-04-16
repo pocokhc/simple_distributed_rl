@@ -869,7 +869,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
 
         self.history.append(
             {
-                "state": worker.prev_state,
+                "state": worker.state,
                 "action": self.action,
                 "policy": self.step_policy,
                 "reward": worker.reward,
@@ -954,7 +954,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
     def render_terminal(self, worker, **kwargs) -> None:
         self._init_state(self.s0_str, self.config.action_space.n)
         self.parameter.prediction(self.s0, self.s0_str)
-        puct = self._calc_puct(self.s0_str, worker.prev_invalid_actions, False)
+        puct = self._calc_puct(self.s0_str, worker.invalid_actions, False)
         maxa = self.action
 
         v = self.parameter.V[self.s0_str]

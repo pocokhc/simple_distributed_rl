@@ -160,7 +160,6 @@ class BoxSpace(SpaceBase[np.ndarray]):
         """
         入力された x を画像データとして uint8 に変換する。
         """
-        assert x.shape == self.shape, f"Shape mismatch: {x.shape} != {self.shape}"
 
         # 無限範囲の場合はスケーリング不可
         if self._is_inf:

@@ -175,11 +175,9 @@ for episode in range(N)
   # 1 episode loop
   while not env.done:
       env.render()  # env render
-
+    
       # get action
-      worker.ready_policy()
       action = worker.policy()
-      worker.render()  # worker render
 
       # Run 1 step of the environment
       env.step(action)
@@ -187,9 +185,9 @@ for episode in range(N)
 
       # Train phase
       trainer.train()
+
   # Drawing after the end of one episode
   env.render()
-  worker.render()
 
 # End of learning unit
 env.teardown()

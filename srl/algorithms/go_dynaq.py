@@ -375,6 +375,14 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         self.start_state = self.config.observation_space.to_str(worker.state)
         self.move_actions = []
 
+        if self.rendering:
+            self.render_prev_state = self.config.observation_space.get_default()
+            self.render_state = worker.state
+            self.render_prev_action = 0
+            self.render_action = 0
+            self.render_prev_invalid_actions = []
+            self.render_invalid_actions = []
+
         if not self.training:
             return
 
@@ -475,10 +483,18 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         return ucb_list
 
     def on_step(self, worker):
+        if self.rendering:
+            self.render_prev_state = self.render_state
+            self.render_state = worker.state
+            self.render_prev_action = self.render_action
+            self.render_action = worker.action
+            self.render_prev_invalid_actions = self.render_invalid_actions
+            self.render_invalid_actions = worker.invalid_actions
+
         if not self.training:
             return
-        state = self.config.observation_space.to_str(worker.prev_state)
-        n_state = self.config.observation_space.to_str(worker.state)
+        state = self.config.observation_space.to_str(worker.state)
+        n_state = self.config.observation_space.to_str(worker.next_state)
 
         # --- batch
         batch = [
@@ -488,8 +504,8 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             worker.reward,
             self._calc_episodic_reward(n_state),
             1 if self.worker.terminated else 0,
-            worker.prev_invalid_actions,
             worker.invalid_actions,
+            worker.next_invalid_actions,
         ]
         self.memory.add(batch)
 
@@ -508,8 +524,8 @@ class Worker(RLWorker[Config, Parameter, Memory]):
 
         # --- update archive
         self.episode_reward += worker.reward
-        self._archive_init(self.start_state, state, worker.prev_invalid_actions)
-        self._archive_init(self.start_state, n_state, worker.invalid_actions)
+        self._archive_init(self.start_state, state, worker.invalid_actions)
+        self._archive_init(self.start_state, n_state, worker.next_invalid_actions)
         archive_state_is_update = self._archive_state_update(
             n_state,
             total_reward=self.episode_reward,
@@ -650,10 +666,10 @@ class Worker(RLWorker[Config, Parameter, Memory]):
     def render_terminal(self, worker, **kwargs) -> None:
         # policy -> render -> env.step -> on_step
 
-        prev_state = self.config.observation_space.to_str(worker.prev_state)
-        prev_act = worker.prev_action
+        prev_state = self.config.observation_space.to_str(self.render_prev_state)
+        prev_act = self.render_prev_action
         state = self.config.observation_space.to_str(worker.state)
-        self.parameter.init_model(prev_state, prev_act, state, worker.prev_invalid_actions, worker.invalid_actions)
+        self.parameter.init_model(prev_state, prev_act, state, self.render_prev_invalid_actions, worker.invalid_actions)
         self.parameter.init_q(prev_state)
         self.parameter.init_q(state)
 

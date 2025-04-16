@@ -369,7 +369,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
         self.q_int = self.parameter.predict_q_int_online(in_)[0]
         self.q = self.q_ext + self.beta * self.q_int
 
-        invalid_actions = worker.get_invalid_actions()
+        invalid_actions = worker.invalid_actions
         if random.random() < self.epsilon:
             action = random.choice([a for a in range(self.config.action_space.n) if a not in invalid_actions])
         else:
@@ -380,9 +380,9 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
         return action
 
     def on_step(self, worker):
-        next_state = worker.state
+        next_state = worker.next_state
         reward_ext = worker.reward
-        next_invalid_actions = worker.get_invalid_actions()
+        next_invalid_actions = worker.next_invalid_actions
         self.episode_reward += reward_ext
 
         # 内部報酬
@@ -423,7 +423,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
         ]
         """
         batch = [
-            worker.prev_state,
+            worker.state,
             next_state,
             self.onehot_action,
             next_invalid_actions,

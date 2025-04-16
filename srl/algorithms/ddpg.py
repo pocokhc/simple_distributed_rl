@@ -320,16 +320,16 @@ class Worker(RLWorker):
         if not self.training:
             return
         batch = {
-            "state": worker.prev_state,
+            "state": worker.state,
             "action": self.action,
-            "next_state": worker.state,
+            "next_state": worker.next_state,
             "reward": worker.reward,
             "done": worker.terminated,
         }
         self.memory.add(batch)
 
     def render_terminal(self, worker, **kwargs) -> None:
-        state = worker.prev_state.reshape(1, -1)
+        state = worker.state.reshape(1, -1)
         action = self.parameter.actor_online(state)
         q1, q2 = self.parameter.critic_online([state, action])
         q1 = q1.numpy()[0][0]

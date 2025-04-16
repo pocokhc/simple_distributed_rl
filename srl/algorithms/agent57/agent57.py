@@ -532,13 +532,13 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
         self.q_int = self.q_int[0][0]
         self.q = self.q_ext + self.beta * self.q_int
 
-        probs = funcs.calc_epsilon_greedy_probs(self.q, worker.get_invalid_actions(), self.epsilon, self.config.action_space.n)
+        probs = funcs.calc_epsilon_greedy_probs(self.q, worker.invalid_actions, self.epsilon, self.config.action_space.n)
         self.action = funcs.random_choice_by_probs(probs)
         # self.prob = probs[self.action]  #[1]
         return self.action
 
     def on_step(self, worker):
-        next_state = worker.state
+        next_state = worker.next_state
         reward_ext = worker.reward
         self.episode_reward += reward_ext
         self.reward_ext = reward_ext
@@ -568,7 +568,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
         self.recent_done.pop(0)
         self.recent_done.append(0 if worker.terminated else 1)
         self.recent_next_invalid_actions.pop(0)
-        self.recent_next_invalid_actions.append(worker.get_invalid_actions())
+        self.recent_next_invalid_actions.append(worker.next_invalid_actions)
         self.recent_hidden_states_ext.pop(0)
         self.recent_hidden_states_ext.append(self.parameter.convert_numpy_from_hidden_state(self.hidden_state_ext))
         self.recent_hidden_states_int.pop(0)

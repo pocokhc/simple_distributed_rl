@@ -5,7 +5,7 @@ import pprint
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, List, Optional, Union
 
-from srl.base.define import PlayerType, RenderModes
+from srl.base.define import PlayerType, RenderModeType
 from srl.utils.serialize import convert_for_json
 
 if TYPE_CHECKING:
@@ -51,7 +51,7 @@ class RunContext:
     train_only: bool = False
     rollout: bool = False
     rendering: bool = False
-    render_mode: Union[str, RenderModes] = RenderModes.none
+    render_mode: RenderModeType = ""
 
     # --- mp
     actor_id: int = 0

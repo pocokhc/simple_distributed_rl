@@ -235,7 +235,6 @@ class Worker(RLWorker[Config, Parameter, Memory]):
 
     def policy(self, worker) -> int:
         self.state = self.config.observation_space.to_str(worker.state)
-        self.invalid_actions = worker.get_invalid_actions()
 
         if self.training:
             epsilon = self.epsilon_sch.update(self.total_step).to_float()
@@ -243,11 +242,11 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             epsilon = self.config.test_epsilon
 
         if random.random() < epsilon:
-            self.action = random.choice([a for a in range(self.config.action_space.n) if a not in self.invalid_actions])
+            self.action = random.choice([a for a in range(self.config.action_space.n) if a not in worker.invalid_actions])
         else:
-            q = self.parameter.get_action_values(self.state, self.invalid_actions)
+            q = self.parameter.get_action_values(self.state, worker.invalid_actions)
             q = np.asarray(q)
-            q = [(-np.inf if a in self.invalid_actions else v) for a, v in enumerate(q)]
+            q = [(-np.inf if a in worker.invalid_actions else v) for a, v in enumerate(q)]
             self.action = np.random.choice(np.where(q == np.max(q))[0])
 
         return int(self.action)
@@ -257,17 +256,17 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             return
         batch = {
             "state": self.state,
-            "next_state": self.config.observation_space.to_str(worker.state),
+            "next_state": self.config.observation_space.to_str(worker.next_state),
             "action": self.action,
             "reward": worker.reward,
             "done": worker.terminated,
-            "invalid_actions": self.invalid_actions,
-            "next_invalid_actions": worker.get_invalid_actions(),
+            "invalid_actions": worker.invalid_actions,
+            "next_invalid_actions": worker.next_invalid_actions,
         }
         self.memory.add(batch)
 
     def render_terminal(self, worker, **kwargs) -> None:
-        q = self.parameter.get_action_values(self.state, self.invalid_actions)
+        q = self.parameter.get_action_values(self.state, worker.invalid_actions)
         model = self.parameter.model
         maxa = np.argmax(q)
 

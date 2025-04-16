@@ -7,12 +7,10 @@ from typing import TYPE_CHECKING, Any, Generic, List, Literal, Optional, Tuple, 
 
 import numpy as np
 
-import srl
 from srl.base.define import (
     EnvActionType,
     EnvObservationType,
     PlayerType,
-    RenderModes,
     RLActionType,
     RLBaseActTypes,
     RLBaseObsTypes,
@@ -226,7 +224,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                         logger.info(s)
                     env_obs_space = env_obs_space.copy(stype=self.override_observation_type, is_stack_ch=None)
         elif self.observation_mode == "render_image":
-            env.setup(srl.RunContext(render_mode=RenderModes.rgb_array))
+            env.setup(render_mode="rgb_array")
             env.reset()
             rgb_array = env.render_rgb_array()
             if rgb_array is not None:
@@ -298,7 +296,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
         # --- include render image
         if self.use_render_image_state():
-            env.setup(srl.RunContext(render_mode=RenderModes.rgb_array))
+            env.setup(render_mode="rgb_array")
             env.reset()
             rgb_array = env.render_rgb_array()
             if rgb_array is not None:

@@ -619,7 +619,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
     def on_step(self, worker):
         if not self.training:
             return
-        next_state = worker.state
+        next_state = worker.next_state
 
         clip_rewards_fn = dict(none=lambda x: x, tanh=tf.tanh)[self.config.clip_rewards]
         reward = clip_rewards_fn(worker.reward)
@@ -669,7 +669,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             return None
         from srl.utils import pygame_wrapper as pw
 
-        state = worker.prev_state
+        state = worker.state
 
         _view_action = 4
         _view_sample = 3
@@ -701,10 +701,9 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         pw.draw_text(self.screen, IMG_W * 2 + PADDING + 10, 10, f"reward: {pred_reward:.4f})", color=(255, 255, 255))
 
         # 横にアクション後の結果を表示
-        invalid_actions = worker.get_invalid_actions()
         i = -1
         for a in range(self.config.action_space.n):
-            if a in invalid_actions:
+            if a in worker.invalid_actions:
                 continue
             i += 1
             if i > _view_action:

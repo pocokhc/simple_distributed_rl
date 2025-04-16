@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple, Union, cast
+from typing import Any, List, Optional, Tuple, cast
 
 import numpy as np
 import tensorflow as tf
@@ -457,7 +457,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
                 reward = self.config.reward_clip[1]
 
         if self.config.experience_collection_method == "GAE":
-            next_state = worker.state
+            next_state = worker.next_state
             if self.config.state_clip is not None:
                 next_state = np.clip(next_state, self.config.state_clip[0], self.config.state_clip[1])
             self.recent_next_states.append(next_state)

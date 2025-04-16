@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Union, cast
 
-from srl.base.define import PlayerType, RenderModes
+from srl.base.define import PlayerType
 from srl.base.run.callback import RunCallback
 from srl.runner.runner_base import RunnerBase
 
@@ -68,7 +68,7 @@ class RunnerFacadeDistribution(RunnerBase):
         self.context.train_only = False
         self.context.rollout = False
         self.context.rendering = False
-        self.context.render_mode = RenderModes.none
+        self.context.render_mode = ""
 
         if enable_progress:
             self.apply_progress(callbacks_run, enable_eval=False)
@@ -144,7 +144,7 @@ class RunnerFacadeDistribution(RunnerBase):
         self.context.distributed = True
         self.context.training = True
         self.context.rendering = False
-        self.context.render_mode = RenderModes.none
+        self.context.render_mode = ""
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=False)

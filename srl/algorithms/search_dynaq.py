@@ -396,6 +396,14 @@ class Worker(RLWorker[Config, Parameter, Memory]):
     def on_reset(self, worker):
         self.episodic = {}
 
+        if self.rendering:
+            self.render_prev_state = self.config.observation_space.get_default()
+            self.render_state = worker.state
+            self.render_prev_action = 0
+            self.render_action = 0
+            self.render_prev_invalid_actions = []
+            self.render_invalid_actions = []
+
     def policy(self, worker) -> int:
         self.state = self.config.observation_space.to_str(worker.state)
         invalid_actions = worker.invalid_actions
@@ -437,9 +445,17 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         return self.action
 
     def on_step(self, worker):
+        if self.rendering:
+            self.render_prev_state = self.render_state
+            self.render_state = worker.state
+            self.render_prev_action = self.render_action
+            self.render_action = worker.action
+            self.render_prev_invalid_actions = self.render_invalid_actions
+            self.render_invalid_actions = worker.invalid_actions
+
         if not self.training:
             return
-        next_state = self.config.observation_space.to_str(worker.state)
+        next_state = self.config.observation_space.to_str(worker.next_state)
         self.parameter.init_q(next_state)
 
         # 内部報酬
@@ -454,8 +470,8 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             "reward_ext": worker.reward,
             "reward_int": reward_int,
             "done": self.worker.done_type == DoneTypes.TERMINATED,
-            "invalid_actions": worker.prev_invalid_actions,
-            "next_invalid_actions": worker.invalid_actions,
+            "invalid_actions": worker.invalid_actions,
+            "next_invalid_actions": worker.next_invalid_actions,
         }
         self.memory.add(batch)
 
@@ -475,10 +491,10 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         return self.parameter.lifelong[state]
 
     def render_terminal(self, worker, **kwargs) -> None:
-        prev_state = self.config.observation_space.to_str(worker.prev_state)
-        act = worker.prev_action
+        prev_state = self.config.observation_space.to_str(self.render_prev_state)
+        act = self.render_prev_action
         state = self.config.observation_space.to_str(worker.state)
-        self.parameter.init_state(prev_state, act, state, worker.prev_invalid_actions, worker.invalid_actions)
+        self.parameter.init_state(prev_state, act, state, self.render_prev_invalid_actions, worker.invalid_actions)
         self.parameter.init_q(prev_state)
         self.parameter.init_q(state)
 

@@ -3,7 +3,6 @@ from typing import Optional
 import numpy as np
 
 import srl
-import srl.rl.random_play
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun
@@ -24,29 +23,20 @@ def _run_episode(
     env.reset()
     worker.reset(player_index=0)
 
-    # --- env render
-    if rendering:
-        print("step 0")
-        env.render()
-
+    action = None
     while not env.done:
+        # --- env render
+        if rendering:
+            print(f"\n--- turn {env.step_num}, action {action}, rewards: {env.rewards[0]}, done: {env.done}, info: {env.info}")
+            print(f"worker: {worker.info}")
+            env.render()
+
         # 2. action
         action = worker.policy()
-
-        # --- worker render
-        if rendering:
-            print(f"player {env.next_player}")
-            worker.render()
 
         # 3. step
         env.step(action)
         worker.on_step()
-
-        # --- env render
-        if rendering:
-            print("--- turn {}, action {}, rewards: {}, done: {}, next player {}, info: {}, ".format(env.step_num, action, env.rewards, env.done, env.next_player, env.info))
-            print("player {} info: {}".format(env.next_player, worker.info))
-            env.render()
 
         # 4. train
         if trainer is not None:
@@ -62,8 +52,10 @@ def _run_episode(
             if trainer is not None:
                 print(trainer.info)
 
+    # --- last env render
     if rendering:
-        print(f"step: {env.step_num}, reward: {env.episode_rewards}")
+        print(f"\n--- turn: {env.step_num}, reward: {env.rewards[0]}, total reward: {env.episode_rewards[0]}, done reason: {env.done_reason}")
+        env.render()
 
     return env.step_num, env.episode_rewards
 
@@ -106,7 +98,7 @@ def main():
     worker.teardown()
 
     # --- render
-    context = srl.RunContext(env_config, rl_config, render_mode="terminal")
+    context = srl.RunContext(env_config, rl_config, rendering=True, render_mode="terminal")
     env.setup(context)
     worker.setup(context)
     _run_episode(env, worker, None, rendering=True)

@@ -4,7 +4,6 @@ import time
 from typing import Any, Generator, List, Optional, Tuple
 
 from srl.base.context import RunContext, RunNameTypes
-from srl.base.define import RenderModes
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun
@@ -41,11 +40,6 @@ def play_generator(
         trainer,
     )
 
-    # render
-    if context.rl_config.used_rgb_array:
-        logger.info(f"change render_mode: {context.render_mode} -> rgb_array")
-        context.render_mode = RenderModes.rgb_array
-
     # --- 1 setup_from_actor
     if context.distributed:
         main_worker.config.setup_from_actor(context.actor_num, context.actor_id)
@@ -64,7 +58,6 @@ def play_generator(
 
     # --- 4 init
     state.worker_indices = [i for i in range(state.env.player_num)]
-    state.elapsed_t0 = time.time()
 
     # --- 5 callbacks
     _calls_on_episode_begin: List[Any] = [c for c in callbacks if hasattr(c, "on_episode_begin")]
@@ -88,6 +81,7 @@ def play_generator(
     # --- 6 loop
     if context.run_name != RunNameTypes.eval:
         logger.info(f"[{context.run_name}] loop start")
+    state.elapsed_t0 = time.time()
     while True:
         # --- stop check
         if context.timeout > 0 and (time.time() - state.elapsed_t0) >= context.timeout:
@@ -113,7 +107,6 @@ def play_generator(
         # ------------------------
         if state.env.done:
             state.episode_count += 1
-
             if context.max_episodes > 0 and state.episode_count >= context.max_episodes:
                 state.end_reason = "episode_count over."
                 break  # end
@@ -139,12 +132,14 @@ def play_generator(
         # ------------------------
         # step
         # ------------------------
+        # env render
+        if context.rendering:
+            state.env.render()
+
         # --- action
-        state.env.render()
         [c.on_step_action_before(context=context, state=state) for c in _calls_on_step_action_before]
         yield ("on_step_action_before", context, state)
         state.action = state.workers[state.worker_idx].policy()
-        state.workers[state.worker_idx].render()
         [c.on_step_action_after(context=context, state=state) for c in _calls_on_step_action_after]
         yield ("on_step_action_after", context, state)
 
@@ -180,10 +175,9 @@ def play_generator(
         # done
         # ------------------------
         if state.env.done:
-            state.env.render()
-            for w in state.workers:
-                if w.rendering:
-                    w.render()
+            # render
+            if context.rendering:
+                state.env.render()
 
             # reward
             worker_rewards = [state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)]
@@ -198,6 +192,7 @@ def play_generator(
         if True in _stop_flags:
             state.end_reason = "callback.intermediate_stop"
             break
+
     if context.run_name != RunNameTypes.eval:
         logger.info(f"[{context.run_name}] loop end({state.end_reason})")
 

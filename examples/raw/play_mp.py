@@ -203,7 +203,7 @@ def main():
     # --------------------
     # rendering
     # --------------------
-    context = RunContext(render_mode="terminal")
+    context = RunContext(rendering=True, render_mode="terminal")
     worker = rl_config.make_worker(env, parameter)
     env.setup(context)
     worker.setup(context)
@@ -212,21 +212,20 @@ def main():
     worker.reset(0)
 
     print("step 0")
-    env.render()
+    action = None
     while not env.done:
-        action = worker.policy()
+        print("\n--- turn {}, action {}, rewards: {}, done: {}, next player {}, info: {}, ".format(env.step_num, action, env.rewards, env.done, env.next_player, env.info))
+        print("player {} info: {}".format(env.next_player, worker.info))
+        env.render()
 
-        print(f"player {env.next_player}")
-        worker.render()
+        action = worker.policy()
 
         env.step(action)
         worker.on_step()
 
-        print("--- turn {}, action {}, rewards: {}, done: {}, next player {}, info: {}, ".format(env.step_num, action, env.rewards, env.done, env.next_player, env.info))
-        print("player {} info: {}".format(env.next_player, worker.info))
-        env.render()
+    print(f"\n--- turn: {env.step_num}, reward: {env.rewards[0]}, total reward: {env.episode_rewards[0]}, done reason: {env.done_reason}")
+    env.render()
 
-    print(f"step: {env.step_num}, reward: {env.episode_rewards}")
     env.teardown()
     worker.teardown()
 

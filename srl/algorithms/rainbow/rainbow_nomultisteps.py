@@ -54,7 +54,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
         self.epsilon_sch = self.config.epsilon_scheduler.create(self.config.epsilon)
 
     def policy(self, worker) -> int:
-        invalid_actions = worker.get_invalid_actions()
+        invalid_actions = worker.invalid_actions
 
         if self.config.enable_noisy_dense:
             self.q = self.parameter.pred_single_q(worker.state)
@@ -106,12 +106,12 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
         ]
         """
         batch = [
-            worker.prev_state,
             worker.state,
+            worker.next_state,
             np.identity(self.config.action_space.n, dtype=int)[self.action],
             reward,
             int(not worker.terminated),
-            worker.get_invalid_actions(),
+            worker.next_invalid_actions,
         ]
 
         if not self.distributed:
@@ -120,7 +120,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
             priority = None
         else:
             if self.q is None:
-                self.q = self.parameter.pred_single_q(worker.prev_state)
+                self.q = self.parameter.pred_single_q(worker.state)
             select_q = self.q[self.action]
             target_q = calc_target_q(self.parameter, [batch], training=False)[0]
             priority = abs(target_q - select_q)
@@ -129,7 +129,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
 
     def render_terminal(self, worker, **kwargs) -> None:
         if self.q is None:
-            q = self.parameter.pred_single_q(worker.prev_state)
+            q = self.parameter.pred_single_q(worker.state)
         else:
             q = self.q
         maxa = np.argmax(q)

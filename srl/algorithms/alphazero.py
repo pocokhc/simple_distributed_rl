@@ -309,7 +309,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
     def policy(self, worker) -> int:
         self.state = worker.state
         self.state_str = self.config.observation_space.to_str(self.state)
-        self.invalid_actions = worker.get_invalid_actions()
+        self.invalid_actions = worker.invalid_actions
         self._init_state(self.state_str)
 
         # --- シミュレーションしてpolicyを作成

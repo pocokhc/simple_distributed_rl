@@ -159,23 +159,22 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 class Worker(RLWorker[Config, Parameter, Memory]):
     def on_reset(self, worker):
         self.state = self.config.observation_space.to_str(worker.state)
-        self.invalid_actions = worker.get_invalid_actions()
         self.history = []
 
     def policy(self, worker) -> Any:
         self.state = self.config.observation_space.to_str(worker.state)
-        self.invalid_actions = worker.get_invalid_actions()
+        invalid_actions = worker.invalid_actions
 
         if isinstance(self.config.action_space, DiscreteSpace):
             act_space = self.config.action_space
             # --- 離散
-            probs = self.parameter.get_probs(self.state, self.invalid_actions)
+            probs = self.parameter.get_probs(self.state, invalid_actions)
             if self.training:
                 action = np.random.choice([a for a in range(act_space.n)], p=probs)
                 self.action = env_action = int(action)
                 self.prob = probs[self.action]
             else:
-                env_action = funcs.get_random_max_index(probs, worker.invalid_actions)
+                env_action = funcs.get_random_max_index(probs, invalid_actions)
 
         elif isinstance(self.config.action_space, ArrayContinuousSpace):
             act_space = self.config.action_space
@@ -203,7 +202,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             [
                 self.state,
                 self.action,
-                self.invalid_actions,
+                worker.invalid_actions,
                 worker.reward,
             ]
         )
@@ -222,7 +221,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
 
     def render_terminal(self, worker, **kwargs) -> None:
         if isinstance(self.config.action_space, DiscreteSpace):
-            probs = self.parameter.get_probs(self.state, self.invalid_actions)
+            probs = self.parameter.get_probs(self.state, worker.invalid_actions)
             vals = [0 if v is None else v for v in self.parameter.policy[self.state]]
             maxa = np.argmax(vals)
 

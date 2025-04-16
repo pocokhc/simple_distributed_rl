@@ -1,5 +1,5 @@
 import enum
-from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Tuple, Union
 
 import numpy as np
 
@@ -155,25 +155,4 @@ class RLMemoryTypes(enum.Enum):
     PRIORITY = enum.auto()
 
 
-class RenderModes(enum.Enum):
-    none = 0
-    terminal = enum.auto()
-    window = enum.auto()
-    rgb_array = enum.auto()
-
-    @staticmethod
-    def get_names() -> List[str]:
-        return [i.name for i in RenderModes]
-
-    @staticmethod
-    def from_str(mode: Union[str, "RenderModes"]) -> "RenderModes":
-        if isinstance(mode, str):
-            if mode == "":
-                mode = "none"
-            names = RenderModes.get_names()
-            assert mode in names, "Unknown mode '{}'. mode list is [{}].".format(
-                mode,
-                ",".join(names),
-            )
-            mode = RenderModes[mode]
-        return mode
+RenderModeType = Literal["", "terminal", "rgb_array", "window"]

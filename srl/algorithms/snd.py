@@ -336,7 +336,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         self.memory.add_snd(worker.state)
 
     def policy(self, worker) -> int:
-        invalid_actions = worker.get_invalid_actions()
+        invalid_actions = worker.invalid_actions
 
         if self.training:
             epsilon = self.config.epsilon
@@ -359,13 +359,13 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             return
 
         r_ext = worker.reward
-        r_int = self._calc_intrinsic_reward(worker.state)
+        r_int = self._calc_intrinsic_reward(worker.next_state)
         reward = r_ext + self.config.int_reward_scale * r_int
 
         self.memory.add_q(
             [
-                worker.prev_state,
                 worker.state,
+                worker.next_state,
                 worker.get_onehot_action(),
                 reward,
                 int(not worker.terminated),

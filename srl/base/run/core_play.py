@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
 from srl.base.context import RunContext, RunNameTypes
-from srl.base.define import RenderModes
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
@@ -106,13 +105,6 @@ def _play(
         trainer,
     )
 
-    # render
-    if context.rl_config is not None:
-        if context.rl_config.used_rgb_array and (context.render_mode != RenderModes.rgb_array):
-            if context.run_name != RunNameTypes.eval:
-                logger.info(f"[{context.flow_mode}] change render_mode: {context.render_mode} -> rgb_array")
-            context.render_mode = RenderModes.rgb_array
-
     # --- 1 setup_from_actor
     if context.distributed:
         main_worker.config.setup_from_actor(context.actor_num, context.actor_id)
@@ -205,18 +197,19 @@ def _play(
             # ------------------------
             # step
             # ------------------------
+            [c.on_step_begin(context=context, state=state) for c in _calls_on_step_begin]
+            # env render
+            if context.rendering:
+                state.env.render()
+
             # --- action
-            state.env.render()
             [c.on_step_action_before(context=context, state=state) for c in _calls_on_step_action_before]
             state.action = state.workers[state.worker_idx].policy()
-            if context.rendering:
-                state.workers[state.worker_idx].render()
             [c.on_step_action_after(context=context, state=state) for c in _calls_on_step_action_after]
 
             # workerがenvを終了させた場合に対応
             if not state.env.done:
                 # env step
-                [c.on_step_begin(context=context, state=state) for c in _calls_on_step_begin]
                 state.env.step(
                     state.action,
                     state.workers[state.worker_idx].config.frameskip,
@@ -243,17 +236,9 @@ def _play(
             # done
             # ------------------------
             if state.env.done:
-                state.env.render()
+                # render
                 if context.rendering:
-                    for w in state.workers:
-                        if w.rendering:
-                            # 最後のrender用policyは実施しない(RLWorker側で対処)
-                            # try:
-                            #    w.policy()
-                            # except Exception:
-                            #    logger.info(traceback.format_exc())
-                            #    logger.info("Policy error in termination status (for rendering)")
-                            w.render()
+                    state.env.render()
 
                 # reward
                 worker_rewards = [state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)]

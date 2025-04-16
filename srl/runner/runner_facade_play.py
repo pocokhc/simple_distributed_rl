@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Any, List, Optional, Union, cast
 
 from srl.base.context import RunNameTypes
-from srl.base.define import PlayerType, RenderModes
+from srl.base.define import PlayerType
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.run.callback import RunCallback
@@ -69,7 +69,7 @@ class RunnerFacadePlay(RunnerBase):
         self.context.train_only = False
         self.context.rollout = False
         self.context.rendering = False
-        self.context.render_mode = RenderModes.none
+        self.context.render_mode = ""
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=False)
@@ -99,7 +99,7 @@ class RunnerFacadePlay(RunnerBase):
         memory: Optional[RLMemory] = None,
     ):
         callbacks = callbacks[:]
-        mode = RenderModes.terminal
+        mode = "terminal"
 
         # --- set context
         self.context.flow_mode = "render_terminal"
@@ -164,7 +164,7 @@ class RunnerFacadePlay(RunnerBase):
         memory: Optional[RLMemory] = None,
     ):
         callbacks = callbacks[:]
-        mode = RenderModes.window
+        mode = "window"
 
         # --- context
         self.context.flow_mode = "render_window"
@@ -235,7 +235,7 @@ class RunnerFacadePlay(RunnerBase):
         memory: Optional[RLMemory] = None,
     ):
         callbacks = callbacks[:]
-        mode = RenderModes.rgb_array
+        mode = "rgb_array"
 
         # --- set context
         self.context.flow_mode = "run_render"
@@ -433,7 +433,7 @@ class RunnerFacadePlay(RunnerBase):
         _is_test: bool = False,  # for test
     ):
         callbacks = callbacks[:]
-        mode = RenderModes.rgb_array
+        mode = "rgb_array"
 
         # --- set context
         self.context.flow_mode = "replay_window"
@@ -479,7 +479,7 @@ class RunnerFacadePlay(RunnerBase):
         memory: Optional[RLMemory] = None,
     ):
         callbacks = callbacks[:]
-        mode = RenderModes.terminal
+        mode = "terminal"
 
         # --- set context
         self.context.flow_mode = "play_terminal"
@@ -534,7 +534,7 @@ class RunnerFacadePlay(RunnerBase):
         _is_test: bool = False,  # for test
     ):
         callbacks2 = cast(List[RunCallback], [c for c in callbacks if issubclass(c.__class__, RunCallback)])
-        mode = RenderModes.rgb_array
+        mode = "rgb_array"
 
         # --- set context
         self.context.flow_mode = "play_window"

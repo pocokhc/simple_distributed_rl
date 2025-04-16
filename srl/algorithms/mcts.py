@@ -94,7 +94,6 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 class Worker(RLWorker[Config, Parameter, Memory]):
     def policy(self, worker) -> int:
         self.state = self.config.observation_space.to_str(worker.state)
-        self.invalid_actions = worker.get_invalid_actions()
         self.parameter.init_state(self.state)
 
         if self.training:
@@ -105,7 +104,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
 
         # 試行回数のもっとも多いアクションを採用
         c = self.parameter.N[self.state]
-        c = [-np.inf if a in self.invalid_actions else c[a] for a in range(self.config.action_space.n)]  # mask
+        c = [-np.inf if a in worker.invalid_actions else c[a] for a in range(self.config.action_space.n)]  # mask
         action = int(np.random.choice(np.where(c == np.max(c))[0]))
 
         return action
@@ -193,7 +192,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
     def render_terminal(self, worker, **kwargs) -> None:
         self.parameter.init_state(self.state)
         maxa = np.argmax(self.parameter.N[self.state])
-        uct_list = self._calc_uct(self.state, self.invalid_actions)
+        uct_list = self._calc_uct(self.state, worker.invalid_actions)
 
         def _render_sub(a: int) -> str:
             q = self.parameter.W[self.state][a]

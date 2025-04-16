@@ -9,7 +9,7 @@ from gym import spaces as gym_spaces
 from gym.spaces import flatten, flatten_space
 
 from srl.base import spaces as srl_spaces
-from srl.base.define import EnvActionType, KeyBindType, RenderModes, SpaceTypes
+from srl.base.define import EnvActionType, KeyBindType, RenderModeType, SpaceTypes
 from srl.base.env.base import EnvBase
 from srl.base.env.config import EnvConfig
 from srl.base.spaces.space import SpaceBase
@@ -243,7 +243,7 @@ class GymWrapper(EnvBase):
 
         # metadata
         self.fps = 60
-        self.render_mode = RenderModes.none
+        self.render_mode: RenderModeType = ""
         self.render_modes = ["ansi", "human", "rgb_array"]
         if hasattr(self.env, "metadata"):
             if GymWrapper.is_print_log:
@@ -386,36 +386,27 @@ class GymWrapper(EnvBase):
 
     def setup(self, **kwargs):
         if not self.v0260_older:
-            render_mode = kwargs.get("render_mode", RenderModes.none)
-            render_mode = RenderModes.from_str(render_mode)
+            render_mode: RenderModeType = kwargs.get("render_mode", "")
 
             # --- terminal
             # modeが違っていたら作り直す
-            if (
-                (render_mode in [RenderModes.terminal])
-                and (self.render_mode != RenderModes.terminal)
-                and ("ansi" in self.render_modes)
-            ):
+            if (render_mode in ["terminal"]) and (self.render_mode != "terminal") and ("ansi" in self.render_modes):
                 try:
                     self.env.close()
                 except Exception as e:
                     logger.warning(e)
                 self.env = self.make_gym_env(render_mode="ansi")
-                self.render_mode = RenderModes.terminal
+                self.render_mode = "terminal"
 
             # --- rgb_array
             # modeが違っていたら作り直す
-            if (
-                (render_mode in [RenderModes.rgb_array, RenderModes.window])
-                and (self.render_mode != RenderModes.rgb_array)
-                and ("rgb_array" in self.render_modes)
-            ):
+            if (render_mode in ["rgb_array", "window"]) and (self.render_mode != "rgb_array") and ("rgb_array" in self.render_modes):
                 try:
                     self.env.close()
                 except Exception as e:
                     logger.warning(e)
                 self.env = self.make_gym_env(render_mode="rgb_array")
-                self.render_mode = RenderModes.rgb_array
+                self.render_mode = "rgb_array"
 
         # --- unwrapped function
         if hasattr(self.env.unwrapped, "setup"):
@@ -466,7 +457,7 @@ class GymWrapper(EnvBase):
             if "ansi" in self.render_modes:
                 print(self.env.render(mode="ansi", **kwargs))
         else:
-            if self.render_mode == RenderModes.terminal:
+            if self.render_mode == "terminal":
                 print(self.env.render(**kwargs))
 
     def render_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
@@ -474,6 +465,6 @@ class GymWrapper(EnvBase):
             if "rgb_array" in self.render_modes:
                 return np.asarray(self.env.render(mode="rgb_array", **kwargs))  # type: ignore
         else:
-            if self.render_mode == RenderModes.rgb_array:
+            if self.render_mode == "rgb_array":
                 return np.asarray(self.env.render(**kwargs))
         return None

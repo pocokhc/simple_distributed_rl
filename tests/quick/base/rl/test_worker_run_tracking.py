@@ -35,7 +35,7 @@ class WorkerRunStubRLWorker(RLWorker):
     def on_step(self, worker):
         worker.add_tracking({"n": 3})
 
-        if worker.total_step == 1:
+        if worker.total_step == 0:
             n = worker.get_tracking("n")
             assert n == [2, 2, 3]
             aaa = worker.get_tracking("aaa")

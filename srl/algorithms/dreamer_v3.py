@@ -1638,7 +1638,7 @@ class Worker(RLWorker):
         return env_action
 
     def on_step(self, worker):
-        next_state = worker.state.astype(np.float32)
+        next_state = worker.next_state.astype(np.float32)
         self._rssm_step(next_state, self.action)
 
         if not self.training:
@@ -1785,7 +1785,7 @@ class Worker(RLWorker):
 
             # 横にアクション後の結果を表示
             for a in range(self.config.action_space.n):
-                if a in worker.invalid_actions:
+                if a in worker.next_invalid_actions:
                     continue
                 if a > _view_action:
                     break

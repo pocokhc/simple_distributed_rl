@@ -437,7 +437,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         if self.rollout:
             self.episode_step += 1
             self.episode_reward += worker.reward
-            self.recent_states.append(worker.state)
+            self.recent_states.append(worker.next_state)
             self.recent_actions.append(funcs.one_hot(worker.action, self.config.action_space.n))
             self.recent_rewards.append(worker.reward)
             self.recent_undone.append(int(not worker.terminated))
@@ -474,8 +474,8 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         else:
             self.memory.add_q(
                 [
-                    worker.prev_state,
                     worker.state,
+                    worker.next_state,
                     funcs.one_hot(worker.action, self.config.action_space.n),
                     worker.reward,
                     int(not worker.terminated),

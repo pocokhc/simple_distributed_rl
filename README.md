@@ -175,7 +175,6 @@ for episode in range(N)
 
       # アクションを取得
       action = worker.policy()
-      worker.render()  # workerの描画
 
       # 環境の1stepを実行
       env.step(action)
@@ -183,9 +182,9 @@ for episode in range(N)
 
       # 学習
       trainer.train()
+
   # 終了後の描画
   env.render()
-  worker.render()
 
 # 学習単位の終了
 env.teardown()

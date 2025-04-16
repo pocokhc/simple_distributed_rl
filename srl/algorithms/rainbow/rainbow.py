@@ -197,6 +197,7 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
 
         # (batch, multistep, shape)
         state_list = np.asarray([[b[0] for b in steps] for steps in batches])
+        # act,r,dは[1:]
         action_list = np.asarray([[b[1] for b in steps[1:]] for steps in batches], dtype=np.float32)
         reward = np.array([[b[2] for b in steps[1:]] for steps in batches], dtype=np.float32)
         done = np.array([[b[3] for b in steps[1:]] for steps in batches], dtype=np.float32)
@@ -242,13 +243,14 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
         q = np.insert(q, 0, 0, axis=1)
 
         # --- calc TD error
+        # invalid_actionsは[:-1]
         # ファンシーインデックス
         # idx1: batch index
         # idx2: step index
         # idx3: invalid action
-        idx1 = [i for i, steps in enumerate(batches) for b in steps for e in b[4]]
-        idx2 = [i for steps in batches for i, b in enumerate(steps) for e in b[4]]
-        idx3 = [e for steps in batches for b in steps for e in b[4]]
+        idx1 = [i for i, steps in enumerate(batches) for b in steps[:-1] for e in b[4]]
+        idx2 = [i for steps in batches for i, b in enumerate(steps[:-1]) for e in b[4]]
+        idx3 = [e for steps in batches for b in steps[:-1] for e in b[4]]
         if self.config.enable_double_dqn:
             q_online[idx1, idx2, idx3] = -np.inf
             n_act_idx = np.argmax(q_online, axis=2)
@@ -312,7 +314,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
                 "action": worker.get_onehot_action(random.randint(0, self.config.action_space.n - 1)),
                 "reward": 0.0,
                 "terminated": 0,
-                "invalid_actions": [],
+                "invalid_actions": worker.invalid_actions,
                 # "prob": 1.0,  # [1]
             }
         )
@@ -344,7 +346,6 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
             # 最大値を選ぶ（複数はほぼないとして無視）
             action = int(np.argmax(self.q))
             # self.prob = epsilon / valid_action_num + (1 - epsilon) #[1]
-
         self.info["epsilon"] = epsilon
         return action
 
@@ -364,24 +365,23 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
 
         worker.add_tracking(
             {
-                "state": worker.state,
+                "state": worker.next_state,
                 "action": worker.get_onehot_action(),
                 "reward": reward,
                 "terminated": int(worker.terminated),
-                "invalid_actions": worker.invalid_actions,
+                "invalid_actions": worker.next_invalid_actions,
                 # "prob": self.prob,  # [1]
             }
         )
 
         batch = self._get_batch(worker)
-
         if not self.distributed:
             priority = None
         elif not self.config.memory.requires_priority():
             priority = None
         else:
             if self.q is None:
-                self.q = self.parameter.pred_single_q(worker.prev_state)
+                self.q = self.parameter.pred_single_q(worker.state)
             select_q = self.q[worker.action]
             target_q = self.parameter.calc_target_q([batch], training=False)[0]
             priority = abs(target_q - select_q)
@@ -393,7 +393,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
             for _ in range(self.config.multisteps - 1):
                 worker.add_tracking(
                     {
-                        "state": worker.state,
+                        "state": worker.next_state,
                         "action": worker.get_onehot_action(random.randint(0, self.config.action_space.n - 1)),
                         "reward": 0,
                         "terminated": 1,

@@ -295,13 +295,13 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             return
 
         batch = [
-            worker.prev_state,
             worker.state,
+            worker.next_state,
             funcs.one_hot(worker.action, self.config.action_space.n),
             worker.reward,
             0 if self.worker.terminated else 1,
-            # worker.prev_invalid_actions,
             # worker.invalid_actions,
+            # worker.next_invalid_actions,
         ]
         self.memory.add(batch)
 

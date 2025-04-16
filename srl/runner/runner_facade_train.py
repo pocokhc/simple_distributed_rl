@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import List, Optional, Union, cast
 
-from srl.base.define import PlayerType, RenderModes
+from srl.base.define import PlayerType
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.trainer import RLTrainer
@@ -68,7 +68,7 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.train_only = False
         self.context.rollout = False
         self.context.rendering = False
-        self.context.render_mode = RenderModes.none
+        self.context.render_mode = ""
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=True)
@@ -124,7 +124,7 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.train_only = False
         self.context.rollout = True
         self.context.rendering = False
-        self.context.render_mode = RenderModes.none
+        self.context.render_mode = ""
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=False)
@@ -174,7 +174,7 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.train_only = True
         self.context.rollout = False
         self.context.rendering = False
-        self.context.render_mode = RenderModes.none
+        self.context.render_mode = ""
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=True)
@@ -239,7 +239,7 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.train_only = False
         self.context.rollout = False
         self.context.rendering = False
-        self.context.render_mode = RenderModes.none
+        self.context.render_mode = ""
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=True)

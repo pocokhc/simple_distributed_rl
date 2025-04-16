@@ -162,7 +162,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         self.memory.add(
             {
                 "state": self.state,
-                "next_state": self.config.observation_space.to_str(worker.state),
+                "next_state": self.config.observation_space.to_str(worker.next_state),
                 "action": worker.action,
                 "reward": worker.reward,
                 "done": worker.terminated,

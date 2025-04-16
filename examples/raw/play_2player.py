@@ -23,29 +23,20 @@ def _run_episode(
     env.reset()
     [w.reset(player_index=i) for i, w in enumerate(workers)]
 
-    # --- env render
-    if rendering:
-        print("step 0")
-        env.render()
-
+    action = None
     while not env.done:
+        # --- env render
+        if rendering:
+            print("\n--- turn {}, action {}, rewards: {}, done: {}, next player {}, info: {}, ".format(env.step_num, action, env.rewards, env.done, env.next_player, env.info))
+            print("player {} info: {}".format(env.next_player, workers[env.next_player].info))
+            env.render()
+
         # 2. action
         action = workers[env.next_player].policy()
-
-        # --- worker render
-        if rendering:
-            print(f"player {env.next_player}")
-            workers[env.next_player].render()
 
         # 3. step
         env.step(action)
         [w.on_step() for w in workers]
-
-        # --- env render
-        if rendering:
-            print("--- turn {}, action {}, rewards: {}, done: {}, next player {}, info: {}, ".format(env.step_num, action, env.rewards, env.done, env.next_player, env.info))
-            print("player {} info: {}".format(env.next_player, workers[env.next_player].info))
-            env.render()
 
         # 4. train
         if trainer is not None:
@@ -64,6 +55,7 @@ def _run_episode(
 
     if rendering:
         print(f"step: {env.step_num}, reward: {env.episode_rewards}")
+        env.render()
 
     return env.step_num, env.episode_rewards
 
@@ -109,7 +101,7 @@ def main():
     env.teardown()
 
     # --- render
-    context = srl.RunContext(env_config, rl_config, render_mode="terminal")
+    context = srl.RunContext(env_config, rl_config, rendering=True, render_mode="terminal")
     env.setup(context)
     [w.setup(context) for w in workers]
     _run_episode(env, workers, None, rendering=True)
@@ -129,7 +121,7 @@ def play_cpu(player_mode: str = "human"):
     assert cpu is not None
 
     # set context
-    context = srl.RunContext(env_config, render_mode="terminal")
+    context = srl.RunContext(env_config, rendering=True, render_mode="terminal")
     env.setup(context)
     player.setup(context)
     cpu.setup(context)
@@ -139,9 +131,9 @@ def play_cpu(player_mode: str = "human"):
     player.reset(player_index=0)
     cpu.reset(player_index=1)
 
-    env.render()
-
     while not env.done:
+        env.render()
+
         # 1 step
         if env.next_player == 0:
             action = player.policy()
@@ -151,7 +143,7 @@ def play_cpu(player_mode: str = "human"):
         player.on_step()
         cpu.on_step()
 
-        env.render()
+    env.render()
 
     # teardown
     player.teardown()
@@ -162,4 +154,7 @@ if __name__ == "__main__":
     common.logger_print()
 
     main()
+    print()
+    print("-" * 20)
+    print()
     play_cpu()

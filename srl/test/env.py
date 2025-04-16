@@ -1,7 +1,7 @@
 from typing import Union
 
 import srl
-from srl.base.define import RenderModes
+from srl.base.define import RenderModeType
 from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
 from srl.utils.common import is_available_pygame_video_device, is_packages_installed
@@ -31,7 +31,7 @@ def env_test(
     if test_restore:
         _env_test(
             env,
-            RenderModes.none,
+            render_mode="",
             test_restore=True,
             max_step=max_step,
             enable_print=enable_print,
@@ -39,7 +39,7 @@ def env_test(
     if test_render_terminal:
         _env_test(
             env,
-            RenderModes.terminal,
+            render_mode="terminal",
             test_restore=False,
             max_step=max_step,
             enable_print=enable_print,
@@ -49,7 +49,7 @@ def env_test(
         assert is_available_pygame_video_device()
         _env_test(
             env,
-            RenderModes.window,
+            render_mode="window",
             test_restore=False,
             max_step=max_step,
             enable_print=enable_print,
@@ -61,7 +61,7 @@ def env_test(
 
 def _env_test(
     env: EnvRun,
-    render_mode: RenderModes,
+    render_mode: RenderModeType,
     test_restore: bool,
     max_step: int,
     enable_print: bool,

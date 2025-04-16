@@ -258,8 +258,8 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         if not self.training:
             return
         batch = {
-            "state": worker.prev_state,
-            "next_state": worker.state,
+            "state": worker.state,
+            "next_state": worker.next_state,
             "action": self.action,
             "reward": worker.reward,
             "done": worker.terminated,
@@ -267,7 +267,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         self.memory.add(batch)
 
     def render_terminal(self, worker, **kwargs) -> None:
-        logits = self.parameter.Q(worker.prev_state[np.newaxis, ...])
+        logits = self.parameter.Q(worker.state[np.newaxis, ...])
         probs = tf.nn.softmax(logits, axis=2)
         q_means = tf.reduce_sum(probs * self.Z, axis=2, keepdims=True)
         q = q_means[0].numpy().reshape(-1)

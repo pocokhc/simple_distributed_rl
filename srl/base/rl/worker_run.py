@@ -1,10 +1,10 @@
 import logging
-from typing import Any, Dict, Generic, List, Literal, Optional, Union, cast
+from typing import Any, Dict, Generic, List, Literal, Optional, cast
 
 import numpy as np
 
-from srl.base.context import RunContext
-from srl.base.define import DoneTypes, EnvActionType, RenderModes
+from srl.base.context import RunContext, RunNameTypes
+from srl.base.define import DoneTypes, EnvActionType, RenderModeType
 from srl.base.env.env_run import EnvRun
 from srl.base.exception import SRLError
 from srl.base.info import Info
@@ -96,35 +96,26 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return self._worker.info
 
     @property
-    def prev_state(self) -> TObsType:
-        return self._prev_state
-
-    @property
     def state(self) -> TObsType:
         return self._state
 
     @property
-    def state_one_step(self) -> TObsType:
-        return self._one_states[-1] if self._use_stacked_state else self._state
+    def next_state(self) -> TObsType:
+        return self._next_state
 
-    @property
-    def prev_render_image_state(self) -> np.ndarray:
-        return self._prev_render_image
+    def get_state_one_step(self, idx: int = -1) -> TObsType:
+        return self._one_states[idx] if self._use_stacked_state else self._state
 
     @property
     def render_image_state(self) -> np.ndarray:
         return self._render_image
 
     @property
-    def render_image_state_one_step(self) -> np.ndarray:
-        return self._one_render_images[-1] if self._use_stacked_render_image else self._render_image
+    def next_render_image_state(self) -> np.ndarray:
+        return self._next_render_image
 
-    @property
-    def prev_action(self) -> TActType:
-        return self._prev_action
-
-    def get_onehot_prev_action(self):
-        return self._config.action_space.get_onehot(self._prev_action)
+    def get_render_image_state_one_step(self, idx: int = -1) -> np.ndarray:
+        return self._one_render_images[idx] if self._use_stacked_render_image else self._render_image
 
     @property
     def action(self) -> TActType:
@@ -154,12 +145,13 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return self._env.env.done_reason
 
     @property
-    def prev_invalid_actions(self) -> List[TActType]:
-        return self._prev_invalid_actions
-
-    @property
     def invalid_actions(self) -> List[TActType]:
         return self._invalid_actions
+
+    @property
+    def next_invalid_actions(self) -> List[TActType]:
+        # policy時に呼び出すとNone
+        return self._next_invalid_actions
 
     @property
     def total_step(self) -> int:
@@ -172,12 +164,22 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def setup(
         self,
         context: Optional[RunContext] = None,
-        render_mode: Union[str, RenderModes] = RenderModes.none,
+        render_mode: RenderModeType = "",
     ):
         if context is None:
             context = RunContext(self.env.config, self._config)
-        if render_mode == RenderModes.none:
+        if render_mode == "":
             render_mode = context.render_mode
+
+        if self._config.used_rgb_array:
+            if render_mode == "terminal":
+                logger.warning("'rgb_array' is used, but 'terminal' is specified in render_mode.(Both 'rgb_array' and 'teminal' are used)")
+            elif render_mode == "rgb_array":
+                pass
+            else:
+                if context.run_name != RunNameTypes.eval:
+                    logger.info(f"[{context.flow_mode}] change render_mode: {render_mode} -> rgb_array")
+                render_mode = "rgb_array"
 
         self._setup_val(context)
         self._render.set_render_mode(render_mode, enable_window=False)
@@ -214,113 +216,119 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._player_index = player_index
         self._episode_seed = seed
         self._is_reset = False
-        self._is_ready_policy = False
 
         # --- state
         self._state = self._config.observation_space.get_default()
-        self._prev_state = self._config.observation_space.get_default()
+        self._next_state = self._config.observation_space.get_default()
         self._one_states = [self._config.observation_space_one_step.get_default() for _ in range(self._config.window_length)]
 
         if self._use_render_image:
             self._render_image = self._config.obs_render_img_space.get_default()
-            self._prev_render_image = self._config.obs_render_img_space.get_default()
+            self._next_render_image = self._config.obs_render_img_space.get_default()
             self._one_render_images = [self._config.obs_render_img_space_one_step.get_default() for _ in range(self._config.render_image_window_length)]
         else:
             self._render_image = np.zeros((1,))
-            self._prev_render_image = np.zeros((1,))
+            self._next_render_image = np.zeros((1,))
             self._one_render_images = []
 
         # action, reward, done
         self._action = self._config.action_space.get_default()
-        self._prev_action = self._config.action_space.get_default()
         self._step_reward: float = 0.0
         self._reward: float = 0.0
         self._invalid_actions: List[TActType] = []
-        self._prev_invalid_actions: List[TActType] = []
+        self._next_invalid_actions: List[TActType] = []
 
         # tracking
         self._tracking_data: List[Dict[str, Any]] = []
 
-    def ready_policy(self):
+    def _ready_policy(self):
         """policyの準備を実行。1週目は on_reset、2週目以降は on_step を実行。"""
         # encode -> set invalid -> on_step -> step_reward=0
-        if self._is_ready_policy:
-            raise SRLError("'ready_policy' cannot be called consecutively.")
 
         # --- state
-        self._prev_state = self._state
         state = cast(TObsType, self._config.state_encode_one_step(self.env.state, self._env))
         if self._use_stacked_state:
             del self._one_states[0]
             self._one_states.append(state)
-            self._state = self._config.observation_space_one_step.encode_stack(self._one_states)
-        else:
-            self._state = state
+            state = self._config.observation_space_one_step.encode_stack(self._one_states)
 
         # --- render image
         if self._use_render_image:
-            self._prev_render_image = self._render_image
             render_image = self._config.render_image_state_encode_one_step(self._env)
             if self._use_stacked_render_image:
                 del self._one_render_images[0]
                 self._one_render_images.append(render_image)
-                self._render_image = self._config.obs_render_img_space_one_step.encode_stack(self._one_render_images)
-            else:
-                self._render_image = render_image
+                render_image = self._config.obs_render_img_space_one_step.encode_stack(self._one_render_images)
 
         # --- invalid_actions
-        self._prev_invalid_actions = self._invalid_actions
-        self._invalid_actions = [
+        invalid_actions = [
             cast(TActType, self._config.action_encode(a))
             for a in self._env.get_invalid_actions(self._player_index)  #
         ]
 
         # --- reset/step
         if not self._is_reset:
+            # state
+            self._state = state
+            self._next_state = state
+            if self._use_render_image:
+                self._render_image = render_image
+                self._next_render_image = render_image
+
+            # invalid_actions
+            self._invalid_actions = invalid_actions
+            self._next_invalid_actions = invalid_actions
+
             logger.debug("on_reset")
             self._worker.on_reset(self)
             self._is_reset = True
         else:
+            # update next
+            self._next_state = state
+            if self._use_render_image:
+                self._next_render_image = render_image
+            self._next_invalid_actions = invalid_actions
+
+            # reward
             self._reward = self._step_reward
             self._step_reward = 0.0
+
             logger.debug("on_step")
             self._worker.on_step(self)
+            self._total_step += 1
 
-        self._is_ready_policy = True
+            # step後にupdate
+            self._state = self._next_state
+            if self._use_render_image:
+                self._render_image = self._next_render_image
+            self._invalid_actions = self._next_invalid_actions
 
-    def policy(self, call_ready_policy: bool = True) -> EnvActionType:
-        if call_ready_policy:
-            self.ready_policy()
-        if not self._is_ready_policy:
-            raise SRLError("Please call 'worker.ready_policy' first.")
+    def policy(self) -> EnvActionType:
+        self._ready_policy()
 
         logger.debug("policy")
         action = self._worker.policy(self)
-        self._prev_action = self._action
         self._action = action
 
-        env_action = self._config.action_decode(action)
-
+        # render
         if self._context.rendering:
             self._render.cache_reset()
+            self.render()
 
-        self._is_ready_policy = False
+        env_action = self._config.action_decode(action)
         return env_action
 
     def on_step(self) -> None:
         # 初期化前はskip
         if not self._is_reset:
             return
-        self._total_step += 1
 
         # 相手の番のrewardも加算
         self._step_reward += self._env.rewards[self.player_index]
 
         if self._env._done != DoneTypes.NONE:
             # 終了後の状態を取得
-            self.ready_policy()
-            if self._context.rendering:
-                self._render.cache_reset()
+            self._ready_policy()
 
     # ------------------------------------
     # invalid
@@ -389,22 +397,30 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         info_text: str = "",
     ) -> np.ndarray:
         """
-        ---------------------------------
-        | BG white   | BG black         |
-        | [env]      | [info]           |
-        | [rl state] | [rl render text] |
-        |            | [rl render rgb]  |
-        ---------------------------------
+        ----------------------------------
+        | BG white    | BG black         |
+        | [env render]| [info]           |
+        | [env]       | [rl render text] |
+        | [rl state]  | [rl render rgb]  |
+        ----------------------------------
         """
         padding = 1
         border_color = (111, 175, 0)
 
-        # --- env image
+        # [env render]
         env_img = self._env.render_rgb_array()
         if env_img is None:
             env_img = self._env.render_terminal_text_to_image()
         assert env_img is not None
         env_img = render_funcs.add_padding(env_img, padding, padding, padding, padding, border_color)
+
+        # [env]
+        if self._config.observation_space_of_env.is_image(in_image=False):
+            space = cast(BoxSpace, self.config.observation_space_of_env)
+            if space.check_val(self._env.state):  # render_image等でずれる場合があるので合っている場合のみ処理
+                env_state = space.to_image(self._env.state)
+                env_state = render_funcs.add_padding(env_state, padding, padding, padding, padding, border_color)
+                env_img = render_funcs.vconcat(env_img, env_state)
 
         # [rl state]
         if self._config.render_rl_image_size:
@@ -523,19 +539,17 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._player_index,
             self._episode_seed,
             self._is_reset,
-            self._is_ready_policy,
             self._config.observation_space.copy_value(self._state),
-            self._config.observation_space.copy_value(self._prev_state),
+            self._config.observation_space.copy_value(self._next_state),
             [self._config.observation_space_one_step.copy_value(s) for s in self._one_states],
             self._config.obs_render_img_space.copy_value(self._render_image),
-            self._config.obs_render_img_space.copy_value(self._prev_render_image),
+            self._config.obs_render_img_space.copy_value(self._next_render_image),
             [self._config.obs_render_img_space_one_step.copy_value(s) for s in self._one_render_images],
             self._config.action_space.copy_value(self._action),
-            self._config.action_space.copy_value(self._prev_action),
             self._step_reward,
             self._reward,
             self._invalid_actions[:],
-            self._prev_invalid_actions[:],
+            self._next_invalid_actions[:],
             # env
             self._env.backup(),
             # tracking
@@ -557,23 +571,21 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._player_index = dat[6]
         self._episode_seed = dat[7]
         self._is_reset = dat[8]
-        self._is_ready_policy = dat[9]
-        self._state = dat[10]
-        self._prev_state = dat[11]
-        self._one_states = dat[12]
-        self._render_image = dat[13]
-        self._prev_render_image = dat[14]
-        self._one_render_images = dat[15]
-        self._action = dat[16]
-        self._prev_action = dat[17]
-        self._step_reward = dat[18]
-        self._reward = dat[19]
-        self._invalid_actions = dat[20]
-        self._prev_invalid_actions = dat[21]
+        self._state = dat[9]
+        self._next_state = dat[10]
+        self._one_states = dat[11][:]
+        self._render_image = dat[12]
+        self._next_render_image = dat[13]
+        self._one_render_images = dat[14][:]
+        self._action = dat[15]
+        self._step_reward = dat[16]
+        self._reward = dat[17]
+        self._invalid_actions = dat[18][:]
+        self._next_invalid_actions = dat[19][:]
         # env
-        self._env.restore(dat[22])
+        self._env.restore(dat[20])
         # tracking
-        self._tracking_data = dat[23][:]
+        self._tracking_data = dat[21][:]
 
         if self._context.rendering:
             self._render.cache_reset()

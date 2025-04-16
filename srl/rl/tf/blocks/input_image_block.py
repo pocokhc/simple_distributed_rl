@@ -59,12 +59,11 @@ class InputImageBlock(KerasModelAddedSummary, AInputBlock):
         else:
             return np.zeros((batch_size,) + self.in_shape, np_dtype)
 
-    def to_tf_one_batch(self, data, tf_dtype, add_expand_dim: bool = True):
+    def to_tf_one_batch(self, data, tf_dtype, add_expand_dim: bool = True, add_timestep_dim: bool = True):
+        if self.rnn and add_timestep_dim:
+            data = tf.expand_dims(data, axis=0)
         if add_expand_dim:
-            if self.rnn:
-                return tf.cast(tf.expand_dims(tf.expand_dims(data, axis=0), axis=0), dtype=tf_dtype)
-            else:
-                return tf.cast(tf.expand_dims(data, axis=0), dtype=tf_dtype)
+            return tf.cast(tf.expand_dims(data, axis=0), dtype=tf_dtype)
         else:
             return tf.convert_to_tensor(data, dtype=tf_dtype)
 

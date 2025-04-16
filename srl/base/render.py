@@ -1,11 +1,11 @@
 import logging
 import os
 import time
-from typing import Optional, Union
+from typing import Optional
 
 import numpy as np
 
-from srl.base.define import RenderModes
+from srl.base.define import RenderModeType
 from srl.utils.common import is_packages_installed
 from srl.utils.render_functions import print_to_text, text_to_rgb_array
 
@@ -23,19 +23,19 @@ class IRender:
 class Render:
     def __init__(self, render_obj: IRender, interval: float = 1000 / 60) -> None:
         self._render_obj = render_obj
-        self._mode = RenderModes.none
+        self._mode: RenderModeType = ""
         self._screen = None
 
         self.set_render_options(interval=interval)
         self.cache_reset()
 
-    def set_render_mode(self, mode: Union[str, RenderModes], enable_window: bool = True):
-        self._mode = RenderModes.from_str(mode)
+    def set_render_mode(self, mode: RenderModeType, enable_window: bool = True):
+        self._mode = mode
         if not enable_window:
-            if self._mode == RenderModes.window:
-                self._mode = RenderModes.rgb_array
+            if self._mode == "window":
+                self._mode = "rgb_array"
 
-        if self._mode in [RenderModes.rgb_array, RenderModes.window]:
+        if self._mode in ["rgb_array", "window"]:
             assert is_packages_installed(["PIL", "pygame"]), "This run requires installation of 'PIL', 'pygame'. (pip install pillow pygame)"
             # PIL use 'text_to_rgb_array'
 
@@ -58,11 +58,11 @@ class Render:
         self._cache_text_img = None
 
     def render(self, **kwargs):
-        if self._mode == RenderModes.terminal:
+        if self._mode == "terminal":
             self._render_obj.render_terminal(**kwargs)
-        elif self._mode == RenderModes.rgb_array:
+        elif self._mode == "rgb_array":
             return self.render_rgb_array(**kwargs)
-        elif self._mode == RenderModes.window:
+        elif self._mode == "window":
             rgb_array = self.render_rgb_array(**kwargs)
             if rgb_array is None:
                 rgb_array = self.render_terminal_text_to_image(**kwargs)

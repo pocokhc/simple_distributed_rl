@@ -14,7 +14,6 @@ class StubWorker(RLWorker):
 
     def policy(self, worker) -> RLActionType:
         inv_acts = [i for i, s in enumerate(worker.state) if s != 0]
-        self.prev_state = worker.state
         print(worker.state, inv_acts, worker.get_invalid_actions())
         assert inv_acts == worker.get_invalid_actions()
         return self.sample_action()
@@ -24,8 +23,8 @@ class StubWorker(RLWorker):
             inv_acts = [i for i, s in enumerate(worker.state) if s != 0]
             print(worker.state, inv_acts, worker.get_invalid_actions())
             assert inv_acts == worker.get_invalid_actions()
-        print(self.prev_state, worker.state)
-        assert self.prev_state != worker.state
+        print(worker.state, worker.next_state)
+        assert worker.state != worker.next_state
 
 
 def test_invalid_actions():

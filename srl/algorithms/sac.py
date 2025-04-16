@@ -407,7 +407,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         """
         self.memory.add(
             [
-                worker.prev_state,
+                worker.state,
                 self.action,
                 worker.state,
                 worker.reward,

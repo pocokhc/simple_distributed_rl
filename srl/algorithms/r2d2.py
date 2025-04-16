@@ -419,7 +419,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             return
 
         self._recent_states.pop(0)
-        self._recent_states.append(worker.state.astype(np.float32))
+        self._recent_states.append(worker.next_state.astype(np.float32))
         self.recent_actions.pop(0)
         self.recent_actions.append(self.action)
         self.recent_probs.pop(0)
@@ -429,7 +429,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         self.recent_done.pop(0)
         self.recent_done.append(worker.terminated)
         self.recent_invalid_actions.pop(0)
-        self.recent_invalid_actions.append(worker.invalid_actions)
+        self.recent_invalid_actions.append(worker.next_invalid_actions)
         self.recent_hidden_states.pop(0)
         self.recent_hidden_states.append(
             [

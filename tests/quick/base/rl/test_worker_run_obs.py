@@ -109,18 +109,8 @@ def _test_obs_episode(
     worker.reset(0)
     env_action = worker.policy()
     if window_length == 1:
-        assert _equal_data(worker.prev_state, true_obs_space_one.get_default())
         assert _equal_data(worker.state, true_rl_states[0])
     else:
-        assert _equal_data(
-            worker.prev_state,
-            true_obs_space_one.encode_stack(
-                [
-                    true_obs_space_one.get_default(),
-                    true_obs_space_one.get_default(),
-                ]
-            ),
-        )
         assert _equal_data(
             worker.state,
             true_obs_space_one.encode_stack(
@@ -130,14 +120,12 @@ def _test_obs_episode(
                 ]
             ),
         )
-    assert _equal_data(worker.state_one_step, true_rl_states[0])
+    assert _equal_data(worker.get_state_one_step(), true_rl_states[0])
 
     # render_image
     if render_image_window_length == 1:
-        assert (worker.prev_render_image_state == true_render_img_space.get_default()).all()
         assert (worker.render_image_state == np.ones((64, 32, 3))).all()
     else:
-        assert (worker.prev_render_image_state == np.zeros((2, 64, 32, 3))).all()
         state = np.stack(
             [
                 np.zeros((64, 32, 3)),
@@ -146,25 +134,15 @@ def _test_obs_episode(
             axis=0,
         )
         assert (worker.render_image_state == state).all()
-    assert (worker.render_image_state_one_step == np.ones((64, 32, 3))).all()
+    assert (worker.get_render_image_state_one_step() == np.ones((64, 32, 3))).all()
 
     # --- step 1
     env.step(env_action)
     worker.on_step()
     env_action = worker.policy()
     if window_length == 1:
-        assert _equal_data(worker.prev_state, true_rl_states[0])
         assert _equal_data(worker.state, true_rl_states[1])
     else:
-        assert _equal_data(
-            worker.prev_state,
-            true_obs_space_one.encode_stack(
-                [
-                    true_obs_space_one.get_default(),
-                    true_rl_states[0],
-                ]
-            ),
-        )
         assert _equal_data(
             worker.state,
             true_obs_space_one.encode_stack(
@@ -174,40 +152,28 @@ def _test_obs_episode(
                 ]
             ),
         )
-    assert _equal_data(worker.state_one_step, true_rl_states[1])
+    assert _equal_data(worker.get_state_one_step(), true_rl_states[1])
 
     # render_image
     if render_image_window_length == 1:
-        assert (worker.prev_render_image_state == np.ones((64, 32, 3))).all()
-        assert (worker.render_image_state == np.ones((64, 32, 3))).all()
+        assert (worker.render_image_state == np.full((64, 32, 3), 2)).all()
     else:
         state = np.stack(
             [
-                np.zeros((64, 32, 3)),
                 np.ones((64, 32, 3)),
+                np.full((64, 32, 3), 2),
             ],
             axis=0,
         )
-        assert (worker.prev_render_image_state == state).all()
-        assert (worker.render_image_state == np.ones((2, 64, 32, 3))).all()
-    assert (worker.render_image_state_one_step == np.ones((64, 32, 3))).all()
+        assert (worker.render_image_state == state).all()
+    assert (worker.get_render_image_state_one_step() == np.full((64, 32, 3), 2)).all()
 
     # --- step 2 done
     env.step(env_action)
     worker.on_step()
     if window_length == 1:
-        assert _equal_data(worker.prev_state, true_rl_states[1])
         assert _equal_data(worker.state, true_rl_states[2])
     else:
-        assert _equal_data(
-            worker.prev_state,
-            true_obs_space_one.encode_stack(
-                [
-                    true_rl_states[0],
-                    true_rl_states[1],
-                ]
-            ),
-        )
         assert _equal_data(
             worker.state,
             true_obs_space_one.encode_stack(
@@ -217,16 +183,21 @@ def _test_obs_episode(
                 ]
             ),
         )
-    assert _equal_data(worker.state_one_step, true_rl_states[2])
+    assert _equal_data(worker.get_state_one_step(), true_rl_states[2])
 
     # render_image
     if render_image_window_length == 1:
-        assert (worker.prev_render_image_state == np.ones((64, 32, 3))).all()
-        assert (worker.render_image_state == np.ones((64, 32, 3))).all()
+        assert (worker.render_image_state == np.full((64, 32, 3), 3)).all()
     else:
-        assert (worker.prev_render_image_state == np.ones((2, 64, 32, 3))).all()
-        assert (worker.render_image_state == np.ones((2, 64, 32, 3))).all()
-    assert (worker.render_image_state_one_step == np.ones((64, 32, 3))).all()
+        state = np.stack(
+            [
+                np.full((64, 32, 3), 2),
+                np.full((64, 32, 3), 3),
+            ],
+            axis=0,
+        )
+        assert (worker.render_image_state == state).all()
+    assert (worker.get_render_image_state_one_step() == np.full((64, 32, 3), 3)).all()
 
 
 @pytest.mark.parametrize(
@@ -414,7 +385,11 @@ def test_obs_render_image(window_length):
         true_obs_space_one=BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR),
         true_obs_space=BoxSpace((2, 64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR),
         env_states=[1, 2, 3],
-        true_rl_states=[np.ones((64, 32, 3)), np.ones((64, 32, 3)), np.ones((64, 32, 3))],
+        true_rl_states=[
+            np.full((64, 32, 3), 1),
+            np.full((64, 32, 3), 2),
+            np.full((64, 32, 3), 3),
+        ],
     )
 
 

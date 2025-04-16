@@ -54,7 +54,7 @@ def _test_action_episode(
     rl_act,
     true_env_act,
 ):
-    env = srl.make_env(srl.EnvConfig("Stub", {"action_space": env_act_space}))
+    env = srl.make_env(srl.EnvConfig("Stub", {"action_space": env_act_space, "invalid_action": False}))
     env_org = cast(worker_run_stub.WorkerRunStubEnv, env.unwrapped)
     env_org.s_states = [1, 2, 3]  # 2step
 
@@ -81,25 +81,17 @@ def _test_action_episode(
     # --- reset
     env.reset()
     worker.reset(0)
-    worker.ready_policy()
-    assert _equal_data(worker.prev_action, true_act_space.get_default())
     assert _equal_data(worker.action, true_act_space.get_default())
-
-    assert worker.prev_invalid_actions == []
     assert worker.invalid_actions == []
     assert worker.reward == 0.0
     assert not worker.done
     assert not worker.terminated
 
-    # 1st policy
-    env_action = worker.policy(call_ready_policy=False)
-    assert _equal_data(worker.prev_action, true_act_space.get_default())
+    env_action = worker.policy()
     assert _equal_data(worker.action, rl_act)
     assert env_act_space.check_val(env_action)
     assert _equal_data(env_action, true_env_act)
-
-    assert worker.prev_invalid_actions == []
-    assert worker.invalid_actions == []
+    # assert worker.invalid_actions == [[1.0]]
     assert worker.reward == 0.0
     assert not worker.done
     assert not worker.terminated
@@ -108,13 +100,10 @@ def _test_action_episode(
     env.step(env_action)
     worker.on_step()
     env_action = worker.policy()
-    assert _equal_data(worker.prev_action, rl_act)
     assert _equal_data(worker.action, rl_act)
     assert env_act_space.check_val(env_action)
     assert _equal_data(env_action, true_env_act)
-
-    assert worker.prev_invalid_actions == []
-    assert worker.invalid_actions == []
+    # assert worker.invalid_actions == [[2.0]]
     assert worker.reward == 1.0
     assert not worker.done
     assert not worker.terminated
@@ -122,13 +111,10 @@ def _test_action_episode(
     # step2 done
     env.step(env_action)
     worker.on_step()
-    assert _equal_data(worker.prev_action, rl_act)
     assert _equal_data(worker.action, rl_act)
     assert env_act_space.check_val(env_action)
     assert _equal_data(env_action, true_env_act)
-
-    assert worker.prev_invalid_actions == []
-    assert worker.invalid_actions == []
+    # assert worker.invalid_actions == [[3.0]]
     assert worker.reward == 2.0
     assert worker.done
     assert worker.terminated

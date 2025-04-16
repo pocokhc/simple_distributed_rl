@@ -581,7 +581,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             self.memory.add_vae(self.state)
 
             if len(self.recent_states) < self.config.sequence_length + 1:
-                self.recent_states.append(worker.state)
+                self.recent_states.append(worker.next_state)
 
             if worker.done:
                 # states : sequence_length + next_state
@@ -690,9 +690,8 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         pw.draw_image_rgb_array(self.screen, IMG_W + PADDING, STR_H, img2)
 
         # 横にアクション後の結果を表示
-        invalid_actions = worker.get_invalid_actions()
         for i, a in enumerate(range(self.config.action_space.n)):
-            if a in invalid_actions:
+            if a in worker.invalid_actions:
                 continue
             if i > _view_action:
                 break

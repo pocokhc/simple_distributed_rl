@@ -147,7 +147,6 @@ class Worker(RLWorker[Config, Parameter, Memory]):
 
     def policy(self, worker) -> int:
         self.state = self.config.observation_space.to_str(worker.state)
-        invalid_actions = worker.invalid_actions
 
         if self.training:
             epsilon = self.epsilon_sch.update(self.total_step).to_float()
@@ -156,11 +155,11 @@ class Worker(RLWorker[Config, Parameter, Memory]):
 
         if random.random() < epsilon:
             # epsilonより低いならランダムに移動
-            action = random.choice([a for a in range(self.config.action_space.n) if a not in invalid_actions])
+            action = random.choice([a for a in range(self.config.action_space.n) if a not in worker.invalid_actions])
         else:
             # 最大値を選択
             q = self.parameter.get_action_values(self.state)
-            action = funcs.get_random_max_index(q, invalid_actions)
+            action = funcs.get_random_max_index(q, worker.invalid_actions)
 
         self.info["epsilon"] = epsilon
         return action
@@ -181,11 +180,11 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         self.memory.add(
             [
                 self.state,
-                self.config.observation_space.to_str(worker.state),
+                self.config.observation_space.to_str(worker.next_state),
                 worker.action,
                 worker.reward,
                 worker.terminated,
-                worker.invalid_actions,
+                worker.next_invalid_actions,
             ]
         )
 

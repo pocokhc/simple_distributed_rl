@@ -40,22 +40,19 @@ def test_create_block_out_value(in_space: SpaceBase, out_size, flatten, rnn):
         assert in_shape == (batch_size,) + in_space.np_shape
 
     # --- single data
-    if rnn:
-        x = [in_space.sample() for _ in range(timesteps)]
-    else:
-        x = in_space.sample()
+    x = in_space.sample()
     x = block.to_tf_one_batch(x, tf.float32)
     y = block(x)
     assert y is not None
     print(y.shape)
     if flatten:
         if rnn:
-            assert y.numpy().shape == (1, timesteps, out_size)
+            assert y.numpy().shape == (1, 1, out_size)
         else:
             assert y.numpy().shape == (1, out_size)
     else:
         if rnn:
-            assert y.numpy().shape == (1, timesteps) + in_space.np_shape
+            assert y.numpy().shape == (1, 1) + in_space.np_shape
         else:
             assert y.numpy().shape == (1,) + in_space.np_shape
 

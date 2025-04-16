@@ -5,7 +5,7 @@ from typing import Optional, cast
 import pytest
 
 import srl
-from srl.base.define import RenderModes, SpaceTypes
+from srl.base.define import SpaceTypes
 from srl.base.env import registration
 from srl.base.env.base import EnvBase
 from srl.base.env.env_run import EnvRun
@@ -140,7 +140,7 @@ def test_base():
         env.step(0)
 
     env.setup()
-    assert env_org.render_mode == RenderModes.none
+    assert env_org.render_mode == ""
     env.reset()
     assert env.step_num == 0
 

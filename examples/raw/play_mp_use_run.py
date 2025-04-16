@@ -32,10 +32,8 @@ def main():
     print(f"Average reward for 100 episodes: {np.mean(state.episode_rewards_list, axis=0)}")
 
     # --- render
-    context = RunContext()
+    context = RunContext(rendering=True, render_mode="terminal")
     context.max_episodes = 1
-    context.render_mode = "terminal"
-    context.rendering = True
     state = play(context, env, workers, 0)
 
 

@@ -1,12 +1,12 @@
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import List, Union
+from typing import List
 
 import numpy as np
 
 from srl.base.context import RunContext
-from srl.base.define import RenderModes
+from srl.base.define import RenderModeType
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Rendering(RunCallback):
-    mode: Union[str, RenderModes] = RenderModes.none
+    mode: RenderModeType = ""
     kwargs: dict = field(default_factory=lambda: {})
     step_stop: bool = False
     render_interval: float = -1
@@ -30,17 +30,15 @@ class Rendering(RunCallback):
         self.frames = []
         self.img_maxw = 0
         self.img_maxh = 0
-        self.mode = RenderModes.from_str(self.mode)
 
     def on_episodes_begin(self, context: "RunContext", state: "RunStateActor", **kwargs) -> None:
         if self.render_interval == -1:
             self.render_interval = state.env.get_render_interval()
 
     def on_step_begin(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
-        self._render(context, state)
-
         if self.step_stop:
             input("Enter to continue:")
+        self._render(context, state)
 
     def on_skip_step(self, context: RunContext, state: RunStateActor, **kwargs):
         if not self.render_skip_step:
@@ -50,10 +48,6 @@ class Rendering(RunCallback):
     def on_episode_end(self, context: RunContext, state: RunStateActor) -> None:
         self._render(context, state)
 
-    def on_episodes_end(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
-        if self.step_stop:
-            input("Enter to continue:")
-
     def _render(self, context: RunContext, state: RunStateActor, skip_step=False):
         env = state.env
 
@@ -61,13 +55,13 @@ class Rendering(RunCallback):
         action = state.action
         worker_idx = state.worker_idx
         worker: WorkerRun = state.workers[worker_idx]
-        info_text = f"### {env.step_num}"
+        info_text = f"\n### {env.step_num}"
         info_text += "(skip frame)" if skip_step else ""
         info_text += f", next {env.next_player}" if env.player_num > 1 else ""
         info_text += f", done({env.done_reason})" if env.done else ""
         _s = env.observation_space.to_str(env.state)
         _s = (_s[:40] + "...") if len(_s) > 40 else _s
-        info_text += f"\nstate: {_s}"
+        info_text += f"\nstate  : {_s}"
         if isinstance(action, float):
             a1 = f"{action:.3f}"
         else:
@@ -77,14 +71,15 @@ class Rendering(RunCallback):
             action = f"{a1}({a2})"
         info_text += f"\naction : {action}"
         info_text += "\nrewards:[" + ",".join([f"{r:.3f}" for r in env.rewards]) + "]"
+        info_text += "\ntotal rewards:[" + ",".join([f"{r:.3f}" for r in env.episode_rewards]) + "]"
         info_text += f"\nenv   {env.info}"
         info_text += f"\nwork{worker_idx: <2d}{worker.info}"
 
         # --- render info text
-        if self.mode == RenderModes.terminal:
+        if self.mode == "terminal":
             print(info_text)
 
-        if self.mode == RenderModes.rgb_array:
+        if self.mode == "rgb_array":
             worker = state.workers[self.render_worker]
 
             img = worker.create_render_image(
@@ -179,7 +174,7 @@ class Rendering(RunCallback):
         fps = 1000 / interval
 
         t0 = time.time()
-        fourcc = cv2.VideoWriter_fourcc(*codec)
+        fourcc = cv2.VideoWriter_fourcc(*codec)  # type: ignore
         writer = cv2.VideoWriter(path, fourcc, fps, capSize)
         try:
             for img in images:

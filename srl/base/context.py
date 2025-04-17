@@ -3,6 +3,7 @@ import logging
 import pickle
 import pprint
 from dataclasses import dataclass, field
+from functools import cached_property
 from typing import TYPE_CHECKING, List, Optional, Union
 
 from srl.base.define import PlayerType, RenderModeType
@@ -50,8 +51,25 @@ class RunContext:
     training: bool = False
     train_only: bool = False
     rollout: bool = False
-    rendering: bool = False
+
+    # render
+    @cached_property
+    def rendering(self) -> bool:
+        if self.render_mode != "":
+            return True
+        if (self.use_rl_terminal is not None) and self.use_rl_terminal:
+            return True
+        if (self.use_rl_rgb_array is not None) and self.use_rl_rgb_array:
+            return True
+        return False
+
+    def reset_rendering_cache(self):
+        if "rendering" in self.__dict__:
+            del self.__dict__["rendering"]
+
     render_mode: RenderModeType = ""
+    use_rl_terminal: Optional[bool] = None
+    use_rl_rgb_array: Optional[bool] = None
 
     # --- mp
     actor_id: int = 0

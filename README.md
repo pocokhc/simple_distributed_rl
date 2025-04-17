@@ -171,10 +171,12 @@ for episode in range(N)
 
   # 1エピソードのループ
   while not env.done:
-      env.render()  # 環境の描画
-
       # アクションを取得
       action = worker.policy()
+
+      # 描画
+      env.render()
+      worker.render()
 
       # 環境の1stepを実行
       env.step(action)

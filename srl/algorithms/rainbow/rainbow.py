@@ -330,7 +330,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
             return int(np.argmax(self.q))
 
         if self.training:
-            epsilon = self.epsilon_sch.update(self.total_step).to_float()
+            epsilon = self.epsilon_sch.update(self.step_in_training).to_float()
         else:
             epsilon = self.config.test_epsilon
 

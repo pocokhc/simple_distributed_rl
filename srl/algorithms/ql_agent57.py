@@ -293,7 +293,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
                 self.discount = self.discount_list[self.actor_index]
                 self.beta = self.beta_list[self.actor_index]
             else:
-                self.epsilon = self.epsilon_sch.update(self.total_step).to_float()
+                self.epsilon = self.epsilon_sch.update(self.step_in_training).to_float()
                 self.discount = self.config.discount
                 self.beta = self.config.beta
         else:

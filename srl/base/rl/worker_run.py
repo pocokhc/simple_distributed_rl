@@ -164,10 +164,13 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def next_invalid_actions(self) -> List[TActType]:
         return self._next_invalid_actions  # type: ignore  # on_step以外はNone
 
+    @property
+    def step_in_training(self) -> int:
+        return self._step_in_training
 
     @property
-    def total_step(self) -> int:
-        return self._total_step
+    def step_in_episode(self) -> int:
+        return self._step_in_episode
 
     @property
     def episode_seed(self) -> Optional[int]:
@@ -206,7 +209,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     def _setup_val(self, context: RunContext):
         self._context = context
-        self._total_step: int = 0
+        self._step_in_training: int = 0
 
         self._use_stacked_state = self._config.window_length > 1
         self._use_render_image = self._config.use_render_image_state()
@@ -233,6 +236,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._player_index = player_index
         self._episode_seed = seed
         self._is_reset = False
+        self._step_in_episode = 0
 
         # --- state
         self._prev_state: TObsType = self._config.observation_space.get_default()
@@ -313,7 +317,8 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
             logger.debug("on_step")
             self._worker.on_step(self)
-            self._total_step += 1
+            self._step_in_episode += 1
+            self._step_in_training += 1
 
             # step後にupdate
             self._prev_state = self._state

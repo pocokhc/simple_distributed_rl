@@ -25,7 +25,7 @@ class WorkerRunStubRLWorker(RLWorker):
         assert aaa == [None, None]
 
     def policy(self, worker):
-        if worker.total_step == 0:
+        if worker.step_in_episode == 0:
             n = worker.get_tracking("n")
             assert n == [2, 2]
             aaa = worker.get_tracking("aaa")
@@ -35,7 +35,7 @@ class WorkerRunStubRLWorker(RLWorker):
     def on_step(self, worker):
         worker.add_tracking({"n": 3})
 
-        if worker.total_step == 0:
+        if worker.step_in_episode == 0:
             n = worker.get_tracking("n")
             assert n == [2, 2, 3]
             aaa = worker.get_tracking("aaa")

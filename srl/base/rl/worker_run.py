@@ -646,3 +646,25 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             rl_action = cast(TActType, env_action)
         self._action = rl_action
         return rl_action
+
+    def print_discrete_action_info(self, maxa: int, func) -> None:
+        view_actions_num = min(15, self.config.action_space.n)
+        for action in range(view_actions_num):
+            if action in self.invalid_actions:
+                s = "x"
+            elif action == maxa:
+                s = "*"
+            else:
+                s = " "
+            rl_s = func(action)
+
+            act_s = self._env.action_to_str(action)
+            if act_s == str(action):
+                act_s = f"{act_s:3s}"
+            else:
+                act_s = f"{action}({act_s})"
+                act_s = f"{act_s:6s}"
+            s += f"{act_s}: {rl_s}"
+            print(s)
+        if self.config.action_space.n > view_actions_num:
+            print("... Some actions have been omitted.")

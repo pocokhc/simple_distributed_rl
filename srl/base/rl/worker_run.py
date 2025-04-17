@@ -454,7 +454,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
                 if rl_state_img is not None:
                     import cv2
 
-                    rl_state_img = cv2.resize(rl_state_img, self._config.render_rl_image_size, interpolation=cv2.INTER_LINEAR)
+                    rl_state_img = cv2.resize(rl_state_img, self._config.render_rl_image_size, interpolation=cv2.INTER_NEAREST)
                     rl_state_img = render_funcs.add_padding(rl_state_img, padding, padding, padding, padding, border_color)
                     env_img = render_funcs.vconcat(env_img, rl_state_img)
 

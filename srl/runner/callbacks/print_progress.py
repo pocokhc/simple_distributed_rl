@@ -82,6 +82,7 @@ class PrintProgress(RunCallback, Evaluate):
             s += f", tf={context.used_device_tf}"
         elif context.framework == "torch":
             s += f", torch={context.used_device_torch}"
+        s += f", {context.flow_mode}"
         if context.max_episodes > 0:
             s += f", max episodes: {context.max_episodes}"
         if context.timeout > 0:

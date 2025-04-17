@@ -25,14 +25,15 @@ class WorkerRunStubEpisode(RLWorker):
         assert worker.state == [1]
         assert np.mean(worker.render_image_state) == 1
         assert worker.invalid_actions == [1]
+        self.n_render = 0
 
     def policy(self, worker):
-        if self.total_step == 0:
+        if self.step_in_episode == 0:
             assert worker.state == [1]
             assert np.mean(worker.render_image_state) == 1
             assert worker.invalid_actions == [1]
             return 1
-        elif self.total_step == 1:
+        elif self.step_in_episode == 1:
             assert worker.state == [2]
             assert np.mean(worker.render_image_state) == 2
             assert worker.invalid_actions == [2]
@@ -40,7 +41,7 @@ class WorkerRunStubEpisode(RLWorker):
         assert False
 
     def on_step(self, worker):
-        if self.total_step == 0:
+        if self.step_in_episode == 0:
             assert worker.state == [1]
             assert worker.next_state == [2]
             assert np.mean(worker.render_image_state) == 1
@@ -51,7 +52,7 @@ class WorkerRunStubEpisode(RLWorker):
             assert worker.terminated == False  # noqa: E712
             assert worker.invalid_actions == [1]
             assert worker.next_invalid_actions == [2]
-        elif self.total_step == 1:
+        elif self.step_in_episode == 1:
             assert worker.state == [2]
             assert worker.next_state == [3]
             assert np.mean(worker.render_image_state) == 2
@@ -66,13 +67,22 @@ class WorkerRunStubEpisode(RLWorker):
             assert False
 
     def render_terminal(self, worker, **kwargs) -> None:
-        if self.total_step == 0:
+        self.n_render += 1
+        if self.step_in_episode == 0:
+            assert worker.prev_state == [0]
             assert worker.state == [1]
+            assert worker.action == 1
+            assert np.mean(worker.prev_render_image_state) == 0
             assert np.mean(worker.render_image_state) == 1
+            assert worker.prev_invalid_actions == []
             assert worker.invalid_actions == [1]
-        elif self.total_step == 1:
+        elif self.step_in_episode == 1:
+            assert worker.prev_state == [1]
             assert worker.state == [2]
+            assert worker.action == 2
+            assert np.mean(worker.prev_render_image_state) == 1
             assert np.mean(worker.render_image_state) == 2
+            assert worker.prev_invalid_actions == [1]
             assert worker.invalid_actions == [2]
         else:
             assert False
@@ -92,9 +102,9 @@ def test_episode():
     rl_config.setup(env)
     worker = srl.make_worker(rl_config, env)
 
-    context = RunContext(rendering=True)
+    context = RunContext()
     env.setup(context)
-    worker.setup(context, render_mode="rgb_array")
+    worker.setup(context, render_mode="terminal")
 
     # --- reset
     env.reset()
@@ -107,6 +117,8 @@ def test_episode():
         worker.on_step()
     env.teardown()
     worker.teardown()
+
+    assert cast(WorkerRunStubEpisode, worker.worker).n_render > 0
 
 
 def test_episode_runner():
@@ -137,16 +149,17 @@ class WorkerRunStubEpisodeStacked(RLWorker):
             worker.render_image_state
             == np.stack(
                 [
-                    np.zeros((64, 32, 3)),
-                    np.ones((64, 32, 3)),
+                    np.full((64, 32, 3), 0),
+                    np.full((64, 32, 3), 1),
                 ],
                 axis=0,
             )
         ).all()
         assert worker.invalid_actions == [1]
+        self.n_render = 0
 
     def policy(self, worker):
-        if self.total_step == 0:
+        if self.step_in_episode == 0:
             assert worker.state == [0, 1]
             assert worker.get_state_one_step(-2) == [0]
             assert worker.get_state_one_step(-1) == [1]
@@ -154,15 +167,15 @@ class WorkerRunStubEpisodeStacked(RLWorker):
                 worker.render_image_state
                 == np.stack(
                     [
-                        np.zeros((64, 32, 3)),
-                        np.ones((64, 32, 3)),
+                        np.full((64, 32, 3), 0),
+                        np.full((64, 32, 3), 1),
                     ],
                     axis=0,
                 )
             ).all()
             assert worker.invalid_actions == [1]
             return 1
-        elif self.total_step == 1:
+        elif self.step_in_episode == 1:
             assert worker.state == [1, 2]
             assert worker.get_state_one_step(-2) == [1]
             assert worker.get_state_one_step(-1) == [2]
@@ -181,7 +194,7 @@ class WorkerRunStubEpisodeStacked(RLWorker):
         assert False
 
     def on_step(self, worker):
-        if self.total_step == 0:
+        if self.step_in_episode == 0:
             assert worker.state == [0, 1]
             assert worker.next_state == [1, 2]
             assert (
@@ -210,7 +223,7 @@ class WorkerRunStubEpisodeStacked(RLWorker):
             assert worker.terminated == False  # noqa: E712
             assert worker.invalid_actions == [1]
             assert worker.next_invalid_actions == [2]
-        elif self.total_step == 1:
+        elif self.step_in_episode == 1:
             assert worker.state == [1, 2]
             assert worker.next_state == [2, 3]
             assert (
@@ -243,25 +256,49 @@ class WorkerRunStubEpisodeStacked(RLWorker):
             assert False
 
     def render_terminal(self, worker, **kwargs) -> None:
-        if self.total_step == 0:
+        self.n_render += 1
+        if self.step_in_episode == 0:
+            assert worker.prev_state == [0, 0]
             assert worker.state == [0, 1]
             assert worker.get_state_one_step(-2) == [0]
             assert worker.get_state_one_step(-1) == [1]
             assert (
-                worker.render_image_state
+                worker.prev_render_image_state
                 == np.stack(
                     [
-                        np.zeros((64, 32, 3)),
-                        np.ones((64, 32, 3)),
+                        np.full((64, 32, 3), 0),
+                        np.full((64, 32, 3), 0),
                     ],
                     axis=0,
                 )
             ).all()
+            assert (
+                worker.render_image_state
+                == np.stack(
+                    [
+                        np.full((64, 32, 3), 0),
+                        np.full((64, 32, 3), 1),
+                    ],
+                    axis=0,
+                )
+            ).all()
+            assert worker.prev_invalid_actions == []
             assert worker.invalid_actions == [1]
-        elif self.total_step == 1:
+        elif self.step_in_episode == 1:
+            assert worker.prev_state == [0, 1]
             assert worker.state == [1, 2]
             assert worker.get_state_one_step(-2) == [1]
             assert worker.get_state_one_step(-1) == [2]
+            assert (
+                worker.prev_render_image_state
+                == np.stack(
+                    [
+                        np.full((64, 32, 3), 0),
+                        np.full((64, 32, 3), 1),
+                    ],
+                    axis=0,
+                )
+            ).all()
             assert (
                 worker.render_image_state
                 == np.stack(
@@ -272,6 +309,7 @@ class WorkerRunStubEpisodeStacked(RLWorker):
                     axis=0,
                 )
             ).all()
+            assert worker.prev_invalid_actions == [1]
             assert worker.invalid_actions == [2]
         else:
             assert False
@@ -293,7 +331,7 @@ def test_episode_stacked():
     rl_config.setup(env)
     worker = srl.make_worker(rl_config, env)
 
-    context = RunContext(rendering=True, render_mode="terminal")
+    context = RunContext(render_mode="terminal")
     env.setup(context)
     worker.setup(context)
 
@@ -309,6 +347,8 @@ def test_episode_stacked():
 
     env.teardown()
     worker.teardown()
+
+    assert cast(WorkerRunStubEpisodeStacked, worker.worker).n_render > 0
 
 
 def test_episode_stacked_runner():
@@ -326,4 +366,6 @@ def test_episode_stacked_runner():
     env_org = cast(worker_run_stub.WorkerRunStubEnv, env.unwrapped)
     env_org.s_states = [1, 2, 3]  # 2step
 
-    runner.evaluate(max_episodes=1)
+    runner.render_terminal()
+
+    assert cast(WorkerRunStubEpisodeStacked, runner.worker.worker).n_render > 0

@@ -447,7 +447,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
                 env_img = render_funcs.vconcat(env_img, env_state)
 
         # [rl state]
-        if self._config.render_rl_image_size:
+        if self._config.render_rl_image:
             # 同じ場合は省略
             if self.env.observation_space != self.config._rl_obs_space_one_step:
                 rl_state_img = self.render_rl_image()

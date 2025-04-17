@@ -16,6 +16,42 @@
 // TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除
 
 
+# v0.19.1
+
+
+**workerのrenderを見直し**
+
+・workerのrenderの想定する役割を「policy直後の状態の表示 + 前の状態の結果を表示」として再定義
+
+1. [base.rl.worker_run] 関係
+   - add: renderで前の状態を見る用にprev_state等の prec_xxx を追加
+   - change: on_step以外のnext_xxxをNoneに変更
+   - change: invalid_actionsをenv側から基本切り離す形に変更
+   - rename: tota_stepをstep_in_trainingに名前変更し、step_in_episodeも追加 
+
+1. [base.render] worker側のrenderを実行する位置を固定置
+   - contextにrender時にterminalとrgb_arrayを使うかどうかの変数を追加（rl側のみ）
+   - WorkerRunはuse_terminal/use_rgb_arrayに従って任意のタイミングで毎ターンrender情報を保存する
+   - [base.context] change: renderingをrender_modeから自動判別するように変更
+   - [base.context] add: use_rl_terminal/use_rl_rgb_arrayを追加
+   - [base.render] change: renderingをcontextではなくRenderクラス内で個別に保持するように変更
+   - [base.render] rename: Renderクラス内はrender_xxx関数をget_cached_xxx関数に名前変更
+
+
+**OtherUpdates**
+
+1. [base.rl.worker_run] change: funcs.render_discrete_actionを削除し、worker.print_discrete_action_info を作成し移動
+1. [base.rl.worker_run] add: create_render_imageにrender_image_stateの画像を追加
+作成し移動
+1. change: cv2.resizeのアルゴリズムをドットの輪郭が分かるように cv2.INTER_NEAREST に変更
+
+
+**Bug Fixes**
+
+1. [base.rl.worker_run] fix: create_render_imageでrl_stateの表示条件が間違っていたので修正
+1. [algorithms.go_explore] fix: downsampling時のfloat変換がおかしかったので修正
+
+
 # v0.19.0
 
 大型アップデート

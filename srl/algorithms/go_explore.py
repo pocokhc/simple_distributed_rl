@@ -53,8 +53,7 @@ class DownSamplingProcessor(RLProcessor):
         )
 
         # (3) 255->8
-        state = np.round(state * rl_config.downsampling_val / 255.0)
-
+        state = np.round(rl_config.downsampling_val * (state / 255.0))
         return state.astype(np.uint8)
 
 

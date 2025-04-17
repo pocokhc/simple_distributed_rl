@@ -491,10 +491,13 @@ RLPriorityReplayBuffer
 
       def render_terminal(self, worker):  # 及び render_rgb_array
          # policy -> render -> env.step -> on_step -> policy
-         # 以下はpolicyと同じ情報
-         worker.state           # 状態
+         # 想定する役割は、policy直後の状態の表示 + 前の状態の結果を表示
+         worker.state           # policy時の状態
+         worker.prev_state      # policy時の1つ前の状態
+         worker.action          # policyで返したアクション
          worker.player_index    # プレイヤーのindex
-         worker.invalid_actions # 有効ではないアクションリスト
+         worker.invalid_actions       # policy時の有効ではないアクションリスト
+         worker.prev_invalid_actions  # policy時の1つ前の有効ではないアクションリスト
 
 | ※v0.19.0 より on_step 内の prev_state/state → state/next_state に変更になりました
 

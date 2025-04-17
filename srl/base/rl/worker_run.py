@@ -96,15 +96,23 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return self._worker.info
 
     @property
+    def prev_state(self) -> TObsType:
+        return self._prev_state
+
+    @property
     def state(self) -> TObsType:
         return self._state
 
     @property
     def next_state(self) -> TObsType:
-        return self._next_state
+        return self._next_state  # type: ignore  # on_step以外はNone
 
     def get_state_one_step(self, idx: int = -1) -> TObsType:
         return self._one_states[idx] if self._use_stacked_state else self._state
+
+    @property
+    def prev_render_image_state(self) -> np.ndarray:
+        return self._prev_render_image
 
     @property
     def render_image_state(self) -> np.ndarray:
@@ -112,7 +120,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     @property
     def next_render_image_state(self) -> np.ndarray:
-        return self._next_render_image
+        return self._next_render_image  # type: ignore  # on_step以外はNone
 
     def get_render_image_state_one_step(self, idx: int = -1) -> np.ndarray:
         return self._one_render_images[idx] if self._use_stacked_render_image else self._render_image
@@ -145,13 +153,17 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return self._env.env.done_reason
 
     @property
+    def prev_invalid_actions(self) -> List[TActType]:
+        return self._prev_invalid_actions
+
+    @property
     def invalid_actions(self) -> List[TActType]:
         return self._invalid_actions
 
     @property
     def next_invalid_actions(self) -> List[TActType]:
-        # policy時に呼び出すとNone
-        return self._next_invalid_actions
+        return self._next_invalid_actions  # type: ignore  # on_step以外はNone
+
 
     @property
     def total_step(self) -> int:
@@ -218,25 +230,29 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._is_reset = False
 
         # --- state
-        self._state = self._config.observation_space.get_default()
-        self._next_state = self._config.observation_space.get_default()
+        self._prev_state: TObsType = self._config.observation_space.get_default()
+        self._state: TObsType = self._config.observation_space.get_default()
+        self._next_state: Optional[TObsType] = None
         self._one_states = [self._config.observation_space_one_step.get_default() for _ in range(self._config.window_length)]
 
         if self._use_render_image:
-            self._render_image = self._config.obs_render_img_space.get_default()
-            self._next_render_image = self._config.obs_render_img_space.get_default()
+            self._prev_render_image: np.ndarray = self._config.obs_render_img_space.get_default()
+            self._render_image: np.ndarray = self._config.obs_render_img_space.get_default()
+            self._next_render_image: Optional[np.ndarray] = None
             self._one_render_images = [self._config.obs_render_img_space_one_step.get_default() for _ in range(self._config.render_image_window_length)]
         else:
-            self._render_image = np.zeros((1,))
-            self._next_render_image = np.zeros((1,))
+            self._prev_render_image: np.ndarray = np.zeros((1,))
+            self._render_image: np.ndarray = np.zeros((1,))
+            self._next_render_image: Optional[np.ndarray] = None
             self._one_render_images = []
 
         # action, reward, done
         self._action = self._config.action_space.get_default()
         self._step_reward: float = 0.0
         self._reward: float = 0.0
+        self._prev_invalid_actions: List[TActType] = []
         self._invalid_actions: List[TActType] = []
-        self._next_invalid_actions: List[TActType] = []
+        self._next_invalid_actions: Optional[List[TActType]] = None
 
         # tracking
         self._tracking_data: List[Dict[str, Any]] = []
@@ -270,14 +286,11 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         if not self._is_reset:
             # state
             self._state = state
-            self._next_state = state
             if self._use_render_image:
                 self._render_image = render_image
-                self._next_render_image = render_image
 
             # invalid_actions
             self._invalid_actions = invalid_actions
-            self._next_invalid_actions = invalid_actions
 
             logger.debug("on_reset")
             self._worker.on_reset(self)
@@ -298,10 +311,17 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._total_step += 1
 
             # step後にupdate
+            self._prev_state = self._state
             self._state = self._next_state
+            self._next_state = None
             if self._use_render_image:
+                self._prev_render_image = self._render_image
+                assert self._next_render_image is not None
                 self._render_image = self._next_render_image
+                self._next_render_image = None
+            self._prev_invalid_actions = self._invalid_actions
             self._invalid_actions = self._next_invalid_actions
+            self._next_invalid_actions = None
 
     def policy(self) -> EnvActionType:
         self._ready_policy()

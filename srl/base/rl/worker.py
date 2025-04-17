@@ -110,8 +110,12 @@ class RLWorkerGeneric(
         return self.__worker_run.player_index
 
     @property
-    def total_step(self) -> int:
-        return self.__worker_run.total_step
+    def step_in_training(self) -> int:
+        return self.__worker_run.step_in_training
+
+    @property
+    def step_in_episode(self) -> int:
+        return self.__worker_run.step_in_episode
 
     # --- env info (shortcut properties)
     @property

@@ -552,7 +552,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         if not self.training:
             policy_tau = 0  # 評価時は決定的に
         else:
-            policy_tau = self.policy_tau_sch.update(self.total_step).to_float()
+            policy_tau = self.policy_tau_sch.update(self.step_in_training).to_float()
 
         if policy_tau == 0:
             counts = np.asarray(self.N[self.s0_str])

@@ -231,7 +231,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         invalid_actions = worker.invalid_actions
 
         if self.training:
-            epsilon = self.epsilon_sch.update(self.total_step).to_float()
+            epsilon = self.epsilon_sch.update(self.step_in_training).to_float()
         else:
             epsilon = self.config.test_epsilon
 

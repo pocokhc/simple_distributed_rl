@@ -149,7 +149,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         self.state = self.config.observation_space.to_str(worker.state)
 
         if self.training:
-            epsilon = self.epsilon_sch.update(self.total_step).to_float()
+            epsilon = self.epsilon_sch.update(self.step_in_training).to_float()
         else:
             epsilon = self.config.test_epsilon
 

@@ -756,4 +756,4 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
             s += f"{a:2d}: {q[a]:5.3f} = {q_ext[a]:5.3f} + {self.beta} * {q_int[a]:5.3f}"
             return s
 
-        funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)
+        worker.print_discrete_action_info(int(maxa), _render_sub)

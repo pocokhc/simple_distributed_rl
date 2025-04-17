@@ -1695,7 +1695,7 @@ class Worker(RLWorker):
                 s += f", value {value.numpy()[0][0]:.5f}"
                 return s
 
-            funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)
+            worker.print_discrete_action_info(int(maxa), _render_sub)
         elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
             act_dist = cast(NormalDistBlock, self.parameter.actor)(self.feat)
             action = act_dist.mean()

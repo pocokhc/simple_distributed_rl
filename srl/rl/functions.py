@@ -4,8 +4,6 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 
 from srl.base.define import SpaceTypes
-from srl.base.env.env_run import EnvRun
-from srl.base.spaces.discrete import DiscreteSpace
 
 
 def rescaling(x, eps=0.001):
@@ -155,30 +153,6 @@ def calc_epsilon_greedy_probs(q, invalid_actions, epsilon, action_num):
                 prob += (1 - epsilon) / q_max_num
             probs.append(prob)
     return probs
-
-
-def render_discrete_action(maxa: int, action_space: DiscreteSpace, env: EnvRun, func) -> None:
-    invalid_actions = env.get_invalid_actions()
-    view_actions_num = min(15, action_space.n)
-    for action in range(view_actions_num):
-        if action in invalid_actions:
-            s = "x"
-        elif action == maxa:
-            s = "*"
-        else:
-            s = " "
-        rl_s = func(action)
-
-        act_s = env.action_to_str(action)
-        if act_s == str(action):
-            act_s = f"{act_s:3s}"
-        else:
-            act_s = f"{action}({act_s})"
-            act_s = f"{act_s:6s}"
-        s += f"{act_s}: {rl_s}"
-        print(s)
-    if action_space.n > view_actions_num:
-        print("... Some actions have been omitted.")
 
 
 def create_fancy_index_for_invalid_actions(idx_list: List[List[int]]):

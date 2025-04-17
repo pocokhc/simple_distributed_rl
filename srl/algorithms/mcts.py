@@ -201,4 +201,4 @@ class Worker(RLWorker[Config, Parameter, Memory]):
                 q /= c
             return f"{c:7d}(N), {q:9.4f}(Q), {uct_list[a]:.5f}(UCT)"
 
-        funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)
+        worker.print_discrete_action_info(int(maxa), _render_sub)

@@ -495,4 +495,4 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         def _render_sub(a: int) -> str:
             return f"{q[a]:8.5f} = {q_ext[a]:8.5f} + {self.beta:.3f} * {q_int[a]:8.5f}"
 
-        funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)
+        worker.print_discrete_action_info(int(maxa), _render_sub)

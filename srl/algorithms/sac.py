@@ -15,7 +15,6 @@ from srl.base.rl.trainer import RLTrainer
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.space import SpaceBase
-from srl.rl import functions as funcs
 from srl.rl.memories.replay_buffer import ReplayBufferConfig, RLReplayBuffer
 from srl.rl.models.config.input_image_block import InputImageBlockConfig
 from srl.rl.models.config.input_value_block import InputValueBlockConfig
@@ -431,7 +430,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
                 s = f"{self.probs[a] * 100:5.1f}%, q1 {q1:.5f}, q2 {q2:.5f} "
                 return s
 
-            funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)
+            worker.print_discrete_action_info(int(maxa), _render_sub)
 
         elif isinstance(self.config.action_space, ArrayContinuousSpace):
             dist = self.parameter.policy(state)

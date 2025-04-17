@@ -203,7 +203,7 @@ def main():
     # --------------------
     # rendering
     # --------------------
-    context = RunContext(rendering=True, render_mode="terminal")
+    context = RunContext(render_mode="terminal")
     worker = rl_config.make_worker(env, parameter)
     env.setup(context)
     worker.setup(context)

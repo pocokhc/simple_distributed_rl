@@ -25,14 +25,15 @@ def _run_episode(
 
     action = None
     while not env.done:
+        # 2. action
+        action = worker.policy()
+
         # --- env render
         if rendering:
             print(f"\n--- turn {env.step_num}, action {action}, rewards: {env.rewards[0]}, done: {env.done}, info: {env.info}")
             print(f"worker: {worker.info}")
             env.render()
-
-        # 2. action
-        action = worker.policy()
+            worker.render()
 
         # 3. step
         env.step(action)
@@ -98,7 +99,7 @@ def main():
     worker.teardown()
 
     # --- render
-    context = srl.RunContext(env_config, rl_config, rendering=True, render_mode="terminal")
+    context = srl.RunContext(env_config, rl_config, render_mode="terminal")
     env.setup(context)
     worker.setup(context)
     _run_episode(env, worker, None, rendering=True)

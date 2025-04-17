@@ -25,14 +25,15 @@ def _run_episode(
 
     action = None
     while not env.done:
-        # --- env render
+        # 2. action
+        action = workers[env.next_player].policy()
+
+        # --- render
         if rendering:
             print("\n--- turn {}, action {}, rewards: {}, done: {}, next player {}, info: {}, ".format(env.step_num, action, env.rewards, env.done, env.next_player, env.info))
             print("player {} info: {}".format(env.next_player, workers[env.next_player].info))
             env.render()
-
-        # 2. action
-        action = workers[env.next_player].policy()
+            workers[env.next_player].render()
 
         # 3. step
         env.step(action)
@@ -54,7 +55,7 @@ def _run_episode(
                 print(trainer.info)
 
     if rendering:
-        print(f"step: {env.step_num}, reward: {env.episode_rewards}")
+        print(f"\n--- turn: {env.step_num}, reward: {env.rewards}, total reward: {env.episode_rewards}, done reason: {env.done_reason}")
         env.render()
 
     return env.step_num, env.episode_rewards
@@ -101,7 +102,7 @@ def main():
     env.teardown()
 
     # --- render
-    context = srl.RunContext(env_config, rl_config, rendering=True, render_mode="terminal")
+    context = srl.RunContext(env_config, rl_config, render_mode="terminal")
     env.setup(context)
     [w.setup(context) for w in workers]
     _run_episode(env, workers, None, rendering=True)
@@ -121,7 +122,7 @@ def play_cpu(player_mode: str = "human"):
     assert cpu is not None
 
     # set context
-    context = srl.RunContext(env_config, rendering=True, render_mode="terminal")
+    context = srl.RunContext(env_config, render_mode="terminal")
     env.setup(context)
     player.setup(context)
     cpu.setup(context)
@@ -132,13 +133,12 @@ def play_cpu(player_mode: str = "human"):
     cpu.reset(player_index=1)
 
     while not env.done:
-        env.render()
-
         # 1 step
         if env.next_player == 0:
             action = player.policy()
         else:
             action = cpu.policy()
+        env.render()
         env.step(action)
         player.on_step()
         cpu.on_step()

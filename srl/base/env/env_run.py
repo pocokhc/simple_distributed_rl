@@ -276,7 +276,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
                 frameskip_function()
 
         self._render.cache_reset()
-        return self._step2(state, step_rewards, done)
+        self._step2(state, step_rewards, done)
 
     def _step1(self, action) -> Tuple[TObsType, List[float], DoneTypes]:
         f_except = None

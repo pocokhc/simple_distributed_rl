@@ -360,18 +360,13 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._ready_policy()
 
     # ------------------------------------
-    # invalid
+    # invalid, envとはずれるので直接使わない
     # ------------------------------------
-    def get_invalid_actions(self, env: Optional[EnvRun] = None, player_index: int = -1) -> List[TActType]:
-        if env is None:
-            return self._invalid_actions
-        return [
-            cast(TActType, self._config.action_encode(a))
-            for a in env.get_invalid_actions(player_index)  #
-        ]
+    def get_invalid_actions_to_env(self) -> List[EnvActionType]:
+        return [self._config.action_decode(a) for a in self.invalid_actions]
 
-    def get_valid_actions(self, env: Optional[EnvRun] = None, player_index: int = -1) -> List[TActType]:
-        return self._config.action_space.get_valid_actions(self.get_invalid_actions(env, player_index))
+    def get_valid_actions(self) -> List[TActType]:
+        return self._config.action_space.get_valid_actions(self.invalid_actions)
 
     def add_invalid_actions(self, invalid_actions: List[TActType], encode: bool = False) -> None:
         if encode:
@@ -629,11 +624,10 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     # utils
     # ------------------------------------
     def sample_action(self) -> TActType:
-        action = cast(EnvActionType, self._config.action_space_of_env.sample(self.get_invalid_actions()))
-        return cast(TActType, self._config.action_encode(action))
+        return self._config.action_space.sample(self._invalid_actions)
 
-    def sample_action_for_env(self) -> EnvActionType:
-        return self._env.sample_action()
+    def sample_action_to_env(self) -> EnvActionType:
+        return self._config.action_space_of_env.sample(self.get_invalid_actions_to_env())
 
     def override_action(self, env_action: EnvActionType, encode: bool = True) -> TActType:
         if encode:

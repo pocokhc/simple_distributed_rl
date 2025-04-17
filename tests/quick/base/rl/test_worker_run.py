@@ -262,7 +262,7 @@ def test_sample_action(env_act_space, rl_act_type):
         [BoxSpace((1,), -1, 1), False],
     ],
 )
-def test_sample_action_for_env(env_act_space, is_raise):
+def test_sample_action_to_env(env_act_space, is_raise):
     env = srl.make_env(srl.EnvConfig("Stub", {"action_space": env_act_space}))
     rl_config = worker_run_stub.WorkerRunStubRLConfig()
 
@@ -274,6 +274,6 @@ def test_sample_action_for_env(env_act_space, is_raise):
 
     print(worker_run.config.action_space)
     for _ in range(100):
-        action = worker_run.sample_action_for_env()
+        action = worker_run.sample_action_to_env()
         print(action)
         assert env_act_space.check_val(action)

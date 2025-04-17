@@ -10,19 +10,19 @@ from srl.base.run.core_play import play
 class StubWorker(RLWorker):
     def on_reset(self, worker):
         inv_acts = [i for i, s in enumerate(worker.state) if s != 0]
-        assert inv_acts == worker.get_invalid_actions()
+        assert inv_acts == worker.invalid_actions
 
     def policy(self, worker) -> RLActionType:
         inv_acts = [i for i, s in enumerate(worker.state) if s != 0]
-        print(worker.state, inv_acts, worker.get_invalid_actions())
-        assert inv_acts == worker.get_invalid_actions()
+        print(worker.state, inv_acts, worker.invalid_actions)
+        assert inv_acts == worker.invalid_actions
         return self.sample_action()
 
     def on_step(self, worker):
         if not worker.done:
             inv_acts = [i for i, s in enumerate(worker.state) if s != 0]
-            print(worker.state, inv_acts, worker.get_invalid_actions())
-            assert inv_acts == worker.get_invalid_actions()
+            print(worker.state, inv_acts, worker.invalid_actions)
+            assert inv_acts == worker.invalid_actions
         print(worker.state, worker.next_state)
         assert worker.state != worker.next_state
 

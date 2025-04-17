@@ -454,7 +454,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             if self.use_render_image_state():
                 if self.render_image_window_length > 1:
                     logger.info(f" render_img(one_step): {self._rl_obs_render_img_space_one_step}")
-                logger.info(f" render_img          : {self._rl_obs_render_img_space}")
+                logger.info(f" render_img  : {self._rl_obs_render_img_space}")
 
     # --- setup property
     def get_applied_processors(self) -> List["RLProcessor"]:

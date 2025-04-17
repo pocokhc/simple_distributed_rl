@@ -115,6 +115,7 @@ def _play(
         logger.info(f"set_seed: {context.seed}, 1st episode seed: {state.episode_seed}")
 
     # --- 3 setup
+    context.reset_rendering_cache()
     state.env.setup(context)
     [w.setup(context) for w in state.workers]
     if state.trainer is not None:

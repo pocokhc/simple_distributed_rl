@@ -174,10 +174,12 @@ for episode in range(N)
 
   # 1 episode loop
   while not env.done:
-      env.render()  # env render
-    
       # get action
       action = worker.policy()
+
+      # render
+      env.render()
+      worker.render()
 
       # Run 1 step of the environment
       env.step(action)

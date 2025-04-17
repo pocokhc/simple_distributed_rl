@@ -24,16 +24,43 @@ class Render:
     def __init__(self, render_obj: IRender, interval: float = 1000 / 60) -> None:
         self._render_obj = render_obj
         self._mode: RenderModeType = ""
+        self.rendering: bool = False
         self._screen = None
 
         self.set_render_options(interval=interval)
         self.cache_reset()
 
-    def set_render_mode(self, mode: RenderModeType, enable_window: bool = True):
+    def set_render_mode(
+        self,
+        mode: RenderModeType,
+        use_terminal: Optional[bool] = None,
+        use_rgb_array: Optional[bool] = None,
+        enable_window: bool = True,
+    ):
         self._mode = mode
         if not enable_window:
             if self._mode == "window":
                 self._mode = "rgb_array"
+
+        if use_terminal is None:
+            self._use_terminal = self._mode == "terminal"
+        else:
+            self._use_terminal = use_terminal
+
+        if use_rgb_array is None:
+            self._use_rgb_array = self._mode in ["rgb_array", "window"]
+        else:
+            self._use_rgb_array = use_rgb_array
+
+        if mode == "":
+            if self._use_terminal:
+                self.rendering = True
+            if self._use_rgb_array:
+                self.rendering = True
+            else:
+                self.rendering = False
+        else:
+            self.rendering = True
 
         if self._mode in ["rgb_array", "window"]:
             assert is_packages_installed(["PIL", "pygame"]), "This run requires installation of 'PIL', 'pygame'. (pip install pillow pygame)"
@@ -55,43 +82,36 @@ class Render:
     def cache_reset(self):
         self._cache_text = ""
         self._cache_rgb_array = None
-        self._cache_text_img = None
 
-    def render(self, **kwargs):
-        if self._mode == "terminal":
-            self._render_obj.render_terminal(**kwargs)
-        elif self._mode == "rgb_array":
-            return self.render_rgb_array(**kwargs)
-        elif self._mode == "window":
-            rgb_array = self.render_rgb_array(**kwargs)
-            if rgb_array is None:
-                rgb_array = self.render_terminal_text_to_image(**kwargs)
-            if rgb_array is not None:
-                self._render_window(rgb_array, **kwargs)
-            return rgb_array
+    def cache_render(self, **kwargs):
+        self._cache_text = ""
+        self._cache_rgb_array = None
+        if self._use_terminal:
+            self.get_cached_terminal_text(**kwargs)
+        if self._use_rgb_array:
+            self.get_cached_rgb_array(**kwargs)
 
-    def render_terminal_text(self, **kwargs) -> str:
+    def get_cached_terminal_text(self, **kwargs) -> str:
         if self._cache_text == "":
             self._cache_text = print_to_text(lambda: self._render_obj.render_terminal(**kwargs))
         return self._cache_text
 
-    def render_terminal_text_to_image(self, **kwargs) -> Optional[np.ndarray]:
-        if self._cache_text_img is None:
-            text = self.render_terminal_text(**kwargs)
-            if text.strip() == "":
-                return None
-            self._cache_text_img = text_to_rgb_array(text, self.font_name, self.font_size)
+    def get_cached_terminal_text_to_image(self, **kwargs) -> Optional[np.ndarray]:
+        text = self.get_cached_terminal_text(**kwargs)
+        if text.strip() == "":
+            return None
+        text_img = text_to_rgb_array(text, self.font_name, self.font_size)
 
-        if (self._cache_text_img is not None) and (self.scale != 1.0):
+        if (text_img is not None) and (self.scale != 1.0):
             import cv2
 
-            w = int(self._cache_text_img.shape[1] * self.scale)
-            h = int(self._cache_text_img.shape[0] * self.scale)
-            self._cache_text_img = cv2.resize(self._cache_text_img, (w, h))
+            w = int(text_img.shape[1] * self.scale)
+            h = int(text_img.shape[0] * self.scale)
+            text_img = cv2.resize(text_img, (w, h))
 
-        return self._cache_text_img
+        return text_img
 
-    def render_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
+    def get_cached_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
         if self._cache_rgb_array is None:
             self._cache_rgb_array = self._render_obj.render_rgb_array(**kwargs)
             if self._cache_rgb_array is not None:
@@ -106,7 +126,29 @@ class Render:
 
         return self._cache_rgb_array
 
-    def _render_window(self, rgb_array, **kwargs):
+    def render(self, **kwargs):
+        if self._mode == "terminal":
+            self.render_terminal(**kwargs)
+        elif self._mode == "rgb_array":
+            return self.get_cached_rgb_array(**kwargs)
+        elif self._mode == "window":
+            return self.render_window(**kwargs)
+
+    def render_terminal(self, **kwargs):
+        if self._cache_text == "":
+            self._render_obj.render_terminal(**kwargs)
+        else:
+            print(self._cache_text)
+
+    def render_window(self, **kwargs):
+        rgb_array = self.get_cached_rgb_array(**kwargs)
+        if rgb_array is None:
+            rgb_array = self.get_cached_terminal_text_to_image(**kwargs)
+        if rgb_array is not None:
+            self._render_window_sub(rgb_array, **kwargs)
+        return rgb_array
+
+    def _render_window_sub(self, rgb_array, **kwargs):
         import pygame
 
         from srl.utils import pygame_wrapper as pw

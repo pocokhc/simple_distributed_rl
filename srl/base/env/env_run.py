@@ -574,13 +574,13 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return self._render.render(**kwargs)
 
     def render_terminal_text(self, **kwargs) -> str:
-        return self._render.render_terminal_text(**kwargs)
+        return self._render.get_cached_terminal_text(**kwargs)
 
     def render_terminal_text_to_image(self, **kwargs):
-        return self._render.render_terminal_text_to_image(**kwargs)
+        return self._render.get_cached_terminal_text_to_image(**kwargs)
 
     def render_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
-        return self._render.render_rgb_array(**kwargs)
+        return self._render.get_cached_rgb_array(**kwargs)
 
     # ------------------------------------
     # simulation

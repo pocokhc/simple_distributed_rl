@@ -81,7 +81,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     @property
     def rendering(self) -> bool:
-        return self._context.rendering
+        return self._render.rendering
 
     @property
     def actor_id(self) -> int:
@@ -194,7 +194,12 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
                 render_mode = "rgb_array"
 
         self._setup_val(context)
-        self._render.set_render_mode(render_mode, enable_window=False)
+        self._render.set_render_mode(
+            render_mode,
+            context.use_rl_terminal,
+            context.use_rl_rgb_array,
+            enable_window=False,
+        )
         logger.debug(f"on_setup: {render_mode=}")
         self._worker.on_setup(self, context)
         self._is_setup = True
@@ -219,7 +224,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         if not self._is_setup:
             raise SRLError("Cannot call worker.on_reset() before calling worker.setup()")
 
-        if self._context.rendering:
+        if self._render.rendering:
             self._render.cache_reset()
 
         self._reset_val(player_index, seed)
@@ -331,9 +336,8 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._action = action
 
         # render
-        if self._context.rendering:
-            self._render.cache_reset()
-            self.render()
+        if self._render.rendering:
+            self._render.cache_render(worker=self)
 
         env_action = self._config.action_decode(action)
         return env_action
@@ -388,17 +392,17 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def render_terminal_text(self, **kwargs) -> str:
         if not self._is_reset:  # on_reset前はrenderしない
             return ""
-        return self._render.render_terminal_text(worker=self, **kwargs)
+        return self._render.get_cached_terminal_text(worker=self, **kwargs)
 
     def render_terminal_text_to_image(self, **kwargs) -> Optional[np.ndarray]:
         if not self._is_reset:  # on_reset前はrenderしない
             return None
-        return self._render.render_terminal_text_to_image(worker=self, **kwargs)
+        return self._render.get_cached_terminal_text_to_image(worker=self, **kwargs)
 
     def render_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
         if not self._is_reset:  # on_reset前はrenderしない
             return None
-        return self._render.render_rgb_array(worker=self, **kwargs)
+        return self._render.get_cached_rgb_array(worker=self, **kwargs)
 
     def render_rl_image(self) -> Optional[np.ndarray]:
         if not self._config.observation_space_one_step.is_image():

@@ -789,4 +789,4 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             )
             return s
 
-        funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)
+        worker.print_discrete_action_info(int(maxa), _render_sub)

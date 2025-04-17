@@ -504,7 +504,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)
+        worker.print_discrete_action_info(int(maxa), _render_sub)
 
     def render_rgb_array(self, worker, **kwargs):
         # policy -> render -> env.step -> on_step

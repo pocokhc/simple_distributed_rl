@@ -228,7 +228,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             def _render_sub(action: int) -> str:
                 return f"{probs[action] * 100:5.1f}% ({vals[action]:.5f})"
 
-            funcs.render_discrete_action(int(maxa), self.config.action_space, worker.env, _render_sub)
+            worker.print_discrete_action_info(int(maxa), _render_sub)
 
         elif isinstance(self.config.action_space, ArrayContinuousSpace):
             mean, stddev = self.parameter.get_normal(self.state)

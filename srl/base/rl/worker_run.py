@@ -560,11 +560,11 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     # backup/restore
     # ------------------------------------
     def backup(self) -> Any:
-        logger.debug(f"backup: step={self._total_step}")
+        logger.debug(f"backup: step={self._step_in_training}")
         d = [
             # setup
             self._is_setup,
-            self._total_step,
+            self._step_in_training,
             self._use_stacked_state,
             self._use_render_image,
             self._use_stacked_render_image,
@@ -573,17 +573,21 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._player_index,
             self._episode_seed,
             self._is_reset,
+            self._step_in_episode,
+            self._config.observation_space.copy_value(self._prev_state),
             self._config.observation_space.copy_value(self._state),
-            self._config.observation_space.copy_value(self._next_state),
+            self._config.observation_space.copy_value(self._next_state) if self._next_state is not None else None,
             [self._config.observation_space_one_step.copy_value(s) for s in self._one_states],
+            self._config.obs_render_img_space.copy_value(self._prev_render_image),
             self._config.obs_render_img_space.copy_value(self._render_image),
-            self._config.obs_render_img_space.copy_value(self._next_render_image),
+            self._config.obs_render_img_space.copy_value(self._next_render_image) if self._next_render_image is not None else None,
             [self._config.obs_render_img_space_one_step.copy_value(s) for s in self._one_render_images],
             self._config.action_space.copy_value(self._action),
             self._step_reward,
             self._reward,
+            self._prev_invalid_actions[:],
             self._invalid_actions[:],
-            self._next_invalid_actions[:],
+            self._next_invalid_actions[:] if self._next_invalid_actions is not None else None,
             # env
             self._env.backup(),
             # tracking
@@ -596,7 +600,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         logger.debug(f"restore: step={dat[0]}")
         # setup
         self._is_setup = dat[0]
-        self._total_step = dat[1]
+        self._step_in_training = dat[1]
         self._use_stacked_state = dat[2]
         self._use_render_image = dat[3]
         self._use_stacked_render_image = dat[4]
@@ -605,23 +609,27 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._player_index = dat[6]
         self._episode_seed = dat[7]
         self._is_reset = dat[8]
-        self._state = dat[9]
-        self._next_state = dat[10]
-        self._one_states = dat[11][:]
-        self._render_image = dat[12]
-        self._next_render_image = dat[13]
-        self._one_render_images = dat[14][:]
-        self._action = dat[15]
-        self._step_reward = dat[16]
-        self._reward = dat[17]
-        self._invalid_actions = dat[18][:]
-        self._next_invalid_actions = dat[19][:]
+        self._step_in_episode = dat[9]
+        self._prev_state = dat[10]
+        self._state = dat[11]
+        self._next_state = dat[12] if dat[12] is not None else None
+        self._one_states = dat[13][:]
+        self._prev_render_image = dat[14]
+        self._render_image = dat[15]
+        self._next_render_image = dat[16] if dat[16] is not None else None
+        self._one_render_images = dat[17][:]
+        self._action = dat[18]
+        self._step_reward = dat[19]
+        self._reward = dat[20]
+        self._prev_invalid_actions = dat[21][:]
+        self._invalid_actions = dat[22][:]
+        self._next_invalid_actions = dat[23][:] if dat[23] is not None else None
         # env
-        self._env.restore(dat[20])
+        self._env.restore(dat[24])
         # tracking
-        self._tracking_data = dat[21][:]
+        self._tracking_data = dat[25][:]
 
-        if self._context.rendering:
+        if self._render.rendering:
             self._render.cache_reset()
 
     def copy(self) -> "WorkerRun":

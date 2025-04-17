@@ -29,7 +29,7 @@ class Worker(RLWorker):
     def policy(self, worker):
         assert isinstance(self.config.action_space, DiscreteSpace)
 
-        invalid_actions = worker.get_invalid_actions()
+        invalid_actions = worker.invalid_actions
         action_num = self.config.action_space.n
 
         print("- select action -")

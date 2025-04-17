@@ -67,7 +67,6 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.training = True
         self.context.train_only = False
         self.context.rollout = False
-        self.context.rendering = False
         self.context.render_mode = ""
 
         if enable_progress:
@@ -123,7 +122,6 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.training = True
         self.context.train_only = False
         self.context.rollout = True
-        self.context.rendering = False
         self.context.render_mode = ""
 
         if enable_progress:
@@ -173,7 +171,6 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.training = True
         self.context.train_only = True
         self.context.rollout = False
-        self.context.rendering = False
         self.context.render_mode = ""
 
         if enable_progress:
@@ -238,7 +235,6 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.training = True
         self.context.train_only = False
         self.context.rollout = False
-        self.context.rendering = False
         self.context.render_mode = ""
 
         if enable_progress:
@@ -346,7 +342,6 @@ class RunnerFacadeTrain(RunnerBase):
     #     # play info
     #     self.context.distributed = True
     #     self.context.training = True
-    #    self.context.rendering = False
     #     self.context.render_mode = RenderModes.none
 
     #     # --- progress ---

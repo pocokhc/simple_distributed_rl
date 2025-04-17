@@ -31,7 +31,13 @@ class Rendering(RunCallback):
         self.img_maxw = 0
         self.img_maxh = 0
 
-    def on_episodes_begin(self, context: "RunContext", state: "RunStateActor", **kwargs) -> None:
+    def on_start(self, context: RunContext, **kwargs) -> None:
+        if self.mode == "rgb_array":
+            logger.info("update context(use render)")
+            context.use_rl_terminal = True
+            context.use_rl_rgb_array = True
+
+    def on_episodes_begin(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         if self.render_interval == -1:
             self.render_interval = state.env.get_render_interval()
 

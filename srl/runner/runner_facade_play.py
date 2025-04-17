@@ -68,7 +68,6 @@ class RunnerFacadePlay(RunnerBase):
         self.context.training = False
         self.context.train_only = False
         self.context.rollout = False
-        self.context.rendering = False
         self.context.render_mode = ""
 
         if enable_progress:
@@ -118,7 +117,6 @@ class RunnerFacadePlay(RunnerBase):
         self.context.training = False
         self.context.train_only = False
         self.context.rollout = False
-        self.context.rendering = True
         self.context.render_mode = mode
 
         # --- rendering ---
@@ -183,7 +181,6 @@ class RunnerFacadePlay(RunnerBase):
         self.context.training = False
         self.context.train_only = False
         self.context.rollout = False
-        self.context.rendering = True
         self.context.render_mode = mode
 
         # --- rendering
@@ -254,7 +251,6 @@ class RunnerFacadePlay(RunnerBase):
         self.context.training = False
         self.context.train_only = False
         self.context.rollout = False
-        self.context.rendering = True
         self.context.render_mode = mode
 
         # --- rendering ---
@@ -452,7 +448,6 @@ class RunnerFacadePlay(RunnerBase):
         self.context.training = False
         self.context.train_only = False
         self.context.rollout = False
-        self.context.rendering = True
         self.context.render_mode = mode
 
         if enable_progress:
@@ -498,7 +493,6 @@ class RunnerFacadePlay(RunnerBase):
         self.context.training = False
         self.context.train_only = False
         self.context.rollout = False
-        self.context.rendering = True
         self.context.render_mode = mode
 
         # --- rendering ---
@@ -553,7 +547,6 @@ class RunnerFacadePlay(RunnerBase):
         self.context.training = enable_memory
         self.context.train_only = False
         self.context.rollout = enable_memory
-        self.context.rendering = True
         self.context.render_mode = mode
 
         from srl.utils.common import is_packages_installed

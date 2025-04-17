@@ -25,7 +25,7 @@ def test_render_terminal():
     text = "StubRender\nAAA"
     render.render(text=text)
 
-    text2 = render.render_terminal_text(text=text)
+    text2 = render.get_cached_terminal_text(text=text)
     assert text2 == text + "\n"
 
 
@@ -37,7 +37,7 @@ def test_render_terminal_to_image():
     render.set_render_mode(mode="rgb_array")
 
     text = "StubRender\nAAA"
-    img = render.render_terminal_text_to_image(text=text)
+    img = render.get_cached_terminal_text_to_image(text=text)
     assert img is not None
     assert len(img.shape) == 3
     assert img.shape[2] == 3
@@ -61,7 +61,7 @@ def test_render_rgb_array(return_rgb):
 
     text = "StubRender\nAAA"
 
-    img = render.render_rgb_array(return_rgb=return_rgb, text=text)
+    img = render.get_cached_rgb_array(return_rgb=return_rgb, text=text)
     if return_rgb:
         assert img is not None
         assert len(img.shape) == 3

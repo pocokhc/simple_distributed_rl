@@ -54,7 +54,6 @@ def play_generator(
     state.env.setup(context)
     [w.setup(context) for w in state.workers]
     if state.trainer is not None:
-        state.start_train_count = state.trainer.train_count
         state.trainer.setup(context)
 
     # --- 4 init
@@ -166,7 +165,8 @@ def play_generator(
             _prev_train = state.trainer.train_count
             state.trainer.train()
             state.is_step_trained = state.trainer.train_count > _prev_train
-            state.train_count = state.trainer.train_count - state.start_train_count
+            if state.is_step_trained:
+                state.train_count += state.trainer.train_count - _prev_train
 
         _stop_flags = [c.on_step_end(context=context, state=state) for c in _calls_on_step_end]
         yield ("on_step_end", context, state)

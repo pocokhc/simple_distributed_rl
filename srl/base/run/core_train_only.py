@@ -22,7 +22,6 @@ class RunStateTrainer:
 
     elapsed_t0: float = 0
     end_reason: str = ""
-    start_train_count: int = 0
     train_count: int = 0
 
     # train
@@ -65,7 +64,6 @@ def _play_trainer_only(
     state = RunStateTrainer(trainer, trainer.memory, trainer.parameter)
 
     # --- 1 setup
-    state.start_train_count = state.trainer.train_count
     state.trainer.setup(context)
 
     # 2 callbacks
@@ -96,7 +94,9 @@ def _play_trainer_only(
             _prev_train = state.trainer.train_count
             state.trainer.train()
             state.is_step_trained = state.trainer.train_count > _prev_train
-            state.train_count = state.trainer.train_count - state.start_train_count
+            if state.is_step_trained:
+                # 増えた分だけ加算
+                state.train_count += state.trainer.train_count - _prev_train
 
             # callbacks
             _stop_flags = [c.on_train_after(context=context, state=state) for c in _calls_on_train_after]

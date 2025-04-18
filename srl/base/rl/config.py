@@ -76,6 +76,8 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     render_image_window_length: int = 1
 
     # --- render
+    #: render時にエピソード終了時のstepで描画するか
+    render_last_step: bool = True
     #: render時にRLへ入力される画像を描画するか
     render_rl_image: bool = True
     #: render時にRLへ入力される画像のサイズ

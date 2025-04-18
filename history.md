@@ -24,19 +24,18 @@
 ・workerのrenderの想定する役割を「policy直後の状態の表示 + 前の状態の結果を表示」として再定義
 
 1. [base.rl.worker_run] 関係
-   - add: renderで前の状態を見る用にprev_state等の prec_xxx を追加
+   - add: renderで前の状態を見る用にprev_state等の prev_xxx を追加
    - change: on_step以外のnext_xxxをNoneに変更
    - change: invalid_actionsをenv側から基本切り離す形に変更
    - rename: tota_stepをstep_in_trainingに名前変更し、step_in_episodeも追加 
+   - remove: used_rgb_arrayが実行時のrenderとrl内で使うenvのrender_imageの意味がごっちゃになっていたので削除
 
 1. [base.render] worker側のrenderを実行する位置を固定置
    - contextにrender時にterminalとrgb_arrayを使うかどうかの変数を追加（rl側のみ）
    - WorkerRunはuse_terminal/use_rgb_arrayに従って任意のタイミングで毎ターンrender情報を保存する
    - [base.context] change: renderingをrender_modeから自動判別するように変更
    - [base.context] add: use_rl_terminal/use_rl_rgb_arrayを追加
-   - [base.render] change: renderingをcontextではなくRenderクラス内で個別に保持するように変更
    - [base.render] rename: Renderクラス内はrender_xxx関数をget_cached_xxx関数に名前変更
-
 
 **OtherUpdates**
 
@@ -48,6 +47,7 @@
 
 **Bug Fixes**
 
+1. [base.run] fix: runner.train()でmax_train_countを指定した場合、2回目以降でstart_train_countが悪さをし、1回目のtrain回数を再度学習しないと終了しない不具合があったのでstart_train_countを削除
 1. [base.rl.worker_run] fix: create_render_imageでrl_stateの表示条件が間違っていたので修正
 1. [algorithms.go_explore] fix: downsampling時のfloat変換がおかしかったので修正
 

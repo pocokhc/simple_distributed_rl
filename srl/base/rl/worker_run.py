@@ -126,6 +126,13 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return self._one_render_images[idx] if self._use_stacked_render_image else self._render_image
 
     @property
+    def prev_action(self) -> TActType:
+        return self._prev_action
+
+    def get_onehot_prev_action(self):
+        return self._config.action_space.get_onehot(self._prev_action)
+
+    @property
     def action(self) -> TActType:
         return self._action
 
@@ -246,6 +253,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._one_render_images = []
 
         # action, reward, done
+        self._prev_action = self._config.action_space.get_default()
         self._action = self._config.action_space.get_default()
         self._step_reward: float = 0.0
         self._reward: float = 0.0
@@ -328,6 +336,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
         logger.debug("policy")
         action = self._worker.policy(self)
+        self._prev_action = self._action
         self._action = action
 
         # render
@@ -572,6 +581,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._config.obs_render_img_space.copy_value(self._render_image),
             self._config.obs_render_img_space.copy_value(self._next_render_image) if self._next_render_image is not None else None,
             [self._config.obs_render_img_space_one_step.copy_value(s) for s in self._one_render_images],
+            self._config.action_space.copy_value(self._prev_action),
             self._config.action_space.copy_value(self._action),
             self._step_reward,
             self._reward,
@@ -608,16 +618,17 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._render_image = dat[15]
         self._next_render_image = dat[16] if dat[16] is not None else None
         self._one_render_images = dat[17][:]
-        self._action = dat[18]
-        self._step_reward = dat[19]
-        self._reward = dat[20]
-        self._prev_invalid_actions = dat[21][:]
-        self._invalid_actions = dat[22][:]
-        self._next_invalid_actions = dat[23][:] if dat[23] is not None else None
+        self._prev_action = dat[18]
+        self._action = dat[19]
+        self._step_reward = dat[20]
+        self._reward = dat[21]
+        self._prev_invalid_actions = dat[22][:]
+        self._invalid_actions = dat[23][:]
+        self._next_invalid_actions = dat[24][:] if dat[24] is not None else None
         # env
-        self._env.restore(dat[24])
+        self._env.restore(dat[25])
         # tracking
-        self._tracking_data = dat[25][:]
+        self._tracking_data = dat[26][:]
 
         if self._render.rendering:
             self._render.cache_reset()

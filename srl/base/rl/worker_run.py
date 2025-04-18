@@ -81,7 +81,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     @property
     def rendering(self) -> bool:
-        return self._render.rendering
+        return self._context.rendering
 
     @property
     def actor_id(self) -> int:
@@ -185,16 +185,6 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             context = RunContext(self.env.config, self._config)
         if render_mode == "":
             render_mode = context.render_mode
-
-        if self._config.used_rgb_array:
-            if render_mode == "terminal":
-                logger.warning("'rgb_array' is used, but 'terminal' is specified in render_mode.(Both 'rgb_array' and 'teminal' are used)")
-            elif render_mode == "rgb_array":
-                pass
-            else:
-                if context.run_name != RunNameTypes.eval:
-                    logger.info(f"[{context.flow_mode}] change render_mode: {render_mode} -> rgb_array")
-                render_mode = "rgb_array"
 
         self._setup_val(context)
         self._render.set_render_mode(

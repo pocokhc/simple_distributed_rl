@@ -98,7 +98,6 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         self._used_device_tf: str = "/CPU"
         self._used_device_torch: str = "cpu"
 
-        self._used_rgb_array: bool = False
         self._applied_processors: List[RLProcessor] = []
         self._applied_render_img_processors: List[RLProcessor] = []
 
@@ -236,7 +235,6 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                 else:
                     raise NotSupportedError("Failed to get image.")
             env_obs_space = BoxSpace(rgb_array.shape, 0, 255, np.uint8, SpaceTypes.COLOR)
-            self._used_rgb_array = True
         else:
             raise UndefinedError(self.observation_mode)
 
@@ -308,7 +306,6 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                 else:
                     raise NotSupportedError("Failed to get image.")
             self._rl_obs_render_img_space_one_step: BoxSpace = BoxSpace(rgb_array.shape, 0, 255, np.uint8, SpaceTypes.COLOR)
-            self._used_rgb_array = True
 
             if self.enable_state_encode and self.enable_rl_processors:
                 # applied_processors list
@@ -495,10 +492,6 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     @property
     def action_space_of_env(self) -> SpaceBase:
         return self._env_act_space
-
-    @property
-    def used_rgb_array(self) -> bool:
-        return self._used_rgb_array
 
     def __setattr__(self, name: str, value):
         if name in ["_is_setup"]:
@@ -708,7 +701,6 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             "setup": self._is_setup,
         }
         if self._is_setup:
-            d["used_rgb_array"] = self.used_rgb_array
             d["applied_processors"] = self.get_applied_processors()
             d["applied_render_image_processors"] = self.get_applied_render_image_processors()
         return d

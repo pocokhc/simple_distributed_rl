@@ -1,4 +1,5 @@
 import logging
+import traceback
 from typing import Any, Dict, Generic, List, Literal, Optional, cast
 
 import numpy as np
@@ -357,6 +358,22 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         if self._env._done != DoneTypes.NONE:
             # 終了後の状態を取得
             self._ready_policy()
+
+            # 終了後のrender情報
+            if self._render.rendering and self._config.render_last_step:
+                # policyはRLWorker側で
+                # try:
+                #     action = self._worker.policy(self)
+                #     self._prev_action = self._action
+                #     self._action = action
+                # except Exception:
+                #     logger.info(traceback.format_exc())
+                #     logger.warning("'policy()' error in termination status (for rendering)")
+                try:
+                    self._render.cache_render(worker=self)
+                except Exception:
+                    logger.info(traceback.format_exc())
+                    logger.warning("'render()' error in termination status (for rendering)")
 
     # ------------------------------------
     # invalid, envとはずれるので直接使わない

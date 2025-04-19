@@ -19,7 +19,7 @@ def main():
     rl_config.hidden_block.set((64,))
     rl_config.memory.capacity = 100_000
     runner = srl.Runner(env_config, rl_config)
-    runner.model_summary()
+    runner.summary()
 
     # --- train
     runner.set_history_on_memory()

@@ -29,8 +29,7 @@ def main():
 
     env_config = srl.EnvConfig("EasyGrid-layer")
     runner = srl.Runner(env_config, rl_config)
-
-    runner.model_summary()
+    runner.summary()
 
     # --- 学習ループ
     runner.train(max_episodes=100)

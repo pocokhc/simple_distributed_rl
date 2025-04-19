@@ -214,11 +214,12 @@ def main():
     print("step 0")
     action = None
     while not env.done:
+        action = worker.policy()
+
         print("\n--- turn {}, action {}, rewards: {}, done: {}, next player {}, info: {}, ".format(env.step_num, action, env.rewards, env.done, env.next_player, env.info))
         print("player {} info: {}".format(env.next_player, worker.info))
         env.render()
-
-        action = worker.policy()
+        worker.render()
 
         env.step(action)
         worker.on_step()

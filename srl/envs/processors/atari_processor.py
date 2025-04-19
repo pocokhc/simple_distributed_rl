@@ -52,11 +52,13 @@ class AtariProcessor(EnvProcessor):
 
 
 class AtariPongProcessor(EnvProcessor):
-    def __init__(self):
+    def __init__(self, resize=(64, 64)):
         import ale_py  # include atari gym  # noqa: F401
 
+        self.resize = resize
+
     def remap_observation_space(self, prev_space: SpaceBase, **kwargs) -> SpaceBase:
-        return BoxSpace((84, 84), 0, 255, np.uint8, stype=SpaceTypes.GRAY_2ch)
+        return BoxSpace(self.resize, 0, 255, np.uint8, stype=SpaceTypes.GRAY_2ch)
 
     def remap_observation(self, state, prev_space: SpaceBase, new_space: SpaceBase, **kwargs):
         state = image_processor(
@@ -64,7 +66,7 @@ class AtariPongProcessor(EnvProcessor):
             SpaceTypes.COLOR,
             SpaceTypes.GRAY_2ch,
             trimming=(35, 10, 195, 150),
-            resize=(84, 84),
+            resize=self.resize,
         )
         state = np.where(state > 127, 255, 0).astype(np.uint8)
         return state

@@ -18,6 +18,7 @@
 
 # v0.19.1
 
+・render関係の整理とrender関係のバグ修正
 
 **workerのrenderを見直し**
 
@@ -28,7 +29,6 @@
    - change: on_step以外のnext_xxxをNoneに変更
    - change: invalid_actionsをenv側から基本切り離す形に変更
    - rename: tota_stepをstep_in_trainingに名前変更し、step_in_episodeも追加 
-   - remove: used_rgb_arrayが実行時のrenderとrl内で使うenvのrender_imageの意味がごっちゃになっていたので削除
 
 1. [base.render] worker側のrenderを実行する位置を固定置
    - contextにrender時にterminalとrgb_arrayを使うかどうかの変数を追加（rl側のみ）
@@ -36,6 +36,8 @@
    - [base.context] change: renderingをrender_modeから自動判別するように変更
    - [base.context] add: use_rl_terminal/use_rl_rgb_arrayを追加
    - [base.render] rename: Renderクラス内はrender_xxx関数をget_cached_xxx関数に名前変更
+   - [base.rl.worker_run] remove: used_rgb_arrayが実行時のrenderとrl内で使うenvのrender_imageの意味がごっちゃになっていたので削除
+   - [base.rl.worker_run] update: doneでのrenderを追加し、制御できるrender_last_step変数をconfigに追加
 
 **OtherUpdates**
 
@@ -48,6 +50,7 @@
 **Bug Fixes**
 
 1. [base.run] fix: runner.train()でmax_train_countを指定した場合、2回目以降でstart_train_countが悪さをし、1回目のtrain回数を再度学習しないと終了しない不具合があったのでstart_train_countを削除
+1. [runner.callbacks.print_progress] fix: train_countの参照先が間違っていたので修正
 1. [base.rl.worker_run] fix: create_render_imageでrl_stateの表示条件が間違っていたので修正
 1. [algorithms.go_explore] fix: downsampling時のfloat変換がおかしかったので修正
 

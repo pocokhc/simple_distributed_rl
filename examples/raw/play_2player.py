@@ -57,6 +57,7 @@ def _run_episode(
     if rendering:
         print(f"\n--- turn: {env.step_num}, reward: {env.rewards}, total reward: {env.episode_rewards}, done reason: {env.done_reason}")
         env.render()
+        [w.render() for w in workers]
 
     return env.step_num, env.episode_rewards
 
@@ -132,13 +133,15 @@ def play_cpu(player_mode: str = "human"):
     player.reset(player_index=0)
     cpu.reset(player_index=1)
 
+    # episode
     while not env.done:
-        # 1 step
+        env.render()
+
         if env.next_player == 0:
             action = player.policy()
         else:
             action = cpu.policy()
-        env.render()
+
         env.step(action)
         player.on_step()
         cpu.on_step()

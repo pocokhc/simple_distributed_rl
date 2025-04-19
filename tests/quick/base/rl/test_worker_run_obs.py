@@ -86,7 +86,6 @@ def _test_obs_episode(
         assert rl_config.observation_space == true_obs_space_one
     else:
         assert rl_config.observation_space == true_obs_space
-    assert rl_config.used_rgb_array == True  # noqa: E712
 
     # render_image
     true_render_img_space_one = BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR)

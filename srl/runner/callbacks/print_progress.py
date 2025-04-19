@@ -170,9 +170,9 @@ class PrintProgress(RunCallback, Evaluate):
         self.t0_step_count = state.total_step
         self.t0_episode_count = state.episode_count
         if state.trainer is not None:
-            diff_train = state.trainer.get_train_count() - self.t0_train_count
+            diff_train = state.train_count - self.t0_train_count
             train_time = diff_time / diff_train if diff_train > 0 else np.inf
-            self.t0_train_count = state.trainer.get_train_count()
+            self.t0_train_count = state.train_count
 
         # calc memory
         memory_time = np.inf
@@ -197,7 +197,7 @@ class PrintProgress(RunCallback, Evaluate):
             remain_time = np.inf
         remain_train = np.inf
         if state.trainer is not None:
-            train_count = state.trainer.get_train_count()
+            train_count = state.train_count
             if (context.max_train_count > 0) and (train_count > 0):
                 remain_train = (context.max_train_count - train_count) * train_time
         remain_memory = np.inf
@@ -232,7 +232,7 @@ class PrintProgress(RunCallback, Evaluate):
 
         # [train]
         if state.trainer is not None:
-            s += " {:5d}tr".format(state.trainer.get_train_count())
+            s += " {:5d}tr".format(state.trainer.train_count)
 
         # [distributed]
         if context.distributed:
@@ -378,7 +378,7 @@ class PrintProgress(RunCallback, Evaluate):
         diff_time = _time - self.t0_train_time
         if diff_time < 0.1:
             diff_time = 0.1
-        train_count = state.trainer.get_train_count()
+        train_count = state.train_count
         diff_train_count = train_count - self.t0_train_count
         train_time = diff_time / diff_train_count if diff_train_count > 0 else np.inf
         self.t0_train_time = _time
@@ -422,7 +422,7 @@ class PrintProgress(RunCallback, Evaluate):
         s += self._stats_str(context)
 
         # [all train count]
-        s += " {:5d}tr".format(train_count)
+        s += " {:5d}tr".format(state.trainer.train_count)
 
         if train_count == 0:
             # no info

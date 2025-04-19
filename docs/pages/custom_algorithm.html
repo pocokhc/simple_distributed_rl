@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Making a Custom algorithm &mdash; SimpleDistributedRL 0.19.0.0 ドキュメント</title>
+  <title>Making a Custom algorithm &mdash; SimpleDistributedRL 0.19.0.2 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=f7e50419"></script>
+      <script src="../_static/documentation_options.js?v=64650a6a"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -720,10 +720,13 @@
 
    <span class="k">def</span><span class="w"> </span><span class="nf">render_terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worker</span><span class="p">):</span>  <span class="c1"># 及び render_rgb_array</span>
       <span class="c1"># policy -&gt; render -&gt; env.step -&gt; on_step -&gt; policy</span>
-      <span class="c1"># 以下はpolicyと同じ情報</span>
-      <span class="n">worker</span><span class="o">.</span><span class="n">state</span>           <span class="c1"># 状態</span>
+      <span class="c1"># 想定する役割は、policy直後の状態の表示 + 前の状態の結果を表示</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">state</span>           <span class="c1"># policy時の状態</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">prev_state</span>      <span class="c1"># policy時の1つ前の状態</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">action</span>          <span class="c1"># policyで返したアクション</span>
       <span class="n">worker</span><span class="o">.</span><span class="n">player_index</span>    <span class="c1"># プレイヤーのindex</span>
-      <span class="n">worker</span><span class="o">.</span><span class="n">invalid_actions</span> <span class="c1"># 有効ではないアクションリスト</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">invalid_actions</span>       <span class="c1"># policy時の有効ではないアクションリスト</span>
+      <span class="n">worker</span><span class="o">.</span><span class="n">prev_invalid_actions</span>  <span class="c1"># policy時の1つ前の有効ではないアクションリスト</span>
 </pre></div>
 </div>
 <div class="line-block">

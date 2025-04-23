@@ -1,7 +1,8 @@
+import logging
 import pickle
 import zlib
 from dataclasses import dataclass, field
-from typing import Any, Generic, List, Optional
+from typing import Any, Generic, List, Literal, Optional
 
 import numpy as np
 
@@ -10,6 +11,8 @@ from srl.base.exception import UndefinedError
 from srl.base.rl.config import TRLConfig
 from srl.base.rl.memory import RLMemory
 from srl.rl.memories.priority_memories.imemory import IPriorityMemory
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -26,6 +29,11 @@ class PriorityReplayBufferConfig:
 
     name: str = field(init=False, default="ReplayBuffer")
     kwargs: dict = field(init=False, default_factory=dict)
+
+    # demo memory
+    enable_demo_memory: bool = False
+    select_memory: Literal["main", "demo"] = "main"
+    demo_ratio: float = 1.0 / 256.0
 
     def set_replay_buffer(self):
         self.name = "ReplayBuffer"
@@ -133,11 +141,27 @@ class PriorityReplayBufferConfig:
 class PriorityReplayBuffer:
     def __init__(self, config: PriorityReplayBufferConfig, batch_size: int, dtype=np.float32):
         self.cfg = config
-        self.batch_size = batch_size
         self.memory = self.cfg.create_memory(self.cfg.capacity, dtype)
         self.step = 0
 
-        self._validate_params(batch_size)
+        if self.cfg.enable_demo_memory:
+            from srl.rl.memories.replay_buffer import ReplayBuffer, ReplayBufferConfig
+
+            self.demo_batch_size = max(1, int(batch_size * self.cfg.demo_ratio))
+            self.demo_memory = ReplayBuffer(
+                ReplayBufferConfig(
+                    self.cfg.capacity,
+                    warmup_size=self.demo_batch_size,
+                    compress=self.cfg.compress,
+                    compress_level=self.cfg.compress_level,
+                ),
+                batch_size=self.demo_batch_size,
+            )
+            logger.info(f"demo_batch_size={self.demo_batch_size}")
+            batch_size = batch_size - self.demo_batch_size
+
+        self.batch_size = batch_size
+        self._validate_params(self.batch_size)
 
     def _validate_params(self, batch_size: int):
         if not (self.cfg.warmup_size <= self.cfg.capacity):
@@ -163,7 +187,10 @@ class PriorityReplayBuffer:
             if self.cfg.compress:
                 batch = zlib.compress(pickle.dumps(batch), level=self.cfg.compress_level)
 
-        self.memory.add(batch, priority)
+        if self.cfg.enable_demo_memory and self.cfg.select_memory == "demo":
+            self.demo_memory.add(batch)
+        else:
+            self.memory.add(batch, priority)
 
     def serialize(self, batch: Any, priority: Optional[float] = None) -> Any:
         batch = pickle.dumps(batch)
@@ -179,21 +206,31 @@ class PriorityReplayBuffer:
             return None
         batch_size = batch_size if batch_size > -1 else self.batch_size
         step = step if step > -1 else self.step
+
         batches, weights, update_args = self.memory.sample(batch_size, step)
+
+        if self.cfg.enable_demo_memory:
+            demo_batches = self.demo_memory.sample(self.demo_batch_size)
+            batches.extend(demo_batches)
+            weights = np.append(weights, 1.0).astype(weights.dtype)
 
         if self.cfg.compress:
             batches = [pickle.loads(zlib.decompress(b)) for b in batches]
         return batches, weights, update_args
 
     def update(self, update_args: List[Any], priorities: np.ndarray, step: int) -> None:
+        if self.cfg.enable_demo_memory:
+            priorities = priorities[: self.batch_size]
         self.memory.update(update_args, priorities)
         self.step = step
 
     def call_backup(self, **kwargs):
-        return self.memory.backup()
+        return [self.memory.backup(), self.demo_memory.call_backup() if self.cfg.enable_demo_memory else None]
 
     def call_restore(self, data: Any, **kwargs) -> None:
-        self.memory.restore(data)
+        self.memory.restore(data[0])
+        if self.cfg.enable_demo_memory:
+            self.demo_memory.call_restore(data[1])
 
 
 class RLPriorityReplayBuffer(Generic[TRLConfig], PriorityReplayBuffer, RLMemory[TRLConfig]):

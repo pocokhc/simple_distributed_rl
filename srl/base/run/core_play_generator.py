@@ -125,26 +125,25 @@ def play_generator(
             [w.reset(state.worker_indices[i]) for i, w in enumerate(state.workers)]
 
             # callbacks
-            [c.on_episode_begin(context=context, state=state) for c in _calls_on_episode_begin]
             yield ("on_episode_begin", context, state)
+            [c.on_episode_begin(context=context, state=state) for c in _calls_on_episode_begin]
 
         # ------------------------
         # step
         # ------------------------
         yield ("on_step_begin", context, state)
+        [c.on_step_begin(context=context, state=state) for c in _calls_on_step_begin]
 
         # --- action
-        [c.on_step_action_before(context=context, state=state) for c in _calls_on_step_action_before]
         yield ("on_step_action_before", context, state)
+        [c.on_step_action_before(context=context, state=state) for c in _calls_on_step_action_before]
         state.action = state.workers[state.worker_idx].policy()
-        [c.on_step_action_after(context=context, state=state) for c in _calls_on_step_action_after]
         yield ("on_step_action_after", context, state)
+        [c.on_step_action_after(context=context, state=state) for c in _calls_on_step_action_after]
 
         # workerがenvを終了させた場合に対応
         if not state.env.done:
             # env step
-            [c.on_step_begin(context=context, state=state) for c in _calls_on_step_begin]
-            yield ("on_step_begin", context, state)
             state.env.step(
                 state.action,
                 state.workers[state.worker_idx].config.frameskip,
@@ -165,8 +164,8 @@ def play_generator(
             if state.is_step_trained:
                 state.train_count += state.trainer.train_count - _prev_train
 
-        _stop_flags = [c.on_step_end(context=context, state=state) for c in _calls_on_step_end]
         yield ("on_step_end", context, state)
+        _stop_flags = [c.on_step_end(context=context, state=state) for c in _calls_on_step_end]
         state.worker_idx = state.worker_indices[state.env.next_player]  # on_step_end の後
 
         # ------------------------
@@ -180,8 +179,8 @@ def play_generator(
             state.last_episode_step = state.env.step_num
             state.last_episode_time = state.env.elapsed_time
             state.last_episode_rewards = worker_rewards
-            [c.on_episode_end(context=context, state=state) for c in _calls_on_episode_end]
             yield ("on_episode_end", context, state)
+            [c.on_episode_end(context=context, state=state) for c in _calls_on_episode_end]
 
         if True in _stop_flags:
             state.end_reason = "callback.intermediate_stop"
@@ -207,5 +206,5 @@ def play_generator(
             state.last_episode_rewards = worker_rewards
 
     # 8 callbacks
-    [c.on_episodes_end(context=context, state=state) for c in callbacks]
     yield ("on_episodes_end", context, state)
+    [c.on_episodes_end(context=context, state=state) for c in callbacks]

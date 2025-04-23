@@ -137,6 +137,7 @@ class Rendering(RunCallback):
     ):
         from PIL import Image
 
+        path = str(path)
         if interval <= 0:
             interval = self.render_interval
         if interval <= 0:
@@ -167,6 +168,7 @@ class Rendering(RunCallback):
     ):
         import cv2
 
+        path = str(path)
         if interval <= 0:
             interval = self.render_interval
         if interval <= 0:

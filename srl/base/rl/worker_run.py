@@ -532,14 +532,16 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             del self._tracking_data[0]
         self._tracking_data.append(data)
 
-    def get_tracking(self, key: str, size: int = -1, dummy: Any = None) -> List[Any]:
-        if size > 0:
-            if len(self._tracking_data) < size:
-                arr = [d[key] if key in d else dummy for d in self._tracking_data[:]]
-                return [dummy for _ in range(size - len(arr))] + arr[:]
-            else:
-                return [d[key] if key in d else dummy for d in self._tracking_data[-size:]]
-        return [d[key] if key in d else dummy for d in self._tracking_data]
+    def get_tracking(self, key: str, size: Optional[int] = None, dummy: Any = None) -> List[Any]:
+        if size is None:
+            return [d[key] if key in d else dummy for d in self._tracking_data]
+        if size <= 0:
+            return []
+        if len(self._tracking_data) < size:
+            arr = [d[key] if key in d else dummy for d in self._tracking_data[:]]
+            return [dummy for _ in range(size - len(arr))] + arr[:]
+        else:
+            return [d[key] if key in d else dummy for d in self._tracking_data[-size:]]
 
     def get_trackings(
         self,

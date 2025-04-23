@@ -55,7 +55,6 @@ class PlayableGame(GameWindow):
         view_state: bool = True,
         action_division_num: int = 5,
         key_bind: Optional[KeyBindType] = None,
-        # enable_memory: bool = False,  TODO
         callbacks: List[RunCallback] = [],
         _is_test: bool = False,  # for test
     ) -> None:
@@ -64,7 +63,6 @@ class PlayableGame(GameWindow):
         self.view_state = view_state
         self.noop = 0
         self.step_time = 0
-        # self.enable_memory = enable_memory
 
         self.playable_callback = _PlayableCallback(self.env, action_division_num)
 

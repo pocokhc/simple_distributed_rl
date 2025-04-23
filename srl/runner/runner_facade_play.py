@@ -39,11 +39,6 @@ class RunnerFacadePlay(RunnerBase):
             max_steps (int, optional): 終了するまでの総ステップ. Defaults to -1.
             shuffle_player (bool, optional): playersをシャッフルするかどうか. Defaults to True.
             enable_progress (bool, optional): 進捗を表示するか. Defaults to True.
-            progress_start_time (int, optional):  最初に進捗を表示する秒数. Defaults to 1.
-            progress_interval_limit (int, optional): 進捗を表示する最大の間隔（秒）. Defaults to 60*10.
-            progress_env_info (bool, optional): 進捗表示にenv infoを表示するか. Defaults to False.
-            progress_worker_info (bool, optional): 進捗表示にworker infoを表示するか. Defaults to True.
-            progress_worker (int, optional): 進捗表示に表示するworker index. Defaults to 0.
             callbacks (List[RunCallback], optional): callbacks. Defaults to [].
 
         Returns:

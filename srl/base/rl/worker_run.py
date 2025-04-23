@@ -4,7 +4,7 @@ from typing import Any, Dict, Generic, List, Literal, Optional, cast
 
 import numpy as np
 
-from srl.base.context import RunContext, RunNameTypes
+from srl.base.context import RunContext
 from srl.base.define import DoneTypes, EnvActionType, RenderModeType
 from srl.base.env.env_run import EnvRun
 from srl.base.exception import SRLError
@@ -28,8 +28,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         env: EnvRun,
     ):
         # - restore/backup用に状態は意識して管理
-        # - env関係の値の保存はprocessorで変更がありそうなものはこちらが持つ
-        #   そうじゃないものはenvの値をそのまま利用
+        # - env関係の値はenv側とタイミングがずれる場合があるのでこちらで別途保存して利用
         # - baseの中はクラスの中身まで把握しているものとして速度優先でprivateな変数のアクセスをする
         #   例えば self.env.info と self._env.env.info は同じだけど基本後半を使う方針
 

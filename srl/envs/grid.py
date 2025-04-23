@@ -210,7 +210,6 @@ class _GridBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSp
                 else:
                     s += str(n)
             print(s)
-        print("")
 
     def render_rgb_array(self, **kwargs) -> np.ndarray:
         from srl.utils import pygame_wrapper as pw

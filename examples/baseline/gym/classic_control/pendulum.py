@@ -19,7 +19,7 @@ def _run(rl_config, is_mp, is_image, train):
     if is_image:
         rl_config.observation_mode = "render_image"
     runner = srl.Runner(ENV_NAME, rl_config)
-    runner.model_summary()
+    runner.summary()
 
     runner.set_mlflow()
     if is_mp:

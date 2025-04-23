@@ -460,7 +460,9 @@ class RunnerFacadePlay(RunnerBase):
 
     def play_terminal(
         self,
-        players: List[PlayerType] = ["human"],
+        action_division_num: int = 5,
+        enable_memory: bool = False,
+        players: List[PlayerType] = [],
         # Rendering
         render_kwargs: dict = {},
         step_stop: bool = False,
@@ -474,7 +476,6 @@ class RunnerFacadePlay(RunnerBase):
         memory: Optional[RLMemory] = None,
     ):
         callbacks = callbacks[:]
-        mode = "terminal"
 
         # --- set context
         self.context.flow_mode = "play_terminal"
@@ -490,21 +491,29 @@ class RunnerFacadePlay(RunnerBase):
         self.context.disable_trainer = True
         # play info
         self.context.distributed = False
-        self.context.training = False
+        self.context.training = enable_memory
         self.context.train_only = False
-        self.context.rollout = False
-        self.context.render_mode = mode
+        self.context.rollout = enable_memory
+        # render_modeはRendering側で設定
+        # self.context.env_render_mode = ""
+        # self.context.rl_render_mode = ""
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
 
         rendering = Rendering(
-            mode=mode,
+            mode="terminal",
             kwargs=render_kwargs,
             step_stop=step_stop,
             render_skip_step=render_skip_step,
+            render_env=False,
         )
         callbacks.append(rendering)
+
+        # -----------------
+        from srl.runner.callbacks.manual_play_callback import ManualPlayCallback
+
+        callbacks.append(ManualPlayCallback(self.make_env(), action_division_num))
         # -----------------
 
         self.run_context(parameter=parameter, memory=memory, callbacks=callbacks)

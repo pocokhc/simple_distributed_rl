@@ -68,7 +68,8 @@ class RunnerFacadePlay(RunnerBase):
         self.context.training = False
         self.context.train_only = False
         self.context.rollout = False
-        self.context.render_mode = ""
+        self.context.env_render_mode = ""
+        self.context.rl_render_mode = ""
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=False)
@@ -98,7 +99,6 @@ class RunnerFacadePlay(RunnerBase):
         memory: Optional[RLMemory] = None,
     ):
         callbacks = callbacks[:]
-        mode = "terminal"
 
         # --- set context
         self.context.flow_mode = "render_terminal"
@@ -117,14 +117,16 @@ class RunnerFacadePlay(RunnerBase):
         self.context.training = False
         self.context.train_only = False
         self.context.rollout = False
-        self.context.render_mode = mode
+        # render_modeはRendering側で設定
+        # self.context.env_render_mode = ""
+        # self.context.rl_render_mode = ""
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
 
         callbacks.append(
             Rendering(
-                mode=mode,
+                mode="terminal",
                 kwargs=render_kwargs,
                 step_stop=step_stop,
                 render_skip_step=render_skip_step,
@@ -162,7 +164,6 @@ class RunnerFacadePlay(RunnerBase):
         memory: Optional[RLMemory] = None,
     ):
         callbacks = callbacks[:]
-        mode = "window"
 
         # --- context
         self.context.flow_mode = "render_window"
@@ -181,14 +182,16 @@ class RunnerFacadePlay(RunnerBase):
         self.context.training = False
         self.context.train_only = False
         self.context.rollout = False
-        self.context.render_mode = mode
+        # render_modeはRendering側で設定
+        # self.context.env_render_mode = ""
+        # self.context.rl_render_mode = ""
 
         # --- rendering
         from srl.runner.callbacks.rendering import Rendering
 
         callbacks.append(
             Rendering(
-                mode=mode,
+                mode="window",
                 kwargs=render_kwargs,
                 step_stop=step_stop,
                 render_interval=render_interval,
@@ -232,7 +235,6 @@ class RunnerFacadePlay(RunnerBase):
         memory: Optional[RLMemory] = None,
     ):
         callbacks = callbacks[:]
-        mode = "rgb_array"
 
         # --- set context
         self.context.flow_mode = "run_render"
@@ -251,13 +253,15 @@ class RunnerFacadePlay(RunnerBase):
         self.context.training = False
         self.context.train_only = False
         self.context.rollout = False
-        self.context.render_mode = mode
+        # render_modeはRendering側で設定
+        # self.context.env_render_mode = ""
+        # self.context.rl_render_mode = ""
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
 
         render = Rendering(
-            mode=mode,
+            mode="rgb_array",
             kwargs=render_kwargs,
             step_stop=step_stop,
             render_skip_step=render_skip_step,
@@ -429,7 +433,6 @@ class RunnerFacadePlay(RunnerBase):
         _is_test: bool = False,  # for test
     ):
         callbacks = callbacks[:]
-        mode = "rgb_array"
 
         # --- set context
         self.context.flow_mode = "replay_window"
@@ -448,7 +451,9 @@ class RunnerFacadePlay(RunnerBase):
         self.context.training = False
         self.context.train_only = False
         self.context.rollout = False
-        self.context.render_mode = mode
+        # render_modeはRePlayableGame側で設定
+        # self.context.env_render_mode = ""
+        # self.context.rl_render_mode = ""
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=False)
@@ -528,7 +533,6 @@ class RunnerFacadePlay(RunnerBase):
         _is_test: bool = False,  # for test
     ):
         callbacks2 = cast(List[RunCallback], [c for c in callbacks if issubclass(c.__class__, RunCallback)])
-        mode = "rgb_array"
 
         # --- set context
         self.context.flow_mode = "play_window"
@@ -547,7 +551,9 @@ class RunnerFacadePlay(RunnerBase):
         self.context.training = enable_memory
         self.context.train_only = False
         self.context.rollout = enable_memory
-        self.context.render_mode = mode
+        # render_modeはPlayableGame側で設定
+        # self.context.env_render_mode = ""
+        # self.context.rl_render_mode = ""
 
         from srl.utils.common import is_packages_installed
 

@@ -67,7 +67,8 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.training = True
         self.context.train_only = False
         self.context.rollout = False
-        self.context.render_mode = ""
+        self.context.env_render_mode = ""
+        self.context.rl_render_mode = ""
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=True)
@@ -122,7 +123,8 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.training = True
         self.context.train_only = False
         self.context.rollout = True
-        self.context.render_mode = ""
+        self.context.env_render_mode = ""
+        self.context.rl_render_mode = ""
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=False)
@@ -171,7 +173,8 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.training = True
         self.context.train_only = True
         self.context.rollout = False
-        self.context.render_mode = ""
+        self.context.env_render_mode = ""
+        self.context.rl_render_mode = ""
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=True)
@@ -235,7 +238,8 @@ class RunnerFacadeTrain(RunnerBase):
         self.context.training = True
         self.context.train_only = False
         self.context.rollout = False
-        self.context.render_mode = ""
+        self.context.env_render_mode = ""
+        self.context.rl_render_mode = ""
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=True)

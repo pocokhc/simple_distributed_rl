@@ -82,7 +82,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     @property
     def rendering(self) -> bool:
-        return self._context.rendering
+        return self._context.rl_render_mode != ""
 
     @property
     def actor_id(self) -> int:
@@ -192,15 +192,12 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         if context is None:
             context = RunContext(self.env.config, self._config)
         if render_mode == "":
-            render_mode = context.render_mode
+            render_mode = context.rl_render_mode
+        if render_mode == "window":  # rlはwindowは使わない
+            render_mode = "rgb_array"
 
         self._setup_val(context)
-        self._render.set_render_mode(
-            render_mode,
-            context.use_rl_terminal,
-            context.use_rl_rgb_array,
-            enable_window=False,
-        )
+        self._render.set_render_mode(render_mode)
         logger.debug(f"on_setup: {render_mode=}")
         self._worker.on_setup(self, context)
         self._is_setup = True

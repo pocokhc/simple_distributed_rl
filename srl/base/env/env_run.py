@@ -182,7 +182,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         if context is not None:
             self.context = context
         if render_mode == "":
-            render_mode = self.context.render_mode
+            render_mode = self.context.env_render_mode
 
         # --- reset前の状態を設定
         self._done: DoneTypes = DoneTypes.RESET
@@ -210,9 +210,6 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         if not self._is_setup:
             raise SRLError("Cannot call env.reset() before calling env.setup()")
 
-        # --- render
-        self._render.cache_reset()
-
         # --- env reset
         self._reset_vals()
         self._state = self.env.reset(seed=seed, **kwargs)
@@ -238,6 +235,10 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         elif self.config.enable_sanitize:
             self._state = self.sanitize_state(self._state, "state in env.reset may not be SpaceType.")
             self._invalid_actions_list = [self.sanitize_invalid_actions(a, "invalid_actions in env.reset may not be SpaceType.") for a in self._invalid_actions_list]
+
+        # render
+        if self._render.rendering:
+            self._render.cache_render()
 
     def step(
         self,
@@ -275,10 +276,11 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
                 self._render.cache_reset()
                 frameskip_function()
 
-        self._render.cache_reset()
         self._step2(state, step_rewards, done)
+        self._render.cache_render()
 
     def _step1(self, action) -> Tuple[TObsType, List[float], DoneTypes]:
+        """actionを元にenv.stepを実行"""
         f_except = None
         try:
             state, _rewards, terminated, truncated = self.env.step(action)
@@ -319,6 +321,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return cast(TObsType, state), rewards, done
 
     def _step2(self, state: TObsType, rewards: List[float], done: DoneTypes):
+        """env.stepの結果からの後処理"""
         self._state = state
         self._step_rewards = rewards
         self._done = done

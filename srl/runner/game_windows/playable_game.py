@@ -69,6 +69,8 @@ class PlayableGame(GameWindow):
         self.playable_callback = _PlayableCallback(self.env, action_division_num)
 
         # --- play ---
+        context.env_render_mode = "rgb_array"
+        context.rl_render_mode = "terminal_rgb_array"
         self.gen_play = play_generator(
             context,
             env,

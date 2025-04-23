@@ -50,8 +50,7 @@ def play_generator(
         logger.info(f"set_seed: {context.seed}, 1st episode seed: {state.episode_seed}")
 
     # --- 3 setup
-    context.reset_rendering_cache()
-    state.env.setup(context)
+    state.env.setup(context, context.rl_config.request_env_render)
     [w.setup(context) for w in state.workers]
     if state.trainer is not None:
         state.trainer.setup(context)
@@ -132,9 +131,7 @@ def play_generator(
         # ------------------------
         # step
         # ------------------------
-        # env render
-        if context.rendering:
-            state.env.render()
+        yield ("on_step_begin", context, state)
 
         # --- action
         [c.on_step_action_before(context=context, state=state) for c in _calls_on_step_action_before]
@@ -176,10 +173,6 @@ def play_generator(
         # done
         # ------------------------
         if state.env.done:
-            # render
-            if context.rendering:
-                state.env.render()
-
             # reward
             worker_rewards = [state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)]
             state.episode_rewards_list.append(worker_rewards)

@@ -30,37 +30,9 @@ class Render:
         self.set_render_options(interval=interval)
         self.cache_reset()
 
-    def set_render_mode(
-        self,
-        mode: RenderModeType,
-        use_terminal: Optional[bool] = None,
-        use_rgb_array: Optional[bool] = None,
-        enable_window: bool = True,
-    ):
+    def set_render_mode(self, mode: RenderModeType):
         self._mode = mode
-        if not enable_window:
-            if self._mode == "window":
-                self._mode = "rgb_array"
-
-        if use_terminal is None:
-            self._use_terminal = self._mode == "terminal"
-        else:
-            self._use_terminal = use_terminal
-
-        if use_rgb_array is None:
-            self._use_rgb_array = self._mode in ["rgb_array", "window"]
-        else:
-            self._use_rgb_array = use_rgb_array
-
-        if mode == "":
-            if self._use_terminal:
-                self.rendering = True
-            if self._use_rgb_array:
-                self.rendering = True
-            else:
-                self.rendering = False
-        else:
-            self.rendering = True
+        self.rendering = mode != ""
 
         if self._mode in ["rgb_array", "window"]:
             assert is_packages_installed(["PIL", "pygame"]), "This run requires installation of 'PIL', 'pygame'. (pip install pillow pygame)"
@@ -86,9 +58,9 @@ class Render:
     def cache_render(self, **kwargs):
         self._cache_text = ""
         self._cache_rgb_array = None
-        if self._use_terminal:
+        if self._mode in ["terminal", "terminal_rgb_array"]:
             self.get_cached_terminal_text(**kwargs)
-        if self._use_rgb_array:
+        if self._mode in ["rgb_array", "terminal_rgb_array", "window"]:
             self.get_cached_rgb_array(**kwargs)
 
     def get_cached_terminal_text(self, **kwargs) -> str:

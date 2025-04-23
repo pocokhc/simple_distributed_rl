@@ -67,7 +67,8 @@ class RunnerFacadeDistribution(RunnerBase):
         self.context.training = True
         self.context.train_only = False
         self.context.rollout = False
-        self.context.render_mode = ""
+        self.context.env_render_mode = ""
+        self.context.rl_render_mode = ""
 
         if enable_progress:
             self.apply_progress(callbacks_run, enable_eval=False)
@@ -142,7 +143,8 @@ class RunnerFacadeDistribution(RunnerBase):
         # play info
         self.context.distributed = True
         self.context.training = True
-        self.context.render_mode = ""
+        self.context.env_render_mode = ""
+        self.context.rl_render_mode = ""
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=False)

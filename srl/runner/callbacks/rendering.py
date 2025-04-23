@@ -21,6 +21,7 @@ class Rendering(RunCallback):
     step_stop: bool = False
     render_interval: float = -1
     render_skip_step: bool = True
+    render_env: bool = True
     render_worker: int = 0
     render_add_rl_terminal: bool = True
     render_add_rl_rgb: bool = True
@@ -32,19 +33,21 @@ class Rendering(RunCallback):
         self.img_maxh = 0
 
     def on_start(self, context: RunContext, **kwargs) -> None:
-        if self.mode == "rgb_array":
-            logger.info("update context(use render)")
-            context.use_rl_terminal = True
-            context.use_rl_rgb_array = True
+        context.env_render_mode = self.mode
+        if self.mode in ["rgb_array", "window"]:
+            # rl側はrgbの場合terminalも描画
+            context.rl_render_mode = "terminal_rgb_array"
+        else:
+            context.rl_render_mode = self.mode
 
     def on_episodes_begin(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         if self.render_interval == -1:
             self.render_interval = state.env.get_render_interval()
 
-    def on_step_begin(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
+    def on_step_action_after(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
+        self._render(context, state)
         if self.step_stop:
             input("Enter to continue:")
-        self._render(context, state)
 
     def on_skip_step(self, context: RunContext, state: RunStateActor, **kwargs):
         if not self.render_skip_step:
@@ -61,7 +64,7 @@ class Rendering(RunCallback):
         action = state.action
         worker_idx = state.worker_idx
         worker: WorkerRun = state.workers[worker_idx]
-        info_text = f"\n### {env.step_num}"
+        info_text = f"### {env.step_num}"
         info_text += "(skip frame)" if skip_step else ""
         info_text += f", next {env.next_player}" if env.player_num > 1 else ""
         info_text += f", done({env.done_reason})" if env.done else ""
@@ -84,6 +87,9 @@ class Rendering(RunCallback):
         # --- render info text
         if self.mode == "terminal":
             print(info_text)
+            if self.render_env:
+                print(env.render_terminal_text(), end="")
+            print(worker.render_terminal_text())
 
         if self.mode == "rgb_array":
             worker = state.workers[self.render_worker]
@@ -96,6 +102,9 @@ class Rendering(RunCallback):
             self.img_maxw = max(self.img_maxw, img.shape[1])
             self.img_maxh = max(self.img_maxh, img.shape[0])
             self.frames.append(img)
+
+        if self.mode == "window":
+            env.render()
 
     # -----------------------------------------------
 

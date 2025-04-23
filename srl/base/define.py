@@ -155,4 +155,4 @@ class RLMemoryTypes(enum.Enum):
     PRIORITY = enum.auto()
 
 
-RenderModeType = Literal["", "terminal", "rgb_array", "window"]
+RenderModeType = Literal["", "terminal", "rgb_array", "window", "terminal_rgb_array"]

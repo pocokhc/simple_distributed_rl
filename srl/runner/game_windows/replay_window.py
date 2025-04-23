@@ -85,6 +85,8 @@ class RePlayableGame(GameWindow):
             self.steps = cache[1]
         else:
             self.runner.context.disable_trainer = True
+            self.runner.context.env_render_mode = "rgb_array"
+            self.runner.context.rl_render_mode = "terminal_rgb_array"
             self.runner.run_context(callbacks=self.callbacks)
 
             total_rewards = None

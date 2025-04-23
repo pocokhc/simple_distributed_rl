@@ -22,7 +22,7 @@ class PrintProgress(RunCallback, Evaluate):
 
     # mode: str = "simple"
     start_time: int = 1
-    interval_limit: int = 60 * 10
+    interval_limit: int = 60 * 5
     single_line: bool = True
     progress_env_info: bool = False
     progress_train_info: bool = True
@@ -50,7 +50,7 @@ class PrintProgress(RunCallback, Evaluate):
         if self.progress_timeout < 5:
             self.progress_timeout = 5
         else:
-            self.progress_timeout *= 2
+            self.progress_timeout *= 1.5
         if self.progress_timeout > self.interval_limit:
             self.progress_timeout = self.interval_limit
 

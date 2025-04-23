@@ -79,12 +79,15 @@ class CategoricalDist:
         probs = _clip(self._probs, 1e-10, 1)  # log(0)回避用
         return _log(probs)
 
-    def log_prob(self, a, onehot: bool = False):
+    def log_prob(self, a, onehot: bool = False, keepdims: bool = True):
         if onehot:
             a = _squeeze(a, axis=-1)
             a = _one_hot(a, self.classes, dtype=tf.float32)
         a = _sum(self.log_probs() * a, axis=-1)
-        return _expand_dims(a, axis=-1)
+        if keepdims:
+            return _expand_dims(a, axis=-1)
+        else:
+            return a
 
     def entropy(self):
         p_log_p = self._probs * self.log_probs()

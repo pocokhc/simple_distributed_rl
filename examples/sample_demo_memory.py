@@ -19,7 +19,9 @@ def play():
     # 手動で経験の収集
     runner.rl_config.memory.select_memory = "demo"
 
-    runner.play_terminal(enable_memory=True)
+    # runner.play_terminal(enable_memory=True)
+    runner.play_window(enable_memory=True)
+
     runner.save_memory("_sample_demo_memory.dat")
 
 

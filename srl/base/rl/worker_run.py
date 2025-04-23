@@ -251,8 +251,8 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._one_render_images = []
 
         # action, reward, done
-        self._prev_action = self._config.action_space.get_default()
-        self._action = self._config.action_space.get_default()
+        self._prev_action: TActType = self._config.action_space.get_default()
+        self._action: TActType = self._config.action_space.get_default()
         self._step_reward: float = 0.0
         self._reward: float = 0.0
         self._prev_invalid_actions: List[TActType] = []
@@ -333,15 +333,15 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._ready_policy()
 
         logger.debug("policy")
-        action = self._worker.policy(self)
         self._prev_action = self._action
-        self._action = action
+        self._action = None  # type: ignore
+        self._action = self._worker.policy(self)
 
         # render
         if self._render.rendering:
             self._render.cache_render(worker=self)
 
-        env_action = self._config.action_decode(action)
+        env_action = self._config.action_decode(self._action)
         return env_action
 
     def on_step(self) -> None:

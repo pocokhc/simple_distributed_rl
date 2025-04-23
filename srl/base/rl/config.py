@@ -175,6 +175,9 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     def use_render_image_state(self) -> bool:
         return False  # NotImplemented
 
+    def use_env_render_mode(self) -> RenderModeType:
+        return ""  # NotImplemented
+
     # ----------------------------
     # setup
     # ----------------------------
@@ -419,6 +422,12 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         self._rl_act_space = self._env_act_space.create_encode_space(create_space)
 
         # --------------------------------------------
+
+        # --- use_env_render_mode
+        if self.use_env_render_mode() != "":
+            if self._request_env_render != "":
+                logger.warning(f"'request_env_render' has been overridden: {self._request_env_render} -> {self.use_env_render_mode()}")
+            self._request_env_render = self.use_env_render_mode()
 
         # --- validate
         self.validate_params()

@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 
-from srl.base.define import RLBaseActTypes, RLBaseObsTypes
+from srl.base.define import RenderModeType, RLBaseActTypes, RLBaseObsTypes
 from srl.base.rl.config import RLConfig
 from srl.base.rl.registration import register_rulebase
 from srl.base.rl.worker import RLWorker
@@ -21,6 +21,9 @@ class Config(RLConfig):
     def get_name(self) -> str:
         return "human"
 
+    def use_env_render_mode(self) -> RenderModeType:
+        return "terminal"
+
 
 register_rulebase(Config(), __name__ + ":Worker")
 
@@ -31,6 +34,8 @@ class Worker(RLWorker):
 
         invalid_actions = worker.invalid_actions
         action_num = self.config.action_space.n
+
+        worker.env.render()
 
         print("- select action -")
         arr = []

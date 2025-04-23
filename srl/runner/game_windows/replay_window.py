@@ -41,7 +41,7 @@ class _GetRGBCallback(RunCallback):
             "rewards": env.rewards,
             "done": env.done_type.name,
             "env_info": env.info,
-            "action": state.action,
+            "action": None if env.done else state.action,
             "is_skip_step": is_skip_step,
         }
         # --- worker
@@ -168,9 +168,9 @@ class RePlayableGame(GameWindow):
             "total rewards: {}".format(self.episode_info["total_rewards"]),
             "step         : {} / {}".format(step_data["step"], len(self.steps) - 1),
             "state        : {}".format(str(step_data["state"])[:20] if self.print_state else "hidden"),
-            "action       : {}".format(step_data.get("action", None)),
+            "select action: {}".format(step_data.get("action", None)),
             "next_player  : {}".format(step_data["next_player"]),
-            "invalid_actions  : {}".format(step_data["invalid_actions"]),
+            "invalid_acts : {}".format(step_data["invalid_actions"]),
             "rewards   : {}".format(step_data["rewards"]),
             "done      : {}".format(step_data["done"]),
             "env_info  : {}".format(step_data["env_info"]),

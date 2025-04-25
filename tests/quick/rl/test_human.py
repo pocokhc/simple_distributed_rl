@@ -11,7 +11,7 @@ def test_raw(monkeypatch):
     env = srl.make_env("EasyGrid")
     worker = srl.make_worker("human", env)
 
-    context = RunContext(render_mode="terminal")
+    context = RunContext(env_render_mode="terminal", rl_render_mode="terminal")
     env.setup(context)
     worker.setup(context)
 

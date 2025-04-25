@@ -99,7 +99,7 @@ def main():
     worker.teardown()
 
     # --- render
-    context = srl.RunContext(env_config, rl_config, render_mode="terminal")
+    context = srl.RunContext(env_config, rl_config, env_render_mode="terminal", rl_render_mode="terminal")
     env.setup(context)
     worker.setup(context)
     _run_episode(env, worker, None, rendering=True)

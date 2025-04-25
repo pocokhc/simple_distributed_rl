@@ -10,7 +10,6 @@ from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import RLProcessor
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces.space import SpaceBase
-from srl.rl import functions as funcs
 from srl.rl.functions import create_epsilon_list, inverse_rescaling, rescaling
 from srl.rl.memories.priority_replay_buffer import PriorityReplayBufferConfig, RLPriorityReplayBuffer
 from srl.rl.models.config.dueling_network import DuelingNetworkConfig
@@ -248,9 +247,9 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
         # idx1: batch index
         # idx2: step index
         # idx3: invalid action
-        idx1 = [i for i, steps in enumerate(batches) for b in steps[:-1] for e in b[4]]
-        idx2 = [i for steps in batches for i, b in enumerate(steps[:-1]) for e in b[4]]
-        idx3 = [e for steps in batches for b in steps[:-1] for e in b[4]]
+        idx1 = [i for i, steps in enumerate(batches) for b in steps[1:] for e in b[4]]
+        idx2 = [i for steps in batches for i, b in enumerate(steps[1:]) for e in b[4]]
+        idx3 = [e for steps in batches for b in steps[1:] for e in b[4]]
         if self.config.enable_double_dqn:
             q_online[idx1, idx2, idx3] = -np.inf
             n_act_idx = np.argmax(q_online, axis=2)
@@ -308,16 +307,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
         worker.set_tracking_max_size(self.config.multisteps + 1)
 
     def on_reset(self, worker):
-        worker.add_tracking(
-            {
-                "state": worker.state,
-                "action": worker.get_onehot_action(random.randint(0, self.config.action_space.n - 1)),
-                "reward": 0.0,
-                "terminated": 0,
-                "invalid_actions": worker.invalid_actions,
-                # "prob": 1.0,  # [1]
-            }
-        )
+        worker.add_tracking({"state": worker.state})
 
     def policy(self, worker) -> int:
         state = worker.state
@@ -369,12 +359,44 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
                 "action": worker.get_onehot_action(),
                 "reward": reward,
                 "terminated": int(worker.terminated),
-                "invalid_actions": worker.next_invalid_actions,
+                "next_invalid_actions": worker.next_invalid_actions,
                 # "prob": self.prob,  # [1]
             }
         )
 
-        batch = self._get_batch(worker)
+        self._add_batch(worker)
+
+        if worker.done:
+            # 残りstepも追加
+            for _ in range(self.config.multisteps - 1):
+                worker.add_tracking(
+                    {
+                        "state": worker.next_state,
+                        "action": worker.get_onehot_action(random.randint(0, self.config.action_space.n - 1)),
+                        "reward": 0,
+                        "terminated": 1,
+                        "next_invalid_actions": [],
+                        # "prob": 1.0,  # [1]
+                    },
+                )
+                self._add_batch(worker)
+
+    def _add_batch(self, worker: WorkerRun):
+        if worker.get_tracking_length() < self.config.multisteps + 1:
+            return
+
+        batch = worker.get_trackings(
+            [
+                "state",
+                "action",
+                "reward",
+                "terminated",
+                "next_invalid_actions",
+                # "prob"  # [1]
+            ],
+            size=self.config.multisteps + 1,
+        )
+
         if not self.distributed:
             priority = None
         elif not self.config.memory.requires_priority():
@@ -387,42 +409,6 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
             priority = abs(target_q - select_q)
 
         self.memory.add(batch, priority)
-
-        if worker.done:
-            # 残りstepも追加
-            for _ in range(self.config.multisteps - 1):
-                worker.add_tracking(
-                    {
-                        "state": worker.next_state,
-                        "action": worker.get_onehot_action(random.randint(0, self.config.action_space.n - 1)),
-                        "reward": 0,
-                        "terminated": 1,
-                        "invalid_actions": [],
-                        # "prob": 1.0,  # [1]
-                    },
-                )
-                self.memory.add(self._get_batch(worker), priority)
-
-    def _get_batch(self, worker: WorkerRun):
-        batch = worker.get_trackings(
-            [
-                "state",
-                "action",
-                "reward",
-                "terminated",
-                "invalid_actions",
-                # "prob"  # [1]
-            ],
-            size=self.config.multisteps + 1,
-            padding_data={
-                "state": self.config.observation_space.get_default(),
-                "action": worker.get_onehot_action(0),
-                "reward": 0,
-                "terminated": 0,
-                "invalid_actions": [],
-            },
-        )
-        return batch
 
     def render_terminal(self, worker, **kwargs) -> None:
         if self.q is None:

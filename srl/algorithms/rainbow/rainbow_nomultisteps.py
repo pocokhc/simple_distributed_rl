@@ -2,11 +2,9 @@ import random
 
 import numpy as np
 
-from srl.base.rl.worker import RLWorker
-from srl.rl import functions as funcs
 from srl.rl.functions import inverse_rescaling, rescaling
 
-from .rainbow import CommonInterfaceParameter, Config, Memory
+from .rainbow import CommonInterfaceParameter, Config, Memory, RLWorker
 
 
 def calc_target_q(self: CommonInterfaceParameter, batches, training: bool):
@@ -54,13 +52,10 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
         self.epsilon_sch = self.config.epsilon_scheduler.create(self.config.epsilon)
 
     def policy(self, worker) -> int:
-        invalid_actions = worker.invalid_actions
-
         if self.config.enable_noisy_dense:
             self.q = self.parameter.pred_single_q(worker.state)
-            self.q[invalid_actions] = -np.inf
-            self.action = int(np.argmax(self.q))
-            return self.action
+            self.q[worker.invalid_actions] = -np.inf
+            return int(np.argmax(self.q))
 
         if self.training:
             epsilon = self.epsilon_sch.update(self.step_in_training).to_float()
@@ -68,17 +63,17 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
             epsilon = self.config.test_epsilon
 
         if random.random() < epsilon:
-            self.action = random.choice([a for a in range(self.config.action_space.n) if a not in invalid_actions])
+            action = self.sample_action()
             self.q = None
         else:
             self.q = self.parameter.pred_single_q(worker.state)
-            self.q[invalid_actions] = -np.inf
+            self.q[worker.invalid_actions] = -np.inf
 
             # 最大値を選ぶ（複数はほぼないとして無視）
-            self.action = int(np.argmax(self.q))
+            action = int(np.argmax(self.q))
 
         self.info["epsilon"] = epsilon
-        return self.action
+        return action
 
     def on_step(self, worker):
         if not self.training:
@@ -108,7 +103,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
         batch = [
             worker.state,
             worker.next_state,
-            np.identity(self.config.action_space.n, dtype=int)[self.action],
+            worker.get_onehot_action(),
             reward,
             int(not worker.terminated),
             worker.next_invalid_actions,
@@ -121,7 +116,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
         else:
             if self.q is None:
                 self.q = self.parameter.pred_single_q(worker.state)
-            select_q = self.q[self.action]
+            select_q = self.q[worker.action]
             target_q = calc_target_q(self.parameter, [batch], training=False)[0]
             priority = abs(target_q - select_q)
 

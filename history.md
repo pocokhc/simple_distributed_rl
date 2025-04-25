@@ -12,8 +12,50 @@
 // RLTrainerでinfoの計算コストは保留（metricsを別途導入案も保留）
 // cached_propertyでちょっと高速化?→予想外のバグがでそうなので保留
 // RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
-// DemoMemory: 個別対応かな
 // TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除
+
+
+# v0.19.2
+
+・renderの整理（やっと良い感じにまとまりました多分最後です）
+
+
+**renderの整理**
+
+- render情報をenv_runでもstep後にcacheするようにしてタイミングを固定化
+- 実際のrenderタイミングはcore_playで持たず、callback経由で任意に実施するように変更
+- [base.define] add: RenderModeTypesに'terminal_rgb_array'を追加し、terminalとrgb_array両方使う場合を明示
+- [base.context] change: contextからrenderingをなくし、env_render_modeとrl_render_modeを作成、renderingはworker_run側で判定
+- [base.rl.config] change: setupでrequest_env_renderを追加し、この変数に合わせてenv.setup()時にrender_modeを変更できるように変更
+- [base.rl.config] new: アルゴリズムがenvのrender情報を使う場合に設定できる use_env_render_mode 関数を追加
+- [rl.human] update: 'use_env_render_mode'の使用例
+
+**DemoMemoryを追加**
+
+・R2D3のMemoryで、手動で実行した経験を学習に使うことができるメモリです。
+・PriorityReplayBufferに追加する形で実装しています。
+・使い方が特殊なので「examples/sample_demo_memory.py」を参照
+
+1. [rl.memories.proprity_replay_buffer] new: demo_memoryを追加
+1. [runner.runner.facade_play] update: play_terminalでmemoryを追加できるように修正
+
+**OtherUpdates**
+
+1. [rl.memories] new: エピソード単位で経験を管理できるepisode_replay_buffer.pyを追加
+1. [runner.callbacks.print_progress] change: interval_limitを60*10→60*5に変更し、増やす間隔を2倍から1.5倍に変更
+1. [base.rl.worker_run] change: policy時のworker.actionをNoneに変更
+1. [base.run.core_play_generator] change: yieldのタイミングをcallback後から前に変更、on_step_beginの位置が違っていたので修正
+1. [rl.processors] new: downsampling_processor.pyを追加
+1. [rl.tf.distributions.categorical_dist_block] add: log_probにkeepdimsを追加
+1. [algorithms.rainbow] update: batchの保持方法を少し改善
+1. [base.rl.worker_run] update/add: get_trackingsでkeyがない場合にNoneにし、get_tracking_dataも追加
+1. 表示関係をいくつか修正
+
+**Bug Fixes**
+
+1. [base.run.core_play] fix: rl_configがない場合にエラーになる不具合修正
+1. [base.rl.worker_run] fix: get_trackingのsizeが0の場合に空配列を返すように変更
+1. [rl.memories.priority_replay_buffer] fix: lengthの演算子の優先順位が間違っていたので修正
 
 
 # v0.19.1

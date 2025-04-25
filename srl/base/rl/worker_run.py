@@ -531,6 +531,9 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             del self._tracking_data[0]
         self._tracking_data.append(data)
 
+    def get_tracking_data(self) -> List[Dict[str, Any]]:
+        return self._tracking_data
+
     def get_tracking(self, key: str, size: Optional[int] = None, dummy: Any = None) -> List[Any]:
         if size is None:
             return [d[key] if key in d else dummy for d in self._tracking_data]
@@ -566,9 +569,9 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
                 else:
                     raise ValueError(padding_direct)
             else:
-                return [[d[k] for k in keys] for d in self._tracking_data[-size:]]
+                return [[d[k] if k in d else None for k in keys] for d in self._tracking_data[-size:]]
         else:
-            return [[d[k] for k in keys] for d in self._tracking_data]
+            return [[d[k] if k in d else None for k in keys] for d in self._tracking_data]
 
     # ------------------------------------
     # backup/restore

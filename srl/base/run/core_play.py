@@ -114,7 +114,7 @@ def _play(
         logger.info(f"set_seed: {context.seed}, 1st episode seed: {state.episode_seed}")
 
     # --- 3 setup
-    state.env.setup(context, context.rl_config.request_env_render)
+    state.env.setup(context, "" if context.rl_config is None else context.rl_config.request_env_render)
     [w.setup(context) for w in state.workers]
     if state.trainer is not None:
         state.trainer.setup(context)

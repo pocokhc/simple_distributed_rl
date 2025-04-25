@@ -176,7 +176,7 @@ class PriorityReplayBuffer:
         return RLMemoryTypes.PRIORITY
 
     def length(self) -> int:
-        return self.memory.length() + self.demo_memory.length() if self.cfg.enable_demo_memory else 0
+        return self.memory.length() + (self.demo_memory.length() if self.cfg.enable_demo_memory else 0)
 
     def add(self, batch: Any, priority: Optional[float] = None, serialized: bool = False) -> None:
         # compressなら圧縮状態で、違うならdeserializeしたものをbufferに入れる

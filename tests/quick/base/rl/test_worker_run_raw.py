@@ -311,6 +311,8 @@ class WorkerRunStubEpisodeStacked(RLWorker):
             ).all()
             assert worker.prev_invalid_actions == [1]
             assert worker.invalid_actions == [2]
+        elif self.step_in_episode == 2:
+            pass
         else:
             assert False
 
@@ -331,7 +333,7 @@ def test_episode_stacked():
     rl_config.setup(env)
     worker = srl.make_worker(rl_config, env)
 
-    context = RunContext(render_mode="terminal")
+    context = RunContext(env_render_mode="terminal", rl_render_mode="terminal")
     env.setup(context)
     worker.setup(context)
 

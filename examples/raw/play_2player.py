@@ -103,7 +103,7 @@ def main():
     env.teardown()
 
     # --- render
-    context = srl.RunContext(env_config, rl_config, render_mode="terminal")
+    context = srl.RunContext(env_config, rl_config, env_render_mode="terminal", rl_render_mode="terminal")
     env.setup(context)
     [w.setup(context) for w in workers]
     _run_episode(env, workers, None, rendering=True)
@@ -123,7 +123,7 @@ def play_cpu(player_mode: str = "human"):
     assert cpu is not None
 
     # set context
-    context = srl.RunContext(env_config, render_mode="terminal")
+    context = srl.RunContext(env_config, env_render_mode="terminal", rl_render_mode="terminal")
     env.setup(context)
     player.setup(context)
     cpu.setup(context)

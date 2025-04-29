@@ -1,5 +1,6 @@
 import datetime
 import logging
+import math
 import time
 import traceback
 from dataclasses import dataclass
@@ -237,7 +238,7 @@ class PrintProgress(RunCallback, Evaluate):
         # [distributed]
         if context.distributed:
             diff_q = state.actor_send_q - self.t0_actor_send_q
-            s += f", {int(diff_q / diff_time):4d}send/s"
+            s += f" {math.ceil(diff_q / diff_time):4d}send/s"
             self.t0_actor_send_q = state.actor_send_q
             s += f" {state.sync_actor:4d}sync"
 
@@ -413,7 +414,7 @@ class PrintProgress(RunCallback, Evaluate):
         # [distributed]
         if context.distributed:
             diff_q = state.trainer_recv_q - self.t0_trainer_recv_q
-            s += f", {int(diff_q / diff_time):4d}recv/s"
+            s += f" {math.ceil(diff_q / diff_time):4d}recv/s"
             self.t0_trainer_recv_q = state.trainer_recv_q
 
             s += f" {state.sync_trainer:4d}sync"
@@ -483,28 +484,25 @@ class PrintProgress(RunCallback, Evaluate):
 
         # [memory]
         mem = info["memory"].length()
-        s += f" {mem:14d}mem"
+        s += f" {mem:27d}mem"
 
         # [q]
-        s += ",[act->mem]"
         size = info["act_to_mem_size"]
         diff = info["act_to_mem"] - self.t0_q_act_to_mem
-        s += f" {int(diff / diff_time):2d} recv/s {size:3d}"
+        s += f" {math.ceil(diff / diff_time):4d}recv/s [act->mem] {size:2d}q"
         self.t0_q_act_to_mem = info["act_to_mem"]
 
-        s += ",[train->mem]"
         size = info["train_to_mem_size"]
         diff = info["train_to_mem"] - self.t0_q_train_to_mem
-        s += f" {int(diff / diff_time):2d} recv/s {size:3d}"
+        s += f" {math.ceil(diff / diff_time):4d}recv/s [train->mem] {size:2d}q"
         self.t0_q_train_to_mem = info["train_to_mem"]
         print(s)
 
         for i in range(len(info["mem_to_train_size_list"])):
-            s2 = f"[{self.mem_to_train_names[i]}]"
-            s = " " * 32 + f"[mem->train]{s2:<10}"
             size = info["mem_to_train_size_list"][i]
             train = info["mem_to_train_list"][i]
             diff = train - self.t0_q_mem_to_train[i]
-            s += f" {float(diff / diff_time):5.1f} send/s {size:3d}"
+            s = " " * 55
+            s += f" {math.ceil(diff / diff_time):4d}send/s [mem->train][{self.mem_to_train_names[i]}] {size:2d}q"
             self.t0_q_mem_to_train[i] = train
             print(s)

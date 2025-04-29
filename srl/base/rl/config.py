@@ -82,7 +82,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     #: render時にRLへ入力される画像を描画するか
     render_rl_image: bool = True
     #: render時にRLへ入力される画像のサイズ
-    render_rl_image_size: Tuple[int, int] = (64, 64)
+    render_rl_image_size: Tuple[int, int] = (128, 128)
 
     # --- other
     #: action/observationの値をエラーが出ないように可能な限り変換します。

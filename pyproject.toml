@@ -1,4 +1,81 @@
-# --- ruff
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "srl-framework"
+dynamic = ["version"]
+description = "Simple distributed reinforcement learning framework"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [ { name = "poco", email = "pocopococpp198@gmail.com" } ]
+requires-python = ">=3.8"
+dependencies = ["numpy"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[project.urls]
+Homepage = "https://pocokhc.github.io/simple_distributed_rl/"
+Repository = "https://github.com/pocokhc/simple_distributed_rl"
+
+[project.optional-dependencies]
+min = []
+default = [
+    "opencv-python",
+    "Pillow",
+    "pygame",
+    "matplotlib",
+    "pandas",
+    "gymnasium",
+    "psutil",
+    "pynvml",
+    "redis",
+    "mlflow",
+]
+dev = [
+    "opencv-python",
+    "Pillow",
+    "pygame",
+    "matplotlib",
+    "pandas",
+    "gymnasium",
+    "psutil",
+    "pynvml",
+    "redis",
+    "mlflow",
+    # dev
+    "ruff",
+    "pytest",
+    "pytest-mock",
+    "pytest-timeout",
+]
+
+[tool.setuptools.packages.find]
+include = ["srl*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "srl.version.__version__" }
+
+[tool.setuptools.package-data]
+srl = [
+    "font/*.ttf",
+    "font/README.md",
+    "envs/img/*.png",
+    "envs/img/README.md",
+    "runner/img/*.svg",
+    "runner/img/README.md",
+]
+
 [tool.ruff]
 line-length = 119
 
@@ -6,11 +83,7 @@ line-length = 119
 docstring-code-format = true
 
 [tool.ruff.lint]
-select = [
-    "E",
-    "F",
-    "W"
-]
+select = ["E","F","W"]
 ignore = [
     "E203",  # whitespace before ':'
 ]

@@ -1,6 +1,6 @@
-# PlemolJP
+# FiraCode-Regular.ttf
 
-<https://github.com/yuru7/PlemolJP>
+<https://github.com/tonsky/FiraCode>
 
-LICENSE: SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
-<https://github.com/yuru7/PlemolJP/blob/main/LICENSE>
+LICENSE: SIL Open Font License 1.1
+<https://github.com/tonsky/FiraCode/blob/master/LICENSE>

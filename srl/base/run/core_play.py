@@ -144,7 +144,7 @@ def _play(
     # --- 6 loop
     try:
         if context.run_name != RunNameTypes.eval:
-            logger.info(f"[{context.run_name}] loop start")
+            logger.debug(f"[{context.run_name}] loop start")
         state.elapsed_t0 = time.time()
         while True:
             # --- stop check

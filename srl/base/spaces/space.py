@@ -3,13 +3,13 @@ from typing import Any, Generic, List, Tuple, TypeVar
 
 import numpy as np
 
-from srl.base.define import RLActionType, RLObservationType, SpaceTypes
+from srl.base.define import SpaceType, SpaceTypes
 from srl.base.exception import NotSupportedError
 
 TActSpace = TypeVar("TActSpace", bound="SpaceBase", covariant=True)
-TActType = TypeVar("TActType", bound=RLActionType)
+TActType = TypeVar("TActType", bound=SpaceType)
 TObsSpace = TypeVar("TObsSpace", bound="SpaceBase", covariant=True)
-TObsType = TypeVar("TObsType", bound=RLObservationType)
+TObsType = TypeVar("TObsType", bound=SpaceType)
 
 _T = TypeVar("_T")
 

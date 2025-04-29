@@ -79,7 +79,7 @@ def play_generator(
 
     # --- 6 loop
     if context.run_name != RunNameTypes.eval:
-        logger.info(f"[{context.run_name}] loop start")
+        logger.debug(f"[{context.run_name}] loop start")
     state.elapsed_t0 = time.time()
     while True:
         # --- stop check

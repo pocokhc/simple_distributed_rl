@@ -73,7 +73,7 @@ def _play_trainer_only(
 
     # --- 3 loop
     try:
-        logger.info("loop start")
+        logger.debug("loop start")
         state.elapsed_t0 = time.time()
         while True:
             _time = time.time()

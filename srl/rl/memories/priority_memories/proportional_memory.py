@@ -9,67 +9,6 @@ from .imemory import IPriorityMemory
 
 logger = logging.getLogger(__name__)
 
-try:
-    from numba import njit
-
-    _enable_numba = True
-    logger.info("Numba is enable")
-
-    class SumTreeNumba:
-        def __init__(self, capacity: int):
-            self.capacity = capacity
-            self.write = 0
-            self.tree = np.zeros(2 * capacity - 1, dtype=np.float64)
-            self.data = np.empty(capacity, dtype=object)
-
-        @staticmethod
-        @njit
-        def _propagate(tree, idx: int, change: float):
-            while idx != 0:
-                parent = (idx - 1) // 2
-                tree[parent] += change
-                idx = parent
-
-        @staticmethod
-        @njit
-        def _retrieve(tree, idx: int, val: float):
-            while True:
-                left = 2 * idx + 1
-                if left >= len(tree):
-                    return idx
-                if val <= tree[left]:
-                    idx = left
-                else:
-                    idx = left + 1
-                    val -= tree[left]
-
-        def total(self) -> float:
-            return self.tree[0]
-
-        def add(self, priority: float, data):
-            # print(f'SumTree add')
-            tree_idx = self.write + self.capacity - 1
-
-            self.data[self.write] = data
-            self.update(tree_idx, priority)
-
-            self.write += 1
-            if self.write >= self.capacity:
-                self.write = 0
-
-        def update(self, tree_idx: int, priority: float):
-            change = priority - self.tree[tree_idx]
-            self.tree[tree_idx] = priority
-            self._propagate(self.tree, tree_idx, change)
-
-        def get(self, val: float):
-            idx = self._retrieve(self.tree, 0, val)
-            data_idx = idx - self.capacity + 1
-            return idx, self.tree[idx], self.data[data_idx]
-
-except ImportError:
-    _enable_numba = False
-
 
 class SumTree:
     """Segment Tree, full binary tree
@@ -166,16 +105,12 @@ class ProportionalMemory(IPriorityMemory):
     has_duplicate: bool = True
     #: priorityを0にしないための小さい値
     epsilon: float = 0.0001
-    dtype: type = np.float32
 
     def __post_init__(self):
         self.clear()
 
     def clear(self):
-        if _enable_numba:
-            self.tree = SumTreeNumba(self.capacity)
-        else:
-            self.tree = SumTree(self.capacity)
+        self.tree = SumTree(self.capacity)
         self.max_priority: float = 1.0
         self.size = 0
 
@@ -196,7 +131,7 @@ class ProportionalMemory(IPriorityMemory):
     def sample(self, batch_size: int, step: int):
         indices = []
         batches = []
-        weights = np.empty(batch_size, dtype=self.dtype)
+        weights = np.empty(batch_size)
         total = self.tree.total()
 
         # βは最初は低く、学習終わりに1にする

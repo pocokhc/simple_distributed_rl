@@ -4,11 +4,14 @@ import math
 import numpy as np
 import pytest
 
+from srl.rl.memories.priority_memories.bin import load_native_module
 from srl.rl.memories.priority_memories.imemory import IPriorityMemory
 from srl.rl.memories.priority_memories.proportional_memory import ProportionalMemory
 from srl.rl.memories.priority_memories.rankbased_memory import RankBasedMemory
 from srl.rl.memories.priority_memories.rankbased_memory_linear import RankBasedMemoryLinear
 from srl.rl.memories.priority_memories.replay_buffer import ReplayBuffer
+
+proportional_memory_cpp = load_native_module("proportional_memory_cpp")
 
 capacity = 10
 
@@ -19,6 +22,8 @@ capacity = 10
         (ReplayBuffer(capacity), False, True),
         (ProportionalMemory(capacity, 0.8, 1, 10, has_duplicate=False), True, True),
         (ProportionalMemory(capacity, 0.8, 1, 10, has_duplicate=True), True, False),
+        (proportional_memory_cpp.ProportionalMemory(capacity, 0.8, 1, 10, has_duplicate=False), True, True),
+        (proportional_memory_cpp.ProportionalMemory(capacity, 0.8, 1, 10, has_duplicate=True), True, False),
         (RankBasedMemory(capacity, 0.8, 1, 10), True, True),
         (RankBasedMemoryLinear(capacity, 0.8, 1, 10), True, True),
     ],
@@ -77,9 +82,15 @@ def test_priority_memory(memory: IPriorityMemory, use_priority: bool, check_dup:
 # test IS
 # -------------------------------
 @pytest.mark.parametrize("alpha", [0, 0.2, 0.5, 0.8, 1.0])
-def test_IS_Proportional(alpha):
+@pytest.mark.parametrize("memory_type", ["Proportional", "Proportional_cpp"])
+def test_IS_Proportional(alpha, memory_type):
     epsilon = 0.0001
-    memory = ProportionalMemory(capacity=10, alpha=alpha, beta_initial=1, epsilon=epsilon, has_duplicate=False)
+    if memory_type == "Proportional":
+        memory = ProportionalMemory(capacity=10, alpha=alpha, beta_initial=1, epsilon=epsilon, has_duplicate=False)
+    elif memory_type == "Proportional_cpp":
+        memory = proportional_memory_cpp.ProportionalMemory(capacity=10, alpha=alpha, beta_initial=1, epsilon=epsilon, has_duplicate=False)
+    else:
+        raise ValueError(f"Unknown memory type: {memory_type}")
 
     # --- true data
     priorities = [1, 2, 4, 3]

@@ -111,5 +111,5 @@ def main_compare():
 
 
 if __name__ == "__main__":
-    # main()
-    main_compare()
+    main()
+    # main_compare()

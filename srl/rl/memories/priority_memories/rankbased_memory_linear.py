@@ -28,7 +28,6 @@ class RankBasedMemoryLinear(IPriorityMemory):
     alpha: float = 1.0
     beta_initial: float = 0.4
     beta_steps: int = 1_000_000
-    dtype: type = np.float32
 
     def __post_init__(self):
         self.clear()
@@ -84,7 +83,7 @@ class RankBasedMemoryLinear(IPriorityMemory):
         for i in idx_list:  # idxがずれないように逆順
             del self.memory[i]
 
-        return batches, weights.astype(self.dtype), batches
+        return batches, weights, batches
 
     def update(self, batches, priorities: np.ndarray) -> None:
         for b, p in zip(batches, priorities):

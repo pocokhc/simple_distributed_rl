@@ -58,6 +58,24 @@ class PriorityReplayBufferConfig:
         )
         return self
 
+    def set_proportional_cpp(
+        self,
+        alpha: float = 0.6,
+        beta_initial: float = 0.4,
+        beta_steps: int = 1_000_000,
+        has_duplicate: bool = True,
+        epsilon: float = 0.0001,
+    ):
+        self.name = "Proportional_cpp"
+        self.kwargs = dict(
+            alpha=alpha,
+            beta_initial=beta_initial,
+            beta_steps=beta_steps,
+            has_duplicate=has_duplicate,
+            epsilon=epsilon,
+        )
+        return self
+
     def set_rankbased(
         self,
         alpha: float = 0.6,
@@ -96,44 +114,48 @@ class PriorityReplayBufferConfig:
 
     # ---------------------
 
-    def create_memory(self, capacity: int, dtype=np.float32) -> IPriorityMemory:
+    def create_memory(self, capacity: int) -> IPriorityMemory:
         if self.name == "ReplayBuffer":
             from .priority_memories.replay_buffer import ReplayBuffer
 
-            memory = ReplayBuffer(capacity, dtype=dtype, **self.kwargs)
+            memory = ReplayBuffer(capacity, **self.kwargs)
         elif self.name == "Proportional":
             from .priority_memories.proportional_memory import ProportionalMemory
 
-            memory = ProportionalMemory(capacity, dtype=dtype, **self.kwargs)
+            memory = ProportionalMemory(capacity, **self.kwargs)
+
+        elif self.name == "Proportional_cpp":
+            from .priority_memories.bin import load_native_module
+
+            module = load_native_module("proportional_memory_cpp")
+            memory = module.ProportionalMemory(capacity, **self.kwargs)
 
         elif self.name == "RankBased":
             from .priority_memories.rankbased_memory import RankBasedMemory
 
-            memory = RankBasedMemory(capacity, dtype=dtype, **self.kwargs)
+            memory = RankBasedMemory(capacity, **self.kwargs)
 
         elif self.name == "RankBasedLinear":
             from .priority_memories.rankbased_memory_linear import RankBasedMemoryLinear
 
-            memory = RankBasedMemoryLinear(capacity, dtype=dtype, **self.kwargs)
+            memory = RankBasedMemoryLinear(capacity, **self.kwargs)
         elif self.name == "custom":
             from srl.utils.common import load_module
 
-            return load_module(self.kwargs["entry_point"])(capacity, dtype=dtype, **self.kwargs["kwargs"])
+            return load_module(self.kwargs["entry_point"])(capacity, **self.kwargs["kwargs"])
         else:
             raise UndefinedError(self.name)
 
         return memory
 
     def requires_priority(self) -> bool:
-        if self.name == "ReplayBuffer":
-            return False
-        elif self.name == "Proportional":
-            return True
-        elif self.name == "RankBased":
-            return True
-        elif self.name == "RankBasedLinear":
-            return True
-        elif self.name == "custom":
+        if self.name in [
+            "Proportional",
+            "Proportional_cpp",
+            "RankBased",
+            "RankBasedLinear",
+            "Proporticustomonal",
+        ]:
             return True
         return False
 
@@ -141,7 +163,8 @@ class PriorityReplayBufferConfig:
 class PriorityReplayBuffer:
     def __init__(self, config: PriorityReplayBufferConfig, batch_size: int, dtype=np.float32):
         self.cfg = config
-        self.memory = self.cfg.create_memory(self.cfg.capacity, dtype)
+        self.dtype = dtype
+        self.memory = self.cfg.create_memory(self.cfg.capacity)
         self.step = 0
 
         if self.cfg.enable_demo_memory:
@@ -208,6 +231,7 @@ class PriorityReplayBuffer:
         step = step if step > -1 else self.step
 
         batches, weights, update_args = self.memory.sample(batch_size, step)
+        weights = np.asarray(weights, dtype=self.dtype)
 
         if self.cfg.enable_demo_memory:
             demo_batches = self.demo_memory.sample(self.demo_batch_size)

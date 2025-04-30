@@ -20,5 +20,8 @@ RUN apt update && \
 # ENV LIBGL_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
 # ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6
 
+# --- pybind11
+RUN apt install -y --no-install-recommends g++ build-essential
+
 COPY ./latest_requirements.txt requirements.txt
 RUN pip install --no-cache-dir -U -r requirements.txt

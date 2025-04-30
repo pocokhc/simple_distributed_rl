@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -18,7 +18,7 @@ class IPriorityMemory(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def sample(self, batch_size: int, step: int) -> Tuple[List[Any], np.ndarray, List[Any]]:
+    def sample(self, batch_size: int, step: int) -> Tuple[List[Any], Union[List[float], np.ndarray], List[Any]]:
         raise NotImplementedError()  # return (batches, weights, update_args)
 
     @abstractmethod

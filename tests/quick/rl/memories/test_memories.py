@@ -90,60 +90,36 @@ def test_replay_buffer(compress):
 
 
 @pytest.mark.parametrize("compress", [False, True])
-def test_priority_replay_buffer(compress):
+@pytest.mark.parametrize(
+    "memory_type",
+    [
+        "ReplayBuffer",
+        "Proportional",
+        "Proportional_cpp",
+        "RankBased",
+        "RankBasedLinear",
+    ],
+)
+def test_priority_memory(compress, memory_type):
     from srl.rl.memories.priority_replay_buffer import PriorityReplayBuffer, PriorityReplayBufferConfig
 
     capacity = 10
     warmup_size = 5
     batch_size = 5
 
-    memory = PriorityReplayBuffer(
-        PriorityReplayBufferConfig(capacity, warmup_size, compress).set_replay_buffer(),
-        batch_size,
-    )
-    _play_memory_sub(memory, capacity, warmup_size, batch_size, is_priority=True)
+    cfg = PriorityReplayBufferConfig(capacity, warmup_size, compress)
+    if memory_type == "ReplayBuffer":
+        cfg.set_replay_buffer()
+    elif memory_type == "Proportional":
+        cfg.set_proportional()
+    elif memory_type == "Proportional_cpp":
+        cfg.set_proportional_cpp()
+    elif memory_type == "RankBased":
+        cfg.set_rankbased()
+    elif memory_type == "RankBasedLinear":
+        cfg.set_rankbased_linear()
+    else:
+        raise ValueError(f"Unknown memory type: {memory_type}")
 
-
-@pytest.mark.parametrize("compress", [False, True])
-def test_priority_proportional_memory(compress):
-    from srl.rl.memories.priority_replay_buffer import PriorityReplayBuffer, PriorityReplayBufferConfig
-
-    capacity = 10
-    warmup_size = 5
-    batch_size = 5
-
-    memory = PriorityReplayBuffer(
-        PriorityReplayBufferConfig(capacity, warmup_size, compress).set_proportional(),
-        batch_size,
-    )
-    _play_memory_sub(memory, capacity, warmup_size, batch_size, is_priority=True)
-
-
-@pytest.mark.parametrize("compress", [False, True])
-def test_priority_rankbased_memory(compress):
-    from srl.rl.memories.priority_replay_buffer import PriorityReplayBuffer, PriorityReplayBufferConfig
-
-    capacity = 10
-    warmup_size = 5
-    batch_size = 5
-
-    memory = PriorityReplayBuffer(
-        PriorityReplayBufferConfig(capacity, warmup_size, compress).set_rankbased(),
-        batch_size,
-    )
-    _play_memory_sub(memory, capacity, warmup_size, batch_size, is_priority=True)
-
-
-@pytest.mark.parametrize("compress", [False, True])
-def test_priority_rankbased_memory_linear(compress):
-    from srl.rl.memories.priority_replay_buffer import PriorityReplayBuffer, PriorityReplayBufferConfig
-
-    capacity = 10
-    warmup_size = 5
-    batch_size = 5
-
-    memory = PriorityReplayBuffer(
-        PriorityReplayBufferConfig(capacity, warmup_size, compress).set_rankbased_linear(),
-        batch_size,
-    )
+    memory = PriorityReplayBuffer(cfg, batch_size)
     _play_memory_sub(memory, capacity, warmup_size, batch_size, is_priority=True)

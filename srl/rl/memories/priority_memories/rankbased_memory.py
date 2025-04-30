@@ -18,7 +18,6 @@ class RankBasedMemory(IPriorityMemory):
     beta_initial: float = 0.4
     #: βを何stepで1にするか
     beta_steps: int = 1_000_000
-    dtype: type = np.float32
 
     def __post_init__(self):
         self.clear()
@@ -56,7 +55,7 @@ class RankBasedMemory(IPriorityMemory):
         sampled_indices = np.random.choice(sorted_indices, size=batch_size, p=probs, replace=False)
         weights = (N * reordered_probs[sampled_indices]) ** (-beta)
         weights = weights / weights.max()
-        return [self.buffer[idx] for idx in sampled_indices], weights.astype(self.dtype), sampled_indices
+        return [self.buffer[idx] for idx in sampled_indices], weights, sampled_indices
 
     def update(self, indices: List[Any], priorities: np.ndarray) -> None:
         for idx, td in zip(indices, priorities):

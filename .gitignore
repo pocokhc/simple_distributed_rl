@@ -153,3 +153,13 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+
+# --- pybind11
+cpp/bin/*
+!cpp/bin/.gitkeep
+cpp/build/*
+cpp/src/*
+!cpp/src/*.cpp
+!cpp/src/*.hpp
+!srl/rl/memories/priority_memories/bin/*/*.*

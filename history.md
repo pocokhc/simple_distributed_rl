@@ -15,6 +15,31 @@
 // TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除
 
 
+# v0.19.3
+
+**MainUpdates**
+
+1. [slr] change: pypi登録用に準備
+1. [rl.memories.priority_memories] new: c++を使える環境を追加し、PropotionalMemory_cppを実装（12倍以上の高速化）
+1. [font] change: PlemolJPからFireCode-Regularに変更し、ファイルサイズを削減
+
+
+**OtherUpdates**
+
+1. Atariを更新
+   - [envs.processors.atariprocessor] add: AtariBreakoutProcessorを追加
+   - [envs.processors.atariprocessor] add: AtariFreewayProcessorを追加
+   - [baseline.atari] add: breackoutを追加
+1. [base.rl.config] change: render_rl_image_sizeを(64,64)から(128,128)に変更
+1. [runner.callbacks.print_progress] update: 表示修正と送受信の表示をint化から切り上げに変更
+
+
+**Bug Fixes**
+
+1. [base.spaces.space] fix: TActTypeとTObsTypeのbound設定が間違っていたので修正
+
+
+
 # v0.19.2
 
 ・renderの整理（やっと良い感じにまとまりました多分最後です）

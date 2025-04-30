@@ -15,17 +15,10 @@
 
 ```
 cpp/
-├── bin/        # .so 実行モジュール出力先(OS別に配置)
-│   ├── macos/
-│   ├── linux/
-│   └── win32/
-│
-├── build/      # ビルド中間ファイル(都度削除されます)
-│
-├── src/
-│   └── proportional_memory.cpp
-│
-└── setup_cpp.py   # ビルド用
+├── bin/          # ビルド成果物格納先（macos, windows, linux）
+├── build/        # 一時ビルドファイル（毎回削除される）
+├── src/          # C++ソースコード（例: SumTree.cpp）
+└── setup_cpp.py  # ビルド用
 ```
 
 

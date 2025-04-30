@@ -6,12 +6,22 @@ build-backend = "setuptools.build_meta"
 name = "srl-framework"
 dynamic = ["version"]
 description = "Simple distributed reinforcement learning framework"
-readme = "README.md"
+readme = "README-pypi.md"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [ { name = "poco", email = "pocopococpp198@gmail.com" } ]
 requires-python = ">=3.8"
-dependencies = ["numpy"]
+dependencies = [
+    "numpy",
+    "opencv-python",
+    "Pillow",
+    "pygame",
+    "matplotlib",
+    "pandas",
+    "gymnasium",
+    "psutil",
+    "pynvml",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Programming Language :: Python",
@@ -25,22 +35,13 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://pocokhc.github.io/simple_distributed_rl/"
 Repository = "https://github.com/pocokhc/simple_distributed_rl"
 
 [project.optional-dependencies]
-min = []
-default = [
-    "opencv-python",
-    "Pillow",
-    "pygame",
-    "matplotlib",
-    "pandas",
-    "gymnasium",
-    "psutil",
-    "pynvml",
+full = [
     "redis",
     "mlflow",
+    "pybind11",
 ]
 dev = [
     "opencv-python",
@@ -53,6 +54,7 @@ dev = [
     "pynvml",
     "redis",
     "mlflow",
+    "pybind11",
     # dev
     "ruff",
     "pytest",

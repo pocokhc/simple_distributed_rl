@@ -1,12 +1,5 @@
 ﻿"""
 setup_cpp.py for building pybind11-based C++ extension
-
-ディレクトリ構成（例）:
-cpp/
-├── bin/                # ビルド成果物格納先（macos, windows, linux）
-├── build/              # 一時ビルドファイル（毎回削除される）
-├── src/                # C++ソースコード（例: SumTree.cpp）
-├── setup_cpp.py        # 本ファイル
 """
 
 import glob

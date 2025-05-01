@@ -6,78 +6,62 @@ Installation
 
 .. currentmodule:: srl
 
-必須ライブラリ
-^^^^^^^^^^^^^^^
+
+- Pypiからインストールできます。
 
 .. code-block:: console
+    # 基本的な機能のみをインストール
+    $ pip install srl-frametowrk
+    
+    # 主要な拡張機能や補助的なライブラリも含めてインストール（※TensorFlowやPyTorchは含まれません）
+    $ pip install srl-frametowrk[full]
 
-    $ pip install numpy
+Tensorflow/PyTorchは含まれないので別途インストールしてください。
+
++ Tensorflow
+  + <https://www.tensorflow.org/install?hl=ja>
+  + tensorflow-probability[tf]
++ PyTorch
+  + <https://pytorch.org/get-started/locally/>
 
 
-その他のライブラリ
-^^^^^^^^^^^^^^^^^^
 
-使う機能によって以下ライブラリが必要になります。
+Install options
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-+ Tensorflow が必要なアルゴリズムを使用する場合
-   + tensorflow
-   + tensorflow-probability
-+ Torch が必要なアルゴリズムを使用する場合
-   + <https://pytorch.org/get-started/locally/>
-+ 画像関係の機能を使用する場合
-   + pillow
+| SRLには追加機能を有効にするための **extras オプション** が用意されています。
+| これにより、標準機能に加えて、特定のユースケースに必要な外部ライブラリも一括でインストールすることが可能です。
+| 
+| 利用可能な extras オプションと、それぞれに含まれるライブラリは以下です。
+
++ なし
+   + numpy
    + opencv-python
+   + Pillow
    + pygame
-+ historyによる統計情報を扱う場合
-   + pandas
++ full
+   + 「なし」に以下が追加されます
+   + gymnasium
    + matplotlib
-+ OpenAI Gym の環境を使用する場合
-   + gym or gymnasium
-   + pygame
-+ ハードウェアの統計情報を表示する場合
+   + pandas
    + psutil
    + pynvml
-+ クラウド/ネットワークによる分散学習を使用する場合
    + redis
-   + pika
-   + paho-mqtt
-+ 学習を管理する場合
    + mlflow
-
-一括インストールコマンドは以下です。
-（Tensorflow、Torch、クラウド分散学習用ライブラリ、mlflowを除く）
-
-.. code-block:: console
-
-    $ pip install matplotlib pillow opencv-python pygame pandas gymnasium psutil pynvml
-
-
-
-Installation
-============
-
-本フレームワークはGitHubからインストールまたはダウンロードをして使う事ができます。
-
-インストール
-^^^^^^^^^^^^^
-
-.. code-block:: console
-
-    $ pip install git+https://github.com/pocokhc/simple_distributed_rl
-
-or
-
-.. code-block:: console
-
-    $ git clone https://github.com/pocokhc/simple_distributed_rl.git
-    $ cd simple_distributed_rl
-    $ pip install .
+   + pybind11
+   + setuptools
++ dev
+   + 「full」に以下が追加されます
+   + pytest
+   + pytest-mock
+   + pytest-timeout
 
 
 Download(No install)
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+============================
 
-srlディレクトリに実行パスが通っていればダウンロードだけでも使えます。
+| 本フレームワークはインストールしないでも使う事ができます。
+| 本フレームワークをダウンロード後、srlディレクトリに実行パスが通っていれば使うことができます。
 
 .. code-block:: console
 
@@ -94,6 +78,46 @@ srlディレクトリに実行パスが通っていればダウンロードだ�
 
     import srl
     print(srl.__version__)
+
+
+
+各ライブラリについて
+====================
+
+必須ライブラリ
+^^^^^^^^^^^^^^^
+
++ numpy
+
+
+その他のライブラリ
+^^^^^^^^^^^^^^^^^^
+
++ Tensorflow が必要なアルゴリズムを使用する場合に必要
+   + tensorflow
+   + tensorflow-probability
++ Torch が必要なアルゴリズムを使用する場合に必要
+   + torch
++ 画像関係の機能を使用する場合に必要
+   + pillow
+   + opencv-python
+   + pygame
++ OpenAI Gym の環境を使用する場合に必要
+   + gym or gymnasium
+   + pygame
++ historyによる統計情報を扱う場合に必要
+   + pandas
+   + matplotlib
++ ハードウェアの統計情報を表示する場合に必要
+   + psutil
+   + pynvml
++ クラウド/ネットワークによる分散学習を使用する場合に必要
+   + redis
++ 学習を管理する場合に必要
+   + mlflow
++ C++の拡張を使用する場合に必要
+   + pybind11
+   + setuptools
 
 
 Sample code

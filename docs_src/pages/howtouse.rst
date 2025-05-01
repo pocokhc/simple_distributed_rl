@@ -156,6 +156,14 @@ Train Multiprocessing
     runner.train_mp(max_train_count=10)
 
 
+MLflow Train
+----------------------
+
+| 学習内容をMLFlowで記録します。
+
+.. literalinclude:: ../../examples/sample_mlflow.py
+
+
 Evaluate
 ---------------------
 

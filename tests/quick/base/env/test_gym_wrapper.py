@@ -16,7 +16,6 @@ from srl.test.env import env_test
 
 def test_play_FrozenLake():
     pytest.importorskip("gym")
-    pytest.importorskip("pygame")
     import gym
 
     # observation_space: Discrete(16)
@@ -34,7 +33,6 @@ def test_play_FrozenLake():
 
 def test_play_CartPole():
     pytest.importorskip("gym")
-    pytest.importorskip("pygame")
 
     # observation_space: Box((4,))
     # action_space     : Discrete(2)
@@ -55,7 +53,6 @@ def test_play_CartPole():
 
 def test_play_Blackjack():
     pytest.importorskip("gym")
-    pytest.importorskip("pygame")
 
     # observation_space: Tuple(Discrete(32), Discrete(11), Discrete(2))
     # action_space     : Discrete(2)
@@ -78,7 +75,6 @@ def test_play_Blackjack():
 
 def test_play_Pendulum():
     pytest.importorskip("gym")
-    pytest.importorskip("pygame")
 
     # observation_space: Box([-1. -1. -8.], [1. 1. 8.], (3,), float32)
     # action_space     : Box(-2.0, 2.0, (1,), float32)

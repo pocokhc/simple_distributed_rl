@@ -56,10 +56,6 @@ def _test_obs_episode(
     env_states: list,
     true_rl_states: list,
 ):
-    if rl_obs_mode == "render_image":
-        pytest.importorskip("PIL")
-        pytest.importorskip("pygame")
-
     env = srl.make_env(srl.EnvConfig("Stub", {"observation_space": env_obs_space}))
     env_org = cast(worker_run_stub.WorkerRunStubEnv, env.unwrapped)
     env_org.s_states = env_states

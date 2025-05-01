@@ -7,14 +7,11 @@ import pytest
 
 import srl
 from srl.algorithms import ql, ql_agent57
-from srl.utils import common
 from srl.utils.common import is_available_pygame_video_device
 
 
 def test_train():
-    common.logger_print()
-
-    runner = srl.Runner("OX", ql.Config())
+    runner = srl.Runner("OX", ql_agent57.Config(batch_size=1))
 
     state = runner.train(max_episodes=10)
     assert state.episode_count == 10

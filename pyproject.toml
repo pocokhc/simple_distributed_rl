@@ -16,11 +16,6 @@ dependencies = [
     "opencv-python",
     "Pillow",
     "pygame",
-    "matplotlib",
-    "pandas",
-    "gymnasium",
-    "psutil",
-    "pynvml",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -35,28 +30,30 @@ classifiers = [
 ]
 
 [project.urls]
+Homepage = "https://pocokhc.github.io/simple_distributed_rl/"
 Repository = "https://github.com/pocokhc/simple_distributed_rl"
 
 [project.optional-dependencies]
 full = [
+    "gymnasium",
+    "matplotlib",
+    "pandas",
+    "psutil",
+    "pynvml",
     "redis",
     "mlflow",
     "pybind11",
 ]
 dev = [
-    "opencv-python",
-    "Pillow",
-    "pygame",
+    "gymnasium",
     "matplotlib",
     "pandas",
-    "gymnasium",
     "psutil",
     "pynvml",
     "redis",
     "mlflow",
     "pybind11",
     # dev
-    "ruff",
     "pytest",
     "pytest-mock",
     "pytest-timeout",

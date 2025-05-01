@@ -72,7 +72,7 @@ class RunnerFacadePlay(RunnerBase):
         self.run_context(parameter=parameter, memory=memory, callbacks=callbacks)
 
         state = cast(RunStateActor, self.state)
-        if self.env_config.player_num == 1:
+        if self.env.player_num == 1:
             return [r[0] for r in state.episode_rewards_list]
         else:
             return state.episode_rewards_list

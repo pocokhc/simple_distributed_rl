@@ -76,7 +76,7 @@ class PrintProgress(RunCallback, Evaluate):
 
     def on_start(self, context: RunContext, **kwargs) -> None:
         s = f"### env: {context.env_config.name}"
-        if context.env_config.player_num > 1:
+        if len(context.players) > 1:
             s += f", {context.players}"
         s += f", rl: {context.rl_config.get_name()}"
         if context.framework == "tensorflow":

@@ -63,7 +63,6 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
                     self._processors_observation.append((p, prev_space, self._observation_space))
 
         # --- init val
-        self.config._update_env_info(self.env)  # config update
         render_interval = 1000 / 60
         if self.config.render_interval > 0:
             render_interval = self.config.render_interval
@@ -346,7 +345,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
         # done step
         if self._done == DoneTypes.NONE:
-            if self.step_num > self.max_episode_steps:
+            if self._step_num > self.max_episode_steps:
                 self._done = DoneTypes.TRUNCATED
                 self.env.done_reason = "episode step over"
             elif self.config.episode_timeout > 0 and time.time() - self._t0 > self.config.episode_timeout:
@@ -391,7 +390,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             return rewards
         except Exception as e:
             logger.error(f"{rewards}({type(rewards)}), {error_msg}, {e}")
-        return [0.0 for _ in range(self.player_num)]
+        return [0.0 for _ in range(self.env.player_num)]
 
     def assert_rewards(self, rewards: Any):
         assert isinstance(rewards, list), f"Rewards must be arrayed. {rewards}({type(rewards)})"
@@ -441,7 +440,9 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     @property
     def max_episode_steps(self) -> int:
-        return self.config.max_episode_steps
+        if self.config.max_episode_steps > 0:
+            return self.config.max_episode_steps
+        return self.env.max_episode_steps
 
     @property
     def player_num(self) -> int:

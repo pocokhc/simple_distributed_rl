@@ -17,10 +17,27 @@
 
 # v0.19.3
 
+・pypi登録用の準備
+
+・c++を使える環境を追加し、PropotionalMemory_cppを追加しました。（有志の方に作成頂きました）
+10倍以上の高速化が見込まれます。
+使い方は以下で、実行時にC++をコンパイルするのでコンパイルできる環境が必要となります。
+
+``` python
+rl_config = rainbow.Config()
+
+# 従来のPropotionalMemoryを使用
+rl_config.memory.set_propotional_memory()
+
+# 高速化したC++のPropotionalMemoryを使用
+rl_config.memory.set_propotional_memory_cpp()
+```
+
+
 **MainUpdates**
 
 1. [slr] change: pypi登録用に準備
-1. [rl.memories.priority_memories] new: c++を使える環境を追加し、PropotionalMemory_cppを実装（12倍以上の高速化）
+1. [rl.memories.priority_memories] new: c++を使える環境を追加し、PropotionalMemory_cppを実装
 1. [font] change: PlemolJPからFireCode-Regularに変更し、ファイルサイズを削減
 
 
@@ -32,10 +49,18 @@
    - [baseline.atari] add: breackoutを追加
 1. [base.rl.config] change: render_rl_image_sizeを(64,64)から(128,128)に変更
 1. [runner.callbacks.print_progress] update: 表示修正と送受信の表示をint化から切り上げに変更
+1. [base.env.base] add: renderingプロパティを追加
 
 
 **Bug Fixes**
 
+1. [base.env.base] fix: context設定前に、max_episode_steps等でself.trainingを呼び出す等をするとエラーになったので修正
+   - env_config._update_env_infoを廃止
+   - max_episode_stepsの処理をconfig上書きではなく条件式に変更
+   - env_configからのplayer_num参照を削除
+   - callbacksのon_startとon_endにenvの引数を追加
+   - sample_envのmax_episode_stepsにself.trainingを追加
+1. [base.run.play_mp] update: 'spawn'への設定をより安全なコードに修正
 1. [base.spaces.space] fix: TActTypeとTObsTypeのbound設定が間違っていたので修正
 
 

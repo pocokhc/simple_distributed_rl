@@ -104,7 +104,7 @@ def _play_trainer_only(
                 state.end_reason = "callback.trainer_intermediate_stop"
                 break
     finally:
-        logger.info(f"loop end({state.end_reason})")
+        logger.debug(f"loop end({state.end_reason})")
 
         # 4 teardown
         state.trainer.teardown()

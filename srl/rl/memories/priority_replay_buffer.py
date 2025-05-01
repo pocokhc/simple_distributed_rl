@@ -30,9 +30,12 @@ class PriorityReplayBufferConfig:
     name: str = field(init=False, default="ReplayBuffer")
     kwargs: dict = field(init=False, default_factory=dict)
 
-    # demo memory
+    # --- demo memory
+    #: demo memoryを使うかどうか
     enable_demo_memory: bool = False
+    #: 経験収集を行うメモリの種類
     select_memory: Literal["main", "demo"] = "main"
+    #: demo memoryの混ぜる割合
     demo_ratio: float = 1.0 / 256.0
 
     def set_replay_buffer(self):

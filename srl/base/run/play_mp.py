@@ -488,9 +488,13 @@ def train(mp_config: MpConfig, parameter: RLParameter, memory: RLMemory):
         # Failed setting context: CUDA_ERROR_NOT_INITIALIZED: initialization error
         """
         if not __is_set_start_method:
-            if mp.get_start_method() != "spawn":
-                mp.set_start_method("spawn", force=True)
-                __is_set_start_method = True
+            try:
+                mp.set_start_method("spawn")
+            except RuntimeError:
+                method = mp.get_start_method(allow_none=True)
+                if method != "spawn":
+                    logger.warning("Start method is not 'spawn'. Current: " + str(method))
+            __is_set_start_method = True
 
         """ note
         - mp.Queue + BaseManager

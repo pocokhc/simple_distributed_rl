@@ -162,8 +162,12 @@ def main():
     memory = rl_config.make_memory()
 
     # bug fix
-    if mp.get_start_method() != "spawn":
+    try:
         mp.set_start_method("spawn")
+    except RuntimeError:
+        method = mp.get_start_method(allow_none=True)
+        if method != "spawn":
+            print("Start method is not 'spawn'. Current: " + str(method))
 
     # --- async
     with mp.Manager() as manager:

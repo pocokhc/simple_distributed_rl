@@ -4,6 +4,7 @@ WORKDIR /code
 
 RUN apt-get update && \
     apt-get install -y python3-opencv && \
+    apt-get install -y g++ build-essential && \
     rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONPATH="/code"

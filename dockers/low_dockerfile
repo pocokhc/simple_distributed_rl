@@ -3,12 +3,18 @@ FROM python:3.8-slim
 
 WORKDIR /code
 ENV PYTHONPATH="/code"
+ENV TEST_TYPE="low"
 
 # import cv2
 # ImportError: libGL.so.1: cannot open shared object file: No such file or directory
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libsm6 libxext6 libxrender-dev libglib2.0-0 && \
+    rm -rf /var/lib/apt/lists/*
+
+# --- pybind11
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends g++ build-essential && \
     rm -rf /var/lib/apt/lists/*
 
 COPY ./low_requirements.txt requirements.txt

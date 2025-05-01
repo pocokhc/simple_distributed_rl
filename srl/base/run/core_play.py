@@ -247,7 +247,7 @@ def _play(
                 break
     finally:
         if context.run_name != RunNameTypes.eval:
-            logger.info(f"[{context.run_name}] loop end({state.end_reason})")
+            logger.debug(f"[{context.run_name}] loop end({state.end_reason})")
 
         # --- 7 teardown
         state.env.teardown()

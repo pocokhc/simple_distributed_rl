@@ -1,34 +1,49 @@
 import collections
 import math
+import os
 
 import numpy as np
 import pytest
 
-from srl.rl.memories.priority_memories.bin import load_native_module
+from srl.rl.memories.priority_memories.cpp_module import load_or_build_module
 from srl.rl.memories.priority_memories.imemory import IPriorityMemory
 from srl.rl.memories.priority_memories.proportional_memory import ProportionalMemory
 from srl.rl.memories.priority_memories.rankbased_memory import RankBasedMemory
 from srl.rl.memories.priority_memories.rankbased_memory_linear import RankBasedMemoryLinear
 from srl.rl.memories.priority_memories.replay_buffer import ReplayBuffer
 
-proportional_memory_cpp = load_native_module("proportional_memory_cpp")
-
 capacity = 10
 
 
 @pytest.mark.parametrize(
-    "memory, use_priority, check_dup",
+    "memory_type, use_priority, check_dup",
     [
-        (ReplayBuffer(capacity), False, True),
-        (ProportionalMemory(capacity, 0.8, 1, 10, has_duplicate=False), True, True),
-        (ProportionalMemory(capacity, 0.8, 1, 10, has_duplicate=True), True, False),
-        (proportional_memory_cpp.ProportionalMemory(capacity, 0.8, 1, 10, has_duplicate=False), True, True),
-        (proportional_memory_cpp.ProportionalMemory(capacity, 0.8, 1, 10, has_duplicate=True), True, False),
-        (RankBasedMemory(capacity, 0.8, 1, 10), True, True),
-        (RankBasedMemoryLinear(capacity, 0.8, 1, 10), True, True),
+        ("ReplayBuffer", False, True),
+        ("ProportionalMemory", True, True),
+        ("ProportionalMemory", True, False),
+        ("ProportionalMemory_cpp", True, True),
+        ("ProportionalMemory_cpp", True, False),
+        ("RankBasedMemory", True, True),
+        ("RankBasedMemoryLinear", True, True),
     ],
 )
-def test_priority_memory(memory: IPriorityMemory, use_priority: bool, check_dup: bool):
+def test_priority_memory(memory_type: str, use_priority: bool, check_dup: bool):
+    if memory_type == "ReplayBuffer":
+        memory = ReplayBuffer(capacity)
+    elif memory_type == "ProportionalMemory":
+        memory = ProportionalMemory(capacity, 0.8, 1, 10, has_duplicate=not check_dup)
+    elif memory_type == "ProportionalMemory_cpp":
+        if os.environ.get("TEST_TYPE", "") == "low":
+            pytest.skip("TEST_TYPE is test")
+        proportional_memory_cpp = load_or_build_module("proportional_memory", force_build=True)
+        memory = proportional_memory_cpp.ProportionalMemory(capacity, 0.8, 1, 10, has_duplicate=not check_dup)
+    elif memory_type == "RankBasedMemory":
+        memory = RankBasedMemory(capacity, 0.8, 1, 10)
+    elif memory_type == "RankBasedMemoryLinear":
+        memory = RankBasedMemoryLinear(capacity, 0.8, 1, 10)
+    else:
+        raise ValueError(f"Unknown memory type: {memory_type}")
+
     # add
     for i in range(100):
         memory.add((i, i, i, i), 0)
@@ -88,6 +103,9 @@ def test_IS_Proportional(alpha, memory_type):
     if memory_type == "Proportional":
         memory = ProportionalMemory(capacity=10, alpha=alpha, beta_initial=1, epsilon=epsilon, has_duplicate=False)
     elif memory_type == "Proportional_cpp":
+        if os.environ.get("TEST_TYPE", "") == "low":
+            pytest.skip("TEST_TYPE is test")
+        proportional_memory_cpp = load_or_build_module("proportional_memory", force_build=True)
         memory = proportional_memory_cpp.ProportionalMemory(capacity=10, alpha=alpha, beta_initial=1, epsilon=epsilon, has_duplicate=False)
     else:
         raise ValueError(f"Unknown memory type: {memory_type}")

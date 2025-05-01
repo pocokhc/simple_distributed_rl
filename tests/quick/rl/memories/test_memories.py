@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import pytest
 
@@ -113,7 +115,9 @@ def test_priority_memory(compress, memory_type):
     elif memory_type == "Proportional":
         cfg.set_proportional()
     elif memory_type == "Proportional_cpp":
-        cfg.set_proportional_cpp()
+        if os.environ.get("TEST_TYPE", "") == "low":
+            pytest.skip("TEST_TYPE is test")
+        cfg.set_proportional_cpp(force_build=True)
     elif memory_type == "RankBased":
         cfg.set_rankbased()
     elif memory_type == "RankBasedLinear":

@@ -65,6 +65,7 @@ class PriorityReplayBufferConfig:
         beta_steps: int = 1_000_000,
         has_duplicate: bool = True,
         epsilon: float = 0.0001,
+        force_build: bool = False,
     ):
         self.name = "Proportional_cpp"
         self.kwargs = dict(
@@ -73,6 +74,7 @@ class PriorityReplayBufferConfig:
             beta_steps=beta_steps,
             has_duplicate=has_duplicate,
             epsilon=epsilon,
+            force_build=force_build,
         )
         return self
 
@@ -125,10 +127,13 @@ class PriorityReplayBufferConfig:
             memory = ProportionalMemory(capacity, **self.kwargs)
 
         elif self.name == "Proportional_cpp":
-            from .priority_memories.bin import load_native_module
+            from .priority_memories.cpp_module import load_or_build_module
 
-            module = load_native_module("proportional_memory_cpp")
-            memory = module.ProportionalMemory(capacity, **self.kwargs)
+            module = load_or_build_module("proportional_memory", force_build=self.kwargs["force_build"])
+
+            kwargs = self.kwargs.copy()
+            del kwargs["force_build"]
+            memory = module.ProportionalMemory(capacity, **kwargs)
 
         elif self.name == "RankBased":
             from .priority_memories.rankbased_memory import RankBasedMemory

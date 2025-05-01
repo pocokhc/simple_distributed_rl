@@ -3,13 +3,13 @@ import time
 
 from tqdm import tqdm
 
-from srl.rl.memories.priority_memories.bin import load_native_module
+from srl.rl.memories.priority_memories.cpp_module import load_or_build_module
 from srl.rl.memories.priority_memories.proportional_memory import ProportionalMemory
 from srl.rl.memories.priority_memories.rankbased_memory import RankBasedMemory
 from srl.rl.memories.priority_memories.rankbased_memory_linear import RankBasedMemoryLinear
 from srl.rl.memories.priority_memories.replay_buffer import ReplayBuffer
 
-proportional_memory_cpp = load_native_module("proportional_memory_cpp")
+proportional_memory_cpp = load_or_build_module("proportional_memory")
 
 
 def speed_test():

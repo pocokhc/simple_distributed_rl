@@ -33,8 +33,7 @@ def test_priority_memory(memory_type: str, use_priority: bool, check_dup: bool):
     elif memory_type == "ProportionalMemory":
         memory = ProportionalMemory(capacity, 0.8, 1, 10, has_duplicate=not check_dup)
     elif memory_type == "ProportionalMemory_cpp":
-        if os.environ.get("TEST_TYPE", "") == "low":
-            pytest.skip("TEST_TYPE is test")
+        pytest.importorskip("pybind11")
         proportional_memory_cpp = load_or_build_module("proportional_memory", force_build=True)
         memory = proportional_memory_cpp.ProportionalMemory(capacity, 0.8, 1, 10, has_duplicate=not check_dup)
     elif memory_type == "RankBasedMemory":
@@ -103,8 +102,7 @@ def test_IS_Proportional(alpha, memory_type):
     if memory_type == "Proportional":
         memory = ProportionalMemory(capacity=10, alpha=alpha, beta_initial=1, epsilon=epsilon, has_duplicate=False)
     elif memory_type == "Proportional_cpp":
-        if os.environ.get("TEST_TYPE", "") == "low":
-            pytest.skip("TEST_TYPE is test")
+        pytest.importorskip("pybind11")
         proportional_memory_cpp = load_or_build_module("proportional_memory", force_build=True)
         memory = proportional_memory_cpp.ProportionalMemory(capacity=10, alpha=alpha, beta_initial=1, epsilon=epsilon, has_duplicate=False)
     else:

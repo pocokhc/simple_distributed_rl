@@ -12,6 +12,7 @@ def test_sample_basic():
 
 
 def test_sample_commonly():
+    pytest.importorskip("gymnasium")
     wkdir = setup_examples_test(add_path="")
 
     import sample_commonly  # type: ignore
@@ -25,6 +26,7 @@ def test_sample_commonly():
 
 
 def test_sample_long_training():
+    pytest.importorskip("gymnasium")
     wkdir = setup_examples_test(add_path="")
 
     import sample_long_training  # type: ignore

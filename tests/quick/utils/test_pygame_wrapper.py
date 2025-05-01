@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -22,8 +22,10 @@ def test_render():
     rgb_array = np.full((5, 5, 3), 128, dtype=np.uint8)
     pw.draw_image_rgb_array(screen, 0, 200, rgb_array, resize=(10, 50))
 
-    img_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../srl/envs/img/cell.png"))
-    pw.load_image("A", img_path)
+    import srl.envs
+
+    img_path = Path(srl.envs.__file__).parent / "img" / "cell.png"
+    pw.load_image("A", str(img_path))
     pw.draw_image(screen, "A", 300, 10)
 
     rgb_array = pw.get_rgb_array(screen)

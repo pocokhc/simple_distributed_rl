@@ -1,0 +1,8 @@
+services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    volumes:
+      - E:/mlruns:/mlflow/mlruns  # change this to your local path
+    command: mlflow server --backend-store-uri file:///mlflow/mlruns --artifacts-destination file:///mlflow/mlruns --host 0.0.0.0 --port 5000 --serve-artifacts
+    ports:
+      - "5000:5000"

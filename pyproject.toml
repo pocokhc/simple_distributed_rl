@@ -67,6 +67,9 @@ version = { attr = "srl.version.__version__" }
 
 [tool.setuptools.package-data]
 srl = [
+    "rl/memories/priority_memories/cpp_module/src/*.cpp",
+    "rl/memories/priority_memories/cpp_module/src/*.hpp",
+    "rl/memories/priority_memories/cpp_module/bin/.gitkeep",
     "font/*.ttf",
     "font/README.md",
     "envs/img/*.png",

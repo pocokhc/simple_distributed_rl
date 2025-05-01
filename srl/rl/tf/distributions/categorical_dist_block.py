@@ -38,9 +38,10 @@ kl = keras.layers
 
 
 class CategoricalDist:
-    def __init__(self, logits) -> None:
+    def __init__(self, logits, dtype=tf.float32) -> None:
         self.classes = logits.shape[-1]
         self.logits = logits
+        self.dtype = dtype
         self._base_probs = _softmax(self.logits, axis=-1)
         self._probs = self._base_probs
 
@@ -66,13 +67,13 @@ class CategoricalDist:
         a = _categorical(self.logits, num_samples=1)
         if onehot:
             a = _squeeze(a, axis=1)
-            a = _one_hot(a, self.classes, dtype=tf.float32)
+            a = _one_hot(a, self.classes, dtype=self.dtype)
         return a
 
     def rsample(self):
         a = _categorical(self.logits, num_samples=1)
         a = _squeeze(a, axis=1)
-        a = _one_hot(a, self.classes, dtype=tf.float32)
+        a = _one_hot(a, self.classes, dtype=self.dtype)
         return self._probs + tf.stop_gradient(a - self._probs)
 
     def log_probs(self):
@@ -82,7 +83,7 @@ class CategoricalDist:
     def log_prob(self, a, onehot: bool = False, keepdims: bool = True):
         if onehot:
             a = _squeeze(a, axis=-1)
-            a = _one_hot(a, self.classes, dtype=tf.float32)
+            a = _one_hot(a, self.classes, dtype=self.dtype)
         a = _sum(self.log_probs() * a, axis=-1)
         if keepdims:
             return _expand_dims(a, axis=-1)

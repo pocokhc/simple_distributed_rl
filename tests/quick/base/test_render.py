@@ -30,9 +30,6 @@ def test_render_terminal():
 
 
 def test_render_terminal_to_image():
-    pytest.importorskip("PIL")
-    pytest.importorskip("pygame")
-
     render = Render(StubRender())
     render.set_render_mode(mode="rgb_array")
 
@@ -54,8 +51,6 @@ def test_render_terminal_to_image():
     ],
 )
 def test_render_rgb_array(return_rgb):
-    pytest.importorskip("PIL")
-
     render = Render(StubRender())
     render.set_render_mode(mode="terminal")
 
@@ -74,8 +69,6 @@ def test_render_rgb_array(return_rgb):
 
 
 def test_render_window():
-    pytest.importorskip("PIL")
-    pytest.importorskip("pygame")
     if not is_available_pygame_video_device():
         pytest.skip("pygame.error: No available video device")
 

@@ -138,9 +138,9 @@ def test_autoencoder(fixed_scale, enable_squashed):
     rmse = np.sqrt(np.mean((y_true - y_pred) ** 2))
     print(f"rmse: {rmse}")
     if fixed_scale < 0:
-        assert rmse < 0.2
+        assert float(rmse) < 0.2
     else:
-        assert rmse < 0.4
+        assert float(rmse) < 0.4
 
 
 def test_dist():

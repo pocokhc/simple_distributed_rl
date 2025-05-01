@@ -90,12 +90,6 @@ class EnvConfig:
 
         return make(self)
 
-    def _update_env_info(self, env: "EnvBase"):
-        """env 作成時に env 情報を元に Config を更新"""
-        if self.max_episode_steps <= 0:
-            self.max_episode_steps = env.max_episode_steps
-        self.player_num = env.player_num
-
     def to_dict(self) -> dict:
         dat: dict = convert_for_json(self.__dict__)
         return dat

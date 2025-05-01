@@ -44,7 +44,10 @@ class SampleEnv(EnvBase[DiscreteSpace, int, DiscreteSpace, int]):
 
     @property
     def max_episode_steps(self) -> int:
-        return 20
+        if self.training:
+            return 10
+        else:
+            return 50
 
     def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
         self.player_pos = 4

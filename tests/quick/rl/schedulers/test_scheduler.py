@@ -1,6 +1,7 @@
 import math
 
 import numpy as np
+import pytest
 
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -106,6 +107,7 @@ def test_polynomial():
 
 
 def test_multi_plot():
+    pytest.importorskip("matplotlib")
     sch = SchedulerConfig()
     sch.add_linear(0.5, 1.0, 100)
     sch.add_linear(1.0, 0.1, 200)

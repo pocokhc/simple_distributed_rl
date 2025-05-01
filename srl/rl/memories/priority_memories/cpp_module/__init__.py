@@ -58,8 +58,8 @@ def load_or_build_module(module_name: str, force_build: bool = False) -> ModuleT
                 "  - On Linux: `g++` (e.g. `sudo apt install g++ build-essential`)\n"
                 "  - On macOS: Xcode Command Line Tools (e.g. `xcode-select --install`)\n"
                 "  - On Windows: Visual Studio Build Tools with C++ CMake and MSVC components\n"
-                "\nAlso, make sure `pybind11` is installed:\n"
-                "  pip install pybind11\n"
+                "\nAlso, make sure `pybind11` `setuptools` is installed:\n"
+                "  pip install pybind11 setuptools\n"
                 "\nIf you cannot build the module or do not need high-performance C++ code,\n"
                 "consider using `set_proportional_memory()` instead, which is implemented purely in Python.\n"
             )

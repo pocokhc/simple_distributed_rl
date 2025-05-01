@@ -156,10 +156,9 @@ dmypy.json
 
 
 # --- pybind11
-cpp/bin/*
-!cpp/bin/.gitkeep
-cpp/build/*
-cpp/src/*
-!cpp/src/*.cpp
-!cpp/src/*.hpp
-!srl/rl/memories/priority_memories/bin/*/*.*
+srl/rl/memories/priority_memories/cpp_module/bin/*
+!srl/rl/memories/priority_memories/cpp_module/bin/.gitkeep
+srl/rl/memories/priority_memories/cpp_module/build/*
+srl/rl/memories/priority_memories/cpp_module/src/*
+!srl/rl/memories/priority_memories/cpp_module/src/*.cpp
+!srl/rl/memories/priority_memories/cpp_module/src/*.hpp

@@ -2,10 +2,12 @@
 setup_cpp.py for building pybind11-based C++ extension
 """
 
+import argparse
 import glob
 import os
 import shutil
 import sys
+from typing import List, Union
 
 import pybind11
 from setuptools import Extension, setup
@@ -73,6 +75,9 @@ COMPILE_ARGS = {
     ),
 }
 
+BIN_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "bin", sys.platform))
+BUILD_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "build"))
+
 
 # ---------------------------------------
 # 現在のプラットフォームに応じた設定を返す
@@ -86,13 +91,6 @@ def get_platform_config():
 
 
 # ---------------------------------------
-# build/ディレクトリのパス
-# ---------------------------------------
-def get_build_base():
-    return os.path.join(os.path.dirname(__file__), "build")
-
-
-# ---------------------------------------
 # build_ext コマンドを拡張して bin/ へ .so/.pyd をコピー
 # ---------------------------------------
 class CustomBuildExt(build_ext):
@@ -100,26 +98,24 @@ class CustomBuildExt(build_ext):
         super().build_extensions()
 
         build_dir = os.path.abspath(self.build_lib)
-        bin_dir = os.path.join(os.path.dirname(__file__), "bin", sys.platform)
-        os.makedirs(bin_dir, exist_ok=True)
+        os.makedirs(BIN_DIR, exist_ok=True)
 
         for file in glob.glob(os.path.join(build_dir, f"{self.distribution.get_name()}*.*")):
-            shutil.copy(file, bin_dir)
-            print(f" Copied {os.path.basename(file)} → {bin_dir}")
+            shutil.copy(file, BIN_DIR)
+            print(f" Copied {os.path.basename(file)} → {BIN_DIR}")
 
 
 # ---------------------------------------
 # メイン関数：指定されたモジュール名をビルド
 # ---------------------------------------
-def build_extension(base_name: str | list[str]):
+def build_extension(base_name: Union[str, List[str]]):
     if isinstance(base_name, str):
         base_name = [base_name]
 
     # build/を毎回削除する（クリーンビルド）
-    build_dir = get_build_base()
-    if os.path.exists(build_dir):
-        print(f"Cleaning build directory: {build_dir}")
-        shutil.rmtree(build_dir)
+    if os.path.exists(BUILD_DIR):
+        print(f"Cleaning build directory: {BUILD_DIR}")
+        shutil.rmtree(BUILD_DIR)
 
     # platform毎の設定情報を取得
     platform, compile_opts = get_platform_config()
@@ -144,7 +140,8 @@ def build_extension(base_name: str | list[str]):
         version="0.1",
         ext_modules=ext_modules,
         cmdclass={"build_ext": CustomBuildExt},
-        options={"build": {"build_base": build_dir}},
+        options={"build": {"build_base": BUILD_DIR}},
+        script_args=["build_ext"],
     )
 
 
@@ -154,4 +151,13 @@ def build_extension(base_name: str | list[str]):
 # 複数ファイルで構成の場合はlistで渡す
 # ---------------------------------------
 if __name__ == "__main__":
-    build_extension("proportional_memory")
+    parser = argparse.ArgumentParser(description="Build C++ extension module(s)")
+    parser.add_argument(
+        "modules",
+        metavar="MODULE",
+        type=str,
+        nargs="+",  # 複数受け取り可能
+        help='Module name(s) without ".cpp" (e.g., "proportional_memory")',
+    )
+    args = parser.parse_args()
+    build_extension(args.modules)

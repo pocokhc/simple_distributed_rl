@@ -154,6 +154,12 @@ class EnvBase(IRender, Generic[TActSpace, TActType, TObsSpace, TObsType], ABC):
             return self.env_run.context.training
         return False
 
+    @property
+    def rendering(self) -> bool:
+        if self.env_run is not None:
+            return self.env_run.context.env_render_mode != ""
+        return False
+
     # --------------------------------
     # direct
     # --------------------------------

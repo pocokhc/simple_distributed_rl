@@ -43,6 +43,7 @@ full = [
     "redis",
     "mlflow",
     "pybind11",
+    "setuptools",
 ]
 dev = [
     "gymnasium",
@@ -53,6 +54,7 @@ dev = [
     "redis",
     "mlflow",
     "pybind11",
+    "setuptools",
     # dev
     "pytest",
     "pytest-mock",

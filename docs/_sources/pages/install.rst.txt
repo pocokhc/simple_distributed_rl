@@ -21,10 +21,10 @@ Installation
 Tensorflow/PyTorchは含まれないので別途インストールしてください。
 
 + Tensorflow
-  + <https://www.tensorflow.org/install?hl=ja>
-  + tensorflow-probability[tf]
+   + <https://www.tensorflow.org/install?hl=ja>
+   + tensorflow-probability[tf]
 + PyTorch
-  + <https://pytorch.org/get-started/locally/>
+   + <https://pytorch.org/get-started/locally/>
 
 
 

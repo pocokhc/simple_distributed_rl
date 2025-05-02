@@ -12,10 +12,10 @@ Installation
 .. code-block:: console
 
     # 基本的な機能のみをインストール
-    $ pip install srl-frametowrk
+    $ pip install srl-framework
     
     # 主要な拡張機能や補助的なライブラリも含めてインストール（※TensorFlowやPyTorchは含まれません）
-    $ pip install srl-frametowrk[full]
+    $ pip install srl-framework[full]
 
 
 Tensorflow/PyTorchは含まれないので別途インストールしてください。

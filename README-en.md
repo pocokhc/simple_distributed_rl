@@ -33,10 +33,10 @@ You can install it from PyPI.
 
 ``` bash
 # Install only the core functionality
-pip install srl-frametowrk
+pip install srl-framework
 
 # Install with major extensions and auxiliary libraries (TensorFlow and PyTorch not included)
-pip install srl-frametowrk[full]
+pip install srl-framework[full]
 ```
 
 TensorFlow and PyTorch are not included, so please install them separately.

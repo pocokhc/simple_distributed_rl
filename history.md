@@ -15,9 +15,9 @@
 // TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除
 
 
-# v0.19.3
+# v1.0.0
 
-・pypi登録用の準備
+・pypi登録(srl-framework)、登録につきverを1.0.0に変更
 
 ・c++を使える環境を追加し、PropotionalMemory_cppを追加しました。（有志の方に作成頂きました）
 10倍以上の高速化が見込まれます。
@@ -36,10 +36,9 @@ rl_config.memory.set_propotional_memory_cpp()
 
 **MainUpdates**
 
-1. [slr] change: pypi登録用に準備
+1. [srl] change: pypi登録用に準備
 1. [rl.memories.priority_memories] new: c++を使える環境を追加し、PropotionalMemory_cppを実装
 1. [font] change: PlemolJPからFireCode-Regularに変更し、ファイルサイズを削減
-
 
 **OtherUpdates**
 
@@ -50,7 +49,8 @@ rl_config.memory.set_propotional_memory_cpp()
 1. [base.rl.config] change: render_rl_image_sizeを(64,64)から(128,128)に変更
 1. [runner.callbacks.print_progress] update: 表示修正と送受信の表示をint化から切り上げに変更
 1. [base.env.base] add: renderingプロパティを追加
-
+1. [dockers] add: ローカルで使っているmlflow用のdockerfileを公開
+1. [dockers] update: バージョン更新
 
 **Bug Fixes**
 

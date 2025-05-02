@@ -25,6 +25,7 @@ config = MyConfig()
 # --- select memory
 # config.memory.set_replay_buffer()
 config.memory.set_proportional()
+# config.memory.set_proportional_cpp()
 # config.memory.set_rankbased()
 # config.memory.set_rankbased_linear()
 

@@ -10,11 +10,13 @@ Installation
 - Pypiからインストールできます。
 
 .. code-block:: console
+
     # 基本的な機能のみをインストール
     $ pip install srl-frametowrk
     
     # 主要な拡張機能や補助的なライブラリも含めてインストール（※TensorFlowやPyTorchは含まれません）
     $ pip install srl-frametowrk[full]
+
 
 Tensorflow/PyTorchは含まれないので別途インストールしてください。
 

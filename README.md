@@ -46,7 +46,7 @@ Tensorflow/PyTorchは含まれないので別途インストールしてくだ�
   + <https://pytorch.org/get-started/locally/>
 
 
-インストールされるライブラリの詳細や、ダウンロードのみでの使い方は以下のドキュメントを参照してください。
+インストールされるライブラリの詳細や、ダウンロードのみでの使い方は以下のドキュメントを参照してください。  
 <https://pocokhc.github.io/simple_distributed_rl/pages/install.html>
 
 

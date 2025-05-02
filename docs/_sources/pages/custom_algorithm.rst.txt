@@ -506,7 +506,7 @@ RLPriorityReplayBuffer
 =========================
 
 | 以下で登録します。  
-| 第2引数以降の entry_point は、`モジュールパス + ":" + クラス名`で、  
+| 第2引数以降の entry_point は、`モジュールパス + ':' + クラス名` で記載します。  
 | モジュールパスは `importlib.import_module` で呼び出せる形式である必要があります。
 
 .. code-block:: python

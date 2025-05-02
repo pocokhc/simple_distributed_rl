@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Making a Custom algorithm &mdash; SimpleDistributedRL 0.19.0.2 ドキュメント</title>
+  <title>Making a Custom algorithm &mdash; SimpleDistributedRL 1.0.0 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=64650a6a"></script>
+      <script src="../_static/documentation_options.js?v=144c8c96"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -69,7 +69,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#id4">3. 自作アルゴリズムの登録</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id7">4. 型ヒント</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id5">4. 型ヒント</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#q">5. 実装例(Q学習)</a></li>
 </ul>
 </li>
@@ -466,6 +466,7 @@
 <span class="c1"># --- select memory</span>
 <span class="c1"># config.memory.set_replay_buffer()</span>
 <span class="n">config</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">set_proportional</span><span class="p">()</span>
+<span class="c1"># config.memory.set_proportional_cpp()</span>
 <span class="c1"># config.memory.set_rankbased()</span>
 <span class="c1"># config.memory.set_rankbased_linear()</span>
 
@@ -738,7 +739,7 @@
 <h2>3. 自作アルゴリズムの登録<a class="headerlink" href="#id4" title="Link to this heading"></a></h2>
 <div class="line-block">
 <div class="line">以下で登録します。</div>
-<div class="line">第2引数以降の entry_point は、<a href="#id5"><span class="problematic" id="id6">`</span></a>モジュールパス + &quot;:&quot; + クラス名`で、</div>
+<div class="line">第2引数以降の entry_point は、<cite>モジュールパス + ':' + クラス名</cite> で記載します。</div>
 <div class="line">モジュールパスは <cite>importlib.import_module</cite> で呼び出せる形式である必要があります。</div>
 </div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">srl.base.rl.registration</span><span class="w"> </span><span class="kn">import</span> <span class="n">register</span>
@@ -752,8 +753,8 @@
 </pre></div>
 </div>
 </section>
-<section id="id7">
-<h2>4. 型ヒント<a class="headerlink" href="#id7" title="Link to this heading"></a></h2>
+<section id="id5">
+<h2>4. 型ヒント<a class="headerlink" href="#id5" title="Link to this heading"></a></h2>
 <div class="line-block">
 <div class="line">動作に影響ないですが、可能な限り型ヒントが表示されるようにしています。</div>
 <div class="line">※VSCodeを想定しています</div>

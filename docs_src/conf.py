@@ -20,7 +20,7 @@ exec(open(version_path).read())
 project = "SimpleDistributedRL"
 copyright = "2022, poco"
 author = "poco"
-release = VERSION  # type: ignore  # noqa
+release = __version__  # type: ignore  # noqa
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

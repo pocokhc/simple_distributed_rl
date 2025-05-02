@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Installation &mdash; SimpleDistributedRL 0.19.0.2 ドキュメント</title>
+  <title>Installation &mdash; SimpleDistributedRL 1.0.0 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=64650a6a"></script>
+      <script src="../_static/documentation_options.js?v=144c8c96"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -46,13 +46,13 @@
               <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#id1">必須ライブラリ</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#id2">その他のライブラリ</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#id3">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#install-options">Install options</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#download-no-install">Download(No install)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id1">各ライブラリについて</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#id4">インストール</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#download-no-install">Download(No install)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#id2">必須ライブラリ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#id3">その他のライブラリ</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#sample-code">Sample code</a></li>
 </ul>
 </li>
@@ -120,106 +120,76 @@
              
   <section id="installation">
 <span id="install"></span><h1>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h1>
-<section id="id1">
-<h2>必須ライブラリ<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>numpy
+<ul class="simple">
+<li><p>Pypiからインストールできます。</p></li>
+</ul>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp"># </span>基本的な機能のみをインストール
+<span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>srl-frametowrk
+
+<span class="gp"># </span>主要な拡張機能や補助的なライブラリも含めてインストール（※TensorFlowやPyTorchは含まれません）
+<span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>srl-frametowrk<span class="o">[</span>full<span class="o">]</span>
 </pre></div>
 </div>
-</section>
-<section id="id2">
-<h2>その他のライブラリ<a class="headerlink" href="#id2" title="Link to this heading"></a></h2>
-<p>使う機能によって以下ライブラリが必要になります。</p>
+<p>Tensorflow/PyTorchは含まれないので別途インストールしてください。</p>
+<ul class="simple">
+<li><p>Tensorflow
++ &lt;<a class="reference external" href="https://www.tensorflow.org/install?hl=ja">https://www.tensorflow.org/install?hl=ja</a>&gt;
++ tensorflow-probability[tf]</p></li>
+<li><p>PyTorch
++ &lt;<a class="reference external" href="https://pytorch.org/get-started/locally/">https://pytorch.org/get-started/locally/</a>&gt;</p></li>
+</ul>
+<section id="install-options">
+<h2>Install options<a class="headerlink" href="#install-options" title="Link to this heading"></a></h2>
+<div class="line-block">
+<div class="line">SRLには追加機能を有効にするための <strong>extras オプション</strong> が用意されています。</div>
+<div class="line">これにより、標準機能に加えて、特定のユースケースに必要な外部ライブラリも一括でインストールすることが可能です。</div>
+<div class="line"><br /></div>
+<div class="line">利用可能な extras オプションと、それぞれに含まれるライブラリは以下です。</div>
+</div>
 <ul class="simple">
 <li><dl class="simple">
-<dt>Tensorflow が必要なアルゴリズムを使用する場合</dt><dd><ul>
-<li><p>tensorflow</p></li>
-<li><p>tensorflow-probability</p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>Torch が必要なアルゴリズムを使用する場合</dt><dd><ul>
-<li><p>&lt;<a class="reference external" href="https://pytorch.org/get-started/locally/">https://pytorch.org/get-started/locally/</a>&gt;</p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>画像関係の機能を使用する場合</dt><dd><ul>
-<li><p>pillow</p></li>
+<dt>なし</dt><dd><ul>
+<li><p>numpy</p></li>
 <li><p>opencv-python</p></li>
+<li><p>Pillow</p></li>
 <li><p>pygame</p></li>
 </ul>
 </dd>
 </dl>
 </li>
 <li><dl class="simple">
-<dt>historyによる統計情報を扱う場合</dt><dd><ul>
-<li><p>pandas</p></li>
+<dt>full</dt><dd><ul>
+<li><p>「なし」に以下が追加されます</p></li>
+<li><p>gymnasium</p></li>
 <li><p>matplotlib</p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>OpenAI Gym の環境を使用する場合</dt><dd><ul>
-<li><p>gym or gymnasium</p></li>
-<li><p>pygame</p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>ハードウェアの統計情報を表示する場合</dt><dd><ul>
+<li><p>pandas</p></li>
 <li><p>psutil</p></li>
 <li><p>pynvml</p></li>
-</ul>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>クラウド/ネットワークによる分散学習を使用する場合</dt><dd><ul>
 <li><p>redis</p></li>
-<li><p>pika</p></li>
-<li><p>paho-mqtt</p></li>
+<li><p>mlflow</p></li>
+<li><p>pybind11</p></li>
+<li><p>setuptools</p></li>
 </ul>
 </dd>
 </dl>
 </li>
 <li><dl class="simple">
-<dt>学習を管理する場合</dt><dd><ul>
-<li><p>mlflow</p></li>
+<dt>dev</dt><dd><ul>
+<li><p>「full」に以下が追加されます</p></li>
+<li><p>pytest</p></li>
+<li><p>pytest-mock</p></li>
+<li><p>pytest-timeout</p></li>
 </ul>
 </dd>
 </dl>
 </li>
 </ul>
-<p>一括インストールコマンドは以下です。
-（Tensorflow、Torch、クラウド分散学習用ライブラリ、mlflowを除く）</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>matplotlib<span class="w"> </span>pillow<span class="w"> </span>opencv-python<span class="w"> </span>pygame<span class="w"> </span>pandas<span class="w"> </span>gymnasium<span class="w"> </span>psutil<span class="w"> </span>pynvml
-</pre></div>
-</div>
-<section id="id3">
-<h3>Installation<a class="headerlink" href="#id3" title="Link to this heading"></a></h3>
-<p>本フレームワークはGitHubからインストールまたはダウンロードをして使う事ができます。</p>
-</section>
-</section>
-<section id="id4">
-<h2>インストール<a class="headerlink" href="#id4" title="Link to this heading"></a></h2>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>git+https://github.com/pocokhc/simple_distributed_rl
-</pre></div>
-</div>
-<p>or</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/pocokhc/simple_distributed_rl.git
-<span class="gp">$ </span><span class="nb">cd</span><span class="w"> </span>simple_distributed_rl
-<span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>.
-</pre></div>
-</div>
-</section>
 <section id="download-no-install">
-<h2>Download(No install)<a class="headerlink" href="#download-no-install" title="Link to this heading"></a></h2>
-<p>srlディレクトリに実行パスが通っていればダウンロードだけでも使えます。</p>
+<h3>Download(No install)<a class="headerlink" href="#download-no-install" title="Link to this heading"></a></h3>
+<div class="line-block">
+<div class="line">本フレームワークはインストールしないでも使う事ができます。</div>
+<div class="line">本フレームワークをダウンロード後、srlディレクトリに実行パスが通っていれば使うことができます。</div>
+</div>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp"># </span>Download<span class="w"> </span>srl<span class="w"> </span>files
 <span class="gp">$ </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/pocokhc/simple_distributed_rl.git
 </pre></div>
@@ -234,6 +204,91 @@
 <span class="nb">print</span><span class="p">(</span><span class="n">srl</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span>
 </pre></div>
 </div>
+</section>
+<section id="id1">
+<h3>各ライブラリについて<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
+</section>
+</section>
+<section id="id2">
+<h2>必須ライブラリ<a class="headerlink" href="#id2" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>numpy</p></li>
+</ul>
+</section>
+<section id="id3">
+<h2>その他のライブラリ<a class="headerlink" href="#id3" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><dl class="simple">
+<dt>Tensorflow が必要なアルゴリズムを使用する場合に必要</dt><dd><ul>
+<li><p>tensorflow</p></li>
+<li><p>tensorflow-probability</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Torch が必要なアルゴリズムを使用する場合に必要</dt><dd><ul>
+<li><p>torch</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>画像関係の機能を使用する場合に必要</dt><dd><ul>
+<li><p>pillow</p></li>
+<li><p>opencv-python</p></li>
+<li><p>pygame</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>OpenAI Gym の環境を使用する場合に必要</dt><dd><ul>
+<li><p>gym or gymnasium</p></li>
+<li><p>pygame</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>historyによる統計情報を扱う場合に必要</dt><dd><ul>
+<li><p>pandas</p></li>
+<li><p>matplotlib</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>ハードウェアの統計情報を表示する場合に必要</dt><dd><ul>
+<li><p>psutil</p></li>
+<li><p>pynvml</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>クラウド/ネットワークによる分散学習を使用する場合に必要</dt><dd><ul>
+<li><p>redis</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>学習を管理する場合に必要</dt><dd><ul>
+<li><p>mlflow</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>C++の拡張を使用する場合に必要</dt><dd><ul>
+<li><p>pybind11</p></li>
+<li><p>setuptools</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
 <section id="sample-code">
 <h3>Sample code<a class="headerlink" href="#sample-code" title="Link to this heading"></a></h3>
 <p>動作確認用のサンプルコードは以下です。</p>

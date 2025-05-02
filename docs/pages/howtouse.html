@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>How To Use &mdash; SimpleDistributedRL 0.19.0.2 ドキュメント</title>
+  <title>How To Use &mdash; SimpleDistributedRL 1.0.0 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=64650a6a"></script>
+      <script src="../_static/documentation_options.js?v=144c8c96"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -62,6 +62,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#rollout">Rollout</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#train-only">Train Only</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#train-multiprocessing">Train Multiprocessing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mlflow-train">MLflow Train</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#evaluate">Evaluate</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#render-terminal">Render Terminal</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#render-window">Render Window</a></li>
@@ -376,6 +377,60 @@
 <div class="line">multiprocessing による分散学習を実施します。</div>
 </div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">runner</span><span class="o">.</span><span class="n">train_mp</span><span class="p">(</span><span class="n">max_train_count</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="mlflow-train">
+<h3>MLflow Train<a class="headerlink" href="#mlflow-train" title="Link to this heading"></a></h3>
+<div class="line-block">
+<div class="line">学習内容をMLFlowで記録します。</div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">mlflow</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">srl</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">srl.algorithms</span><span class="w"> </span><span class="kn">import</span> <span class="n">ql</span><span class="p">,</span> <span class="n">vanilla_policy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">srl.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">common</span>
+
+<span class="c1"># &gt; mlflow ui --backend-store-uri mlruns</span>
+<span class="n">mlflow</span><span class="o">.</span><span class="n">set_tracking_uri</span><span class="p">(</span><span class="s2">&quot;mlruns&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">create_ql_runner</span><span class="p">():</span>
+    <span class="n">env_config</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">)</span>
+    <span class="n">rl_config</span> <span class="o">=</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">rl_config</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">train_ql</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">create_ql_runner</span><span class="p">()</span>
+    <span class="n">runner</span><span class="o">.</span><span class="n">set_mlflow</span><span class="p">()</span>
+    <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">load_ql_parameter</span><span class="p">():</span>
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">create_ql_runner</span><span class="p">()</span>
+    <span class="n">runner</span><span class="o">.</span><span class="n">load_parameter_from_mlflow</span><span class="p">()</span>
+    <span class="n">rewards</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">rewards</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">train_vanilla_policy</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
+    <span class="n">env_config</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">)</span>
+    <span class="n">rl_config</span> <span class="o">=</span> <span class="n">vanilla_policy</span><span class="o">.</span><span class="n">Config</span><span class="p">()</span>
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">rl_config</span><span class="p">)</span>
+
+    <span class="n">runner</span><span class="o">.</span><span class="n">set_mlflow</span><span class="p">()</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">set_experiment</span><span class="p">(</span><span class="s2">&quot;MyExperimentName&quot;</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">start_run</span><span class="p">(</span><span class="n">run_name</span><span class="o">=</span><span class="s2">&quot;MyRunName&quot;</span><span class="p">):</span>
+        <span class="n">runner</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">common</span><span class="o">.</span><span class="n">logger_print</span><span class="p">()</span>
+
+    <span class="n">train_ql</span><span class="p">()</span>
+    <span class="n">load_ql_parameter</span><span class="p">()</span>
+    <span class="n">train_vanilla_policy</span><span class="p">()</span>
 </pre></div>
 </div>
 </section>

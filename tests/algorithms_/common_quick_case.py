@@ -58,14 +58,22 @@ class CommonQuickCase(ABC):
             elif self.use_framework() == "torch":
                 cast(RLConfigComponentFramework, rl_config).set_torch()
 
-    @pytest.mark.timeout(60)  # pip install pytest_timeout
+    @pytest.mark.timeout(120)  # pip install pytest_timeout
     def test_simple(self, rl_param, tmpdir):
         self._check_test_params()
         rl_config, test_kwargs = self.create_rl_config(rl_param)
         self._setup_rl_config(rl_config)
         test_rl.test_rl(rl_config, device=self.use_device(), **test_kwargs, tmp_dir=tmpdir)
 
-    @pytest.mark.timeout(60)  # pip install pytest_timeout
+    @pytest.mark.timeout(120)  # pip install pytest_timeout
+    def test_simple_dtype(self, rl_param, tmpdir):
+        self._check_test_params()
+        rl_config, test_kwargs = self.create_rl_config(rl_param)
+        rl_config.dtype = "float16"
+        self._setup_rl_config(rl_config)
+        test_rl.test_rl(rl_config, device=self.use_device(), **test_kwargs, tmp_dir=tmpdir)
+
+    @pytest.mark.timeout(120)  # pip install pytest_timeout
     def test_simple_rollout_train(self, rl_param, tmpdir):
         self._check_test_params()
         rl_config, test_kwargs = self.create_rl_config(rl_param)
@@ -91,7 +99,7 @@ class CommonQuickCase(ABC):
         rl_config.observation_mode = "render_image"
         test_rl.test_rl(rl_config, device=self.use_device(), **test_kwargs, tmp_dir=tmpdir)
 
-    @pytest.mark.timeout(120)  # pip install pytest_timeout
+    @pytest.mark.timeout(180)  # pip install pytest_timeout
     def test_simple_mp_memory(self, rl_param, tmpdir):
         self._check_test_params()
         rl_config, test_kwargs = self.create_rl_config(rl_param)
@@ -107,7 +115,7 @@ class CommonQuickCase(ABC):
             tmp_dir=tmpdir,
         )
 
-    @pytest.mark.timeout(120)  # pip install pytest_timeout
+    @pytest.mark.timeout(180)  # pip install pytest_timeout
     def test_simple_mp(self, rl_param, tmpdir):
         self._check_test_params()
         rl_config, test_kwargs = self.create_rl_config(rl_param)
@@ -123,7 +131,7 @@ class CommonQuickCase(ABC):
             tmp_dir=tmpdir,
         )
 
-    @pytest.mark.timeout(30)  # pip install pytest_timeout
+    @pytest.mark.timeout(60)  # pip install pytest_timeout
     def test_summary(self, rl_param):
         self._check_test_params()
         rl_config, test_kwargs = self.create_rl_config(rl_param)

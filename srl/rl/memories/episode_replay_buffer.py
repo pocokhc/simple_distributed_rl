@@ -131,6 +131,19 @@ class EpisodeReplayBuffer:
 
         return batches
 
+    def call_backup(self, **kwargs):
+        return [
+            self.idx,
+            self.total_size,
+            self.buffer[:],
+        ]
+
+    def call_restore(self, data: Any, **kwargs) -> None:
+        self.idx = data[0]
+        self.total_size = data[1]
+        self.buffer = data[2][:]
+        self._sequential_batches = [[] for _ in range(self.batch_size)]
+
 
 class RLEpisodeReplayBuffer(Generic[TRLConfig], EpisodeReplayBuffer, RLMemory[TRLConfig]):
     def __init__(self, *args):

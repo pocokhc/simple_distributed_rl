@@ -34,9 +34,7 @@ def setup_device(
 
     if __setup_device:
         if __framework != framework:
-            logger.warning(
-                f"{log_prefix}Initialization with a different framework is not assumed. {__framework}!={framework}"
-            )
+            logger.warning(f"{log_prefix}Initialization with a different framework is not assumed. {__framework}!={framework}")
         return __used_device_tf, __used_device_torch
 
     # logger

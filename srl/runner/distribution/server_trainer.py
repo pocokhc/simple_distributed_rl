@@ -335,6 +335,7 @@ def run_forever(
     device: str = "AUTO",
     set_CUDA_VISIBLE_DEVICES_if_CPU: bool = True,
     tf_enable_memory_growth: bool = True,
+    tf_mixed_precision_policy_name: str = "",
     run_once: bool = False,
     is_remote_memory_purge: bool = True,
 ):
@@ -343,6 +344,7 @@ def run_forever(
         device,
         set_CUDA_VISIBLE_DEVICES_if_CPU,
         tf_enable_memory_growth,
+        tf_mixed_precision_policy_name,
     )
     task_manager_params = TaskManagerParams(
         "trainer",

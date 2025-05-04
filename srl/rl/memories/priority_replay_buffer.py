@@ -271,7 +271,7 @@ class RLPriorityReplayBuffer(Generic[TRLConfig], PriorityReplayBuffer, RLMemory[
         assert hasattr(self.config, "memory")
         assert hasattr(self.config, "batch_size")
         assert isinstance(self.config.memory, PriorityReplayBufferConfig)  # type: ignore
-        PriorityReplayBuffer.__init__(self, self.config.memory, self.config.batch_size)  # type: ignore
+        PriorityReplayBuffer.__init__(self, self.config.memory, self.config.batch_size, self.config.get_dtype("np"))  # type: ignore
 
         self.register_worker_func(self.add, self.serialize)
         self.register_trainer_recv_func(self.sample)

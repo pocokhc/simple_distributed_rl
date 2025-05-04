@@ -78,6 +78,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
     def on_setup(self) -> None:
         lr = self.config.lr_scheduler.apply_tf_scheduler(self.config.lr)
         self.optimizer = keras.optimizers.Adam(learning_rate=lr)
+        self.np_dtype = self.config.get_dtype("np")
         self.sync_count = 0
 
     def train(self):
@@ -87,9 +88,9 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         batches, weights, update_args = batches
 
         if self.config.multisteps == 1:
-            target_q, states, onehot_actions = calc_target_q(self.parameter, batches, training=True)
+            target_q, states, onehot_actions = calc_target_q(self.parameter, batches, self.np_dtype)
         else:
-            target_q, states, onehot_actions = self.parameter.calc_target_q(batches, training=True)
+            target_q, states, onehot_actions = self.parameter.calc_target_q(batches)
 
         with tf.GradientTape() as tape:
             loss, q = self.parameter.q_online.compute_train_loss(states, onehot_actions, target_q, weights)

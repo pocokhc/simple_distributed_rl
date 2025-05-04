@@ -1,5 +1,7 @@
 from typing import Tuple
 
+import pytest
+
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_long_case import CommonLongCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -14,7 +16,7 @@ class QuickCase(CommonQuickCase):
 
         rl_config.memory.warmup_size = 2
         rl_config.batch_size = 2
-        rl_config.lstm_units = 8
+        rl_config.lstm_units = 4
         rl_config.input_image_block.set_dqn_block(filters=2)
         rl_config.hidden_block.set_dueling_network((2, 2))
         rl_config.target_model_update_interval = 1
@@ -25,6 +27,9 @@ class QuickCase(CommonQuickCase):
         rl_config.input_action = True
 
         return rl_config, {}
+
+    def test_simple_dtype(self, rl_param, tmpdir):
+        pytest.skip("LSTM + float16 is not supported")
 
 
 class LongCase(CommonLongCase):

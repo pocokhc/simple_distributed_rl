@@ -176,7 +176,8 @@ class Memory(RLPriorityReplayBuffer):
 
 class CommonInterfaceParameter(RLParameter[Config], ABC):
     def setup(self):
-        self.multi_discounts = np.array([self.config.discount**n for n in range(self.config.multisteps)])
+        self.np_dtype = self.config.get_dtype("np")
+        self.multi_discounts = np.array([self.config.discount**n for n in range(self.config.multisteps)], dtype=self.np_dtype)
 
     @abstractmethod
     def pred_single_q(self, state) -> np.ndarray:
@@ -190,16 +191,16 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
     def pred_batch_target_q(self, state) -> np.ndarray:
         raise NotImplementedError()
 
-    def calc_target_q(self, batches, training: bool):
+    def calc_target_q(self, batches):
         batch_size = len(batches)
         multi_discounts = np.tile(self.multi_discounts, (batch_size, 1))
 
         # (batch, multistep, shape)
         state_list = np.asarray([[b[0] for b in steps] for steps in batches])
         # act,r,dは[1:]
-        action_list = np.asarray([[b[1] for b in steps[1:]] for steps in batches], dtype=np.float32)
-        reward = np.array([[b[2] for b in steps[1:]] for steps in batches], dtype=np.float32)
-        done = np.array([[b[3] for b in steps[1:]] for steps in batches], dtype=np.float32)
+        action_list = np.asarray([[b[1] for b in steps[1:]] for steps in batches], dtype=self.np_dtype)
+        reward = np.array([[b[2] for b in steps[1:]] for steps in batches], dtype=self.np_dtype)
+        done = np.array([[b[3] for b in steps[1:]] for steps in batches], dtype=self.np_dtype)
 
         # 1step目はretraceで使わない、retraceで使うのは 2step以降
         state = state_list[:, 0, :]
@@ -290,12 +291,9 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
         # (multistep, batch, shape) ->  (batch, multistep, shape)
         retrace_list = np.asarray(retrace_list).transpose((1, 0))
 
-        target_q = np.sum(td_errors * multi_discounts * retrace_list, axis=1, dtype=np.float32)
+        target_q = np.sum(td_errors * multi_discounts * retrace_list, axis=1, dtype=self.np_dtype)
 
-        if training:
-            return target_q, state, action
-        else:
-            return target_q
+        return target_q, state, action
 
 
 class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
@@ -405,8 +403,8 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
             if self.q is None:
                 self.q = self.parameter.pred_single_q(worker.state)
             select_q = self.q[worker.action]
-            target_q = self.parameter.calc_target_q([batch], training=False)[0]
-            priority = abs(target_q - select_q)
+            target_q, _, _ = self.parameter.calc_target_q([batch])
+            priority = abs(target_q[0] - select_q)
 
         self.memory.add(batch, priority)
 

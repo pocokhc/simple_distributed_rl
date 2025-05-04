@@ -7,15 +7,15 @@ from srl.rl.functions import inverse_rescaling, rescaling
 from .rainbow import CommonInterfaceParameter, Config, Memory, RLWorker
 
 
-def calc_target_q(self: CommonInterfaceParameter, batches, training: bool):
+def calc_target_q(self: CommonInterfaceParameter, batches, np_dtype):
     batch_size = len(batches)
 
     states, n_states, onehot_actions, rewards, undones, _ = zip(*batches)
-    states = np.asarray(states)
-    n_states = np.asarray(n_states)
-    onehot_actions = np.asarray(onehot_actions, dtype=np.float32)
-    rewards = np.array(rewards, dtype=np.float32)
-    undones = np.array(undones, dtype=np.float32)
+    states = np.asarray(states, dtype=np_dtype)
+    n_states = np.asarray(n_states, dtype=np_dtype)
+    onehot_actions = np.asarray(onehot_actions, dtype=np_dtype)
+    rewards = np.array(rewards, dtype=np_dtype)
+    undones = np.array(undones, dtype=np_dtype)
     next_invalid_actions = [e for b in batches for e in b[5]]
     next_invalid_actions_idx = [i for i, b in enumerate(batches) for e in b[5]]
 
@@ -40,16 +40,14 @@ def calc_target_q(self: CommonInterfaceParameter, batches, training: bool):
     if self.config.enable_rescale:
         target_q = rescaling(target_q)
 
-    if training:
-        return target_q, states, onehot_actions
-    else:
-        return target_q
+    return target_q, states, onehot_actions
 
 
 class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
     def on_setup(self, worker, context) -> None:
         self.step_epsilon = 0
         self.epsilon_sch = self.config.epsilon_scheduler.create(self.config.epsilon)
+        self.np_dtype = self.config.get_dtype("np")
 
     def policy(self, worker) -> int:
         if self.config.enable_noisy_dense:
@@ -117,8 +115,8 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
             if self.q is None:
                 self.q = self.parameter.pred_single_q(worker.state)
             select_q = self.q[worker.action]
-            target_q = calc_target_q(self.parameter, [batch], training=False)[0]
-            priority = abs(target_q - select_q)
+            target_q, _, _ = calc_target_q(self.parameter, [batch], np_dtype=self.np_dtype)
+            priority = abs(target_q[0] - select_q)
 
         self.memory.add(batch, priority)
 

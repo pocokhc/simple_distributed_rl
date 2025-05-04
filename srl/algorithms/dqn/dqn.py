@@ -10,7 +10,7 @@ from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import RLProcessor
 from srl.base.spaces.space import SpaceBase
 from srl.rl import functions as funcs
-from srl.rl.memories.replay_buffer import ReplayBufferConfig, RLReplayBuffer
+from srl.rl.memories.priority_replay_buffer import PriorityReplayBufferConfig, RLPriorityReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
 from srl.rl.models.config.input_image_block import InputImageBlockConfig
 from srl.rl.models.config.input_value_block import InputValueBlockConfig
@@ -38,6 +38,7 @@ Image preprocessor : -
 
 Other
     Double DQN                 : o (config selection)
+    Priority Experience Replay : o (config selection)
     Value function rescaling   : o (config selection)
     invalid_actions            : o
 """
@@ -57,8 +58,8 @@ class Config(RLConfig, RLConfigComponentFramework):
 
     #: Batch size
     batch_size: int = 32
-    #: <:ref:`ReplayBufferConfig`>
-    memory: ReplayBufferConfig = field(default_factory=lambda: ReplayBufferConfig())
+    #: <:ref:`PriorityReplayBufferConfig`>
+    memory: PriorityReplayBufferConfig = field(default_factory=lambda: PriorityReplayBufferConfig())
 
     #: ε-greedy parameter for Train
     epsilon: float = 0.1
@@ -118,7 +119,7 @@ class Config(RLConfig, RLConfigComponentFramework):
 # ------------------------------------------------------
 # Memory
 # ------------------------------------------------------
-class Memory(RLReplayBuffer):
+class Memory(RLPriorityReplayBuffer):
     pass
 
 
@@ -171,7 +172,7 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
         if self.config.enable_rescale:
             target_q = funcs.rescaling(target_q)
 
-        return target_q.astype(np.float32)
+        return target_q.astype(self.config.get_dtype("np"))
 
 
 # ------------------------------------------------------

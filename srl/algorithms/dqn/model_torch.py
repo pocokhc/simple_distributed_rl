@@ -124,10 +124,12 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         batches = self.memory.sample()
         if batches is None:
             return
+        batches, weights, update_args = batches
 
         state, n_state, onehot_action, reward, undone, next_invalid_actions = zip(*batches)
         state = self.parameter.q_online.in_block.to_torch_batches(state, self.device, self.torch_dtype)
         onehot_action = torch.tensor(np.asarray(onehot_action), dtype=self.torch_dtype, device=self.device)
+        weights = torch.tensor(np.asarray(weights), dtype=self.torch_dtype, device=self.device)
         reward = np.array(reward, dtype=self.np_dtype)
         undone = np.array(undone)
 
@@ -145,12 +147,16 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 
         # 現在選んだアクションのQ値
         q = torch.sum(q * onehot_action, dim=1)
-        loss = self.criterion(target_q, q)
+        loss = self.criterion(target_q * weights, q * weights)
 
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
         self.info["loss"] = loss.item()
+
+        # --- update
+        priorities = np.abs((target_q - q).detach().cpu().numpy())
+        self.memory.update(update_args, priorities, self.train_count)
 
         # --- targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:

@@ -52,12 +52,12 @@ class QNetwork(KerasModelAddedSummary):
         return x
 
     @tf.function
-    def compute_train_loss(self, state, onehot_action, target_q):
+    def compute_train_loss(self, state, onehot_action, target_q, weights):
         q = self(state, training=True)
         q = tf.reduce_sum(q * onehot_action, axis=1)
-        loss = self.loss_func(target_q, q)
+        loss = self.loss_func(target_q * weights, q * weights)
         loss += tf.reduce_sum(self.losses)  # 正則化項
-        return loss
+        return loss, q
 
 
 # ------------------------------------------------------
@@ -89,7 +89,7 @@ class Parameter(CommonInterfaceParameter):
         return self.q_online(self.q_online.in_block.to_tf_batches(state, self.tf_dtype)).numpy()
 
     def pred_batch_target_q(self, state) -> np.ndarray:
-        return self.q_target(self.q_online.in_block.to_tf_batches(state, self.tf_dtype)).numpy()
+        return self.q_target(self.q_target.in_block.to_tf_batches(state, self.tf_dtype)).numpy()
 
 
 # ------------------------------------------------------
@@ -108,6 +108,8 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         batches = self.memory.sample()
         if batches is None:
             return
+        batches, weights, update_args = batches
+
         (
             state,
             n_state,
@@ -131,10 +133,14 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         )
 
         with tf.GradientTape() as tape:
-            loss = self.parameter.q_online.compute_train_loss(state, onehot_action, target_q)
+            loss, q = self.parameter.q_online.compute_train_loss(state, onehot_action, target_q, weights)
         grad = tape.gradient(loss, self.parameter.q_online.trainable_variables)
         self.optimizer.apply_gradients(zip(grad, self.parameter.q_online.trainable_variables))
         self.info["loss"] = loss.numpy()
+
+        # --- update
+        priorities = np.abs(target_q - q)
+        self.memory.update(update_args, priorities, self.train_count)
 
         # --- targetと同期
         if self.train_count % self.config.target_model_update_interval == 0:

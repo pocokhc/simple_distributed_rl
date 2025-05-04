@@ -10,7 +10,6 @@ from srl.base.rl.algorithms.base_ql import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.rl import functions as funcs
 from srl.rl.memories.single_use_buffer import RLSingleUseBuffer
 from srl.rl.schedulers.scheduler import SchedulerConfig
 

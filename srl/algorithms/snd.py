@@ -14,7 +14,6 @@ from srl.base.rl.processor import RLProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
 from srl.base.spaces.space import SpaceBase
-from srl.rl import functions as funcs
 from srl.rl.memories.replay_buffer import ReplayBuffer, ReplayBufferConfig
 from srl.rl.models.config.input_image_block import InputImageBlockConfig
 from srl.rl.models.config.input_value_block import InputValueBlockConfig

@@ -18,7 +18,6 @@ from srl.base.rl.trainer import RLTrainer
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.space import SpaceBase
-from srl.rl import functions as funcs
 from srl.rl.memories.replay_buffer import ReplayBufferConfig, RLReplayBuffer
 from srl.rl.processors.image_processor import ImageProcessor
 from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig

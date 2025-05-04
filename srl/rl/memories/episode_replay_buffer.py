@@ -26,15 +26,21 @@ class EpisodeReplayBufferConfig:
 
 
 class EpisodeReplayBuffer:
-    def __init__(self, config: EpisodeReplayBufferConfig, batch_size: int, batch_length: int, sample_type: Literal["random", "episode"] = "random"):
+    def __init__(
+        self,
+        config: EpisodeReplayBufferConfig,
+        batch_size: int,
+        batch_length: int,
+        sample_type: Literal["random", "episode"] = "random",
+    ):
         self.cfg = config
         self.batch_size = batch_size
         self.batch_length = batch_length
+        self.sample_type = sample_type
+
         self.buffer = []
         self.idx = 0
         self.total_size = 0
-        self.sample_type = sample_type
-
         self._sequential_batches = [[] for _ in range(self.batch_size)]
 
         self._validate_params(batch_size, batch_length)
@@ -67,7 +73,8 @@ class EpisodeReplayBuffer:
                 steps = cast(List[Any], zlib.compress(pickle.dumps(steps), level=self.cfg.compress_level))
 
         if self.sample_type == "random":
-            assert size >= self.batch_length, f"Episode length must be equal to or greater than batch_length. episode_len={size}"
+            if size < self.batch_length:
+                logger.warning(f"Episode length must be equal to or greater than batch_length. episode_len={size}")
             self.total_size += size - self.batch_length
         else:
             self.total_size += size
@@ -102,10 +109,12 @@ class EpisodeReplayBuffer:
 
         # 各batchの各stepからランダムに取得
         batches = []
-        for _ in range(batch_size):
+        while len(batches) < batch_size:
             i = random.randint(0, len(self.buffer) - 1)
             steps, size = self.buffer[i]
-            assert size > batch_length + skip_head + skip_tail
+            if size <= batch_length + skip_head + skip_tail:
+                logger.warning(f"Episode length must be equal to or greater than batch_length. episode_len={size}")
+                continue
             j = random.randint(0, size - batch_length - skip_head - skip_tail) + skip_head
             if self.cfg.compress:
                 steps = pickle.loads(zlib.decompress(steps))

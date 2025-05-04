@@ -149,11 +149,13 @@ class RunContext:
 
         from srl.base.system.device import setup_device
 
+        tf_policy_name = "mixed_float16" if self.rl_config.dtype == "float16" else ""
         used_device_tf, used_device_torch = setup_device(
             self.framework,
             self.get_device(),
             self.set_CUDA_VISIBLE_DEVICES_if_CPU,
             self.tf_enable_memory_growth,
+            tf_policy_name,
             log_prefix=f"[{self.get_name()}]",
         )
         self.used_device_tf = used_device_tf

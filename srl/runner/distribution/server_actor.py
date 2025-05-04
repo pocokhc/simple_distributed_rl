@@ -506,6 +506,7 @@ def run_forever(
     device: str = "CPU",
     set_CUDA_VISIBLE_DEVICES_if_CPU: bool = True,
     tf_enable_memory_growth: bool = True,
+    tf_mixed_precision_policy_name: str = "",
     run_once: bool = False,
 ):
     used_device_tf, used_device_torch = setup_device(
@@ -513,6 +514,7 @@ def run_forever(
         device,
         set_CUDA_VISIBLE_DEVICES_if_CPU,
         tf_enable_memory_growth,
+        tf_mixed_precision_policy_name,
     )
     task_manager_params = TaskManagerParams(
         "actor",

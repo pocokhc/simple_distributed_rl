@@ -16,6 +16,7 @@ def setup_device(
     device: str,
     set_CUDA_VISIBLE_DEVICES_if_CPU: bool = True,
     tf_enable_memory_growth: bool = True,
+    tf_mixed_precision_policy_name: str = "",
     log_prefix: str = "",
 ) -> Tuple[str, str]:
     global __setup_device, __framework, __used_device_tf, __used_device_torch
@@ -86,6 +87,14 @@ def setup_device(
             s += " Also consider 'Runner.setup_device(tf_enable_memory_growth=False)'."
             print(s)
             raise
+    # -----------------------
+
+    # --- tf Mixed precision ---
+    if tf_mixed_precision_policy_name != "" and framework == "tensorflow":
+        from tensorflow.keras import mixed_precision
+
+        mixed_precision.set_global_policy(tf_mixed_precision_policy_name)
+        logger.info(f"{log_prefix}[device] (tf) set_global_policy({tf_mixed_precision_policy_name})")
     # -----------------------
 
     used_device_tf = "/CPU"

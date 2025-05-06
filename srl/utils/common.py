@@ -1,4 +1,5 @@
 import importlib
+import importlib.util
 import logging
 import os
 import random
@@ -160,31 +161,11 @@ def load_module(entry_point: str):
     return cls
 
 
-_package_cache = {}
-
-
 def is_package_installed(name: str) -> bool:
-    global _package_cache
-
-    if name in _package_cache:
-        return _package_cache[name]
-
-    try:
-        if name == "tensorflow":
-            import tensorflow as tf
-
-            if tf.__file__ is None:  # なぜかuninstallしても残る
-                result = False
-            else:
-                result = True
-        else:
-            importlib.import_module(name)
-            result = True
-    except ImportError:
-        result = False
-
-    _package_cache[name] = result
-    return result
+    spec = importlib.util.find_spec(name)
+    if spec is None:
+        return False
+    return bool(spec)
 
 
 def is_packages_installed(names: List[str]) -> bool:

@@ -74,16 +74,25 @@ class PrintProgress(RunCallback, Evaluate):
             else:
                 return f"({to_str_reward(eval_rewards[self.progress_worker])}eval)"
 
-    def on_start(self, context: RunContext, **kwargs) -> None:
-        s = f"### env: {context.env_config.name}"
+    # -----------------------------------------------------
+    # actor
+    # -----------------------------------------------------
+    def on_episodes_begin(self, context: RunContext, state: RunStateActor, **kwargs):
+        if context.actor_id >= self.progress_max_actor:
+            return
+
+        s = "###"
+        if context.distributed:
+            s += f" [actor{context.actor_id:2d}]"
         if len(context.players) > 1:
             s += f", {context.players}"
-        s += f", rl: {context.rl_config.get_name()}"
+        s += f" rl: {context.rl_config.get_name()}"
         if context.framework == "tensorflow":
             s += f", tf={context.used_device_tf}"
         elif context.framework == "torch":
             s += f", torch={context.used_device_torch}"
         s += f", {context.flow_mode}"
+        s += f", env: {context.env_config.name}"
         if context.max_episodes > 0:
             s += f", max episodes: {context.max_episodes}"
         if context.timeout > 0:
@@ -95,13 +104,6 @@ class PrintProgress(RunCallback, Evaluate):
         if context.max_memory > 0:
             s += f", max memory: {context.max_memory}"
         print(s)
-
-    # -----------------------------------------------------
-    # actor
-    # -----------------------------------------------------
-    def on_episodes_begin(self, context: RunContext, state: RunStateActor, **kwargs):
-        if context.actor_id >= self.progress_max_actor:
-            return
 
         # 分散の場合はactor_id=0のみevalをする
         if context.distributed:
@@ -345,6 +347,23 @@ class PrintProgress(RunCallback, Evaluate):
         # eval, 分散の場合はevalをしない
         if context.distributed:
             self.enable_eval = False
+
+        s = "###"
+        if context.distributed:
+            s += " [trainer]"
+        s += f" rl: {context.rl_config.get_name()}"
+        if context.framework == "tensorflow":
+            s += f", tf={context.used_device_tf}"
+        elif context.framework == "torch":
+            s += f", torch={context.used_device_torch}"
+        s += f", {context.flow_mode}"
+        if context.timeout > 0:
+            s += f", timeout: {to_str_time(context.timeout)}"
+        if context.max_train_count > 0:
+            s += f", max train: {context.max_train_count}"
+        if context.max_memory > 0:
+            s += f", max memory: {context.max_memory}"
+        print(s)
 
         self.progress_timeout = self.start_time
         self.progress_t0 = time.time()

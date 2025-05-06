@@ -5,7 +5,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.amp import autocast
 
 from srl.base.rl.trainer import RLTrainer
 from srl.base.spaces.multi import MultiSpace
@@ -84,21 +83,21 @@ class Parameter(CommonInterfaceParameter):
 
     # -----------------------------------
     def pred_single_q(self, state) -> np.ndarray:
-        with torch.no_grad(), autocast(device_type=self.device_str, dtype=self.torch_dtype):
+        with torch.no_grad():
             state = self.q_online.in_block.to_torch_one_batch(state, self.device, self.torch_dtype)
             q = self.q_online(state)
             q = q.detach().cpu().numpy()
         return q[0]
 
     def pred_batch_q(self, state) -> np.ndarray:
-        with torch.no_grad(), autocast(device_type=self.device_str, dtype=self.torch_dtype):
+        with torch.no_grad():
             state = self.q_online.in_block.to_torch_batches(state, self.device, self.torch_dtype)
             q = self.q_online(state)
             q = q.detach().cpu().numpy()
         return q
 
     def pred_batch_target_q(self, state) -> np.ndarray:
-        with torch.no_grad(), autocast(device_type=self.device_str, dtype=self.torch_dtype):
+        with torch.no_grad():
             state = self.q_target.in_block.to_torch_batches(state, self.device, self.torch_dtype)
             q = self.q_target(state)
             q = q.detach().cpu().numpy()
@@ -118,7 +117,6 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.torch_dtype = self.config.get_dtype("torch")
         self.np_dtype = self.config.get_dtype("np")
         self.device = self.parameter.device
-        self.device_str = self.parameter.device_str
         self.parameter.q_target.to(self.device)
         self.parameter.q_online.to(self.device)
         self.parameter.q_online.train()
@@ -146,10 +144,10 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         target_q = torch.tensor(target_q, dtype=self.torch_dtype, device=self.device)
 
         # --- torch train
-        with autocast(device_type=self.device_str, dtype=self.torch_dtype):
-            q = self.parameter.q_online(state)
-            q = torch.sum(q * onehot_action, dim=1)
-            loss = self.criterion(target_q * weights, q * weights)
+        q = self.parameter.q_online(state)
+        q = torch.sum(q * onehot_action, dim=1)
+        loss = self.criterion(target_q * weights, q * weights)
+
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()

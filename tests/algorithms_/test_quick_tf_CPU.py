@@ -4,6 +4,7 @@ from tests.algorithms_ import (
     base_alphazero,
     base_c51,
     base_ddpg,
+    base_diamond,
     base_dqn,
     base_dreamer_v3,
     base_go_dqn,
@@ -53,6 +54,10 @@ class Test_dqn(_CommonOption, base_dqn.QuickCase):
 
 
 class Test_dreamer_v3(_CommonOption, base_dreamer_v3.QuickCase):
+    pass
+
+
+class Test_diamond(_CommonOption, base_diamond.QuickCase):
     pass
 
 

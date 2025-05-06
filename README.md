@@ -137,15 +137,16 @@ animation_save_gifで生成された画像は以下です。
 |-----------|-----------|-----------|---------|----|
 |DynaQ      |Discrete   |Discrete   |-        |100%|
 
-### WorldModelシリーズ
+## WorldModelシリーズ
 
-|Algorithm  |Observation|Action     |Tensorflow|Torch|ProgressRate||
-|-----------|-----------|-----------|----------|-----|---|---|
-|WorldModels|Continuous |Discrete   |✔        |-    |100%||
-|PlaNet     |Continuous |Discrete   |✔(+tensorflow-probability)|-|100%||
+|Algorithm  |Observation|Action     |Tensorflow|Torch|ProgressRate|
+|-----------|-----------|-----------|----------|-----|---|
+|WorldModels|Continuous |Discrete   |✔        |-    |100%|
+|PlaNet     |Continuous |Discrete   |✔(+tensorflow-probability)|-|100%|
 |Dreamer    |Continuous |Both       |-|-|merge DreamerV3|
 |DreamerV2  |Continuous |Both       |-|-|merge DreamerV3|
-|DreamerV3  |Continuous |Both       |✔(+tensorflow-probability)|-|100%||
+|DreamerV3  |Continuous |Both       |✔(+tensorflow-probability)|-|100%|
+|DIAMOND    |Image      |Discrete   |✔|-|100%|
 
 ## オフライン
 

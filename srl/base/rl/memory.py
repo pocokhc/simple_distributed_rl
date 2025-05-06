@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, Generic, List, Optional, Protocol, Tuple
 
 from srl.base.define import RLMemoryTypes
 from srl.base.rl.config import DummyRLConfig, TRLConfig
+from srl.utils.common import load_file, save_file
 
 logger = logging.getLogger(__name__)
 
@@ -109,43 +110,16 @@ class RLMemory(ABC, Generic[TRLConfig]):
 
     def save(self, path: str, compress: bool = True, **kwargs) -> None:
         logger.debug(f"memory save (len: {self.length()}): {path}")
-        try:
-            t0 = time.time()
-            dat = self.call_backup(**kwargs)
-            if compress:
-                import lzma
-
-                dat = pickle.dumps(dat)
-                with lzma.open(path, "w") as f:
-                    f.write(dat)
-            else:
-                with open(path, "wb") as f:
-                    pickle.dump(dat, f)
-
-            file_size = os.path.getsize(path)
-            logger.info(f"memory saved (len: {self.length()}, {file_size} bytes, time: {time.time() - t0:.1f}s): {os.path.basename(path)}")
-        except Exception:
-            if os.path.isfile(path):
-                os.remove(path)
-            raise
+        t0 = time.time()
+        dat = self.call_backup(**kwargs)
+        save_file(path, dat, compress)
+        file_size = os.path.getsize(path)
+        logger.info(f"memory saved (len: {self.length()}, {file_size} bytes, time: {time.time() - t0:.1f}s): {os.path.basename(path)}")
 
     def load(self, path: str, **kwargs) -> None:
-        import binascii
-
         logger.debug(f"memory load: {path}")
         t0 = time.time()
-        # LZMA
-        with open(path, "rb") as f:
-            compress = binascii.hexlify(f.read(6)) == b"fd377a585a00"
-        if compress:
-            import lzma
-
-            with lzma.open(path) as f:
-                dat = f.read()
-            dat = pickle.loads(dat)
-        else:
-            with open(path, "rb") as f:
-                dat = pickle.load(f)
+        dat = load_file(path)
         self.call_restore(dat, **kwargs)
         logger.info(f"memory loaded (size: {self.length()}, time: {time.time() - t0:.1f}s): {os.path.basename(path)}")
 

@@ -1,11 +1,11 @@
 import logging
 import os
-import pickle
 import time
 from abc import ABC, abstractmethod
 from typing import Any, Generic, Optional, TypeVar, cast
 
 from srl.base.rl.config import DummyRLConfig, RLConfig, TRLConfig
+from srl.utils.common import load_file, save_file
 
 logger = logging.getLogger(__name__)
 
@@ -35,25 +35,19 @@ class RLParameter(ABC, Generic[TRLConfig]):
         dat = self.call_backup(**kwargs)
         return None if dat == [] else dat
 
-    def save(self, path: str) -> None:
+    def save(self, path: str, compress: bool = True, **kwargs) -> None:
         logger.debug(f"parameter save: {path}")
-        try:
-            t0 = time.time()
-            with open(path, "wb") as f:
-                pickle.dump(self.backup(), f)
+        t0 = time.time()
+        dat = self.backup(**kwargs)
+        save_file(path, dat, compress)
+        file_size = os.path.getsize(path)
+        logger.info(f"parameter saved({file_size} bytes, {time.time() - t0:.1f}s): {os.path.basename(path)}")
 
-            file_size = os.path.getsize(path)
-            logger.info(f"parameter saved({file_size} bytes, {time.time() - t0:.1f}s): {os.path.basename(path)}")
-        except Exception:
-            if os.path.isfile(path):
-                os.remove(path)
-            raise
-
-    def load(self, path: str) -> None:
+    def load(self, path: str, **kwargs) -> None:
         logger.debug(f"parameter load: {path}")
         t0 = time.time()
-        with open(path, "rb") as f:
-            self.restore(pickle.load(f))
+        dat = load_file(path)
+        self.restore(dat, **kwargs)
         logger.info(f"parameter loaded({time.time() - t0:.1f}s)")
 
     def summary(self, **kwargs):

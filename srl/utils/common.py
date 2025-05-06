@@ -112,6 +112,44 @@ def set_logger(
         logging.getLogger("h5py").setLevel(logging.INFO)
 
 
+def save_file(path: str, dat: Any, compress: bool = True):
+    import pickle
+
+    try:
+        if compress:
+            import lzma
+
+            dat = pickle.dumps(dat)
+            with lzma.open(path, "w") as f:
+                f.write(dat)
+        else:
+            with open(path, "wb") as f:
+                pickle.dump(dat, f)
+    except Exception:
+        if os.path.isfile(path):
+            os.remove(path)
+        raise
+
+
+def load_file(path: str) -> Any:
+    import binascii
+    import pickle
+
+    # LZMA
+    with open(path, "rb") as f:
+        compress = binascii.hexlify(f.read(6)) == b"fd377a585a00"
+    if compress:
+        import lzma
+
+        with lzma.open(path) as f:
+            dat = f.read()
+        dat = pickle.loads(dat)
+    else:
+        with open(path, "rb") as f:
+            dat = pickle.load(f)
+    return dat
+
+
 def load_module(entry_point: str):
     if ":" not in entry_point:
         raise ValueError(f"entry_point must include ':'({entry_point})")

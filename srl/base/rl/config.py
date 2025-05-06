@@ -728,6 +728,12 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         print("--- RLConfig ---\n" + pprint.pformat(self.to_dict()))
         print("--- Algorithm settings ---\n" + pprint.pformat(self.get_metadata()))
 
+    def model_summary(self, expand_nested: bool = True, **kwargs):
+        assert self._is_setup
+        parameter = self.make_parameter()
+        parameter.summary(expand_nested=expand_nested, **kwargs)
+        return parameter
+
 
 @dataclass
 class DummyRLConfig(RLConfig):

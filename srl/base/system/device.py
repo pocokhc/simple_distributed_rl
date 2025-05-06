@@ -160,7 +160,7 @@ def _setup_torch(
 ):
     # torchは子プロセスのみで初期化
     if (is_mp_main_process is not None) and is_mp_main_process:
-        return ""
+        return "cpu"
 
     # --- CUDA_VISIBLE_DEVICES ---
     if set_CUDA_VISIBLE_DEVICES_if_CPU:

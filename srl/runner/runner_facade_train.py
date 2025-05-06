@@ -1,14 +1,11 @@
 import logging
+import os
 from dataclasses import dataclass
-from typing import List, Optional, Union, cast
+from typing import List, Union, cast
 
 from srl.base.define import PlayerType
-from srl.base.rl.memory import RLMemory
-from srl.base.rl.parameter import RLParameter
-from srl.base.rl.trainer import RLTrainer
 from srl.base.run.callback import RunCallback
-from srl.base.run.core_play import RunStateActor
-from srl.base.run.core_train_only import RunStateTrainer
+from srl.base.run.core_play import RunStateActor, play
 from srl.runner.runner_base import RunnerBase
 
 logger = logging.getLogger(__name__)
@@ -31,9 +28,6 @@ class RunnerFacadeTrain(RunnerBase):
         enable_progress: bool = True,
         # --- other
         callbacks: List[RunCallback] = [],
-        parameter: Optional[RLParameter] = None,
-        memory: Optional[RLMemory] = None,
-        trainer: Optional[RLTrainer] = None,
     ):
         """train
 
@@ -76,12 +70,16 @@ class RunnerFacadeTrain(RunnerBase):
         self._apply_history(callbacks)
         self.apply_mlflow(callbacks)
 
-        self.run_context(
-            parameter=parameter,
-            memory=memory,
-            trainer=trainer,
-            callbacks=callbacks,
+        self.setup_process()
+        play(
+            self.context,
+            self.state,
+            self._parameter_dat,
+            self._memory_dat,
+            callbacks,
         )
+        self._parameter_dat = None
+        self._memory_dat = None
 
         self._after_history()
         return cast(RunStateActor, self.state)
@@ -100,8 +98,6 @@ class RunnerFacadeTrain(RunnerBase):
         enable_progress: bool = True,
         # --- other
         callbacks: List[RunCallback] = [],
-        parameter: Optional[RLParameter] = None,
-        memory: Optional[RLMemory] = None,
     ):
         """collect_memory"""
         callbacks = callbacks[:]
@@ -132,11 +128,16 @@ class RunnerFacadeTrain(RunnerBase):
         self._apply_history(callbacks)
         self.apply_mlflow(callbacks)
 
-        self.run_context(
-            parameter=parameter,
-            memory=memory,
-            callbacks=callbacks,
+        self.setup_process()
+        play(
+            self.context,
+            self.state,
+            self._parameter_dat,
+            self._memory_dat,
+            callbacks,
         )
+        self._parameter_dat = None
+        self._memory_dat = None
 
         self._after_history()
         return cast(RunStateActor, self.state)
@@ -150,9 +151,6 @@ class RunnerFacadeTrain(RunnerBase):
         enable_progress: bool = True,
         # --- other
         callbacks: List[RunCallback] = [],
-        parameter: Optional[RLParameter] = None,
-        memory: Optional[RLMemory] = None,
-        trainer: Optional[RLTrainer] = None,
     ):
         """Trainerが学習するだけでWorkerによるシミュレーションはありません。"""
         callbacks = callbacks[:]
@@ -182,12 +180,18 @@ class RunnerFacadeTrain(RunnerBase):
         self._apply_history(callbacks)
         self.apply_mlflow(callbacks)
 
-        self.run_context_trainer_only(
-            parameter=parameter,
-            memory=memory,
-            trainer=trainer,
+        from srl.base.run.core_train_only import RunStateTrainer, play_trainer_only
+
+        self.setup_process()
+        play_trainer_only(
+            self.context,
+            self.state,
+            self._parameter_dat,
+            self._memory_dat,
             callbacks=callbacks,
         )
+        self._parameter_dat = None
+        self._memory_dat = None
 
         self._after_history()
         return cast(RunStateTrainer, self.state)
@@ -247,10 +251,20 @@ class RunnerFacadeTrain(RunnerBase):
         self._apply_history(callbacks)
         self.apply_mlflow(callbacks)
 
+        # ---
+        if self.rl_config.get_framework() == "tensorflow":
+            os.environ["SRL_TF_GPU_INITIALIZE_DEVICES"] = "1"
+        params_dat = self._parameter_dat
+        if (params_dat is None) and (self.state.parameter is not None):
+            params_dat = self.state.parameter.backup(to_cpu=True)
+        memory_dat = self._memory_dat
+        if (memory_dat is None) and (self.state.memory is not None):
+            memory_dat = self.state.memory.backup(to_cpu=True)
+
         if enable_mp_memory:
             from srl.base.run.play_mp_memory import MpConfig, train
 
-            train(
+            params_dat, memory_dat = train(
                 MpConfig(
                     self.context,
                     callbacks,
@@ -260,14 +274,16 @@ class RunnerFacadeTrain(RunnerBase):
                     train_to_mem_queue_capacity=train_to_mem_queue_capacity,
                     mem_to_train_queue_capacity=mem_to_train_queue_capacity,
                 ),
-                self.make_parameter(),
-                self.make_memory(),
+                params_dat,
+                memory_dat,
             )
+            self._parameter_dat = params_dat
+            self._memory_dat = memory_dat
 
         else:
             from srl.base.run.play_mp import MpConfig, train
 
-            train(
+            params_dat, memory_dat = train(
                 MpConfig(
                     self.context,
                     callbacks,
@@ -275,9 +291,11 @@ class RunnerFacadeTrain(RunnerBase):
                     trainer_parameter_send_interval=trainer_parameter_send_interval,
                     actor_parameter_sync_interval=actor_parameter_sync_interval,
                 ),
-                self.make_parameter(),
-                self.make_memory(),
+                params_dat,
+                memory_dat,
             )
+            self._parameter_dat = params_dat
+            self._memory_dat = memory_dat
 
         self._after_history()
 

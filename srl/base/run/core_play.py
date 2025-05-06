@@ -1,10 +1,10 @@
 import logging
 import random
 import time
-from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from dataclasses import dataclass
+from typing import Any, List, Optional, cast
 
-from srl.base.context import RunContext, RunNameTypes
+from srl.base.context import RunContext, RunState
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
@@ -12,105 +12,93 @@ from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run.callback import RunCallback
 from srl.utils import common
-from srl.utils.serialize import convert_for_json
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class RunStateActor:
+class RunStateActor(RunState):
     env: EnvRun
-    worker: WorkerRun  # main worker
+    worker: WorkerRun
     workers: List[WorkerRun]
     memory: RLMemory
     parameter: RLParameter
-    trainer: Optional[RLTrainer]
-
-    # episodes init
-    elapsed_t0: float = 0
-    worker_indices: List[int] = field(default_factory=list)
-
-    # episode state
-    episode_rewards_list: List[List[float]] = field(default_factory=list)
-    episode_count: int = -1
-    total_step: int = 0
-    end_reason: str = ""
-    worker_idx: int = 0
-    episode_seed: Optional[int] = None
-    action: Any = None
-    train_count: int = 0
-
-    # train
-    is_step_trained: bool = False
-
-    # distributed
-    sync_actor: int = 0
-    actor_send_q: int = 0
-
-    # info(簡単な情報はここに保存)
-    last_episode_step: float = 0
-    last_episode_time: float = 0
-    last_episode_rewards: List[float] = field(default_factory=list)
-
-    # other
-    shared_vars: dict = field(default_factory=dict)
-
-    def to_dict(self) -> dict:
-        dat: dict = convert_for_json(self.__dict__)
-        return dat
+    trainer: Optional["RLTrainer"]
 
 
 def play(
     context: RunContext,
-    env: EnvRun,
-    workers: List[WorkerRun],
-    main_worker_idx: int,
-    trainer: Optional[RLTrainer] = None,
+    state: Optional[RunState] = None,
+    parameter_dat: Optional[Any] = None,
+    memory_dat: Optional[Any] = None,
     callbacks: List[RunCallback] = [],
 ):
+    # check context
+    logger.debug(context.to_str_context())
+    context.check_stop_config()
+
+    if state is None:
+        state = RunState()
+    state.init()
+
     if context.enable_tf_device and context.framework == "tensorflow":
         if common.is_enable_tf_device_name(context.used_device_tf):
             import tensorflow as tf
 
-            if context.run_name != RunNameTypes.eval:
+            if context.run_name != "eval":
                 logger.info(f"tf.device({context.used_device_tf})")
             with tf.device(context.used_device_tf):  # type: ignore
-                return _play(context, env, workers, main_worker_idx, trainer, callbacks)
-    return _play(context, env, workers, main_worker_idx, trainer, callbacks)
+                return _play(context, cast(RunStateActor, state), parameter_dat, memory_dat, callbacks)
+    return _play(context, cast(RunStateActor, state), parameter_dat, memory_dat, callbacks)
 
 
 def _play(
     context: RunContext,
-    env: EnvRun,
-    workers: List[WorkerRun],
-    main_worker_idx: int,
-    trainer: Optional[RLTrainer],
+    state: RunStateActor,
+    parameter_dat: Optional[Any],
+    memory_dat: Optional[Any],
     callbacks: List[RunCallback],
 ):
-    # --- check trainer
-    if context.disable_trainer:
-        trainer = None
-    elif context.training:
-        assert trainer is not None
+    # --- 0 create instance
+    if state.env is None:
+        state.env = context.env_config.make()
+    if state.parameter is None:
+        state.parameter = context.rl_config.make_parameter(state.env)
+    if parameter_dat is not None:
+        state.parameter.restore(parameter_dat)
+    if state.memory is None:
+        state.memory = context.rl_config.make_memory(state.env)
+    if memory_dat is not None:
+        state.memory.restore(memory_dat)
+    if (state.trainer is None) and context.training:
+        state.trainer = context.rl_config.make_trainer(state.parameter, state.memory, state.env)
+    if state.worker is None:
+        state.worker = context.rl_config.make_worker(state.env, state.parameter, state.memory)
+    if state.workers is None:
+        state.workers, main_worker_idx = context.rl_config.make_workers(context.players, state.env, state.parameter, state.memory, state.worker)
 
-    assert env.player_num == len(workers)
-    main_worker = workers[main_worker_idx]
-    state = RunStateActor(
-        env,
-        main_worker,
-        workers,
-        main_worker.worker.memory,
-        main_worker.worker.parameter,
-        trainer,
-    )
+    # check
+    if context.disable_trainer:
+        state.trainer = None
+    elif context.training:
+        assert state.trainer is not None
+    assert state.env.player_num == len(state.workers)
+    assert state.worker is not None
+
+    # --- callbacks ---
+    if not context.distributed:
+        [c.on_start(context=context, state=state) for c in callbacks]
+    # -----------------
 
     # --- 1 setup_from_actor
     if context.distributed:
-        main_worker.config.setup_from_actor(context.actor_num, context.actor_id)
+        state.worker.config.setup_from_actor(context.actor_num, context.actor_id)
 
     # --- 2 random
     if context.seed is not None:
-        state.episode_seed = random.randint(0, 2**16)
+        common.set_seed(context.seed, context.seed_enable_gpu)
+
+        state.episode_seed = random.randint(0, 2 ** (16 - 4))
         logger.info(f"set_seed: {context.seed}, 1st episode seed: {state.episode_seed}")
 
     # --- 3 setup
@@ -143,7 +131,7 @@ def _play(
 
     # --- 6 loop
     try:
-        if context.run_name != RunNameTypes.eval:
+        if context.run_name != "eval":
             logger.debug(f"[{context.run_name}] loop start")
         state.elapsed_t0 = time.time()
         while True:
@@ -246,7 +234,7 @@ def _play(
                 state.end_reason = "callback.intermediate_stop"
                 break
     finally:
-        if context.run_name != RunNameTypes.eval:
+        if context.run_name != "eval":
             logger.debug(f"[{context.run_name}] loop end({state.end_reason})")
 
         # --- 7 teardown
@@ -267,5 +255,7 @@ def _play(
 
         # 8 callbacks
         [c.on_episodes_end(context=context, state=state) for c in callbacks]
+        if not context.distributed:
+            [c.on_end(context=context, state=state) for c in callbacks]
 
     return state

@@ -1,13 +1,10 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, List, Optional, Union, cast
+from typing import Any, List, Union, cast
 
-from srl.base.context import RunNameTypes
 from srl.base.define import PlayerType
-from srl.base.rl.memory import RLMemory
-from srl.base.rl.parameter import RLParameter
 from srl.base.run.callback import RunCallback
-from srl.base.run.core_play import RunStateActor
+from srl.base.run.core_play import RunStateActor, play
 from srl.runner.runner_base import RunnerBase
 
 logger = logging.getLogger(__name__)
@@ -28,8 +25,6 @@ class RunnerFacadePlay(RunnerBase):
         enable_progress: bool = True,
         # --- other
         callbacks: List[RunCallback] = [],
-        parameter: Optional[RLParameter] = None,
-        memory: Optional[RLMemory] = None,
     ) -> Union[List[float], List[List[float]]]:  # single play , multi play
         """シミュレーションし、報酬を返します。
 
@@ -69,7 +64,16 @@ class RunnerFacadePlay(RunnerBase):
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=False)
 
-        self.run_context(parameter=parameter, memory=memory, callbacks=callbacks)
+        self.setup_process()
+        play(
+            self.context,
+            self.state,
+            self._parameter_dat,
+            self._memory_dat,
+            callbacks,
+        )
+        self._parameter_dat = None
+        self._memory_dat = None
 
         state = cast(RunStateActor, self.state)
         if self.env.player_num == 1:
@@ -90,8 +94,6 @@ class RunnerFacadePlay(RunnerBase):
         players: List[PlayerType] = [],
         # --- other
         callbacks: List[RunCallback] = [],
-        parameter: Optional[RLParameter] = None,
-        memory: Optional[RLMemory] = None,
     ):
         callbacks = callbacks[:]
 
@@ -129,7 +131,16 @@ class RunnerFacadePlay(RunnerBase):
         )
         # -----------------
 
-        self.run_context(parameter=parameter, memory=memory, callbacks=callbacks)
+        self.setup_process()
+        play(
+            self.context,
+            self.state,
+            self._parameter_dat,
+            self._memory_dat,
+            callbacks,
+        )
+        self._parameter_dat = None
+        self._memory_dat = None
 
         state = cast(RunStateActor, self.state)
         return state.episode_rewards_list[0]
@@ -155,8 +166,6 @@ class RunnerFacadePlay(RunnerBase):
         enable_progress: bool = True,
         # --- other
         callbacks: List[RunCallback] = [],
-        parameter: Optional[RLParameter] = None,
-        memory: Optional[RLMemory] = None,
     ):
         callbacks = callbacks[:]
 
@@ -201,10 +210,18 @@ class RunnerFacadePlay(RunnerBase):
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=False)
 
-        self.run_context(parameter=parameter, memory=memory, callbacks=callbacks)
+        self.setup_process()
+        play(
+            self.context,
+            self.state,
+            self._parameter_dat,
+            self._memory_dat,
+            callbacks,
+        )
+        self._parameter_dat = None
+        self._memory_dat = None
 
-        state = cast(RunStateActor, self.state)
-        return state.episode_rewards_list[0]
+        return self.state.episode_rewards_list[0]
 
     def run_render(
         self,
@@ -226,8 +243,6 @@ class RunnerFacadePlay(RunnerBase):
         enable_progress: bool = True,
         # --- other
         callbacks: List[RunCallback] = [],
-        parameter: Optional[RLParameter] = None,
-        memory: Optional[RLMemory] = None,
     ):
         callbacks = callbacks[:]
 
@@ -271,11 +286,19 @@ class RunnerFacadePlay(RunnerBase):
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=False)
 
-        self.run_context(parameter=parameter, memory=memory, callbacks=callbacks)
+        self.setup_process()
+        play(
+            self.context,
+            self.state,
+            self._parameter_dat,
+            self._memory_dat,
+            callbacks,
+        )
+        self._parameter_dat = None
+        self._memory_dat = None
 
-        state = cast(RunStateActor, self.state)
-        if self.context.run_name != RunNameTypes.eval:
-            logger.info(f"render step: {state.total_step}, reward: {state.episode_rewards_list[0]}")
+        if self.context.run_name != "eval":
+            logger.info(f"render step: {self.state.total_step}, reward: {self.state.episode_rewards_list[0]}")
         return render
 
     def animation_save_gif(
@@ -301,8 +324,6 @@ class RunnerFacadePlay(RunnerBase):
         enable_progress: bool = True,
         # --- other
         callbacks: List[RunCallback] = [],
-        parameter: Optional[RLParameter] = None,
-        memory: Optional[RLMemory] = None,
     ):
         render = self.run_render(
             render_kwargs,
@@ -317,8 +338,6 @@ class RunnerFacadePlay(RunnerBase):
             players,
             enable_progress,
             callbacks,
-            parameter,
-            memory,
         )
         render.save_gif(path, render_interval, render_scale)
         return render
@@ -347,8 +366,6 @@ class RunnerFacadePlay(RunnerBase):
         enable_progress: bool = True,
         # --- other
         callbacks: List[RunCallback] = [],
-        parameter: Optional[RLParameter] = None,
-        memory: Optional[RLMemory] = None,
     ):
         render = self.run_render(
             render_kwargs,
@@ -363,8 +380,6 @@ class RunnerFacadePlay(RunnerBase):
             players,
             enable_progress,
             callbacks,
-            parameter,
-            memory,
         )
         render.save_avi(path, render_interval, render_scale, codec=codec)
         return render
@@ -391,8 +406,6 @@ class RunnerFacadePlay(RunnerBase):
         enable_progress: bool = True,
         # --- other
         callbacks: List[RunCallback] = [],
-        parameter: Optional[RLParameter] = None,
-        memory: Optional[RLMemory] = None,
     ):
         render = self.run_render(
             render_kwargs,
@@ -407,8 +420,6 @@ class RunnerFacadePlay(RunnerBase):
             players,
             enable_progress,
             callbacks,
-            parameter,
-            memory,
         )
         render.display(render_interval, render_scale)
         return render
@@ -455,7 +466,14 @@ class RunnerFacadePlay(RunnerBase):
 
         from srl.runner.game_windows.replay_window import RePlayableGame
 
-        window = RePlayableGame(self, print_state=print_state, callbacks=callbacks, _is_test=_is_test)
+        self.setup_process()
+        window = RePlayableGame(
+            self.context,
+            self.make_parameter(),
+            print_state=print_state,
+            callbacks=callbacks,
+            _is_test=_is_test,
+        )
         window.play()
 
     def play_terminal(
@@ -472,8 +490,6 @@ class RunnerFacadePlay(RunnerBase):
         max_steps: int = -1,
         # --- other
         callbacks: List[RunCallback] = [],
-        parameter: Optional[RLParameter] = None,
-        memory: Optional[RLMemory] = None,
     ):
         callbacks = callbacks[:]
 
@@ -516,10 +532,18 @@ class RunnerFacadePlay(RunnerBase):
         callbacks.append(ManualPlayCallback(self.make_env(), action_division_num))
         # -----------------
 
-        self.run_context(parameter=parameter, memory=memory, callbacks=callbacks)
+        self.setup_process()
+        play(
+            self.context,
+            self.state,
+            self._parameter_dat,
+            self._memory_dat,
+            callbacks,
+        )
+        self._parameter_dat = None
+        self._memory_dat = None
 
-        state = cast(RunStateActor, self.state)
-        return state.episode_rewards_list[0]
+        return self.state.episode_rewards_list[0]
 
     def play_window(
         self,
@@ -567,11 +591,11 @@ class RunnerFacadePlay(RunnerBase):
 
         from srl.runner.game_windows.playable_game import PlayableGame
 
-        workers, main_worker_idx = self.make_workers()
+        self.setup_process()
         game = PlayableGame(
             env=self.make_env(),
             context=self.context,
-            workers=workers,
+            worker=self.make_worker(),
             view_state=view_state,
             action_division_num=action_division_num,
             key_bind=key_bind,

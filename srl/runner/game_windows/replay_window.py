@@ -4,11 +4,11 @@ from typing import List
 
 import pygame
 
-from srl.base.context import RunContext
+from srl.base.context import RunContext, RunState
+from srl.base.run import core_play
 from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
 from srl.runner.game_windows.game_window import GameWindow, KeyStatus
-from srl.runner.runner_base import RunnerBase
 
 logger = logging.getLogger(__name__)
 
@@ -59,13 +59,15 @@ class _GetRGBCallback(RunCallback):
 class RePlayableGame(GameWindow):
     def __init__(
         self,
-        runner: RunnerBase,
+        context: RunContext,
+        parameter,
         print_state: bool = True,
         callbacks: List[RunCallback] = [],
         _is_test: bool = False,  # for test
     ) -> None:
         super().__init__(_is_test=_is_test)
-        self.runner = runner
+        self.context = context
+        self.parameter = parameter
         self.print_state = print_state
 
         self.history = _GetRGBCallback()
@@ -84,10 +86,12 @@ class RePlayableGame(GameWindow):
             self.episode_info = cache[0]
             self.steps = cache[1]
         else:
-            self.runner.context.disable_trainer = True
-            self.runner.context.env_render_mode = "rgb_array"
-            self.runner.context.rl_render_mode = "terminal_rgb_array"
-            self.runner.run_context(callbacks=self.callbacks)
+            self.context.disable_trainer = True
+            self.context.env_render_mode = "rgb_array"
+            self.context.rl_render_mode = "terminal_rgb_array"
+            state = RunState()
+            state.parameter = self.parameter
+            core_play.play(self.context, state, callbacks=self.callbacks)
 
             total_rewards = None
             if len(self.history.steps) > 0:

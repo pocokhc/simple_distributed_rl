@@ -1,12 +1,10 @@
-import datetime
 import logging
 import os
 import pprint
-import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Union
 
-from srl.base.context import RunContext
+from srl.base.context import RunContext, RunState
 from srl.base.define import EnvObservationType, PlayerType, RLObservationType
 from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
@@ -17,10 +15,7 @@ from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import make_memory, make_parameter, make_trainer, make_worker, make_workers
 from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun
-from srl.base.run import play
-from srl.base.run.callback import RunCallback
-from srl.base.run.core_play import RunStateActor
-from srl.base.run.core_train_only import RunStateTrainer
+from srl.utils.common import load_file
 
 if TYPE_CHECKING:
     import psutil
@@ -55,14 +50,9 @@ class RunnerBase:
         if self.context is None:
             self.context: RunContext = RunContext(self.env_config, self.rl_config)
 
-        self._env: Optional[EnvRun] = None
-        self._parameter: Optional[RLParameter] = None
-        self._memory: Optional[RLMemory] = None
-        self._trainer: Optional[RLTrainer] = None
-        self._worker: Optional[WorkerRun] = None
-        self._workers: Optional[List[WorkerRun]] = None
-        self._main_worker_idx: int = 0
-        self.state: Optional[Union[RunStateActor, RunStateTrainer]] = None
+        self._parameter_dat: Optional[Any] = None
+        self._memory_dat: Optional[Any] = None
+        self.state: RunState = RunState()
 
         self._history_on_file_kwargs: Optional[dict] = None
         self._history_on_memory_kwargs: Optional[dict] = None
@@ -98,8 +88,7 @@ class RunnerBase:
 
     @property
     def workers(self) -> List[WorkerRun]:
-        workers, _ = self.make_workers()
-        return workers
+        return self.make_workers()
 
     # ------------------------------
     # set config
@@ -127,36 +116,20 @@ class RunnerBase:
         self.context.enable_stats = False
 
     # ------------------------------
-    # model summary
-    # ------------------------------
-    def model_summary(self, expand_nested: bool = True, **kwargs) -> RLParameter:
-        """modelの概要を返します。これは以下と同じです。
-
-        >>> parameter = runner.make_parameter()
-        >>> parameter.summary()
-
-        Args:
-            expand_nested (bool): tensorflow option
-
-        Returns:
-            RLParameter: RLParameter
-        """
-        parameter = self.make_parameter()
-        parameter.summary(expand_nested=expand_nested, **kwargs)
-        return parameter
-
-    # ------------------------------
     # save/load
     # ------------------------------
-    def save_parameter(self, path: str):
-        """save parameter"""
-        self.make_parameter().save(path)
-        return self._parameter
+    def save_parameter(self, path: str, compress: bool = True, **kwargs):
+        """save parameter
+
+        Args:
+            path (str): save path
+            compress (bool, optional): 圧縮するかどうか。圧縮はlzma形式です. Defaults to True.
+        """
+        self.make_parameter().save(path, compress, **kwargs)
 
     def load_parameter(self, path: str):
         """load parameter"""
-        self.make_parameter().load(path)
-        return self._parameter
+        self._parameter_dat = load_file(path)
 
     def save_memory(self, path: str, compress: bool = True, **kwargs):
         """save memory
@@ -166,117 +139,96 @@ class RunnerBase:
             compress (bool, optional): 圧縮するかどうか。圧縮はlzma形式です. Defaults to True.
         """
         self.make_memory().save(path, compress, **kwargs)
-        return self._memory
 
-    def load_memory(self, path: str, **kwargs):
+    def load_memory(self, path: str):
         """load memory"""
-        self.make_memory().load(path, **kwargs)
-        return self._memory
+        self._memory_dat = load_file(path)
 
     # ------------------------------
     # make functions
     # ------------------------------
     def make_env(self) -> EnvRun:
-        if self._env is None:
-            self._env = make_env(self.env_config)
-            s = f"[{self.context.run_name}]({self.context.flow_mode})"
-            s += f" make cache: {self._env.env.__class__}(id:{id(self._env)})"
-            logger.info(s)
-        return self._env
+        if self.state.env is None:
+            self.state.env = make_env(self.env_config)
+        return self.state.env
 
     def make_parameter(self) -> RLParameter:
-        self._setup_process()
-        if self._parameter is None:
-            if not self.rl_config.is_setup():
-                self.rl_config.setup(self.make_env())
-            self._parameter = make_parameter(self.rl_config)
-            logger.info(f"[{self.context.run_name}]({self.context.flow_mode}) make cache: {repr(self._parameter)}")
-        return self._parameter
+        self.setup_process()
+        if self.state.parameter is None:
+            self.state.parameter = make_parameter(self.rl_config)
+        if self._parameter_dat is not None:
+            self.state.parameter.restore(self._parameter_dat)
+            self._parameter_dat = None
+        return self.state.parameter
 
     def make_memory(self) -> RLMemory:
-        self._setup_process()
-        if self._memory is None:
-            if not self.rl_config.is_setup():
-                self.rl_config.setup(self.make_env())
-            self._memory = make_memory(self.rl_config)
-            logger.info(f"[{self.context.run_name}]({self.context.flow_mode}) make cache: {repr(self._memory)}")
-        return self._memory
+        self.setup_process()
+        if self.state.memory is None:
+            self.state.memory = make_memory(self.rl_config)
+        if self._memory_dat is not None:
+            self.state.memory.restore(self._memory_dat)
+            self._memory_dat = None
+        return self.state.memory
 
     def make_trainer(
         self,
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
     ) -> RLTrainer:
-        self._setup_process()
-        _cache_flag = (parameter is None) and (memory is None)
-        if _cache_flag and (self._trainer is not None):
-            return self._trainer
-        if parameter is None:
-            parameter = self.make_parameter()
-        if memory is None:
-            memory = self.make_memory()
-        if not self.rl_config.is_setup():
-            self.rl_config.setup(self.make_env())
-        trainer = make_trainer(self.rl_config, parameter, memory)
-        logger.debug(f"[{self.context.run_name}]({self.context.flow_mode}) make: {repr(trainer)}")
-        if _cache_flag:
-            logger.info(f"[{self.context.run_name}]({self.context.flow_mode}) make cache: {repr(trainer)}")
-            self._trainer = trainer
-        return trainer
+        self.setup_process()
+        if self.state.trainer is None:
+            if parameter is None:
+                parameter = self.make_parameter()
+            if memory is None:
+                memory = self.make_memory()
+            self.state.trainer = make_trainer(self.rl_config, parameter, memory)
+        return self.state.trainer
 
     def make_worker(
         self,
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
     ) -> WorkerRun:
-        self._setup_process()
-        # parameterがnoneじゃない場合は作ってキャッシュしない
-        _cache_flag = (parameter is None) and (memory is None)
-        if _cache_flag and (self._worker is not None):
-            return self._worker
-        if parameter is None:
-            parameter = self.make_parameter()
-        if memory is None:
-            memory = self.make_memory()
-        env = self.make_env()
-        self.rl_config.setup(env)
-        worker = make_worker(self.rl_config, env, parameter, memory)
-        logger.debug(f"[{self.context.run_name}]({self.context.flow_mode}) make: {repr(worker._worker)}")
-        if _cache_flag:
-            logger.info(f"[{self.context.run_name}]({self.context.flow_mode}) make cache: {repr(worker._worker)}")
-            self._worker = worker
-        return worker
+        self.setup_process()
+        if self.state.worker is None:
+            if parameter is None:
+                parameter = self.make_parameter()
+            if memory is None:
+                memory = self.make_memory()
+            self.state.worker = make_worker(self.rl_config, self.make_env(), parameter, memory)
+        return self.state.worker
 
     def make_workers(
         self,
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
-    ) -> Tuple[List[WorkerRun], int]:
-        # 作成が複雑なのでworkers単位ではキャッシュしない
-        main_worker = self.make_worker(parameter, memory)
-        if parameter is None:
-            parameter = self.make_parameter()
-        if memory is None:
-            memory = self.make_memory()
-        self._workers, self._main_worker_idx = make_workers(
-            self.context.players,
-            self.make_env(),
-            self.rl_config,
-            parameter,
-            memory,
-            main_worker,
-        )
-        logger.debug(f"[{self.context.run_name}]({self.context.flow_mode}) make workers")
-        return self._workers, self._main_worker_idx
+    ):
+        self.setup_process()
+        if self.state.workers is None:
+            if parameter is None:
+                parameter = self.make_parameter()
+            if memory is None:
+                memory = self.make_memory()
+            self.state.workers, main_worker_idx = make_workers(
+                self.context.players,
+                self.make_env(),
+                self.rl_config,
+                parameter,
+                memory,
+                self.make_worker(parameter, memory),
+            )
+        return self.state.workers
 
     # ------------------------------
     # process
     # ------------------------------
-    def _setup_process(self):
+    def setup_process(self):
+        if not self.rl_config.is_setup():
+            self.rl_config.setup(self.make_env())
         if RunnerBase.__setup_process:
             return
         self.context.set_memory_limit()
-        self.context.set_device()
+        self.context.setup_device()
         RunnerBase.__setup_process = True
 
     # ------------------------------
@@ -323,31 +275,10 @@ class RunnerBase:
             state = worker._config.state_encode_one_step(state, env)
         return state
 
-    def copy(self, env_share: bool) -> "RunnerBase":
-        runner = RunnerBase(
-            self.env_config.copy(),
-            self.rl_config.copy(),
-            self.context.copy(),
-        )
-        if env_share:
-            runner._env = self._env
-        return runner
-
     def print_config(self):
         print(f"env\n{pprint.pformat(self.env_config.to_dict())}")
         print(f"rl\n{pprint.pformat(self.rl_config.to_dict())}")
         print(f"context\n{pprint.pformat(self.context.to_dict())}")
-
-    # ------------------------------
-    # path
-    # ------------------------------
-    def get_dirname1(self) -> str:
-        dir_name = f"{self.env_config.name}_{self.rl_config.get_name()}"
-        dir_name = re.sub(r'[\\/:?."<>\|]', "_", dir_name)
-        return dir_name
-
-    def get_dirname2(self) -> str:
-        return datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # ------------------------------
     # progress
@@ -686,73 +617,3 @@ class RunnerBase:
 
         callbacks.append(MLFlowCallback(**self._mlflow_kwargs))
         logger.info("add callback MLFlowCallback")
-
-    # ---------------------------------------------
-    # run
-    # ---------------------------------------------
-    def run_context(
-        self,
-        parameter: Optional[RLParameter] = None,
-        memory: Optional[RLMemory] = None,
-        trainer: Optional[RLTrainer] = None,
-        workers: Optional[List[WorkerRun]] = None,
-        main_worker_idx: int = 0,
-        callbacks: List[RunCallback] = [],
-    ):
-        # --- make instance
-        if workers is None:
-            workers, main_worker_idx = self.make_workers(parameter, memory)
-        if not self.context.disable_trainer and trainer is None:
-            trainer = self.make_trainer(parameter, memory)
-
-        self.state = play.play(
-            self.context,
-            self.make_env(),
-            workers,
-            main_worker_idx,
-            trainer,
-            callbacks,
-        )
-        return self.state
-
-    def run_context_generator(
-        self,
-        parameter: Optional[RLParameter] = None,
-        memory: Optional[RLMemory] = None,
-        trainer: Optional[RLTrainer] = None,
-        workers: Optional[List[WorkerRun]] = None,
-        main_worker_idx: int = 0,
-        callbacks: List[RunCallback] = [],
-    ):
-        # --- make instance
-        if workers is None:
-            workers, main_worker_idx = self.make_workers(parameter, memory)
-        if not self.context.disable_trainer and trainer is None:
-            trainer = self.make_trainer(parameter, memory)
-
-        return play.play_generator(
-            self.context,
-            self.make_env(),
-            workers,
-            main_worker_idx,
-            trainer,
-            callbacks,
-        )
-
-    def run_context_trainer_only(
-        self,
-        parameter: Optional[RLParameter] = None,
-        memory: Optional[RLMemory] = None,
-        trainer: Optional[RLTrainer] = None,
-        callbacks: List[RunCallback] = [],
-    ):
-        # --- make instance
-        if trainer is None:
-            trainer = self.make_trainer(parameter, memory)
-
-        self.state = play.play_trainer_only(
-            self.context,
-            trainer,
-            callbacks,
-        )
-        return self.state

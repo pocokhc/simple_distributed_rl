@@ -6,6 +6,7 @@ import numpy as np
 
 from srl.base.context import RunContext
 from srl.base.define import PlayerType
+from srl.base.rl.parameter import RLParameter
 from srl.runner.runner_facade_distribution import RunnerFacadeDistribution
 from srl.runner.runner_facade_play import RunnerFacadePlay
 from srl.runner.runner_facade_train import RunnerFacadeTrain
@@ -24,11 +25,30 @@ class Runner(
         context = context.copy()
         return Runner(context.env_config, context.rl_config, context)
 
-    def summary(self):
-        parameter = self.make_parameter()  # and rl_config.setup()
+    def model_summary(self, expand_nested: bool = True, **kwargs) -> RLParameter:
+        """modelの概要を返します。これは以下と同じです。
+
+        >>> parameter = runner.make_parameter()
+        >>> parameter.summary()
+
+        Args:
+            expand_nested (bool): tensorflow option
+
+        Returns:
+            RLParameter: RLParameter
+        """
+        parameter = self.make_parameter()
+        parameter.summary(expand_nested=expand_nested, **kwargs)
+        return parameter
+
+    def summary(self, summary_parameter: bool = False):
+        if self.rl_config.is_setup():
+            self.rl_config.setup(self.make_env())
         self.env_config.summary()
         self.rl_config.summary()
-        parameter.summary()
+        if summary_parameter:
+            parameter = self.make_parameter()
+            parameter.summary()
 
     def evaluate_compare_to_baseline_single_player(
         self,

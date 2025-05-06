@@ -98,6 +98,7 @@ def make_base(config: Union[str, EnvConfig], env_run: Optional["EnvRun"] = None)
     if env is None:
         raise UndefinedError(f"'{env_name}' is not found.")
 
+    logger.debug(f"make: {env.__class__}(id:{id(env_run)})")
     env.init_base(env_run)
     return env
 

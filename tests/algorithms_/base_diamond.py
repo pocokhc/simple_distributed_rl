@@ -14,6 +14,7 @@ class QuickCase(CommonQuickCase):
         rl_config.memory.warmup_size = 2
         rl_config.burnin = 1
         rl_config.horizon = 2
+        rl_config.img_shape = (8, 8)
         rl_config.denoiser_cfg = diamond.DenoiserConfig(
             num_steps_conditioning=1,
             condition_channels=2,
@@ -21,19 +22,19 @@ class QuickCase(CommonQuickCase):
             res_block_num_list=[1],
             use_attention_list=[False],
         )
-        self.reward_end_cfg = diamond.RewardEndModelConfig(
+        rl_config.reward_end_cfg = diamond.RewardEndModelConfig(
             lstm_dim=2,
             condition_channels=2,
             channels_list=[2],
             res_block_num_list=[2],
             use_attention_list=[False],
         )
-        self.actor_critic_cfg = diamond.ActorCriticConfig(
+        rl_config.actor_critic_cfg = diamond.ActorCriticConfig(
             lstm_dim=2,
             channels_list=[2],
             enable_downsampling_list=[True],
         )
-        self.sampler_cfg = diamond.DiffusionSamplerConfig(
+        rl_config.sampler_cfg = diamond.DiffusionSamplerConfig(
             num_steps_denoising=1,
         )
         return rl_config, {}

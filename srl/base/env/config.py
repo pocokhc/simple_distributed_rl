@@ -11,7 +11,6 @@ if TYPE_CHECKING:
     import gym
     import gymnasium
 
-    from srl.base.env.base import EnvBase
     from srl.base.env.env_run import EnvRun
     from srl.base.env.gym_user_wrapper import GymUserWrapper
 

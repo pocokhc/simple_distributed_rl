@@ -1,5 +1,5 @@
 import srl
-from srl.base.context import RunContext
+from srl.base.context import RunContext, RunState
 from srl.base.define import RLActionType
 from srl.base.rl.config import DummyRLConfig
 from srl.base.rl.worker import RLWorker
@@ -38,10 +38,8 @@ def test_invalid_actions():
     context.max_episodes = 10
     context.training = False
     context.disable_trainer = True
-    play(
-        context,
-        env,
-        workers=[worker, srl.make_worker("random", env)],
-        main_worker_idx=0,
-        trainer=None,
-    )
+    state = RunState()
+    state.env = env
+    state.worker = worker
+    state.workers = [worker, srl.make_worker("random", env)]
+    play(context, state)

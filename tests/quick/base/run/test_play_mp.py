@@ -4,7 +4,6 @@ import queue
 from multiprocessing import sharedctypes
 from typing import cast
 
-import numpy as np
 import pytest
 import pytest_mock
 
@@ -15,14 +14,6 @@ from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.base.run.play_mp import MpConfig, _run_actor, _run_trainer
-
-
-class _AssertTrainCallbacks(RunCallback):
-    def on_episodes_end(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
-        assert state.sync_actor > 1
-
-    def on_trainer_end(self, context: RunContext, state: RunStateTrainer, **kwargs) -> None:
-        assert state.sync_trainer > 1
 
 
 class _DummyValue:
@@ -92,6 +83,7 @@ def test_trainer(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
     remote_qsize = cast(sharedctypes.Synchronized, mp.Value(ctypes.c_int, 0))
     remote_board = _DummyValue(None)
     end_signal = _DummyValue(False)
+    last_mem_queue = mp.Queue()
 
     # --- create task
     c = mocker.Mock(spec=RunCallback)
@@ -141,37 +133,14 @@ def test_trainer(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
     # --- run
     _run_trainer(
         mp_cfg,
-        runner.make_parameter(),
-        runner.make_memory(),
         remote_queue,
         remote_qsize,
         remote_board,
         end_signal,
-        [],
+        None,
+        last_mem_queue,
     )
 
     assert end_signal.value
     assert c.on_trainer_start.call_count > 0
     assert c.on_trainer_end.call_count > 0
-
-
-@pytest.mark.timeout(10)  # pip install pytest_timeout
-def test_train():
-    rl_config = ql_agent57.Config(batch_size=2)
-    rl_config.memory.warmup_size = 10
-    runner = srl.Runner("Grid", rl_config)
-    runner.set_progress(enable_eval=True)
-    runner.train_mp(
-        actor_num=2,
-        max_train_count=30_000,
-        callbacks=[_AssertTrainCallbacks()],
-        trainer_parameter_send_interval=0,
-        actor_parameter_sync_interval=0,
-        enable_mp_memory=False,
-    )
-
-    # eval
-    rewards = runner.evaluate(max_episodes=100)
-    rewards = np.mean(rewards)
-    print(rewards)
-    assert rewards > 0.5

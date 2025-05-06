@@ -1,6 +1,7 @@
 import ctypes
 import logging
 import multiprocessing as mp
+import os
 import pickle
 import queue
 import threading
@@ -8,9 +9,9 @@ import time
 import traceback
 from dataclasses import dataclass, field
 from multiprocessing import sharedctypes
-from typing import Any, Callable, List, cast
+from typing import Any, Callable, List, Optional, cast
 
-from srl.base.context import RunContext, RunNameTypes
+from srl.base.context import RunContext, RunState
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.run import core_play, core_train_only
@@ -23,11 +24,21 @@ from srl.base.run.core_train_only import RunStateTrainer
 logger = logging.getLogger(__name__)
 
 
+if os.environ.get("SRL_TF_GPU_INITIALIZE_DEVICES", "") == "1":
+    import tensorflow as tf
+
+    # init GPU tensorflow, 初期化は親プロセスのグローバルで実施
+    # 内部で_initialize_physical_devices(初期化処理)が呼ばれる
+    tf.config.list_physical_devices("GPU")
+    logger.info("SRL_TF_GPU_INITIALIZE_DEVICES")
+
+
 @dataclass
 class MpConfig:
     context: RunContext
     callbacks: List[RunCallback] = field(default_factory=list)
 
+    polling_interval: float = 1  # sec
     queue_capacity: int = 1000
     trainer_parameter_send_interval: float = 1  # sec
     actor_parameter_sync_interval: float = 1  # sec
@@ -157,16 +168,19 @@ def _run_actor(
     actor_id: int,
     end_signal: Any,
 ):
+    # import faulthandler
+    # faulthandler.enable()
+
     try:
         logger.info(f"[actor{actor_id}] start.")
         context = cfg.context
-        context.run_name = RunNameTypes.actor
+        context.run_name = "actor"
         context.actor_id = actor_id
-        context.set_device()
+        context.setup_device(is_mp_main_process=False)
         env = context.env_config.make()
 
         # --- parameter
-        parameter = context.rl_config.make_parameter(env=env)
+        parameter = context.rl_config.make_parameter()
         dat = remote_board.value
         if dat is not None:
             train_count, params = pickle.loads(dat)
@@ -201,19 +215,18 @@ def _run_actor(
         context.training = True
         context.disable_trainer = True
         # context.max_episodes = -1
-        # context.max_memory = -1
+        context.max_memory = -1
         # context.max_steps = -1
-        # context.max_train_count = -1
+        context.max_train_count = -1
         # context.timeout = -1
         workers, main_worker_idx = context.rl_config.make_workers(context.players, env, parameter, memory)
-        core_play.play(
-            context=context,
-            env=env,
-            workers=workers,
-            main_worker_idx=main_worker_idx,
-            trainer=None,
-            callbacks=cast(List[RunCallback], callbacks),
-        )
+        state = RunState()
+        state.env = env
+        state.parameter = parameter
+        state.memory = memory
+        state.worker = workers[main_worker_idx]
+        state.workers = workers
+        core_play.play(context, state, callbacks=callbacks)
 
     except MemoryError:
         import gc
@@ -243,12 +256,14 @@ def _run_memory(
     qsize_train_to_mem: sharedctypes.Synchronized,
     end_signal: Any,
     memory_dat,
+    last_mem_queue: mp.Queue,
 ):
     try:
         logger.info("[memory] start.")
 
         memory = cfg.context.rl_config.make_memory()
-        memory.restore(memory_dat)
+        if memory_dat is not None:
+            memory.restore(memory_dat)
         worker_funcs = {k: v[0] for k, v in memory.get_worker_funcs().items()}
         trainer_recv_funcs = memory.get_trainer_recv_funcs()
         trainer_send_funcs = memory.get_trainer_send_funcs()
@@ -305,6 +320,7 @@ def _run_memory(
             [c.on_memory(cfg.context, info) for c in _calls_on_memory]
 
         [c.on_memory_end(cfg.context, info) for c in cfg.callbacks]
+        last_mem_queue.put(memory.backup(compress=True))
 
     except MemoryError:
         import gc
@@ -399,25 +415,25 @@ def _train_parameter_communicate(
 ):
     try:
         while not end_signal.value:
-            time.sleep(trainer_parameter_send_interval)
             params = parameter.backup(to_cpu=True)
             if params is not None:
                 remote_board.set(pickle.dumps((share_dict["train_count"], params)))
                 share_dict["sync_count"] += 1
+            time.sleep(trainer_parameter_send_interval)
     except MemoryError:
         import gc
 
         gc.collect()
 
-        logger.error(traceback.format_exc())
+        logger.info(traceback.format_exc())
         end_signal.value = True
-        exception_queue.put(2)
-        logger.info("[trainer, parameter thread] end_signal=True (MemoryError)")
+        exception_queue.put(1)
+        logger.error("[trainer, parameter thread] end_signal=True (MemoryError)")
     except Exception:
-        logger.error(traceback.format_exc())
+        logger.info(traceback.format_exc())
         end_signal.value = True
-        exception_queue.put(2)
-        logger.info("[trainer, parameter thread] end_signal=True (error)")
+        exception_queue.put(1)
+        logger.error("[trainer, parameter thread] end_signal=True (error)")
     finally:
         logger.info("[trainer, parameter thread] end")
 
@@ -430,16 +446,12 @@ class _TrainerInterrupt(RunCallback):
         end_signal: ctypes.c_bool,
         share_dict: dict,
         parameter_th: threading.Thread,
-        actors_ps_list: List[mp.Process],
-        memory_ps: mp.Process,
     ) -> None:
         self.memory = memory
         self.queue_mem_to_train = queue_mem_to_train
         self.end_signal = end_signal
         self.share_dict = share_dict
         self.parameter_th = parameter_th
-        self.actors_ps_list = actors_ps_list
-        self.memory_ps = memory_ps
         self.t0_health = time.time()
 
     def on_train_after(self, context: RunContext, state: RunStateTrainer, **kwargs) -> bool:
@@ -457,48 +469,40 @@ class _TrainerInterrupt(RunCallback):
             self.t0_health = time.time()
             if not self.parameter_th.is_alive():
                 return True
-            n = 0
-            for w in self.actors_ps_list:
-                if w.is_alive():
-                    n += 1
-            if n == 0:
-                logger.info("all actor process dead.")
-                return True
-            if not self.memory_ps.is_alive():
-                logger.info("memory process dead.")
-                return True
 
         return self.end_signal.value
 
 
 def _run_trainer(
     cfg: MpConfig,
-    parameter: RLParameter,
     queue_mem_to_train: mp.Queue,
     qsize_mem_to_train_list: List[sharedctypes.Synchronized],
     queue_train_to_mem: mp.Queue,
     qsize_train_to_mem: sharedctypes.Synchronized,
     remote_board: Any,
     end_signal: Any,
-    actors_ps_list: List[mp.Process],
-    memory_ps: mp.Process,
 ):
     exception_queue = queue.Queue()
     try:
         logger.info("[trainer] start.")
         context = cfg.context
-        context.run_name = RunNameTypes.trainer
-        context.set_device()
-
+        context.run_name = "trainer"
+        context.setup_device(is_mp_main_process=False)
         context.training = True
         context.distributed = True
         context.train_only = False
-
         share_dict = {
             "sync_count": 0,
             "q_recv": 0,
             "train_count": 0,
         }
+
+        parameter = context.rl_config.make_parameter()
+        dat = remote_board.value
+        if dat is not None:
+            train_count, params = pickle.loads(dat)
+            if params is not None:
+                parameter.restore(params, from_cpu=True)
 
         memory = _TrainerRLMemoryInterceptor(
             qsize_mem_to_train_list,
@@ -533,13 +537,15 @@ def _run_trainer(
                 end_signal,
                 share_dict,
                 parameter_th,
-                actors_ps_list,
-                memory_ps,
             )
         )
 
         # --- train
-        core_train_only.play_trainer_only(context, trainer, callbacks)
+        state = RunState()
+        state.parameter = parameter
+        state.memory = cast(RLMemory, memory)
+        state.trainer = trainer
+        core_train_only.play_trainer_only(context, state, callbacks=callbacks)
 
         if not end_signal.value:
             end_signal.value = True
@@ -547,14 +553,22 @@ def _run_trainer(
 
         # thread end
         parameter_th.join(timeout=10)
+
+    except MemoryError:
+        import gc
+
+        gc.collect()
+        raise
+    except Exception:
+        raise
     finally:
-        # 異常終了していたら例外を出す
+        if not end_signal.value:
+            end_signal.value = True
+            logger.info("[trainer] end_signal=True (trainer mp end)")
+        else:
+            logger.info("[trainer] end")
         if not exception_queue.empty():
-            n = exception_queue.get()
-            if n == 1:
-                raise RuntimeError("An exception occurred in the memory thread.")
-            else:
-                raise RuntimeError("An exception occurred in the parameter thread.")
+            raise RuntimeError("An exception occurred in the parameter thread.")
         logger.info("[trainer] end")
 
 
@@ -564,7 +578,7 @@ def _run_trainer(
 __is_set_start_method = False
 
 
-def train(mp_cfg: MpConfig, parameter: RLParameter, memory: RLMemory):
+def train(mp_cfg: MpConfig, parameter_dat: Optional[Any] = None, memory_dat: Optional[Any] = None):
     global __is_set_start_method
     context = mp_cfg.context
     context.check_stop_config()
@@ -576,6 +590,12 @@ def train(mp_cfg: MpConfig, parameter: RLParameter, memory: RLMemory):
 
     try:
         logger.debug(context.to_str_context())
+
+        # --- 実行前にrl_configのsetupを保証
+        context.setup_rl_config()
+
+        # --- deviceのセットアップ
+        context.setup_device(is_mp_main_process=True)
 
         # mp を notebook で実行する場合はrlの定義をpyファイルにする必要あり TODO: それ以外でも動かないような
         # if is_env_notebook() and "__main__" in str(remote_memory_class):
@@ -631,11 +651,10 @@ def train(mp_cfg: MpConfig, parameter: RLParameter, memory: RLMemory):
             queue_mem_to_train = mp.Queue()  # put->mp->get
             queue_train_to_mem = mp.Queue()  # put->mp->get
             remote_board: Any = manager.Value(ctypes.c_char_p, None)  # set->th->mp->get
+            last_mem_queue = mp.Queue()
 
-            # --- init remote_memory/parameter
-            params = parameter.backup(to_cpu=True)
-            if params is not None:
-                remote_board.set(pickle.dumps((0, params)))
+            # params
+            remote_board.set(pickle.dumps((0, parameter_dat)))
 
             # --- actor ---
             actors_ps_list: List[mp.Process] = []
@@ -650,7 +669,6 @@ def train(mp_cfg: MpConfig, parameter: RLParameter, memory: RLMemory):
                 )
                 ps = mp.Process(target=_run_actor, args=params)
                 actors_ps_list.append(ps)
-            # -------------
 
             # --- memory
             memory_ps = mp.Process(
@@ -664,51 +682,83 @@ def train(mp_cfg: MpConfig, parameter: RLParameter, memory: RLMemory):
                     queue_train_to_mem,
                     qsize_train_to_mem,
                     end_signal,
-                    memory.backup(compress=True),
+                    memory_dat,
+                    last_mem_queue,
                 ),
             )
-            # --------------
 
-            # --- start
-            logger.info("[main] process start")
-            [p.start() for p in actors_ps_list]
-            memory_ps.start()
-
-            # train
-            try:
-                _run_trainer(
+            # --- trainer
+            trainer_ps = mp.Process(
+                target=_run_trainer,
+                args=(
                     mp_cfg,
-                    parameter,
                     queue_mem_to_train,
                     qsize_mem_to_train_list,
                     queue_train_to_mem,
                     qsize_train_to_mem,
                     remote_board,
                     end_signal,
-                    actors_ps_list,
-                    memory_ps,
-                )
-            finally:
-                if not end_signal.value:
-                    end_signal.value = True
-                    logger.info("[main] end_signal=True (trainer end)")
+                ),
+            )
 
-            # --- プロセスの終了を待つ
-            for i, w in enumerate(actors_ps_list + [memory_ps]):
+            # --- start
+            logger.info("[main] process start")
+            trainer_ps.start()
+            memory_ps.start()
+            [p.start() for p in actors_ps_list]
+            while True:
+                time.sleep(mp_cfg.polling_interval)
+
+                if not trainer_ps.is_alive():
+                    end_signal.value = True
+                    logger.info("trainer process dead")
+                    break
+
+                if not memory_ps.is_alive():
+                    end_signal.value = True
+                    logger.info("memory process dead")
+                    break
+
+                for i, w in enumerate(actors_ps_list):
+                    if not w.is_alive():
+                        end_signal.value = True
+                        logger.info(f"actor{i} process dead")
+                        break
+
+                if end_signal.value:
+                    break
+
+            # params
+            dat = remote_board.value
+            if dat is not None:
+                _, parameter_dat = pickle.loads(dat)
+
+            # memory
+            try:
+                if not last_mem_queue.empty():
+                    memory_dat = last_mem_queue.get(timeout=60 * 10)
+            except Exception:
+                logger.info(traceback.format_exc())
+                logger.error("Failed to receive memory data.")
+
+            # --- プロセスの終了処理
+            for i, p in enumerate(actors_ps_list + [memory_ps, trainer_ps]):
                 for _ in range(10):
-                    if w.is_alive():
+                    if p.is_alive():
                         time.sleep(1)
                     else:
                         # 子プロセスが正常終了していなければ例外を出す
                         # exitcode: 0 正常, 1 例外, 負 シグナル
-                        if w.exitcode != 0 and w.exitcode is not None:
-                            raise RuntimeError(f"An exception has occurred.(exitcode: {w.exitcode})")
+                        if p.exitcode != 0 and p.exitcode is not None:
+                            raise RuntimeError(f"An exception has occurred.(exitcode: {p.exitcode})")
                         break
                 else:
                     logger.info("[main] terminate process.")
-                    w.terminate()
+                    p.terminate()
 
     finally:
         # --- callbacks ---
         [c.on_end(context=context) for c in callbacks]
         # ------------------
+
+    return parameter_dat, memory_dat

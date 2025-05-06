@@ -1,25 +1,22 @@
-import enum
 import logging
 import pickle
 import pprint
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, Any, List, Literal, Optional, Union
 
 from srl.base.define import PlayerType, RenderModeType
 from srl.utils.serialize import convert_for_json
 
 if TYPE_CHECKING:
     from srl.base.env.config import EnvConfig
+    from srl.base.env.env_run import EnvRun
     from srl.base.rl.config import RLConfig
+    from srl.base.rl.memory import RLMemory
+    from srl.base.rl.parameter import RLParameter
+    from srl.base.rl.trainer import RLTrainer
+    from srl.base.rl.worker_run import WorkerRun
 
 logger = logging.getLogger(__name__)
-
-
-class RunNameTypes(enum.Enum):
-    main = enum.auto()
-    trainer = enum.auto()
-    actor = enum.auto()
-    eval = enum.auto()
 
 
 @dataclass
@@ -34,7 +31,7 @@ class RunContext:
     players: List[PlayerType] = field(default_factory=list)
 
     # --- runtime context
-    run_name: RunNameTypes = RunNameTypes.main
+    run_name: Literal["main", "trainer", "actor", "eval"] = "main"
     flow_mode: str = ""
     # stop config
     max_episodes: int = 0
@@ -105,18 +102,19 @@ class RunContext:
                 setattr(context, k, pickle.loads(pickle.dumps(v)))
             except TypeError as e:
                 logger.warning(f"'{k}' copy fail.({e})")
-        context.env_config = self.env_config
-        context.rl_config = self.rl_config
+        context.env_config = self.env_config.copy()
+        context.rl_config = self.rl_config.copy()
         return context
 
     def check_stop_config(self):
         if self.distributed:
-            assert self.max_train_count > 0 or self.timeout > 0, "Please specify 'max_train_count' or 'timeout'."
+            if self.run_name == "trainer":
+                assert self.max_train_count > 0 or self.timeout > 0, "Please specify 'max_train_count' or 'timeout'."
         elif self.train_only:
             assert self.max_train_count > 0 or self.timeout > 0, "Please specify 'max_train_count' or 'timeout'."
         else:
             assert (
-                self.max_steps > 0  # 改行抑制コメント
+                self.max_steps > 0  #
                 or self.max_episodes > 0
                 or self.timeout > 0
                 or self.max_train_count > 0
@@ -128,17 +126,21 @@ class RunContext:
                         assert self.max_memory <= self.rl_config.memory.capacity  # type: ignore
 
     def get_name(self) -> str:
-        if self.run_name == RunNameTypes.actor:
+        if self.run_name == "actor":
             return f"actor{self.actor_id}"
         else:
-            return self.run_name.name
+            return self.run_name
+
+    def setup_rl_config(self):
+        if (self.rl_config is not None) and (not self.rl_config.is_setup()):
+            self.rl_config.setup(self.env_config.make())
 
     def set_memory_limit(self):
         from srl.base.system.memory import set_memory_limit
 
         set_memory_limit(self.memory_limit)
 
-    def set_device(self):
+    def setup_device(self, is_mp_main_process: Optional[bool] = None):
         if self.rl_config is None:
             logger.warning("skip set device (RLConfig is None)")
             return
@@ -153,6 +155,7 @@ class RunContext:
         used_device_tf, used_device_torch = setup_device(
             self.framework,
             self.get_device(),
+            is_mp_main_process,
             self.set_CUDA_VISIBLE_DEVICES_if_CPU,
             self.tf_enable_memory_growth,
             tf_policy_name,
@@ -164,11 +167,11 @@ class RunContext:
         self.rl_config._used_device_torch = used_device_torch
 
     def get_device(self) -> str:
-        if self.run_name == RunNameTypes.main or self.run_name == RunNameTypes.trainer:
+        if self.run_name == "main" or self.run_name == "trainer":
             device = self.device.upper()
             if device == "":
                 device = "AUTO"
-        elif self.run_name == RunNameTypes.actor:
+        elif self.run_name == "actor":
             if isinstance(self.actor_devices, str):
                 device = self.actor_devices.upper()
             else:
@@ -191,3 +194,55 @@ class RunContext:
 
     def print_context(self, include_env_config: bool = True, include_rl_config: bool = True, include_context: bool = True):
         print(self.to_str_context(include_env_config, include_rl_config, include_context))
+
+
+class RunState:
+    """
+    実行中の状態をまとめたクラス
+    A class that summarizes the execution state
+    """
+
+    def __init__(self) -> None:
+        self.env: Optional["EnvRun"] = None
+        self.worker: Optional["WorkerRun"] = None  # main worker
+        self.workers: Optional[List["WorkerRun"]] = None
+        self.memory: Optional["RLMemory"] = None
+        self.parameter: Optional["RLParameter"] = None
+        self.trainer: Optional["RLTrainer"] = None
+        self.init()
+
+    def init(self):
+        # episodes init
+        self.elapsed_t0: float = 0
+        self.worker_indices: List[int] = []
+
+        # episode state
+        self.episode_rewards_list: List[List[float]] = []
+        self.episode_count: int = -1
+        self.total_step: int = 0
+        self.end_reason: str = ""
+        self.worker_idx: int = 0
+        self.episode_seed: Optional[int] = None
+        self.action: Any = None
+        self.train_count: int = 0
+
+        # train
+        self.is_step_trained: bool = False
+
+        # distributed
+        self.sync_actor: int = 0
+        self.actor_send_q: int = 0
+        self.sync_trainer: int = 0
+        self.trainer_recv_q: int = 0
+
+        # info(簡単な情報はここに保存)
+        self.last_episode_step: float = 0
+        self.last_episode_time: float = 0
+        self.last_episode_rewards: List[float] = []
+
+        # other
+        self.shared_vars: dict = {}
+
+    def to_dict(self) -> dict:
+        dat: dict = convert_for_json(self.__dict__)
+        return dat

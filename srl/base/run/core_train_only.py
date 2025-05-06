@@ -1,50 +1,43 @@
 import logging
 import time
-from dataclasses import dataclass, field
-from typing import Any, List
+from dataclasses import dataclass
+from typing import Any, List, Optional, cast
 
-from srl.base.context import RunContext
+from srl.base.context import RunContext, RunState
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.trainer import RLTrainer
 from srl.base.run.callback import RunCallback
 from srl.utils import common
-from srl.utils.serialize import convert_for_json
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class RunStateTrainer:
+class RunStateTrainer(RunState):
+    env: None
+    worker: None
+    workers: None
     trainer: RLTrainer
     memory: RLMemory
     parameter: RLParameter
 
-    elapsed_t0: float = 0
-    end_reason: str = ""
-    train_count: int = 0
-
-    # train
-    is_step_trained: bool = False  # 非同期でタイミングを取るのに重要
-
-    # distributed
-    sync_trainer: int = 0
-    trainer_recv_q: int = 0
-
-    # other
-    shared_vars: dict = field(default_factory=dict)
-
-    def to_dict(self) -> dict:
-        dat: dict = convert_for_json(self.__dict__)
-        return dat
-
 
 def play_trainer_only(
     context: RunContext,
-    trainer: RLTrainer,
+    state: Optional[RunState] = None,
+    parameter_dat: Optional[Any] = None,
+    memory_dat: Optional[Any] = None,
     callbacks: List[RunCallback] = [],
 ):
+    # check context
+    logger.debug(context.to_str_context())
     assert context.training
+    context.check_stop_config()
+
+    if state is None:
+        state = RunState()
+    state.init()
 
     if context.enable_tf_device and context.framework == "tensorflow":
         if common.is_enable_tf_device_name(context.used_device_tf):
@@ -52,16 +45,33 @@ def play_trainer_only(
 
             logger.info(f"tf.device({context.used_device_tf})")
             with tf.device(context.used_device_tf):  # type: ignore
-                return _play_trainer_only(context, trainer, callbacks)
-    return _play_trainer_only(context, trainer, callbacks)
+                return _play_trainer_only(context, cast(RunStateTrainer, state), parameter_dat, memory_dat, callbacks)
+    return _play_trainer_only(context, cast(RunStateTrainer, state), parameter_dat, memory_dat, callbacks)
 
 
 def _play_trainer_only(
     context: RunContext,
-    trainer: RLTrainer,
+    state: RunStateTrainer,
+    parameter_dat: Optional[Any],
+    memory_dat: Optional[Any],
     callbacks: List[RunCallback],
 ):
-    state = RunStateTrainer(trainer, trainer.memory, trainer.parameter)
+    # --- 0 create instance
+    if state.parameter is None:
+        state.parameter = context.rl_config.make_parameter(state.env)
+    if parameter_dat is not None:
+        state.parameter.restore(parameter_dat)
+    if state.memory is None:
+        state.memory = context.rl_config.make_memory(state.env)
+    if memory_dat is not None:
+        state.memory.restore(memory_dat)
+    if state.trainer is None:
+        state.trainer = context.rl_config.make_trainer(state.parameter, state.memory, state.env)
+
+    # --- callbacks ---
+    if not context.distributed:
+        [c.on_start(context=context, state=state) for c in callbacks]
+    # -----------------
 
     # --- 1 setup
     state.trainer.setup(context)
@@ -76,10 +86,8 @@ def _play_trainer_only(
         logger.debug("loop start")
         state.elapsed_t0 = time.time()
         while True:
-            _time = time.time()
-
             # --- stop check
-            if context.timeout > 0 and (_time - state.elapsed_t0) >= context.timeout:
+            if context.timeout > 0 and (time.time() - state.elapsed_t0) >= context.timeout:
                 state.end_reason = "timeout."
                 break
 
@@ -111,5 +119,7 @@ def _play_trainer_only(
 
         # 5 callbacks
         [c.on_trainer_end(context=context, state=state) for c in callbacks]
+        if not context.distributed:
+            [c.on_end(context=context, state=state) for c in callbacks]
 
     return state

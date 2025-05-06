@@ -1,56 +1,75 @@
 import logging
 import random
 import time
-from typing import Any, Generator, List, Optional, Tuple
+from typing import Any, Generator, List, Optional, Tuple, cast
 
-from srl.base.context import RunContext, RunNameTypes
-from srl.base.env.env_run import EnvRun
-from srl.base.rl.trainer import RLTrainer
-from srl.base.rl.worker_run import WorkerRun
+from srl.base.context import RunContext, RunState
 from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
+from srl.utils import common
 
 logger = logging.getLogger(__name__)
 
 
 def play_generator(
     context: RunContext,
-    env: EnvRun,
-    workers: List[WorkerRun],
-    main_worker_idx: int,
-    trainer: Optional[RLTrainer] = None,
+    state: Optional[RunState] = None,  # type: ignore
+    parameter_dat: Optional[Any] = None,
+    memory_dat: Optional[Any] = None,
     callbacks: List[RunCallback] = [],
 ) -> Generator[Tuple[str, RunContext, RunStateActor], None, None]:
     # Generator[YieldType, SendType, ReturnType]
 
-    # --- check trainer
-    if context.disable_trainer:
-        trainer = None
-    elif context.training:
-        assert trainer is not None
+    # context.check_stop_config()  # generatorはチェックしない
 
-    assert env.player_num == len(workers)
-    main_worker = workers[main_worker_idx]
-    state = RunStateActor(
-        env,
-        main_worker,
-        workers,
-        main_worker.worker.memory,
-        main_worker.worker.parameter,
-        trainer,
-    )
+    if state is None:
+        state: RunStateActor = cast(RunStateActor, RunState())
+    state.init()
+
+    # --- 0 create instance
+    if state.env is None:
+        state.env = context.env_config.make()
+    if state.parameter is None:
+        state.parameter = context.rl_config.make_parameter(state.env)
+    if parameter_dat is not None:
+        state.parameter.restore(parameter_dat)
+    if state.memory is None:
+        state.memory = context.rl_config.make_memory(state.env)
+    if memory_dat is not None:
+        state.memory.restore(memory_dat)
+    if (state.trainer is None) and context.training:
+        state.trainer = context.rl_config.make_trainer(state.parameter, state.memory, state.env)
+    if state.worker is None:
+        state.worker = context.rl_config.make_worker(state.env, state.parameter, state.memory)
+    if state.workers is None:
+        state.workers, main_worker_idx = context.rl_config.make_workers(context.players, state.env, state.parameter, state.memory, state.worker)
+
+    # check
+    if context.disable_trainer:
+        state.trainer = None
+    elif context.training:
+        assert state.trainer is not None
+    assert state.env.player_num == len(state.workers)
+    assert state.worker is not None
+
+    # --- callbacks ---
+    if not context.distributed:
+        [c.on_start(context=context, state=state) for c in callbacks]
+    # -----------------
 
     # --- 1 setup_from_actor
     if context.distributed:
-        main_worker.config.setup_from_actor(context.actor_num, context.actor_id)
+        state.worker.config.setup_from_actor(context.actor_num, context.actor_id)
 
     # --- 2 random
     if context.seed is not None:
-        state.episode_seed = random.randint(0, 2**16)
+        common.set_seed(context.seed, context.seed_enable_gpu)
+
+        state.episode_seed = random.randint(0, 2 ** (16 - 4))
         logger.info(f"set_seed: {context.seed}, 1st episode seed: {state.episode_seed}")
 
     # --- 3 setup
-    state.env.setup(context, context.rl_config.request_env_render)
+    state.env.setup(context, "" if context.rl_config is None else context.rl_config.request_env_render)
     [w.setup(context) for w in state.workers]
     if state.trainer is not None:
         state.trainer.setup(context)
@@ -78,7 +97,7 @@ def play_generator(
     [c.on_episodes_begin(context=context, state=state) for c in callbacks]
 
     # --- 6 loop
-    if context.run_name != RunNameTypes.eval:
+    if context.run_name != "eval":
         logger.debug(f"[{context.run_name}] loop start")
     state.elapsed_t0 = time.time()
     while True:
@@ -186,7 +205,7 @@ def play_generator(
             state.end_reason = "callback.intermediate_stop"
             break
 
-    if context.run_name != RunNameTypes.eval:
+    if context.run_name != "eval":
         logger.debug(f"[{context.run_name}] loop end({state.end_reason})")
 
     # --- 7 teardown
@@ -208,3 +227,5 @@ def play_generator(
     # 8 callbacks
     yield ("on_episodes_end", context, state)
     [c.on_episodes_end(context=context, state=state) for c in callbacks]
+    if not context.distributed:
+        [c.on_end(context=context, state=state) for c in callbacks]

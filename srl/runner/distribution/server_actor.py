@@ -7,7 +7,7 @@ import time
 import traceback
 from typing import Callable, List, Optional, cast
 
-from srl.base.context import RunContext, RunNameTypes
+from srl.base.context import RunContext
 from srl.base.env.env_run import EnvRun
 from srl.base.exception import DistributionError
 from srl.base.rl.memory import RLMemory
@@ -463,7 +463,7 @@ def _task_assign(task_manager: TaskManager):
     for i in range(task_manager.get_actor_num()):
         _aid = task_manager.get_actor(i, "id")
         if _aid == task_manager.params.uid:
-            task_config.context.run_name = RunNameTypes.actor
+            task_config.context.run_name = "actor"
             task_config.context.actor_id = i
             task_manager.set_actor(i, "update_time", task_manager.get_now_str())
             task_manager.add_log(f"Actor{i} reassigned({task_manager.params.uid})")
@@ -485,7 +485,7 @@ def _task_assign(task_manager: TaskManager):
         if _aid != "":
             continue
 
-        task_config.context.run_name = RunNameTypes.actor
+        task_config.context.run_name = "actor"
         task_config.context.actor_id = i
         task_manager.set_actor(i, "id", task_manager.params.uid)
         task_manager.set_actor(i, "update_time", task_manager.get_now_str())

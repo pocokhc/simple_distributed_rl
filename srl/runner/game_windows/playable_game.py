@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple, Union, cast
 
 import pygame
 
-from srl.base.context import RunContext
+from srl.base.context import RunContext, RunState
 from srl.base.define import EnvActionType, KeyBindType
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.worker_run import WorkerRun
@@ -51,7 +51,7 @@ class PlayableGame(GameWindow):
         self,
         env: EnvRun,
         context: RunContext,
-        workers: List[WorkerRun] = [],
+        worker: Optional[WorkerRun] = None,
         view_state: bool = True,
         action_division_num: int = 5,
         key_bind: Optional[KeyBindType] = None,
@@ -69,13 +69,10 @@ class PlayableGame(GameWindow):
         # --- play ---
         context.env_render_mode = "rgb_array"
         context.rl_render_mode = "terminal_rgb_array"
-        self.gen_play = play_generator(
-            context,
-            env,
-            workers,
-            0,
-            callbacks=[self.playable_callback] + callbacks,
-        )
+        state = RunState()
+        state.env = env
+        state.worker = worker
+        self.gen_play = play_generator(context, state, callbacks=[self.playable_callback] + callbacks)
         # 最初まで進める
         while True:
             gen_status, _, gen_state = next(self.gen_play)

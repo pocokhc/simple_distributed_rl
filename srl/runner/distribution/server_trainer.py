@@ -5,7 +5,7 @@ import time
 import traceback
 from typing import List, Optional, cast
 
-from srl.base.context import RunContext, RunNameTypes
+from srl.base.context import RunContext
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.run import core_train_only
@@ -300,7 +300,7 @@ def _task_assign(task_manager: TaskManager):
     task_config = task_manager.get_config()
     if task_config is None:
         return None
-    task_config.context.run_name = RunNameTypes.trainer
+    task_config.context.run_name = "trainer"
     parameter = task_config.context.rl_config.make_parameter()
     task_manager.read_parameter(parameter)
 

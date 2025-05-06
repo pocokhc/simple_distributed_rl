@@ -141,15 +141,16 @@ Please refer to the following documents for creating original environments and a
 |-----------|-----------|-----------|---------|----|
 |DynaQ      |Discrete   |Discrete   |-        |100%|
 
-### WorldModels
+## WorldModels
 
-|Algorithm  |Observation|Action     |Tensorflow|Torch|ProgressRate||
-|-----------|-----------|-----------|----------|-----|---|---|
-|WorldModels|Continuous |Discrete   |✔        |-    |100%||
-|PlaNet     |Continuous |Discrete   |✔(+tensorflow-probability)|-|100%||
+|Algorithm  |Observation|Action     |Tensorflow|Torch|ProgressRate|
+|-----------|-----------|-----------|----------|-----|---|
+|WorldModels|Continuous |Discrete   |✔        |-    |100%|
+|PlaNet     |Continuous |Discrete   |✔(+tensorflow-probability)|-|100%|
 |Dreamer    |Continuous |Both       |-|-|merge DreamerV3|
 |DreamerV2  |Continuous |Both       |-|-|merge DreamerV3|
-|DreamerV3  |Continuous |Both       |✔(+tensorflow-probability)|-|100%||
+|DreamerV3  |Continuous |Both       |✔(+tensorflow-probability)|-|100%|
+|DIAMOND    |Image      |Discrete   |✔|-|100%|
 
 ## Offline
 

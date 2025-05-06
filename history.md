@@ -15,6 +15,49 @@
 // TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除
 
 
+# v1.1.0
+
+・multiprocessing+GPUの連携方法を見直し（TFとtorchにそれぞれ特化した形で見直し）
+　・TF: 親プロセスのグローバルで初期化
+　・Torch: 親プロセスでは初期化せず、子プロセスのみで初期化
+・DIAMOND実装
+・挙動確認も含めてfloat16を仮実装
+
+
+**MainUpdates**
+
+1. [base] multiprocessing+GPUの連携方法を見直し
+    - [base.run] update: playとrunner.run_contextをなくしcore_playに統一
+        - RunStateActorとRunStateTrainerを統一し、contextにRunStateを作成
+        - core_play.playの引数をcontextとstateに統一
+        - 各インスタンスの生成をrunnerからcore_play.play内に変更
+        - RunNameTypesをenumからLiteralに変更
+    - [base.run] update: parameterの生成(tf/torchのimport)を遅らせるためにデータだけをやりとりするparams_dat/memory_datを引数に追加
+        - Runnerのsave/loadをdat形式だけでやり取りできるように修正
+    - [mp] update: mp+GPUように修正
+        - tfはグローバルにtf.config.list_physical_devices("GPU")で初期化
+        - torchは子プロセスのみで初期化されるようにロジックを修正
+        - torch用に、trainerも子プロセスで動作するように変更
+        - mpとの入出力をparams_dat/memory_datでできるように修正
+    - [base.rl] update: parameterとmemoryのsave/loadをutil関数にして統一
+    - [runner.callbacks] update: evaluateを更新
+    - [runner.callbacks] update: print_progressの表示を1度だけではなくactor毎に変更
+1. [utils.common] update: is_packeg_installedをimportせずに確認する方法に変更
+1. [algorithms] new: DIAMOND追加
+1. [base.syste.device] add: float16指定時にtfでmixed_precisionを設定するように追加
+1. [base.rl.config] del: RLConfigからenv関係の情報を削除（env_max_episode_steps,env_player_num）
+
+**OtherUpdates**
+
+1. [algorithms] change: DQNのmemoryをPriorityMemoryに変更
+1. [runner.runner_base] del: 使っていないcopy,get_dirname1/2を削除
+
+**Bug Fixes**
+
+1. [rl.memories.episode_replay_buffer] add: backup/restoreを実装し忘れていたので追加
+1. [base.rl.config.RLConfig] add: make_workersにmain_workerの引数が足りなかったので追加
+
+
 # v1.0.0
 
 ・pypi登録(srl-framework)、登録につきverを1.0.0に変更

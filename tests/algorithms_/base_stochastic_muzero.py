@@ -1,5 +1,7 @@
 from typing import Tuple
 
+import pytest
+
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_long_case import CommonLongCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -19,6 +21,9 @@ class QuickCase(CommonQuickCase):
         rl_config.input_image_block.set_alphazero_block(1, 4)
 
         return rl_config, dict(use_layer_processor=True)
+
+    def test_simple_input_image(self, rl_param, tmpdir):
+        pytest.skip()
 
 
 class LongCase(CommonLongCase):

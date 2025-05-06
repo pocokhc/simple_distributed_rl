@@ -4,7 +4,7 @@ from pprint import pprint
 import pytest
 
 from srl.algorithms import dqn
-from srl.base.context import RunContext, RunNameTypes
+from srl.base.context import RunContext
 from srl.base.env.config import EnvConfig
 
 
@@ -61,10 +61,10 @@ def test_to_dict(framework):
 @pytest.mark.parametrize(
     "run_name, device, true_device",
     [
-        [RunNameTypes.main, "AUTo", "AUTO"],
-        [RunNameTypes.main, "gpu:1", "GPU:1"],
-        [RunNameTypes.trainer, "", "AUTO"],
-        [RunNameTypes.eval, "", "CPU"],
+        ["main", "AUTo", "AUTO"],
+        ["main", "gpu:1", "GPU:1"],
+        ["trainer", "", "AUTO"],
+        ["eval", "", "CPU"],
     ],
 )
 def test_get_device(run_name, device, true_device):
@@ -88,7 +88,7 @@ def test_get_device(run_name, device, true_device):
 )
 def test_get_device_actor(device, actor_id, true_device):
     context = RunContext()
-    context.run_name = RunNameTypes.actor
+    context.run_name = "actor"
     context.actor_devices = device
     context.actor_id = actor_id
     get_device = context.get_device()

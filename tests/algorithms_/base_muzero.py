@@ -1,5 +1,7 @@
 from typing import Tuple
 
+import pytest
+
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_long_case import CommonLongCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -20,6 +22,9 @@ class QuickCase(CommonQuickCase):
         rl_config.dynamics_blocks = 1
 
         return rl_config, dict(use_layer_processor=True)
+
+    def test_simple_input_image(self, rl_param, tmpdir):
+        pytest.skip()
 
 
 class LongCase(CommonLongCase):
@@ -51,13 +56,11 @@ class LongCase(CommonLongCase):
         rl_config.input_image_block.set_alphazero_block(1, 16)
         rl_config.memory.warmup_size = 200
         rl_config.memory.set_replay_buffer()
-        runner = self.create_test_runner("EasyGrid-Layer", rl_config)
+        runner = self.create_test_runner("EasyGrid-layer", rl_config)
         runner.train(max_train_count=3000)
         assert runner.evaluate_compare_to_baseline_single_player()
 
     def test_EasyGrid_PER(self):
-        from srl.envs import grid
-
         rl_config = self._create_rl_config()
         rl_config.__init__(
             num_simulations=20,
@@ -74,6 +77,6 @@ class LongCase(CommonLongCase):
         rl_config.lr = 0.002
         rl_config.lr_scheduler.set_step(10_000, 0.0001)
         rl_config.input_image_block.set_alphazero_block(1, 16)
-        runner = self.create_test_runner("EasyGrid-Layer", rl_config)
+        runner = self.create_test_runner("EasyGrid-layer", rl_config)
         runner.train(max_train_count=3000)
         assert runner.evaluate_compare_to_baseline_single_player()

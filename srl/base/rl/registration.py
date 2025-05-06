@@ -43,6 +43,7 @@ def make_memory(rl_config: RLConfig, env: Optional[EnvRun] = None) -> RLMemory:
         memory: RLMemory = DummyRLMemory(rl_config)
     else:
         memory: RLMemory = load_module(entry_point)(rl_config)
+    logger.debug(f"make: {repr(memory)}")
     return memory
 
 
@@ -64,6 +65,7 @@ def make_parameter(rl_config: RLConfig, env: Optional[EnvRun] = None) -> RLParam
         parameter: RLParameter = DummyRLParameter(rl_config)
     else:
         parameter: RLParameter = load_module(entry_point)(rl_config)
+    logger.debug(f"make: {repr(parameter)}")
     return parameter
 
 
@@ -77,9 +79,11 @@ def make_trainer(
 
     entry_point = _registry[_create_registry_key(rl_config)][2]
     if entry_point == "":
-        return DummyRLTrainer(rl_config, parameter, memory)
+        trainer = DummyRLTrainer(rl_config, parameter, memory)
     else:
-        return load_module(entry_point)(rl_config, parameter, memory)
+        trainer = load_module(entry_point)(rl_config, parameter, memory)
+    logger.debug(f"make: {repr(trainer)}")
+    return trainer
 
 
 def make_worker(
@@ -121,6 +125,7 @@ def make_worker(
     if rl_config.extend_worker is not None:
         worker = rl_config.extend_worker(worker, rl_config, parameter, memory)
 
+    logger.debug(f"make: {repr(worker)}")
     return WorkerRun(worker, env)
 
 
@@ -136,6 +141,7 @@ def make_env_worker(
             raise ValueError(f"'{name}' worker is not found.")
         return None
 
+    logger.debug(f"make: {repr(worker)}")
     return WorkerRun(worker, env)
 
 

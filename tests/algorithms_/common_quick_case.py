@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from typing import Tuple, cast
 
@@ -132,7 +133,7 @@ class CommonQuickCase(ABC):
         )
 
     @pytest.mark.timeout(60)  # pip install pytest_timeout
-    def test_summary(self, rl_param):
+    def test_summary(self, rl_param, caplog: pytest.LogCaptureFixture):
         self._check_test_params()
         rl_config, test_kwargs = self.create_rl_config(rl_param)
         self._setup_rl_config(rl_config)
@@ -144,4 +145,9 @@ class CommonQuickCase(ABC):
         env = env_config.make()
 
         parameter = rl_config.make_parameter(env)
-        parameter.summary()
+        with caplog.at_level(logging.ERROR):
+            parameter.summary()
+
+        # How: error ログが1つでもある場合は NG とする（一旦保留）
+        errors = [record for record in caplog.records if record.levelno >= logging.ERROR]
+        # assert not errors, f"Unexpected error logs: {[e.message for e in errors]}"

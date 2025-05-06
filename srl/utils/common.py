@@ -2,11 +2,8 @@ import importlib
 import importlib.util
 import logging
 import os
-import random
 import sys
-import traceback
-import warnings
-from typing import List, Optional, Union, cast
+from typing import Any, List, Optional, Union, cast
 
 import numpy as np
 
@@ -16,6 +13,8 @@ logger = logging.getLogger(__name__)
 def set_seed(seed: Optional[int], enable_gpu: bool = False):
     if seed is None:
         return
+    import random
+
     random.seed(seed)
     logger.debug(f"random.seed({seed})")
     np.random.seed(seed)
@@ -99,6 +98,8 @@ def set_logger(
         root_logger.setLevel(top_level)
 
     if enable_log_extra_suppression:
+        import warnings
+
         # 余分なwarningを非表示
         warnings.simplefilter("ignore")
 
@@ -274,6 +275,8 @@ def is_enable_tf_device_name(device_name) -> bool:
                 __cache_device_name[device_name] = True
                 return True
     except (ValueError, ModuleNotFoundError):
+        import traceback
+
         logger.info(traceback.format_exc())
     __cache_device_name[device_name] = False
     return False

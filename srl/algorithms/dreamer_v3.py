@@ -1784,8 +1784,6 @@ class Worker(RLWorker):
 
             # 横にアクション後の結果を表示
             for a in range(self.config.action_space.n):
-                if a in worker.next_invalid_actions:
-                    continue
                 if a > _view_action:
                     break
 

@@ -691,6 +691,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 # ------------------------------------------------------
 class Worker(RLWorker[Config, Parameter, Memory]):
     def on_setup(self, worker, context) -> None:
+        self.env_player_num = worker.env.player_num
         self.policy_tau_sch = self.config.policy_tau_scheduler.create(self.config.policy_tau)
         self._v_min = np.inf
         self._v_max = -np.inf
@@ -779,7 +780,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             is_afterstate = False
 
         n_state_str = n_state.ref()
-        enemy_turn = self.config.env_player_num > 1  # 2player以上は相手番と決め打ち
+        enemy_turn = self.env_player_num > 1  # 2player以上は相手番と決め打ち
 
         if self.N[state_str][action] == 0:
             # leaf node ならロールアウト

@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from srl.base.rl.memory import RLMemory
     from srl.base.rl.parameter import RLParameter
     from srl.base.rl.processor import RLProcessor
+    from srl.base.rl.worker_run import WorkerRun
 
 logger = logging.getLogger(__name__)
 
@@ -189,10 +190,6 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             return
         self._check_parameter = False
         self.override_action_type = RLBaseActTypes.from_str(self.override_action_type)
-
-        # env property
-        self.env_max_episode_steps = env.max_episode_steps
-        self.env_player_num = env.player_num
 
         # --- metadata(表示用)
         logger.debug("--- Algorithm settings ---\n" + pprint.pformat(self.get_metadata()))

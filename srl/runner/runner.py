@@ -27,6 +27,32 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         context = context.copy()
         return Runner(context.env_config, context.rl_config, context)
 
+    def core_play(
+        self,
+        enable_progress: bool = False,
+        callbacks: List[RunCallback] = [],
+    ):
+        """設定されているcontextでそのままplayする"""
+        callbacks = callbacks[:]
+        if enable_progress:
+            self.apply_progress(callbacks, enable_eval=True)
+        self.apply_checkpoint(callbacks)
+        self._apply_history(callbacks)
+        self.apply_mlflow(callbacks)
+
+        play(
+            self.context,
+            self.state,
+            self._parameter_dat,
+            self._memory_dat,
+            callbacks,
+        )
+        self._parameter_dat = None
+        self._memory_dat = None
+
+        self._after_history()
+        return self.state
+
     # --------------------------------------------
     # train
     # --------------------------------------------

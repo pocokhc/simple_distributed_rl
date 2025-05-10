@@ -53,7 +53,7 @@ class QNetwork(KerasModelAddedSummary):
             ]
         )
 
-    @tf.function()
+    @tf.function
     def call(self, x, hidden_states=None, training=False):
         return self._call(x, hidden_states, training=training)
 

@@ -482,6 +482,9 @@ def _run_trainer(
     remote_board: Any,
     end_signal: Any,
 ):
+    # import faulthandler
+    # faulthandler.enable()
+
     exception_queue = queue.Queue()
     try:
         logger.info("[trainer] start.")

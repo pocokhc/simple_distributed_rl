@@ -417,7 +417,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return self._render.get_cached_rgb_array(worker=self, **kwargs)
 
     def render_rl_image(self) -> Optional[np.ndarray]:
-        if not self._config.observation_space_one_step.is_image():
+        if not self._config.observation_space_one_step.is_image(in_image=False):
             return None
         space = cast(BoxSpace, self._config.observation_space_one_step)
         if self._use_stacked_state:

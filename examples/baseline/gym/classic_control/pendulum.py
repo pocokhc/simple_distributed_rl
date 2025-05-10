@@ -4,6 +4,7 @@ import mlflow
 import numpy as np
 
 import srl
+from srl.base.rl.config import RLConfig
 from srl.utils import common
 
 mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "mlruns"))
@@ -15,11 +16,10 @@ BASE_TRAIN = 200 * 100
 BASE_BLOCK = (64, 64)
 
 
-def _run(rl_config, is_mp, is_image, train):
+def _run(rl_config: RLConfig, is_mp, is_image, train):
     if is_image:
         rl_config.observation_mode = "render_image"
     runner = srl.Runner(ENV_NAME, rl_config)
-    runner.summary()
 
     runner.set_mlflow()
     if is_mp:
@@ -37,7 +37,7 @@ def main_dqn(is_mp=False, is_image=False):
     rl_config = dqn.Config(
         lr=BASE_LR,
         target_model_update_interval=2000,
-        memory=dqn.ReplayBufferConfig(
+        memory=dqn.PriorityReplayBufferConfig(
             capacity=10_000,
             warmup_size=1000,
             compress=False,

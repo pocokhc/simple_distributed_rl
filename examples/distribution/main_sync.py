@@ -12,7 +12,7 @@ def main():
 
     runner.train_distribution(
         RedisParameters(host="localhost"),
-        max_train_count=10_000,
+        timeout=5,
         progress_interval=10,
     )
 

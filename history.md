@@ -15,6 +15,27 @@
 // TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除
 
 
+# v1.1.1
+
+バグ修正がメインです。
+
+**Updates**
+
+1. [runner.runner] update: RLConfigをGeneric化、Runnerをリファクタリング
+1. [runner.runner] update: contextを変更なしで実行するcore_playを追加
+1. [runner.callbacks.evaluate] update: リファクタリング
+
+
+**Bug Fixes**
+
+1. [base.run.core_play] fix: playersの指定で2回目以降も同じものが使用される不具合修正
+1. [rl.memories.priority_episode_replay_buffer] fix: priorityが0の時にエラーが出る不具合修正
+1. [runner.callbacks.mlflow_callbacks] fix: 別プロセスでhtmlの生成を行うと動作が不安定になる不具合修正+eval関係の修正
+1. [base.rl.worker_run] fix: render_rl_imageで実データが画像形式じゃないIMAGEタイプでエラーになる不具合修正
+1. [rl.tf.model] fix: model_summaryでlstmのhidden_stateが入力の場合にsummary表示されるように対応
+
+
+
 # v1.1.0
 
 ・multiprocessing+GPUの連携方法を見直し（TFとtorchにそれぞれ特化した形で見直し）

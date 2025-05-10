@@ -41,8 +41,8 @@ def play_generator(
         state.trainer = context.rl_config.make_trainer(state.parameter, state.memory, state.env)
     if state.worker is None:
         state.worker = context.rl_config.make_worker(state.env, state.parameter, state.memory)
-    if state.workers is None:
-        state.workers, main_worker_idx = context.rl_config.make_workers(context.players, state.env, state.parameter, state.memory, state.worker)
+    # workersは作り直す
+    state.workers, main_worker_idx = context.rl_config.make_workers(context.players, state.env, state.parameter, state.memory, state.worker)
 
     # check
     if context.disable_trainer:

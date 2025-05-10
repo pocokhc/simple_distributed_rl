@@ -8,10 +8,12 @@ from dataclasses import dataclass, field
 from typing import Optional, cast
 
 import mlflow
+import mlflow.artifacts
 import mlflow.entities
+import mlflow.tracking
 
 import srl
-from srl.base.context import RunContext
+from srl.base.context import RunContext, RunState
 from srl.base.rl.config import RLConfig
 from srl.base.rl.parameter import RLParameter
 from srl.base.run.callback import RunCallback
@@ -66,7 +68,11 @@ class MLFlowCallback(RunCallback, Evaluate):
         d = context.to_dict(include_env_config=False, include_rl_config=False)
         mlflow.log_params({"context/" + k: v for k, v in d.items()})
 
-        self._render_runner = None
+        if context.distributed:
+            # メインプロセス以外でtkinterを使うと落ちるので使わない
+            if self.enable_html:
+                logger.info("HTML generation outside the main process is disabled.")
+            self.enable_html = False
 
     def on_end(self, context: RunContext, **kwargs) -> None:
         if self._auto_run:
@@ -74,11 +80,11 @@ class MLFlowCallback(RunCallback, Evaluate):
 
     # ---------------------------------------------------------------
 
-    def on_episodes_begin(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
+    def on_episodes_begin(self, context: RunContext, state, **kwargs) -> None:
         if context.actor_id != 0:
             return
         # --- error check
-        self._log_episode(context, state)
+        self._log_episode(context, state, is_worker=True, is_trainer=False)
         self._log_eval(context, state)
         if not context.distributed:
             self._log_checkpoint(context, state)
@@ -87,12 +93,12 @@ class MLFlowCallback(RunCallback, Evaluate):
         self.t0_eval = time.time()
         self.t0_checkpoint = time.time()
 
-    def on_step_end(self, context: RunContext, state: RunStateActor, **kwargs) -> bool:
+    def on_step_end(self, context: RunContext, state, **kwargs) -> bool:
         if context.actor_id != 0:
             return False
         _time = time.time()
         if _time - self.t0_episode > self.interval_episode:
-            self._log_episode(context, state)
+            self._log_episode(context, state, is_worker=True, is_trainer=False)
             self.t0_episode = time.time()  # last
 
         if _time - self.t0_eval > self.interval_eval:
@@ -106,10 +112,10 @@ class MLFlowCallback(RunCallback, Evaluate):
 
         return False
 
-    def on_episodes_end(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
+    def on_episodes_end(self, context: RunContext, state, **kwargs) -> None:
         if context.actor_id != 0:
             return
-        self._log_episode(context, state)
+        self._log_episode(context, state, is_worker=True, is_trainer=False)
         if not context.distributed:
             self._log_eval(context, state)
             self._log_checkpoint(context, state)
@@ -117,8 +123,8 @@ class MLFlowCallback(RunCallback, Evaluate):
 
     # ---------------------------------------------------------------
 
-    def on_trainer_start(self, context: RunContext, state: RunStateTrainer, **kwargs) -> None:
-        self._log_episode(context, state)
+    def on_trainer_start(self, context: RunContext, state, **kwargs) -> None:
+        self._log_episode(context, state, is_worker=False, is_trainer=True)
         self._log_eval(context, state)
         self._log_checkpoint(context, state)
         self._log_html(context, state)
@@ -126,16 +132,16 @@ class MLFlowCallback(RunCallback, Evaluate):
         self.t0_eval = time.time()
         self.t0_checkpoint = time.time()
 
-    def on_trainer_end(self, context: RunContext, state: RunStateTrainer, **kwargs) -> None:
-        self._log_episode(context, state)
+    def on_trainer_end(self, context: RunContext, state, **kwargs) -> None:
+        self._log_episode(context, state, is_worker=False, is_trainer=True)
         self._log_eval(context, state)
         self._log_checkpoint(context, state)
         self._log_html(context, state)
 
-    def on_train_after(self, context: RunContext, state: RunStateTrainer, **kwargs) -> bool:
+    def on_train_after(self, context: RunContext, state, **kwargs) -> bool:
         _time = time.time()
         if _time - self.t0_episode > self.interval_episode:
-            self._log_episode(context, state)
+            self._log_episode(context, state, is_worker=False, is_trainer=True)
             self.t0_episode = time.time()  # last
 
         if not context.distributed:
@@ -160,8 +166,9 @@ class MLFlowCallback(RunCallback, Evaluate):
             else:
                 return state.train_count
 
-    def _log_episode(self, context: RunContext, state):
-        if isinstance(state, RunStateActor):
+    def _log_episode(self, context: RunContext, state: RunState, is_worker: bool, is_trainer: bool):
+        if is_worker:
+            state = cast(RunStateActor, state)
             d = {}
             for i, r in enumerate(state.last_episode_rewards):
                 d[f"reward{i}"] = r
@@ -171,7 +178,8 @@ class MLFlowCallback(RunCallback, Evaluate):
             d2 = {"worker/" + k: v for k, v in state.worker.info.to_dict().items()}
             d.update(d2)
             mlflow.log_metrics(d, self._get_step(context, state), run_id=self.run_id)
-        elif isinstance(state, RunStateTrainer):
+        if is_trainer:
+            state = cast(RunStateTrainer, state)
             d = {"trainer/" + k: v for k, v in state.trainer.info.to_dict().items()}
             mlflow.log_metrics(d, state.trainer.train_count, run_id=self.run_id)
 
@@ -180,7 +188,7 @@ class MLFlowCallback(RunCallback, Evaluate):
             return
 
         t0 = time.time()
-        eval_rewards = self.run_eval_state(context, state)
+        eval_rewards = self.run_eval_with_state(context, state)
         if eval_rewards is not None:
             d = {f"eval_reward{i}": r for i, r in enumerate(eval_rewards)}
             mlflow.log_metrics(d, self._get_step(context, state), run_id=self.run_id)
@@ -215,7 +223,6 @@ class MLFlowCallback(RunCallback, Evaluate):
         step = self._get_step(context, state)
         runner = self.create_eval_runner_if_not_exists(context, state)
         render = runner.run_render(
-            parameter=state.parameter,
             enable_progress=False,
             players=self.eval_players,
         )

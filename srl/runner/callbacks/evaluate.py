@@ -1,15 +1,13 @@
 import logging
 import traceback
 from dataclasses import dataclass, field
-from typing import List, Union
+from typing import List
 
 import numpy as np
 
 from srl.base.context import RunContext, RunState
 from srl.base.define import PlayerType
 from srl.base.rl.parameter import RLParameter
-from srl.base.run.core_play import RunStateActor, play
-from srl.base.run.core_train_only import RunStateTrainer
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +23,8 @@ class Evaluate:
     eval_shuffle_player: bool = False
 
     def create_eval_runner(self, context: RunContext):
+        from srl.runner.runner import Runner
+
         context = context.copy()
         context.run_name = "eval"
         context.seed = None  # mainと競合するのでNone
@@ -46,33 +46,33 @@ class Evaluate:
         context.rollout = False
         context.env_render_mode = ""
         context.rl_render_mode = ""
+        return Runner.create(context)
 
-        state = RunState()
-        state.memory = context.rl_config.make_memory()
-        return (context, state)
-
-    def create_eval_runner_if_not_exists(self, context: RunContext, state: Union[RunStateActor, RunStateTrainer]):
+    def create_eval_runner_if_not_exists(self, context: RunContext, state: RunState):
         if "eval_runner" not in state.shared_vars:
-            state.shared_vars["eval_runner"] = self.create_eval_runner(context)
+            runner = self.create_eval_runner(context)
+            runner.state.parameter = state.parameter
+            state.shared_vars["eval_runner"] = runner
         return state.shared_vars["eval_runner"]
 
-    def run_eval(self, context, state, parameter: RLParameter):
+    def run_eval_with_state(self, context: RunContext, state: RunState):
         if not self.enable_eval:
             return None
         try:
-            state.parameter = parameter
-            play(context, state)
-            return np.mean(state.episode_rewards_list, axis=0)
+            runner = self.create_eval_runner_if_not_exists(context, state)
+            runner.core_play()
+            return np.mean(runner.state.episode_rewards_list, axis=0)
         except Exception:
             logger.error(traceback.format_exc())
         return None
 
-    def run_eval_state(self, context, state: Union[RunStateActor, RunStateTrainer]):
+    def run_eval(self, runner, parameter: RLParameter):
         if not self.enable_eval:
             return None
         try:
-            c, s = self.create_eval_runner_if_not_exists(context, state)
-            return self.run_eval(c, s, state.parameter)
+            runner.state.parameter = parameter
+            runner.core_play()
+            return np.mean(runner.state.episode_rewards_list, axis=0)
         except Exception:
             logger.error(traceback.format_exc())
         return None

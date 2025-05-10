@@ -292,7 +292,7 @@ class HistoryOnFile(RunCallback, Evaluate):
                 d[f"trainer_{k}"] = v
 
         # --- eval
-        eval_rewards = self.run_eval_state(context, state)
+        eval_rewards = self.run_eval_with_state(context, state)
         if eval_rewards is not None:
             for i, r in enumerate(eval_rewards):
                 d[f"eval_reward{i}"] = r
@@ -374,7 +374,7 @@ class HistoryOnFile(RunCallback, Evaluate):
             d[f"trainer_{k}"] = v
 
         # --- eval
-        eval_rewards = self.run_eval_state(context, state)
+        eval_rewards = self.run_eval_with_state(context, state)
         if eval_rewards is not None:
             for i, r in enumerate(eval_rewards):
                 d[f"eval_reward{i}"] = r

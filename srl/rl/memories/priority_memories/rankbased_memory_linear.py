@@ -24,6 +24,7 @@ def rank_sum_inverse(k, a):
 
 @dataclass
 class RankBasedMemoryLinear(IPriorityMemory):
+    # TODO: sampleが並行時にエラーになる
     capacity: int = 100_000
     alpha: float = 1.0
     beta_initial: float = 0.4

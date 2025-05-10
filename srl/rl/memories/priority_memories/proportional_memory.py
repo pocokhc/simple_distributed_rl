@@ -147,6 +147,10 @@ class ProportionalMemory(IPriorityMemory):
                 r = random.random() * total
                 idx, priority, batch = self.tree.get(r)
 
+                if priority == 0:
+                    # 多分、並列でtreeで取り出す間に更新が入ると存在しないデータにアクセスしてそう
+                    continue
+
                 # 重複を許可しない場合はやり直す
                 if (idx in indices) and (not self.has_duplicate):
                     continue

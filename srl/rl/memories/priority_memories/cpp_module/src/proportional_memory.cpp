@@ -164,6 +164,10 @@ public:
                 double r = dis(gen);
                 auto [idx_, priority_, batch_] = tree.get(r);
 
+                if(priority_ == 0){
+                    continue;
+                }
+
                 // 重複を許可しない場合はやり直す
                 if (!has_duplicate) {
                     bool duplicate = false;

@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>索引 &mdash; SimpleDistributedRL 1.0.0.0 ドキュメント</title>
+  <title>索引 &mdash; SimpleDistributedRL 1.1.0.0 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=b3a2062e"></script>
+      <script src="_static/documentation_options.js?v=4ed23968"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="_static/translations.js?v=4755f45a"></script>
@@ -57,10 +57,8 @@
 <li class="toctree-l1"><a class="reference internal" href="pages/env_config.html">EnvConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/rl_config.html">RLConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/rl_config_tree.html">RLConfig Parameters</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pages/runner.html">Runner(Configuration related)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pages/runner.html#runner-train-related">Runner(Train related)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pages/runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pages/runner.html#runner-distribution-related">Runner(Distribution related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/runner.html">Runner(Base)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/runner.html#id1">Runner</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
 <ul>
@@ -317,6 +315,8 @@
 </li>
       <li><a href="pages/env_config.html#srl.base.env.config.EnvConfig.copy">copy() (srl.base.env.config.EnvConfig のメソッド)</a>
 </li>
+      <li><a href="pages/runner.html#srl.runner.runner.Runner.core_play">core_play() (srl.runner.runner.Runner のメソッド)</a>
+</li>
       <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.critic_estimation_method">critic_estimation_method (srl.algorithms.dreamer_v3.Config の属性)</a>
 </li>
       <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.critic_layer_sizes">critic_layer_sizes (srl.algorithms.dreamer_v3.Config の属性)</a>
@@ -569,7 +569,7 @@
         <li><a href="pages/algorithms/snd.html#srl.algorithms.snd.Config.epsilon_scheduler">(srl.algorithms.snd.Config の属性)</a>
 </li>
       </ul></li>
-      <li><a href="pages/runner.html#srl.runner.runner_facade_play.RunnerFacadePlay.evaluate">evaluate() (srl.runner.runner_facade_play.RunnerFacadePlay のメソッド)</a>
+      <li><a href="pages/runner.html#srl.runner.runner.Runner.evaluate">evaluate() (srl.runner.runner.Runner のメソッド)</a>
 </li>
       <li><a href="pages/algorithms/mcts.html#srl.algorithms.mcts.Config.expansion_threshold">expansion_threshold (srl.algorithms.mcts.Config の属性)</a>
 </li>
@@ -911,7 +911,7 @@
 </li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.config.mlp_block.MLPBlockConfig">MLPBlockConfig (srl.rl.models.config.mlp_block のクラス)</a>
 </li>
-      <li><a href="pages/runner.html#srl.runner.runner_base.RunnerBase.model_summary">model_summary() (srl.runner.runner_base.RunnerBase のメソッド)</a>
+      <li><a href="pages/runner.html#srl.runner.runner.Runner.model_summary">model_summary() (srl.runner.runner.Runner のメソッド)</a>
 </li>
       <li><a href="pages/algorithms/rainbow.html#srl.algorithms.rainbow.rainbow.Config.multisteps">multisteps (srl.algorithms.rainbow.rainbow.Config の属性)</a>
 </li>
@@ -1043,14 +1043,16 @@
 </li>
       <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.reward_layer_sizes">reward_layer_sizes (srl.algorithms.dreamer_v3.Config の属性)</a>
 </li>
+      <li><a href="pages/algorithms/muzero.html#srl.algorithms.muzero.Config.reward_range">reward_range (srl.algorithms.muzero.Config の属性)</a>
+</li>
       <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.reward_twohot_bins">reward_twohot_bins (srl.algorithms.dreamer_v3.Config の属性)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.reward_twohot_high">reward_twohot_high (srl.algorithms.dreamer_v3.Config の属性)</a>
 </li>
       <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.reward_twohot_low">reward_twohot_low (srl.algorithms.dreamer_v3.Config の属性)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.reward_type">reward_type (srl.algorithms.dreamer_v3.Config の属性)</a>
 </li>
       <li><a href="pages/runner.html#srl.runner.runner_base.RunnerBase.rl_config">rl_config (srl.runner.runner_base.RunnerBase の属性)</a>
@@ -1059,7 +1061,7 @@
 </li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.config.framework_config.RLConfigComponentFramework">RLConfigComponentFramework (srl.rl.models.config.framework_config のクラス)</a>
 </li>
-      <li><a href="pages/runner.html#srl.runner.runner_facade_train.RunnerFacadeTrain.rollout">rollout() (srl.runner.runner_facade_train.RunnerFacadeTrain のメソッド)</a>
+      <li><a href="pages/runner.html#srl.runner.runner.Runner.rollout">rollout() (srl.runner.runner.Runner のメソッド)</a>
 </li>
       <li><a href="pages/algorithms/alphazero.html#srl.algorithms.alphazero.Config.root_dirichlet_alpha">root_dirichlet_alpha (srl.algorithms.alphazero.Config の属性)</a>
 
@@ -1089,13 +1091,9 @@
 </li>
       <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.rssm_use_norm_layer">rssm_use_norm_layer (srl.algorithms.dreamer_v3.Config の属性)</a>
 </li>
+      <li><a href="pages/runner.html#srl.runner.runner.Runner">Runner (srl.runner.runner のクラス)</a>
+</li>
       <li><a href="pages/runner.html#srl.runner.runner_base.RunnerBase">RunnerBase (srl.runner.runner_base のクラス)</a>
-</li>
-      <li><a href="pages/runner.html#srl.runner.runner_facade_distribution.RunnerFacadeDistribution">RunnerFacadeDistribution (srl.runner.runner_facade_distribution のクラス)</a>
-</li>
-      <li><a href="pages/runner.html#srl.runner.runner_facade_play.RunnerFacadePlay">RunnerFacadePlay (srl.runner.runner_facade_play のクラス)</a>
-</li>
-      <li><a href="pages/runner.html#srl.runner.runner_facade_train.RunnerFacadeTrain">RunnerFacadeTrain (srl.runner.runner_facade_train のクラス)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -1239,11 +1237,11 @@
       </ul></li>
       <li><a href="pages/env_config.html#srl.base.env.config.EnvConfig.to_dict">to_dict() (srl.base.env.config.EnvConfig のメソッド)</a>
 </li>
-      <li><a href="pages/runner.html#srl.runner.runner_facade_train.RunnerFacadeTrain.train">train() (srl.runner.runner_facade_train.RunnerFacadeTrain のメソッド)</a>
+      <li><a href="pages/runner.html#srl.runner.runner.Runner.train">train() (srl.runner.runner.Runner のメソッド)</a>
 </li>
-      <li><a href="pages/runner.html#srl.runner.runner_facade_train.RunnerFacadeTrain.train_mp">train_mp() (srl.runner.runner_facade_train.RunnerFacadeTrain のメソッド)</a>
+      <li><a href="pages/runner.html#srl.runner.runner.Runner.train_mp">train_mp() (srl.runner.runner.Runner のメソッド)</a>
 </li>
-      <li><a href="pages/runner.html#srl.runner.runner_facade_train.RunnerFacadeTrain.train_only">train_only() (srl.runner.runner_facade_train.RunnerFacadeTrain のメソッド)</a>
+      <li><a href="pages/runner.html#srl.runner.runner.Runner.train_only">train_only() (srl.runner.runner.Runner のメソッド)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -1285,21 +1283,19 @@
 <h2 id="V">V</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="pages/algorithms/muzero.html#srl.algorithms.muzero.Config.v_max">v_max (srl.algorithms.muzero.Config の属性)</a>
-</li>
-      <li><a href="pages/algorithms/muzero.html#srl.algorithms.muzero.Config.v_min">v_min (srl.algorithms.muzero.Config の属性)</a>
-</li>
       <li><a href="pages/algorithms/alphazero.html#srl.algorithms.alphazero.Config.value_block">value_block (srl.algorithms.alphazero.Config の属性)</a>
 
       <ul>
         <li><a href="pages/algorithms/ppo.html#srl.algorithms.ppo.Config.value_block">(srl.algorithms.ppo.Config の属性)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="pages/algorithms/ppo.html#srl.algorithms.ppo.Config.value_clip_range">value_clip_range (srl.algorithms.ppo.Config の属性)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="pages/algorithms/ppo.html#srl.algorithms.ppo.Config.value_loss_weight">value_loss_weight (srl.algorithms.ppo.Config の属性)</a>
+</li>
+      <li><a href="pages/algorithms/muzero.html#srl.algorithms.muzero.Config.value_range">value_range (srl.algorithms.muzero.Config の属性)</a>
 </li>
       <li><a href="pages/algorithms/alphazero.html#srl.algorithms.alphazero.Config.value_type">value_type (srl.algorithms.alphazero.Config の属性)</a>
 </li>

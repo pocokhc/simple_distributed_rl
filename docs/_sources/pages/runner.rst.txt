@@ -1,6 +1,6 @@
 .. _runner:
 
-Runner(Configuration related)
+Runner(Base)
 ==================================================
 
 .. autoclass:: srl.runner.runner_base.RunnerBase
@@ -8,25 +8,9 @@ Runner(Configuration related)
    :show-inheritance:
 
 
-Runner(Train related)
+Runner
 ==================================================
 
-.. autoclass:: srl.runner.runner_facade_train.RunnerFacadeTrain
-   :members:
-   :show-inheritance:
-
-
-Runner(Runtime related)
-==================================================
-
-.. autoclass:: srl.runner.runner_facade_play.RunnerFacadePlay
-   :members:
-   :show-inheritance:
-
-
-Runner(Distribution related)
-==================================================
-
-.. autoclass:: srl.runner.runner_facade_distribution.RunnerFacadeDistribution
+.. autoclass:: srl.runner.runner.Runner
    :members:
    :show-inheritance:

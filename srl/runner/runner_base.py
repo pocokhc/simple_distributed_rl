@@ -1,15 +1,14 @@
 import logging
 import os
-import pprint
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Generic, List, Optional, Union, cast
 
 from srl.base.context import RunContext, RunState
-from srl.base.define import EnvObservationType, PlayerType, RLObservationType
+from srl.base.define import PlayerType
 from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
 from srl.base.env.registration import make as make_env
-from srl.base.rl.config import DummyRLConfig, RLConfig
+from srl.base.rl.config import DummyRLConfig, TRLConfig
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import make_memory, make_parameter, make_trainer, make_worker, make_workers
@@ -26,13 +25,13 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class RunnerBase:
+class RunnerBase(Generic[TRLConfig]):
     """実行環境を提供"""
 
     #: EnvConfigを指定（文字列のみのIDでも可能）
     name_or_env_config: Union[str, EnvConfig]
     #: RLConfigを指定, Noneの場合、dummyアルゴリズムが使われます
-    rl_config: Optional[RLConfig] = None  # type: ignore , type
+    rl_config: Optional[TRLConfig] = None  # type: ignore , type
 
     context: Optional[RunContext] = None  # type: ignore , type
 
@@ -46,7 +45,7 @@ class RunnerBase:
         else:
             self.env_config: EnvConfig = self.name_or_env_config
         if self.rl_config is None:
-            self.rl_config: RLConfig = DummyRLConfig()
+            self.rl_config: TRLConfig = cast(TRLConfig, DummyRLConfig())
         if self.context is None:
             self.context: RunContext = RunContext(self.env_config, self.rl_config)
 
@@ -261,24 +260,6 @@ class RunnerBase:
         self.context.set_CUDA_VISIBLE_DEVICES_if_CPU = set_CUDA_VISIBLE_DEVICES_if_CPU
         self.context.tf_device_enable = tf_device_enable
         self.context.tf_enable_memory_growth = tf_enable_memory_growth
-
-    # ------------------------------
-    # utility
-    # ------------------------------
-    def get_env_init_state(self, encode: bool = True) -> Union[EnvObservationType, RLObservationType]:
-        env = self.make_env()
-        env.setup()
-        env.reset()
-        state = env.state
-        if encode:
-            worker = self.make_worker()
-            state = worker._config.state_encode_one_step(state, env)
-        return state
-
-    def print_config(self):
-        print(f"env\n{pprint.pformat(self.env_config.to_dict())}")
-        print(f"rl\n{pprint.pformat(self.rl_config.to_dict())}")
-        print(f"context\n{pprint.pformat(self.context.to_dict())}")
 
     # ------------------------------
     # progress

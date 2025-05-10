@@ -23,13 +23,16 @@ class KerasModelAddedSummary(keras.Model):
                     h.init_model_graph()
 
             if isinstance(self.__input_shape, list):
-                x = [kl.Input(s[1:]) for s in self.__input_shape]
+                x = [
+                    [kl.Input(s2[1:]) for s2 in s] if isinstance(s, list) else kl.Input(s[1:])
+                    for s in self.__input_shape  #
+                ]
             else:
                 x = kl.Input(self.__input_shape[1:])
             name = self.__class__.__name__ if name == "" else name
             model = keras.Model(inputs=x, outputs=self.call(x), name=name)
         except Exception:
-            logger.error(traceback.format_exc())
+            logger.warning(traceback.format_exc())
             return None
         return model
 

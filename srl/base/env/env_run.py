@@ -19,7 +19,7 @@ from srl.base.spaces.space import SpaceBase, TActSpace, TActType, TObsSpace, TOb
 
 if TYPE_CHECKING:
     from srl.base.define import RLActionType, RLObservationType
-    from srl.base.rl.worker_run import WorkerRun
+    from srl.base.rl.config import RLConfig
 
 
 logger = logging.getLogger(__name__)
@@ -589,10 +589,10 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     # ------------------------------------
     # simulation
     # ------------------------------------
-    def step_from_rl(self, action: "RLActionType", worker: "WorkerRun", **step_kwargs) -> "RLObservationType":
-        env_action = cast(TActType, worker._config.action_decode(action))
+    def step_from_rl(self, action: "RLActionType", rl_config: "RLConfig", **step_kwargs) -> "RLObservationType":
+        env_action = cast(TActType, rl_config.action_decode(action))
         self.step(env_action, **step_kwargs)
-        rl_state = worker._config.state_encode_one_step(cast(EnvObservationType, self.state), self)
+        rl_state = rl_config.state_encode_one_step(cast(EnvObservationType, self.state), self)
         return rl_state
 
     # ------------------------------------

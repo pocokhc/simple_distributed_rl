@@ -9,7 +9,6 @@ from srl.base.rl.algorithms.base_ql import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.rl import functions as funcs
 from srl.rl.memories.single_use_buffer import RLSingleUseBuffer
 
 
@@ -123,7 +122,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         else:
             # 1step実行
             player_index = env.next_player
-            n_state: Any = env.step_from_rl(action, self.worker)
+            n_state: Any = env.step_from_rl(action, self.config)
             reward = env.rewards[player_index]
 
             if env.done:

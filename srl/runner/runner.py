@@ -1017,7 +1017,6 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
 
     def replay_window(
         self,
-        print_state: bool = True,
         # --- stop config
         timeout: float = -1,
         max_steps: int = -1,
@@ -1026,6 +1025,8 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         # --- progress
         enable_progress: bool = True,
         # --- other
+        render_player: int = 0,
+        print_state: bool = True,
         callbacks: List[RunCallback] = [],
         _is_test: bool = False,  # for test
     ):
@@ -1061,6 +1062,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         window = RePlayableGame(
             self.context,
             self.make_parameter(),
+            render_player=render_player,
             print_state=print_state,
             callbacks=callbacks,
             _is_test=_is_test,

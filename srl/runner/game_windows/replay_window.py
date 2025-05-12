@@ -14,6 +14,9 @@ logger = logging.getLogger(__name__)
 
 
 class _GetRGBCallback(RunCallback):
+    def __init__(self, render_player) -> None:
+        self.render_player = render_player
+
     def on_episode_begin(self, context: RunContext, state: RunStateActor, **kwargs):
         self.steps = []
         self.interval = state.env.get_render_interval()
@@ -45,13 +48,11 @@ class _GetRGBCallback(RunCallback):
             "is_skip_step": is_skip_step,
         }
         # --- worker
-        for i, w in enumerate(state.workers):
-            d[f"work{i}_info"] = w.info
-            d[f"work{i}_rgb_array"] = w.render_rgb_array()
-            d[f"work{i}_state_image"] = w.render_rl_image()
+        w = state.workers[self.render_player]
+        d["work_info"] = w.info
 
         # --- render
-        d["rgb_array"] = state.workers[0].create_render_image()
+        d["rgb_array"] = state.workers[self.render_player].create_render_image()
 
         self.steps.append(d)
 
@@ -61,6 +62,7 @@ class RePlayableGame(GameWindow):
         self,
         context: RunContext,
         parameter,
+        render_player: int = 0,
         print_state: bool = True,
         callbacks: List[RunCallback] = [],
         _is_test: bool = False,  # for test
@@ -70,7 +72,7 @@ class RePlayableGame(GameWindow):
         self.parameter = parameter
         self.print_state = print_state
 
-        self.history = _GetRGBCallback()
+        self.history = _GetRGBCallback(render_player)
         self.callbacks = callbacks[:] + [self.history]
         self.interval = -1
         self.episodes_cache = {}
@@ -181,8 +183,8 @@ class RePlayableGame(GameWindow):
         ]
         if "train_info" in step_data and step_data["train_info"] is not None:
             t.append("train_info: {}".format(step_data["train_info"]))
-        if "work0_info" in step_data and step_data["work0_info"] is not None:
-            t.append("work0_info: {}".format(step_data["work0_info"]))
+        if "work_info" in step_data and step_data["work_info"] is not None:
+            t.append("work_info: {}".format(step_data["work_info"]))
         self.add_info_texts(t)
 
         if not self.env_pause:

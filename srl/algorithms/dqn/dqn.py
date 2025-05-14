@@ -115,6 +115,17 @@ class Config(RLConfig, RLConfigComponentFramework):
     def get_framework(self) -> str:
         return RLConfigComponentFramework.get_framework(self)
 
+    def get_changeable_parameters(self) -> List[str]:
+        return [
+            "test_epsilon",
+            "batch_size",
+            "epsilon",
+            "lr",
+            "discount",
+            "target_model_update_interval",
+            "enable_reward_clip",
+        ]
+
 
 # ------------------------------------------------------
 # Memory

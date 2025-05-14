@@ -10,7 +10,7 @@ import numpy as np
 from srl.base.define import (
     EnvActionType,
     EnvObservationType,
-    PlayerType,
+    PlayersType,
     RenderModeType,
     RLActionType,
     RLBaseActTypes,
@@ -650,7 +650,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
     def make_workers(
         self,
-        players: List[PlayerType],
+        players: PlayersType,
         env: EnvRun,
         parameter: Optional["RLParameter"] = None,
         memory: Optional["RLMemory"] = None,

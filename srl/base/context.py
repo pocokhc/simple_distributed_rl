@@ -4,7 +4,7 @@ import pprint
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, List, Literal, Optional, Union
 
-from srl.base.define import PlayerType, RenderModeType
+from srl.base.define import PlayersType, RenderModeType
 from srl.utils.serialize import convert_for_json
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ class RunContext:
 
     env_config: Optional["EnvConfig"] = None  # type: ignore , type
     rl_config: Optional["RLConfig"] = None  # type: ignore , type
-    players: List[PlayerType] = field(default_factory=list)
+    players: PlayersType = field(default_factory=list)
 
     # --- runtime context
     run_name: Literal["main", "trainer", "actor", "eval"] = "main"

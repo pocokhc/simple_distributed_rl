@@ -521,7 +521,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                 if name not in getattr(self, "_changeable_parameter_names", []):
                     s = "A non-changeable parameter was rewritten. (This is after setup, so there may be inconsistencies in the settings.)"
                     s += f" '{name}' : '{getattr(self, name)}' -> '{value}'"
-                    logger.warning(s)
+                    logger.info(s)
 
         object.__setattr__(self, name, value)
 

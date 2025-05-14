@@ -1,5 +1,5 @@
 import enum
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -73,6 +73,7 @@ PlayerType = Union[
     "RLConfig",  # RLConfig
     Tuple["RLConfig", Any],  # [RLConfig, RLParameter]
 ]
+PlayersType = Sequence[PlayerType]
 
 
 class DoneTypes(enum.Enum):

@@ -1,12 +1,11 @@
 import logging
 import traceback
 from dataclasses import dataclass, field
-from typing import List
 
 import numpy as np
 
 from srl.base.context import RunContext, RunState
-from srl.base.define import PlayerType
+from srl.base.define import PlayersType
 from srl.base.rl.parameter import RLParameter
 
 logger = logging.getLogger(__name__)
@@ -19,7 +18,7 @@ class Evaluate:
     eval_episode: int = 1
     eval_timeout: float = -1
     eval_max_steps: int = -1
-    eval_players: List[PlayerType] = field(default_factory=list)
+    eval_players: PlayersType = field(default_factory=list)
     eval_shuffle_player: bool = False
 
     def create_eval_runner(self, context: RunContext):

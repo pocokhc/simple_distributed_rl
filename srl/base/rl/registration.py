@@ -1,7 +1,7 @@
 import logging
 from typing import List, Optional, Tuple, Type, Union, cast
 
-from srl.base.define import PlayerType
+from srl.base.define import PlayersType
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.config import DummyRLConfig, RLConfig
 from srl.base.rl.memory import DummyRLMemory, RLMemory
@@ -146,14 +146,14 @@ def make_env_worker(
 
 
 def make_workers(
-    players: List[PlayerType],
+    players: PlayersType,
     env: EnvRun,
     rl_config: Optional[RLConfig] = None,
     parameter: Optional[RLParameter] = None,
     memory: Optional[RLMemory] = None,
     main_worker: Optional[WorkerRun] = None,
 ) -> Tuple[List[WorkerRun], int]:
-    players = players[:]
+    players = list(players[:])
 
     # 初期化されていない場合、一人目はNone、二人目以降はrandomにする
     for i in range(env.player_num):

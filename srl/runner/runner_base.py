@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Generic, List, Optional, Union, cast
 
 from srl.base.context import RunContext, RunState
-from srl.base.define import PlayerType
+from srl.base.define import PlayersType
 from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
 from srl.base.env.registration import make as make_env
@@ -280,7 +280,7 @@ class RunnerBase(Generic[TRLConfig]):
         eval_episode: int = 1,
         eval_timeout: float = -1,
         eval_max_steps: int = -1,
-        eval_players: List[PlayerType] = [],
+        eval_players: PlayersType = [],
     ):
         """progress options
 
@@ -354,7 +354,7 @@ class RunnerBase(Generic[TRLConfig]):
         eval_episode: int = 1,
         eval_timeout: float = -1,
         eval_max_steps: int = -1,
-        eval_players: List[PlayerType] = [],
+        eval_players: PlayersType = [],
         eval_shuffle_player: bool = False,
     ):
         """学習履歴を保存する設定を指定します。
@@ -392,7 +392,7 @@ class RunnerBase(Generic[TRLConfig]):
         eval_episode: int = 1,
         eval_timeout: float = -1,
         eval_max_steps: int = -1,
-        eval_players: List[PlayerType] = [],
+        eval_players: PlayersType = [],
         eval_shuffle_player: bool = False,
     ):
         """学習履歴を保存する設定を指定します。
@@ -493,7 +493,7 @@ class RunnerBase(Generic[TRLConfig]):
         eval_episode: int = 1,
         eval_timeout: float = -1,
         eval_max_steps: int = -1,
-        eval_players: List[PlayerType] = [],
+        eval_players: PlayersType = [],
         eval_shuffle_player: bool = False,
     ):
         """一定間隔でモデルを保存します。
@@ -550,7 +550,7 @@ class RunnerBase(Generic[TRLConfig]):
         eval_episode: int = 1,
         eval_timeout: float = -1,
         eval_max_steps: int = -1,
-        eval_players: List[PlayerType] = [],
+        eval_players: PlayersType = [],
         eval_shuffle_player: bool = False,
     ):
         self._mlflow_kwargs = dict(

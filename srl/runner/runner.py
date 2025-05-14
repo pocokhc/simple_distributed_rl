@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Generic, List, Optional, Union, cast
 import numpy as np
 
 from srl.base.context import RunContext
-from srl.base.define import EnvObservationType, PlayerType, RLObservationType
+from srl.base.define import EnvObservationType, PlayersType, RLObservationType
 from srl.base.rl.config import TRLConfig
 from srl.base.rl.parameter import RLParameter
 from srl.base.run.callback import RunCallback
@@ -65,7 +65,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         max_train_count: int = -1,
         max_memory: int = -1,
         # --- play config
-        players: List[PlayerType] = [],
+        players: PlayersType = [],
         shuffle_player: bool = True,
         # --- progress
         enable_progress: bool = True,
@@ -135,7 +135,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         max_steps: int = -1,
         max_memory: int = -1,
         # --- play config
-        players: List[PlayerType] = [],
+        players: PlayersType = [],
         shuffle_player: bool = True,
         # --- progress
         enable_progress: bool = True,
@@ -254,7 +254,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         timeout: float = -1,
         max_train_count: int = -1,
         # --- play config
-        players: List[PlayerType] = [],
+        players: PlayersType = [],
         shuffle_player: bool = True,
         # --- progress
         enable_progress: bool = True,
@@ -464,7 +464,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         timeout: float = -1,
         max_train_count: int = -1,
         # --- play config
-        players: List[PlayerType] = [],
+        players: PlayersType = [],
         shuffle_player: bool = True,
         # --- progress
         enable_progress: bool = True,
@@ -552,7 +552,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         timeout: float = -1,
         max_train_count: int = -1,
         # --- play config
-        players: List[PlayerType] = [],
+        players: PlayersType = [],
         shuffle_player: bool = True,
         # --- other
         enable_progress: bool = True,
@@ -610,7 +610,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         timeout: float = -1,
         max_steps: int = -1,
         # --- play config
-        players: List[PlayerType] = [],
+        players: PlayersType = [],
         shuffle_player: bool = True,
         # --- progress
         enable_progress: bool = True,
@@ -682,7 +682,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         timeout: float = -1,
         max_steps: int = -1,
         # --- play config
-        players: List[PlayerType] = [],
+        players: PlayersType = [],
         # --- other
         callbacks: List[RunCallback] = [],
     ):
@@ -752,7 +752,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         timeout: float = -1,
         max_steps: int = -1,
         # --- play config
-        players: List[PlayerType] = [],
+        players: PlayersType = [],
         # --- progress
         enable_progress: bool = True,
         # --- other
@@ -829,7 +829,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         timeout: float = -1,
         max_steps: int = -1,
         # --- play config
-        players: List[PlayerType] = [],
+        players: PlayersType = [],
         # --- progress
         enable_progress: bool = True,
         # --- other
@@ -910,7 +910,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         timeout: float = -1,
         max_steps: int = -1,
         # --- play config
-        players: List[PlayerType] = [],
+        players: PlayersType = [],
         # --- progress
         enable_progress: bool = True,
         # --- other
@@ -952,7 +952,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         timeout: float = -1,
         max_steps: int = -1,
         # --- play config
-        players: List[PlayerType] = [],
+        players: PlayersType = [],
         # --- progress
         enable_progress: bool = True,
         # --- other
@@ -992,7 +992,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         timeout: float = -1,
         max_steps: int = -1,
         # --- play config
-        players: List[PlayerType] = [],
+        players: PlayersType = [],
         # --- progress
         enable_progress: bool = True,
         # --- other
@@ -1021,7 +1021,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         timeout: float = -1,
         max_steps: int = -1,
         # --- play config
-        players: List[PlayerType] = [],
+        players: PlayersType = [],
         # --- progress
         enable_progress: bool = True,
         # --- other
@@ -1073,7 +1073,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self,
         action_division_num: int = 5,
         enable_memory: bool = False,
-        players: List[PlayerType] = [],
+        players: PlayersType = [],
         # Rendering
         render_kwargs: dict = {},
         step_stop: bool = False,
@@ -1148,7 +1148,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         timeout: float = -1,
         max_steps: int = -1,
         # --- play config
-        players: List[PlayerType] = [],
+        players: PlayersType = [],
         # other
         callbacks: List[RunCallback] = [],
         _is_test: bool = False,  # for test
@@ -1281,7 +1281,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
 
     def evaluate_compare_to_baseline_multiplayer(
         self,
-        players: List[PlayerType] = [],
+        players: PlayersType = [],
         baseline_params: List[dict] = [],
         eval_kwargs: dict = {},
         enable_backup_restore: bool = True,

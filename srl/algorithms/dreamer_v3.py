@@ -474,6 +474,7 @@ register(
 
 class Memory(RLReplayBuffer):
     def setup(self) -> None:
+        super().setup()
         self.seq_action = [[] for _ in range(self.config.batch_size)]
         self.seq_next_state = [[] for _ in range(self.config.batch_size)]
         self.seq_reward = [[] for _ in range(self.config.batch_size)]

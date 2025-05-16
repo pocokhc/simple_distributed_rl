@@ -43,6 +43,8 @@ class Rendering(RunCallback):
     def on_episodes_begin(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         if self.render_interval == -1:
             self.render_interval = state.env.get_render_interval()
+        else:
+            state.env.set_render_options(interval=self.render_interval)
 
     def on_step_action_after(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         self._render(context, state)

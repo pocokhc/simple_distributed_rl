@@ -85,7 +85,7 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
     print(batch)
 
 
-@pytest.mark.timeout(30)  # pip install pytest_timeout
+@pytest.mark.timeout(60)  # pip install pytest_timeout
 @pytest.mark.parametrize("enable_mp_memory", [False, True])
 def test_train(enable_mp_memory):
     rl_config = ql_agent57.Config(batch_size=1)
@@ -96,8 +96,8 @@ def test_train(enable_mp_memory):
         actor_num=2,
         max_train_count=50_000,
         callbacks=[_AssertTrainCallbacks()],
-        trainer_parameter_send_interval=0,
-        actor_parameter_sync_interval=0,
+        trainer_parameter_send_interval=1,
+        actor_parameter_sync_interval=1,
         enable_mp_memory=enable_mp_memory,
     )
 

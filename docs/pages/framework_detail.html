@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Detailed Framework &mdash; SimpleDistributedRL 1.1.0.0 ドキュメント</title>
+  <title>Detailed Framework &mdash; SimpleDistributedRL 1.2.0 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=4ed23968"></script>
+      <script src="../_static/documentation_options.js?v=f7e61824"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -67,10 +67,8 @@
 <li class="toctree-l1"><a class="reference internal" href="env_config.html">EnvConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rl_config_tree.html">RLConfig Parameters</a></li>
-<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Configuration related)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-train-related">Runner(Train related)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-distribution-related">Runner(Distribution related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Base)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#id1">Runner</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
 <ul>
@@ -179,72 +177,17 @@
 <td><p>NDArray[AnyType]</p></td>
 <td><p>srl.base.define.SpaceTypes</p></td>
 </tr>
-<tr class="row-odd"><td><p>MultiSpace</p></td>
+<tr class="row-odd"><td><p>TextSpace</p></td>
+<td><p>str</p></td>
+<td><p>DISCRETE</p></td>
+</tr>
+<tr class="row-even"><td><p>MultiSpace</p></td>
 <td><p>list[SpaceBase]</p></td>
 <td><p>MULTI</p></td>
 </tr>
-</tbody>
-</table>
-<ul class="simple">
-<li><p>RL type</p></li>
-</ul>
-<table class="docutils align-default">
-<tbody>
-<tr class="row-odd"><td></td>
-<td><p>Action</p></td>
-<td><p>Observation</p></td>
-<td><p>Observation window</p></td>
-</tr>
-<tr class="row-even"><td><p>Discrete</p></td>
-<td><div class="line-block">
-<div class="line">int</div>
-<div class="line">DiscreteSpace</div>
-</div>
-</td>
-<td><div class="line-block">
-<div class="line">list[int]</div>
-<div class="line">ArrayDiscreteSpace</div>
-</div>
-</td>
-<td><div class="line-block">
-<div class="line">list[int]</div>
-<div class="line">ArrayDiscreteSpace</div>
-</div>
-</td>
-</tr>
-<tr class="row-odd"><td><p>Continuous</p></td>
-<td><div class="line-block">
-<div class="line">list[float]</div>
-<div class="line">ArrayContinuousSpace</div>
-</div>
-</td>
-<td><div class="line-block">
-<div class="line">NDArray[np.float32]</div>
-<div class="line">BoxSpace</div>
-</div>
-</td>
-<td><div class="line-block">
-<div class="line">NDArray[np.float32]</div>
-<div class="line">BoxSpace</div>
-</div>
-</td>
-</tr>
-<tr class="row-even"><td><p>Image</p></td>
-<td><div class="line-block">
-<div class="line">NDArray[np.uint8]</div>
-<div class="line">BoxSpace</div>
-</div>
-</td>
-<td><div class="line-block">
-<div class="line">NDArray[np.float32]</div>
-<div class="line">BoxSpace</div>
-</div>
-</td>
-<td><div class="line-block">
-<div class="line">NDArray[np.float32]</div>
-<div class="line">BoxSpace</div>
-</div>
-</td>
+<tr class="row-odd"><td><p>AnySpace</p></td>
+<td><p>any</p></td>
+<td><p>UNKNOWN</p></td>
 </tr>
 </tbody>
 </table>

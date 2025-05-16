@@ -12,8 +12,8 @@ def main():
 
     runner.train_distribution(
         RedisParameters(host="localhost"),
-        timeout=5,
-        progress_interval=10,
+        timeout=30,
+        progress_interval=5,
     )
 
     print(runner.evaluate())

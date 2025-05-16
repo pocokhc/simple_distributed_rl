@@ -5,7 +5,7 @@ import time
 import traceback
 from typing import List, Optional, cast
 
-from srl.base.context import RunContext
+from srl.base.context import RunContext, RunState
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.run import core_train_only
@@ -263,7 +263,11 @@ def _run_trainer(manager: ServerManager, task_config: TaskConfig, parameter: RLP
         context.distributed = True
         context.train_only = False
         trainer = context.rl_config.make_trainer(parameter, memory)
-        core_train_only.play_trainer_only(context, trainer, callbacks)
+        state = RunState()
+        state.parameter = parameter
+        state.memory = memory
+        state.trainer = trainer
+        core_train_only.play_trainer_only(context, state, callbacks=callbacks)
 
     except Exception:
         raise
@@ -342,9 +346,10 @@ def run_forever(
     used_device_tf, used_device_torch = setup_device(
         framework,
         device,
-        set_CUDA_VISIBLE_DEVICES_if_CPU,
-        tf_enable_memory_growth,
-        tf_mixed_precision_policy_name,
+        is_mp_main_process=True,
+        set_CUDA_VISIBLE_DEVICES_if_CPU=set_CUDA_VISIBLE_DEVICES_if_CPU,
+        tf_enable_memory_growth=tf_enable_memory_growth,
+        tf_mixed_precision_policy_name=tf_mixed_precision_policy_name,
     )
     task_manager_params = TaskManagerParams(
         "trainer",

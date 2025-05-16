@@ -15,6 +15,70 @@
 // TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除
 
 
+# v1.2.0
+
+1. アルゴリズム側のSpaceを一部のSpaceだけではなく、全てのSpaceを選べるように修正
+   - RLBaseActTypesとRLBaseObsTypesを統合
+     実装側は以下のようにget_base_action_type/get_base_observation_typeに変更が入ります。
+      ``` python
+      def get_base_action_type(self) -> RLBaseActType:
+         return RLBaseActType.DISCRETE
+      def get_base_observation_type(self) -> RLBaseObsType:
+         return RLBaseObsType.DISCRETE
+      ↓
+      def get_base_action_type(self) -> RLBaseType:
+         return RLBaseType.DISCRETE
+      def get_base_observation_type(self) -> RLBaseType:
+         return RLBaseType.DISCRETE
+      ```
+      ここ以外は内部的な変更になります。
+
+2. AlphaZeroシリーズのアルゴリズムを見直してリファクタリング
+   - MCTSでノード判別をstateにしていたが、木構造（rootからのアクションの履歴）に変更（AlphaZero,MuZero,StochasticMuZero）
+   - 上記修正に従ってキャッシュを削除＆MCTSをクラス化
+   - MuZero以降に導入されたQ値の正規化をAlphaZeroにも反映
+   - twohot化を整数値で分割ではなく分割数をハイパーパラメータにし、もっと細かく分割できるように修正（AlphaZero,MuZero,StochasticMuZero）
+   - @tf.functionを導入しGPU環境で高速化(MuZero,StochasticMuZero)
+
+**MainUpdates**
+
+1. [base.rl.spaces] update: Spaceを見直し
+   - RLBaseActTypesとRLBaseObsTypesをRLBaseTypesに統合
+   - RLBaseTypesに既存のSpaceの型を追加（ARRAY_DISCRETEなど）
+   - 新しく、型変換の制約を受けないAnySpace型を追加
+   - SpaceBaseから使っていないint_size等を削除
+   - encode_to_space関係を見やすくリファクタリング
+   - MultiSpaceの作成を少し進めました
+   - TextSpaceの作成を少し進めました
+1. [base.rl.config]
+   - change: override_observation_typeをoverride_env_observation_typeに名前を変え、新しくoverride_observation_typeを追加
+   - update: action_spaceとobs_spaceの変換ルールをspace側によせて処理も統一
+   - [base.rl.spaces] Env側のSpaceとRL側のSpaceへの変換や優先度を各Space側にまとめて見やすくなるようにリファクタリング
+1. [algorithms.alphazeroシリーズ] fix: アルゴリズムを見直してリファクタリング
+   - 内容は上記参照
+1. [rl.memories] update: 各memoryのregisterをsetup側に移動し、継承側で登録できるかどうか変更できるように修正
+1. [base.env.env_run] change: step_from_rlの引数をWorkerRunからRLConfigに変更
+1. デフォルトパラメータ調整
+   - [runner.callbacks.print_progress] change: interval_limitを5分から2分に変更（表示間隔）
+   - [base.run.play_mp_memory] change: mem_to_train_queue_capacityを10から5に変更（mem->trainのキューの保持数）
+
+**OtherUpdates**
+
+1. [base.rl.define] add: PlayerTypeのリストを表すPlayersTypeを追加
+1. [runner.Runner] update: 表示するplayerのidxを指定できるrender_player引数を追加
+1. [tests.quick.runner.callbacks] add: test_mlflowを追加
+1. [base.rl.config.RLConfig] change: パラメータ再設定時のログをwarningからinfoに変更
+1. [base.run] update: stateのparameterとmemoryを指定しない場合、wokrer/trainerのparameter/memoryを参照するように修正
+1. [rl.functions] update: twohot_decodeを修正（最終的に動作に変化なし）
+1. [algorithms.vanilla_policy] change: action_spaceをArrayContinuousからContinuousに変更
+
+**Bug Fixes**
+
+1. [distribution] fix: 更新が追い付いていなかったので修正
+1. [runner.callbacks.rendering] fix: render_intervalが反映されていない不具合修正+render_windowの引数を見直し
+1. [base.rl.algorithms.extend_worker] fix: 更新が遅れていたので更新
+
+
 # v1.1.1
 
 バグ修正がメインです。

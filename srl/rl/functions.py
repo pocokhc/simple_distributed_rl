@@ -53,10 +53,11 @@ def twohot_encode(x, size: int, low: float, high: float, dtype=np.float32) -> np
     return (onehot1 * (1 - w) + onehot2 * w).astype(dtype)
 
 
-def twohot_decode(x, size: int, low: float, high: float):
+def twohot_decode(x: np.ndarray, size: int, low: float, high: float) -> np.ndarray:
     bins = np.arange(0, size)
-    x = np.dot(x, bins)
-    return (x / (size - 1)) * (high - low) + low
+    y = np.dot(x, bins)  # (batch,)
+    y = (y / (size - 1)) * (high - low) + low
+    return y
 
 
 def create_beta_list(policy_num: int, max_beta=0.3):

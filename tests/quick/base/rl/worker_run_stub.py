@@ -2,7 +2,7 @@ from typing import Any
 
 import numpy as np
 
-from srl.base.define import RLActionType, RLBaseActTypes, RLBaseObsTypes
+from srl.base.define import RLActionType, RLBaseTypes
 from srl.base.env.base import EnvBase
 from srl.base.rl.config import RLConfig
 from srl.base.rl.worker import RLWorker
@@ -75,17 +75,17 @@ class WorkerRunStubRLConfig(RLConfig):
     def __init__(self, name="Stub") -> None:
         super().__init__()
         self._name = name
-        self._action_type = RLBaseActTypes.DISCRETE
-        self._observation_type = RLBaseObsTypes.DISCRETE
+        self._action_type = RLBaseTypes.DISCRETE
+        self._observation_type = RLBaseTypes.ARRAY_DISCRETE
         self._use_render_image_state = False
 
     def get_name(self) -> str:
         return self._name
 
-    def get_base_action_type(self) -> RLBaseActTypes:
+    def get_base_action_type(self) -> RLBaseTypes:
         return self._action_type
 
-    def get_base_observation_type(self) -> RLBaseObsTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         return self._observation_type
 
     def use_render_image_state(self) -> bool:

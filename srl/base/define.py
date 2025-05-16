@@ -118,35 +118,35 @@ class SpaceTypes(enum.Enum):
         ]
 
 
-class RLBaseActTypes(enum.Flag):
+class RLBaseTypes(enum.Flag):
     NONE = enum.auto()
     DISCRETE = enum.auto()
+    ARRAY_DISCRETE = enum.auto()
     CONTINUOUS = enum.auto()
-    # BOX = enum.auto()
-    # GRAY_2ch = enum.auto()  # (height, width)
-    # GRAY_3ch = enum.auto()  # (height, width, 1)
-    # COLOR = enum.auto()  # (height, width, 3)
-    # IMAGE = enum.auto()  # (height, width, ch)
-    # TEXT = enum.auto()
+    ARRAY_CONTINUOUS = enum.auto()
+    BOX = enum.auto()
+    GRAY_2ch = enum.auto()  # (height, width)
+    GRAY_3ch = enum.auto()  # (height, width, 1)
+    COLOR = enum.auto()  # (height, width, 3)
+    IMAGE = enum.auto()  # (height, width, ch)
+    TEXT = enum.auto()
 
     @staticmethod
-    def from_str(mode: Union[str, "RLBaseActTypes"]) -> "RLBaseActTypes":
-        if isinstance(mode, RLBaseActTypes):
+    def from_str(mode: Union[str, "RLBaseTypes"]) -> "RLBaseTypes":
+        if isinstance(mode, RLBaseTypes):
             return mode
         elif isinstance(mode, str):
             mode_upper = mode.upper()
-            if mode_upper in RLBaseActTypes.__members__:
-                return RLBaseActTypes[mode_upper]
+            if mode_upper in RLBaseTypes.__members__:
+                return RLBaseTypes[mode_upper]
             else:
                 raise ValueError(f"Unknown mode: {mode}")
         else:
-            raise TypeError(f"mode must be a str or RLBaseActTypes, not {type(mode).__name__}")
+            raise TypeError(f"mode must be a str or RLBaseTypes, not {type(mode).__name__}")
 
-
-class RLBaseObsTypes(enum.Enum):
-    NONE = enum.auto()
-    DISCRETE = enum.auto()
-    BOX = enum.auto()
+    @staticmethod
+    def to_list(flag: "RLBaseTypes") -> List["RLBaseTypes"]:
+        return [f for f in type(flag) if (flag & f == f)]
 
 
 class RLMemoryTypes(enum.Enum):
@@ -156,4 +156,10 @@ class RLMemoryTypes(enum.Enum):
     PRIORITY = enum.auto()
 
 
-RenderModeType = Literal["", "terminal", "rgb_array", "window", "terminal_rgb_array"]
+RenderModeType = Literal[
+    "",
+    "terminal",
+    "rgb_array",
+    "window",
+    "terminal_rgb_array",
+]

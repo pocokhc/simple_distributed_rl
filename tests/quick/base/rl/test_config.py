@@ -8,7 +8,8 @@ from srl.base.rl.config import DummyRLConfig
 from srl.utils import common
 
 """
-Spaceのテストはtest_worker_run.py
+Spaceのテストはtest_worker_run
+Space後の値や数値は各spaceのテスト
 """
 
 

@@ -1,10 +1,13 @@
 import numpy as np
 import pytest
 
-from srl.base import spaces
-from srl.base.define import SpaceTypes
+from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.exception import NotSupportedError
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
+from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.spaces.text import TextSpace
 
 
 def test_space_basic():
@@ -188,14 +191,13 @@ def test_sanitize2():
 @pytest.mark.parametrize(
     "create_space, true_space, val, decode_val",
     [
-        ["", spaces.ArrayContinuousSpace(2, -1, 3), [1.1, 1.0], [1.1, 1.0]],
-        ["DiscreteSpace", spaces.DiscreteSpace(4, 0), 2, [3.0, -1.0]],
-        ["ArrayDiscreteSpace", spaces.ArrayDiscreteSpace(2, -1, 3), [1, 1], [1.0, 1.0]],
-        ["ContinuousSpace", None, 1.0, [1.0, 1.0]],
-        ["ArrayContinuousSpace", spaces.ArrayContinuousSpace(2, -1, 3), [1.1, 1.0], [1.1, 1.0]],
-        ["BoxSpace", spaces.BoxSpace((2,), -1, 3), np.full((2,), 2.0), [2.0, 2.0]],
-        ["BoxSpace_float", spaces.BoxSpace((2,), -1, 3), np.full((2,), 2.0), [2.0, 2.0]],
-        ["TextSpace", None, "2", 3],
+        [RLBaseTypes.NONE, ArrayContinuousSpace(2, -1, 3), [1.1, 1.0], [1.1, 1.0]],
+        [RLBaseTypes.DISCRETE, DiscreteSpace(4, 0), 2, [3.0, -1.0]],
+        [RLBaseTypes.ARRAY_DISCRETE, ArrayDiscreteSpace(2, -1, 3), [1, 1], [1.0, 1.0]],
+        [RLBaseTypes.CONTINUOUS, None, 1.0, [1.0, 1.0]],
+        [RLBaseTypes.ARRAY_CONTINUOUS, ArrayContinuousSpace(2, -1, 3), [1.1, 1.0], [1.1, 1.0]],
+        [RLBaseTypes.BOX, BoxSpace((2,), -1, 3), np.full((2,), 2.0), [2.0, 2.0]],
+        # [RLBaseTypes.TEXT, TextSpace(), "2", 3],  # TODO
     ],
 )
 def test_space(create_space, true_space, val, decode_val):
@@ -207,7 +209,7 @@ def test_space(create_space, true_space, val, decode_val):
             space.create_encode_space(create_space)
         return
 
-    if create_space in ["DiscreteSpace"]:
+    if create_space in [RLBaseTypes.DISCRETE]:
         space.create_division_tbl(5)
     target_space = space.create_encode_space(create_space)
     print(target_space)

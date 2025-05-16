@@ -3,7 +3,7 @@ from typing import Generic, List, Union
 
 import numpy as np
 
-from srl.base.define import RLBaseActTypes, RLBaseObsTypes
+from srl.base.define import RLBaseTypes
 from srl.base.rl.config import RLConfig as RLConfigBase
 from srl.base.rl.config import TRLConfig
 from srl.base.rl.memory import TRLMemory
@@ -16,11 +16,11 @@ from srl.base.spaces.discrete import DiscreteSpace
 
 @dataclass
 class RLConfig(RLConfigBase[Union[DiscreteSpace, ArrayContinuousSpace], BoxSpace]):
-    def get_base_action_type(self) -> RLBaseActTypes:
-        return RLBaseActTypes.DISCRETE | RLBaseActTypes.CONTINUOUS
+    def get_base_action_type(self) -> RLBaseTypes:
+        return RLBaseTypes.DISCRETE | RLBaseTypes.ARRAY_CONTINUOUS
 
-    def get_base_observation_type(self) -> RLBaseObsTypes:
-        return RLBaseObsTypes.BOX
+    def get_base_observation_type(self) -> RLBaseTypes:
+        return RLBaseTypes.BOX
 
 
 class RLWorker(

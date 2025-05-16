@@ -4,7 +4,7 @@ from typing import Tuple
 import pytest
 
 import srl
-from srl.base.define import RLBaseActTypes
+from srl.base.define import RLBaseTypes
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_long_case import CommonLongCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -15,7 +15,7 @@ class QuickCase(CommonQuickCase):
         params=list(
             itertools.product(
                 ["", "v1", "v2", "v3"],
-                [RLBaseActTypes.DISCRETE, RLBaseActTypes.CONTINUOUS],  # action
+                [RLBaseTypes.DISCRETE, RLBaseTypes.ARRAY_CONTINUOUS],  # action
             )
         )
     )
@@ -142,7 +142,7 @@ class LongCase(CommonLongCase):
 
         rl_config.encoder_decoder_dist = "linear"
         rl_config.free_nats = 0.01
-        rl_config.override_action_type = RLBaseActTypes.CONTINUOUS
+        rl_config.override_action_type = RLBaseTypes.ARRAY_CONTINUOUS
         rl_config.actor_reinforce_rate = 1.0
 
         runner = self.create_test_runner(env_config, rl_config)

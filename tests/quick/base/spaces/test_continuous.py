@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from srl.base import spaces
-from srl.base.define import SpaceTypes
+from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.exception import NotSupportedError
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.continuous import ContinuousSpace
@@ -188,14 +188,13 @@ def test_sanitize2():
 @pytest.mark.parametrize(
     "create_space, true_space, val, decode_val",
     [
-        ["", ContinuousSpace(-1, 3), 1.1, 1.1],
-        ["DiscreteSpace", spaces.DiscreteSpace(5, 0), 1, 0],
-        ["ArrayDiscreteSpace", spaces.ArrayDiscreteSpace(1, -1, 3), [2], 2.0],
-        ["ContinuousSpace", spaces.ContinuousSpace(-1, 3), 1.1, 1.1],
-        ["ArrayContinuousSpace", spaces.ArrayContinuousSpace(1, -1, 3), [1.1], 1.1],
-        ["BoxSpace", spaces.BoxSpace((1,), -1, 3), np.full((1,), 0.25, np.float32), 0.25],
-        ["BoxSpace_float", spaces.BoxSpace((1,), -1, 3), np.full((1,), 0.25, np.float32), 0.25],
-        ["TextSpace", None, "2", 3],
+        [RLBaseTypes.NONE, ContinuousSpace(-1, 3), 1.1, 1.1],
+        [RLBaseTypes.DISCRETE, spaces.DiscreteSpace(5, 0), 1, 0],
+        [RLBaseTypes.ARRAY_DISCRETE, spaces.ArrayDiscreteSpace(1, -1, 3), [2], 2.0],
+        [RLBaseTypes.CONTINUOUS, spaces.ContinuousSpace(-1, 3), 1.1, 1.1],
+        [RLBaseTypes.ARRAY_CONTINUOUS, spaces.ArrayContinuousSpace(1, -1, 3), [1.1], 1.1],
+        [RLBaseTypes.BOX, spaces.BoxSpace((1,), -1, 3), np.full((1,), 0.25, np.float32), 0.25],
+        # [RLBaseTypes.TEXT, TextSpace(), "2", 3],  # TODO
     ],
 )
 def test_space(create_space, true_space, val, decode_val):
@@ -207,7 +206,7 @@ def test_space(create_space, true_space, val, decode_val):
             space.create_encode_space(create_space)
         return
 
-    if create_space in ["DiscreteSpace"]:
+    if create_space in [RLBaseTypes.DISCRETE]:
         space.create_division_tbl(5)
     target_space = space.create_encode_space(create_space)
     print(target_space)

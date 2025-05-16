@@ -1,8 +1,7 @@
 import numpy as np
 import pytest
 
-from srl.base import spaces
-from srl.base.define import SpaceTypes
+from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.exception import NotSupportedError
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
@@ -10,6 +9,7 @@ from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.continuous import ContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.multi import MultiSpace
+from srl.base.spaces.text import TextSpace
 
 
 def test_space_basic():
@@ -63,80 +63,6 @@ def test_space_basic():
     assert o == stack_space
     v = space.encode_stack([space.sample(), space.sample(), space.sample()])
     assert stack_space.check_val(v)
-
-
-def test_space_encode():
-    space = MultiSpace(
-        [
-            DiscreteSpace(2),
-            ArrayDiscreteSpace(2, 0, 1),
-            ContinuousSpace(0, 1),
-            ArrayContinuousSpace(2, 0, 1),
-            BoxSpace((2, 1), 0, 1),
-        ]
-    )
-    print(space)
-    assert space.stype == SpaceTypes.MULTI
-
-    space.create_division_tbl(2)
-
-    # --- discrete
-    assert space.int_size == 2 * (2 * 2) * 2 * (2 * 2) * (2 * 2)
-    de = space.decode_from_int(0)
-    assert len(de) == 5
-    assert de[0] == 0
-    assert de[1] == [0, 0]
-    assert de[2] == 0
-    assert de[3] == [0, 0]
-    assert (de[4] == np.array([[0], [0]])).all()
-    en = space.encode_to_int(de)
-    assert isinstance(en, int)
-    assert en == 0
-
-    # --- list int
-    assert space.list_int_size == 1 + 2 + 1 + 1 + 1
-    assert space.list_int_low == [0] + [0, 0] + [0] + [0] + [0]
-    assert space.list_int_high == [1] + [1, 1] + [2] + [4] + [4]
-    x = [0] + [0, 0] + [0] + [0] + [0]
-    de = space.decode_from_list_int(x)
-    assert len(de) == 5
-    assert de[0] == 0
-    assert de[1] == [0, 0]
-    assert de[2] == 0
-    assert de[3] == [0, 0]
-    assert (de[4] == np.array([[0], [0]])).all()
-    en = space.encode_to_list_int(de)
-    assert len(en) == 1 + 2 + 1 + 1 + 1
-    np.testing.assert_array_equal(en, x)
-
-    # --- list float
-    assert space.list_float_size == 1 + 2 + 1 + 2 + 2
-    assert space.list_float_low == [0] + [0, 0] + [0] + [0, 0] + [0, 0]
-    assert space.list_float_high == [1] + [1, 1] + [1] + [1, 1] + [1, 1]
-    de = space.decode_from_list_float([0.0] + [0, 0] + [0] + [0, 0] + [0, 0])
-    assert len(de) == 5
-    assert de[0] == 0
-    assert de[1] == [0, 0]
-    assert de[2] == 0
-    assert de[3] == [0, 0]
-    assert (de[4] == np.array([[0], [0]])).all()
-    en = space.encode_to_list_float(de)
-    assert len(en) == 1 + 2 + 1 + 2 + 2
-    np.testing.assert_array_equal(en, [0] + [0, 0] + [0] + [0, 0] + [0, 0])
-
-    # --- np
-    assert space.np_shape == (1 + 2 + 1 + 2 + 2,)
-    assert (space.np_low == np.array([0] + [0, 0] + [0] + [0, 0] + [0, 0])).all()
-    assert (space.np_high == np.array([1] + [1, 1] + [1] + [1, 1] + [1, 1])).all()
-    de = space.decode_from_np(np.array([0.0] + [0, 0] + [0] + [0, 0] + [0, 0]))
-    assert len(de) == 5
-    assert de[0] == 0
-    assert de[1] == [0, 0]
-    assert de[2] == 0
-    assert de[3] == [0, 0]
-    assert (de[4] == np.array([[0], [0]])).all()
-    en = space.encode_to_np(de, np.float32)
-    assert (en == np.array([0.0] + [0, 0] + [0] + [0, 0] + [0, 0], np.float32)).all()
 
 
 def test_sanitize():
@@ -236,15 +162,61 @@ def test_valid_actions():
 @pytest.mark.parametrize(
     "create_space, true_space, val, decode_val",
     [
-        ["", spaces.DiscreteSpace(5, 0), 2, 3],
-        ["DiscreteSpace", spaces.DiscreteSpace(5, 0), 2, 3],
-        ["ArrayDiscreteSpace", spaces.ArrayDiscreteSpace(1, 0, 4), [2], 3],
-        ["ContinuousSpace", spaces.ContinuousSpace(0, 4), 2, 3],
-        ["ArrayContinuousSpace", spaces.ArrayContinuousSpace(1, 0, 4), [2], 3],
-        ["BoxSpace", spaces.BoxSpace((1,), 0, 4, np.int64), np.full((1,), 2), 3],
-        ["BoxSpace_float", spaces.BoxSpace((1,), 0, 4, np.float32), np.full((1,), 2), 3],
-        ["TextSpace", None, "2", 3],
+        [RLBaseTypes.NONE, MultiSpace, [1, [0], 0.1, [0.5], np.ones((1,))], [1, [0], 0.1, [0.5], np.ones((1,))]],
+        [RLBaseTypes.DISCRETE, DiscreteSpace(108, 0), 0, [0, [0], 0.0, [0.0], np.array([0], dtype=np.float32)]],
+        [RLBaseTypes.ARRAY_DISCRETE, ArrayDiscreteSpace(5, 0, [1, 1, 3, 3, 3]), [1, 1, 1, 1, 1], [1, [1], 0.5, [0.5], np.array([0.5], dtype=np.float32)]],
+        [RLBaseTypes.CONTINUOUS, None, 1.1, 1.1],
+        [RLBaseTypes.ARRAY_CONTINUOUS, ArrayContinuousSpace(5, 0, 1), [1, 1, 1, 1, 1], [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32)]],
+        [RLBaseTypes.BOX, BoxSpace((5, 1), 0, 1), np.full((5, 1), 0, np.float32), [0, [0], 0, [0], np.array([0], dtype=np.float32)]],
+        # [RLBaseTypes.TEXT, TextSpace(1, 1), "2", 3],  # TODO
     ],
 )
 def test_space(create_space, true_space, val, decode_val):
-    pytest.skip("TODO")
+    space = MultiSpace(
+        [
+            DiscreteSpace(2),
+            ArrayDiscreteSpace(1, 0, 1),
+            ContinuousSpace(0, 1),
+            ArrayContinuousSpace(1, 0, 1),
+            BoxSpace((1,), 0, 1),
+        ]
+    )
+    print(space)
+    assert space.stype == SpaceTypes.MULTI
+    space.create_division_tbl(division_num=3)
+
+    if true_space is None:
+        with pytest.raises(NotSupportedError):
+            space.create_encode_space(create_space)
+        return
+
+    target_space = space.create_encode_space(create_space)
+    print(target_space)
+    print(true_space)
+    if create_space == RLBaseTypes.NONE:
+        assert target_space == space
+    else:
+        assert target_space == true_space
+
+    de = space.decode_from_space(val, target_space)
+    print(de)
+    if isinstance(de, np.ndarray):
+        assert (de == decode_val).all()
+    else:
+        assert de == decode_val
+    assert space.check_val(de)
+    en = space.encode_to_space(decode_val, target_space)
+    print(en)
+    print(val)
+    if isinstance(en, np.ndarray):
+        assert (en == val).all()
+    else:
+        assert en == val
+    assert target_space.check_val(en)
+
+    de = space.decode_from_space(en, target_space)
+    if isinstance(de, np.ndarray):
+        assert (de == decode_val).all()
+    else:
+        assert de == decode_val
+    assert space.check_val(de)

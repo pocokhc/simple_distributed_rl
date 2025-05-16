@@ -4,7 +4,7 @@ from typing import Any, List, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import SpaceTypes
+from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.exception import NotSupportedError
 from srl.base.spaces.space import SpaceBase
 
@@ -281,84 +281,94 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
     # --------------------------------------
     # spaces
     # --------------------------------------
-    def create_encode_space(self, space_name: str) -> SpaceBase:
-        from srl.base.spaces.array_discrete import ArrayDiscreteSpace
-        from srl.base.spaces.box import BoxSpace
+    def get_encode_type_list(self):
+        priority_list = [
+            RLBaseTypes.ARRAY_CONTINUOUS,
+            RLBaseTypes.BOX,
+            RLBaseTypes.ARRAY_DISCRETE,
+        ]
+        exclude_list = [RLBaseTypes.CONTINUOUS]
+        return priority_list, exclude_list
+
+    # --- DiscreteSpace
+    def create_encode_space_DiscreteSpace(self):
         from srl.base.spaces.discrete import DiscreteSpace
 
-        if space_name == "":
-            return self.copy()
-        elif space_name == "DiscreteSpace":
-            return DiscreteSpace(self.int_size)
-        elif space_name == "ArrayDiscreteSpace":
-            return ArrayDiscreteSpace(self.list_int_size, self.list_int_low, self.list_int_high)
-        elif space_name == "ContinuousSpace":
-            raise NotSupportedError()
-        elif space_name == "ArrayContinuousSpace":
-            return ArrayContinuousSpace(self.list_float_size, self.list_float_low, self.list_float_high)
-        elif space_name == "BoxSpace":
-            return BoxSpace(self.np_shape, self.np_low, self.np_high, self._dtype)
-        elif space_name == "BoxSpace_float":
-            return BoxSpace(self.np_shape, self.np_low, self.np_high, np.float32)
-        elif space_name == "TextSpace":
-            raise NotSupportedError()
-        raise NotImplementedError(space_name)
+        return DiscreteSpace(self.int_size)  # startは0
 
-    def encode_to_space(self, val: List[float], space: SpaceBase) -> Any:
+    def encode_to_space_DiscreteSpace(self, val: List[float]) -> int:
+        assert self.division_tbl is not None, "Call 'create_division_tbl(division_num)' first"
+        d = np.sum(np.abs(self.division_tbl - val), axis=1)
+        return int(np.argmin(d))
+
+    def decode_from_space_DiscreteSpace(self, val: int) -> List[float]:
+        if self.division_tbl is None:
+            return [float(val) for _ in range(self._size)]
+        else:
+            return self.division_tbl[val].tolist()
+
+    # --- ArrayDiscreteSpace
+    def create_encode_space_ArrayDiscreteSpace(self):
         from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+
+        return ArrayDiscreteSpace(self.list_int_size, self.list_int_low, self.list_int_high)
+
+    def encode_to_space_ArrayDiscreteSpace(self, val: List[float]) -> List[int]:
+        if self.division_tbl is None:
+            return [int(round(v)) for v in val]
+        else:
+            return [self.encode_to_int(val)]
+
+    def decode_from_space_ArrayDiscreteSpace(self, val: List[int]) -> List[float]:
+        if self.division_tbl is None:
+            return [float(v) for v in val]
+        else:
+            return self.division_tbl[val[0]].tolist()
+
+    # --- ContinuousSpace
+    def create_encode_space_ContinuousSpace(self):
+        raise NotSupportedError()
+
+    def encode_to_space_ContinuousSpace(self, val: List[float]) -> float:
+        raise NotSupportedError()
+
+    def decode_from_space_ContinuousSpace(self, val: float) -> List[float]:
+        raise NotSupportedError()
+
+    # --- ArrayContinuousSpace
+    def create_encode_space_ArrayContinuousSpace(self):
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+
+        return ArrayContinuousSpace(self.list_float_size, self.list_float_low, self.list_float_high)
+
+    def encode_to_space_ArrayContinuousSpace(self, val: List[float]) -> List[float]:
+        return val
+
+    def decode_from_space_ArrayContinuousSpace(self, val: List[float]) -> List[float]:
+        return [float(v) for v in val]
+
+    # --- Box
+    def create_encode_space_Box(self, space_type: RLBaseTypes, np_dtype):
         from srl.base.spaces.box import BoxSpace
-        from srl.base.spaces.continuous import ContinuousSpace
-        from srl.base.spaces.discrete import DiscreteSpace
-        from srl.base.spaces.multi import MultiSpace
+
+        # TODO: Box Image
+
+        return BoxSpace(self.np_shape, self.np_low, self.np_high, np_dtype, stype=SpaceTypes.CONTINUOUS)
+
+    def encode_to_space_Box(self, val: List[float], space) -> np.ndarray:
+        return np.array(val, space.dtype)
+
+    def decode_from_space_Box(self, val: np.ndarray, space) -> List[float]:
+        return val.tolist()
+
+    # --- TextSpace
+    def create_encode_space_TextSpace(self):
         from srl.base.spaces.text import TextSpace
 
-        if isinstance(space, DiscreteSpace):
-            assert self.division_tbl is not None, "Call 'create_division_tbl(division_num)' first"
-            d = np.sum(np.abs(self.division_tbl - val), axis=1)
-            return int(np.argmin(d))
-        elif isinstance(space, ArrayDiscreteSpace):
-            if self.division_tbl is None:
-                return [int(round(v)) for v in val]
-            else:
-                return [self.encode_to_int(val)]
-        elif isinstance(space, ContinuousSpace):
-            raise NotImplementedError()
-        elif isinstance(space, ArrayContinuousSpace):
-            return val
-        elif isinstance(space, BoxSpace):
-            return np.array(val, space.dtype)
-        elif isinstance(space, TextSpace):
-            return ",".join([str(v) for v in val])
-        elif isinstance(space, MultiSpace):
-            return val
-        raise NotImplementedError()
+        raise NotSupportedError()
 
-    def decode_from_space(self, val: Any, space: SpaceBase) -> List[float]:
-        from srl.base.spaces.array_discrete import ArrayDiscreteSpace
-        from srl.base.spaces.box import BoxSpace
-        from srl.base.spaces.continuous import ContinuousSpace
-        from srl.base.spaces.discrete import DiscreteSpace
-        from srl.base.spaces.multi import MultiSpace
-        from srl.base.spaces.text import TextSpace
+    def encode_to_space_TextSpace(self, val: List[float]) -> str:
+        return ",".join([str(v) for v in val])
 
-        if isinstance(space, DiscreteSpace):
-            if self.division_tbl is None:
-                return [float(val) for _ in range(self._size)]
-            else:
-                return self.division_tbl[val].tolist()
-        elif isinstance(space, ArrayDiscreteSpace):
-            if self.division_tbl is None:
-                return [float(v) for v in val]
-            else:
-                return self.division_tbl[val[0]].tolist()
-        elif isinstance(space, ContinuousSpace):
-            raise NotImplementedError()
-        elif isinstance(space, ArrayContinuousSpace):
-            return val
-        elif isinstance(space, BoxSpace):
-            return val.tolist()
-        elif isinstance(space, TextSpace):
-            return [float(v) for v in val.split(",")]
-        elif isinstance(space, MultiSpace):
-            return val
-        raise NotImplementedError()
+    def decode_from_space_TextSpace(self, val: str) -> List[float]:
+        return [float(v) for v in val.split(",")]

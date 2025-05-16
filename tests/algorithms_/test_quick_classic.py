@@ -2,7 +2,7 @@ from typing import Tuple
 
 import pytest
 
-from srl.base.define import RLBaseActTypes
+from srl.base.define import RLBaseTypes
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_quick_case import CommonQuickCase
 
@@ -79,5 +79,5 @@ class Test_vanilla_policy_con(_CommonOption, CommonQuickCase):
         from srl.algorithms import vanilla_policy
 
         rl_config = vanilla_policy.Config()
-        rl_config.override_action_type = RLBaseActTypes.CONTINUOUS
+        rl_config.override_action_type = RLBaseTypes.CONTINUOUS
         return rl_config, {}

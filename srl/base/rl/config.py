@@ -13,8 +13,7 @@ from srl.base.define import (
     PlayersType,
     RenderModeType,
     RLActionType,
-    RLBaseActTypes,
-    RLBaseObsTypes,
+    RLBaseTypes,
     RLObservationType,
     SpaceTypes,
 )
@@ -44,9 +43,11 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
     #: env の observation_type を上書きします。
     #: 例えばgymの自動判定で想定外のTypeになった場合、ここで上書きできます。
-    override_observation_type: SpaceTypes = SpaceTypes.UNKNOWN
+    override_env_observation_type: SpaceTypes = SpaceTypes.UNKNOWN
+    #: observation_type を上書きします。
+    override_observation_type: Union[str, RLBaseTypes] = RLBaseTypes.NONE
     #: action_type を上書きします。
-    override_action_type: Union[str, RLBaseActTypes] = RLBaseActTypes.NONE
+    override_action_type: Union[str, RLBaseTypes] = RLBaseTypes.NONE
 
     #: 連続値から離散値に変換する場合の分割数です。-1の場合round変換で丸めます。
     action_division_num: int = 10
@@ -143,12 +144,11 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         raise NotImplementedError()
 
     @abstractmethod
-    def get_base_action_type(self) -> RLBaseActTypes:
-        # discrete or continuousは選択式, boxのimageはenv
+    def get_base_action_type(self) -> RLBaseTypes:
         raise NotImplementedError()
 
     @abstractmethod
-    def get_base_observation_type(self) -> RLBaseObsTypes:
+    def get_base_observation_type(self) -> RLBaseTypes:
         raise NotImplementedError()
 
     def get_framework(self) -> str:
@@ -189,7 +189,8 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         if self._is_setup:
             return
         self._check_parameter = False
-        self.override_action_type = RLBaseActTypes.from_str(self.override_action_type)
+        self.override_observation_type = RLBaseTypes.from_str(self.override_observation_type)
+        self.override_action_type = RLBaseTypes.from_str(self.override_action_type)
 
         # --- metadata(表示用)
         logger.debug("--- Algorithm settings ---\n" + pprint.pformat(self.get_metadata()))
@@ -220,12 +221,12 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
             # --- observation_typeの上書き
             if isinstance(env_obs_space, BoxSpace):
-                if self.override_observation_type != SpaceTypes.UNKNOWN:
+                if self.override_env_observation_type != SpaceTypes.UNKNOWN:
                     if enable_log:
                         s = "override observation type: "
-                        s += f"{env.observation_space} -> {self.override_observation_type}"
+                        s += f"{env.observation_space} -> {self.override_env_observation_type}"
                         logger.info(s)
-                    env_obs_space = env_obs_space.copy(stype=self.override_observation_type, is_stack_ch=None)
+                    env_obs_space = env_obs_space.copy(stype=self.override_env_observation_type, is_stack_ch=None)
         elif self.observation_mode == "render_image":
             env.setup(render_mode="rgb_array")
             env.reset()
@@ -272,23 +273,12 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         self._env_obs_space_in_rl: SpaceBase = env_obs_space
 
         # --- obs type & space
-        # 優先度
-        # 1. RL base type
-        # 2. env obs space type
-        base_type = self.get_base_observation_type()
-
-        # --- rl one step space
-        if base_type == RLBaseObsTypes.DISCRETE:
-            # RLがDISCRETEで(ENVがCONTINUOUSなら)分割してDISCRETEにする
-            self._env_obs_space_in_rl.create_division_tbl(self.observation_division_num)
-            create_space = "ArrayDiscreteSpace"
-        elif base_type == RLBaseObsTypes.BOX:
-            create_space = "BoxSpace_float"
-        else:
-            create_space = ""
-
-        # create space
-        self._rl_obs_space_one_step = self._env_obs_space_in_rl.create_encode_space(create_space)
+        self._rl_obs_space_one_step, self._rl_obs_type = self._get_rl_space(
+            required_type=self.get_base_observation_type(),
+            override_type=self.override_observation_type,
+            env_space=self._env_obs_space_in_rl,
+            division_num=self.observation_division_num,
+        )
 
         # --- window_length
         if self.window_length > 1:
@@ -343,80 +333,12 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         self._env_act_space = env.action_space.copy()
 
         # --- act type & space
-        # 優先度
-        # 1. override_action_type
-        # 2. RL base type
-        # 3. env action_space type
-        self._rl_act_type: RLBaseActTypes = self.get_base_action_type()
-        if self.override_action_type != RLBaseActTypes.NONE:
-            assert isinstance(self.override_action_type, RLBaseActTypes)
-            self._rl_act_type = self.override_action_type
-
-        # 複数flagがある場合はenvに近いもの
-        if bin(self._rl_act_type.value).count("1") > 1:
-            priority_list = []
-            if self._env_act_space.is_discrete():
-                priority_list = [
-                    RLBaseActTypes.DISCRETE,
-                    RLBaseActTypes.CONTINUOUS,
-                    RLBaseActTypes.NONE,
-                ]
-            elif self._env_act_space.is_continuous():
-                priority_list = [
-                    RLBaseActTypes.CONTINUOUS,
-                    RLBaseActTypes.DISCRETE,
-                    RLBaseActTypes.NONE,
-                ]
-            elif self._env_act_space.is_image():
-                if self._env_act_space.stype == SpaceTypes.GRAY_2ch:
-                    priority_list = [
-                        RLBaseActTypes.DISCRETE,
-                        RLBaseActTypes.CONTINUOUS,
-                        RLBaseActTypes.NONE,
-                    ]
-                elif self._env_act_space.stype == SpaceTypes.GRAY_3ch:
-                    priority_list = [
-                        RLBaseActTypes.DISCRETE,
-                        RLBaseActTypes.CONTINUOUS,
-                        RLBaseActTypes.NONE,
-                    ]
-                elif self._env_act_space.stype == SpaceTypes.COLOR:
-                    priority_list = [
-                        RLBaseActTypes.DISCRETE,
-                        RLBaseActTypes.CONTINUOUS,
-                        RLBaseActTypes.NONE,
-                    ]
-                elif self._env_act_space.stype == SpaceTypes.IMAGE:
-                    priority_list = [
-                        RLBaseActTypes.DISCRETE,
-                        RLBaseActTypes.CONTINUOUS,
-                        RLBaseActTypes.NONE,
-                    ]
-                else:
-                    raise UndefinedError(self._env_act_space.stype)
-            else:
-                raise UndefinedError(self._env_act_space.stype)
-
-            for stype in priority_list:
-                if self._rl_act_type & stype:
-                    self._rl_act_type = stype
-                    break
-            else:
-                logger.warning(f"Undefined space. {self._env_act_space}")
-                self._rl_act_type = RLBaseActTypes.NONE
-
-        # --- space
-        if self._rl_act_type == RLBaseActTypes.DISCRETE:
-            # RLがDISCRETEで(ENVがCONTINUOUSなら)分割してDISCRETEにする
-            self._env_act_space.create_division_tbl(self.action_division_num)
-            create_space = "DiscreteSpace"
-        elif self._rl_act_type == RLBaseActTypes.CONTINUOUS:
-            create_space = "ArrayContinuousSpace"
-        else:
-            create_space = ""
-
-        # create space
-        self._rl_act_space = self._env_act_space.create_encode_space(create_space)
+        self._rl_act_space, self._rl_act_type = self._get_rl_space(
+            required_type=self.get_base_action_type(),
+            override_type=self.override_action_type,
+            env_space=self._env_act_space,
+            division_num=self.action_division_num,
+        )
 
         # --------------------------------------------
 
@@ -448,12 +370,11 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             logger.info(f"max_episode_steps      : {env.max_episode_steps}")
             logger.info(f"player_num             : {env.player_num}")
             logger.info(f"request_env_render_mode: {self.request_env_render}")
-            logger.info(f"action_space (RL requires '{self.get_base_action_type()}' type)")
+            logger.info(f"action_space (RL requires '{self._rl_act_type}')")
             logger.info(f" original: {env.action_space}")
             logger.info(f" env     : {self._env_act_space}")
             logger.info(f" rl      : {self._rl_act_space}")
-            logger.info(f" rl_type : {self._rl_act_type}")
-            logger.info(f"observation_space (RL requires '{self.get_base_observation_type()}' type)")
+            logger.info(f"observation_space (RL requires '{self._rl_obs_type}')")
             logger.info(f" original    : {env.observation_space}")
             logger.info(f" env         : {self._env_obs_space_in_rl}")
             if self.window_length > 1:
@@ -463,6 +384,44 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                 if self.render_image_window_length > 1:
                     logger.info(f" render_img(one_step): {self._rl_obs_render_img_space_one_step}")
                 logger.info(f" render_img  : {self._rl_obs_render_img_space}")
+
+    def _get_rl_space(self, required_type: RLBaseTypes, override_type: RLBaseTypes, env_space: SpaceBase, division_num: int):
+        # 優先度
+        # 1. override
+        # 2. RL base type
+        # 3. RL base typeが複数ある場合はその中からenv側の変換が最も少ないのを選択
+        if override_type != RLBaseTypes.NONE:
+            if not (required_type & override_type):
+                logger.warning(f"An attempt is being made to overwrite a type that is not defined. override: {override_type}, required: {RLBaseTypes.to_list(required_type)}")
+            required_type = override_type
+
+        if bin(required_type.value).count("1") > 1:
+            priority_list, exclude_list = env_space.get_encode_type_list()
+            for stype in priority_list:
+                if required_type & stype:
+                    required_type = stype
+                    break
+            else:
+                # exclude_listを除いた中から取得する
+                for stype in RLBaseTypes.to_list(required_type):
+                    if stype in exclude_list:
+                        continue
+                    required_type = stype
+                    break
+                else:
+                    logger.warning(f"Undefined space. {env_space}")
+                    required_type = RLBaseTypes.NONE
+
+        # --- rl DISCRETE
+        if required_type in [
+            RLBaseTypes.DISCRETE,
+            RLBaseTypes.ARRAY_DISCRETE,
+        ]:
+            # RLがDISCRETEを要求する場合、(ENVがCONTINUOUSなら)分割する
+            env_space.create_division_tbl(division_num)
+
+        rl_space = env_space.create_encode_space(required_type, self.get_dtype("np"))
+        return rl_space, required_type
 
     # --- setup property
     def get_applied_processors(self) -> List["RLProcessor"]:
@@ -474,6 +433,10 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     @property
     def request_env_render(self) -> RenderModeType:
         return self._request_env_render
+
+    @property
+    def observation_type(self) -> RLBaseTypes:
+        return self._rl_obs_type
 
     @property
     def observation_space_one_step(self) -> TObsSpace:
@@ -497,7 +460,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         return self._rl_obs_render_img_space
 
     @property
-    def action_type(self) -> RLBaseActTypes:
+    def action_type(self) -> RLBaseTypes:
         return self._rl_act_type
 
     @property
@@ -737,11 +700,11 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 class DummyRLConfig(RLConfig):
     name: str = ""
 
-    def get_base_action_type(self) -> RLBaseActTypes:
-        return RLBaseActTypes.NONE
+    def get_base_action_type(self) -> RLBaseTypes:
+        return RLBaseTypes.NONE
 
-    def get_base_observation_type(self) -> RLBaseObsTypes:
-        return RLBaseObsTypes.NONE
+    def get_base_observation_type(self) -> RLBaseTypes:
+        return RLBaseTypes.NONE
 
     def get_framework(self) -> str:
         return ""

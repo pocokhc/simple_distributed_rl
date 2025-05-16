@@ -2,7 +2,7 @@ from typing import Tuple
 
 import pytest
 
-from srl.base.define import RLBaseActTypes
+from srl.base.define import RLBaseTypes
 from srl.base.rl.config import RLConfig
 from tests.algorithms_.common_long_case import CommonLongCase
 from tests.algorithms_.common_quick_case import CommonQuickCase
@@ -11,10 +11,10 @@ from tests.algorithms_.common_quick_case import CommonQuickCase
 class QuickCase(CommonQuickCase):
     @pytest.fixture(
         params=[
-            dict(override_action_type=RLBaseActTypes.DISCRETE, entropy_bonus_exclude_q=False),
-            dict(override_action_type=RLBaseActTypes.DISCRETE, entropy_bonus_exclude_q=True),
-            dict(override_action_type=RLBaseActTypes.CONTINUOUS, enable_normal_squashed=False),
-            dict(override_action_type=RLBaseActTypes.CONTINUOUS, enable_normal_squashed=True),
+            dict(override_action_type=RLBaseTypes.DISCRETE, entropy_bonus_exclude_q=False),
+            dict(override_action_type=RLBaseTypes.DISCRETE, entropy_bonus_exclude_q=True),
+            dict(override_action_type=RLBaseTypes.ARRAY_CONTINUOUS, enable_normal_squashed=False),
+            dict(override_action_type=RLBaseTypes.ARRAY_CONTINUOUS, enable_normal_squashed=True),
         ]
     )
     def rl_param(self, request):

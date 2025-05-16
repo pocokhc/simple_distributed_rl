@@ -5,7 +5,7 @@ from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 
-from srl.base.define import SpaceTypes
+from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.exception import NotSupportedError
 from srl.base.spaces.space import SpaceBase
 
@@ -433,113 +433,188 @@ class BoxSpace(SpaceBase[np.ndarray]):
     # --------------------------------------
     # spaces
     # --------------------------------------
-    def create_encode_space(self, space_name: str) -> SpaceBase:
-        from srl.base.spaces.array_continuous import ArrayContinuousSpace
-        from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+    def get_encode_type_list(self):
+        if self.stype == SpaceTypes.IMAGE:
+            priority_list = [RLBaseTypes.IMAGE]
+        elif self.stype == SpaceTypes.COLOR:
+            priority_list = [RLBaseTypes.COLOR]
+        elif self.stype == SpaceTypes.GRAY_3ch:
+            priority_list = [RLBaseTypes.GRAY_3ch]
+        elif self.stype == SpaceTypes.GRAY_3ch:
+            priority_list = [RLBaseTypes.GRAY_2ch]
+        else:
+            priority_list = []
+        priority_list += [
+            RLBaseTypes.BOX,
+            RLBaseTypes.ARRAY_CONTINUOUS,
+            RLBaseTypes.ARRAY_DISCRETE,
+        ]
+        exclude_list = [RLBaseTypes.CONTINUOUS]
+        return priority_list, exclude_list
+
+    # --- DiscreteSpace
+    def create_encode_space_DiscreteSpace(self):
         from srl.base.spaces.discrete import DiscreteSpace
 
-        if space_name == "":
-            return self.copy()
-        elif space_name == "DiscreteSpace":
-            return DiscreteSpace(self.int_size)
-        elif space_name == "ArrayDiscreteSpace":
-            return ArrayDiscreteSpace(self.list_int_size, self.list_int_low, self.list_int_high)
-        elif space_name == "ContinuousSpace":
-            raise NotSupportedError()
-        elif space_name == "ArrayContinuousSpace":
-            return ArrayContinuousSpace(
-                len(self._low.flatten()),
-                self.low.flatten(),
-                self.high.flatten(),
-            )
-        elif space_name == "BoxSpace":
-            return BoxSpace(self._shape, self._low, self._high, self._dtype, self._stype)
-        elif space_name == "BoxSpace_float":
-            return BoxSpace(self._shape, self._low, self._high, np.float32, self._stype)
-        elif space_name == "TextSpace":
-            raise NotSupportedError()
-        raise NotImplementedError(space_name)
+        return DiscreteSpace(self.int_size)  # startは0
 
-    def encode_to_space(self, val: np.ndarray, space: SpaceBase) -> Any:
-        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+    def encode_to_space_DiscreteSpace(self, val: np.ndarray) -> int:
+        if self._stype == SpaceTypes.DISCRETE:
+            self._create_int_tbl()
+            assert self.encode_int_tbl is not None
+            key = val.flatten().tolist()
+            return self.encode_int_tbl[tuple(key)]
+        else:
+            assert self.division_tbl is not None, "Call 'create_division_tbl(division_num)' first"
+            # ユークリッド距離で一番近いものを選択
+            d = (self.division_tbl - val).reshape((self.division_tbl.shape[0], -1))
+            d = np.linalg.norm(d, axis=1)
+            return int(np.argmin(d))
+
+    def decode_from_space_DiscreteSpace(self, val: int) -> np.ndarray:
+        if self._stype == SpaceTypes.DISCRETE:
+            self._create_int_tbl()
+            assert self.decode_int_tbl is not None
+            return np.array(self.decode_int_tbl[val], self._dtype).reshape(self._shape)
+        else:
+            if self.division_tbl is None:
+                return np.full(self._shape, val, dtype=self._dtype)
+            else:
+                return self.division_tbl[val]
+
+    # --- ArrayDiscreteSpace
+    def create_encode_space_ArrayDiscreteSpace(self):
         from srl.base.spaces.array_discrete import ArrayDiscreteSpace
-        from srl.base.spaces.continuous import ContinuousSpace
-        from srl.base.spaces.discrete import DiscreteSpace
-        from srl.base.spaces.multi import MultiSpace
+
+        return ArrayDiscreteSpace(self.list_int_size, self.list_int_low, self.list_int_high)
+
+    def encode_to_space_ArrayDiscreteSpace(self, val: np.ndarray) -> List[int]:
+        if self._stype == SpaceTypes.DISCRETE:
+            return [int(s) for s in val.flatten().tolist()]
+        else:
+            if self.division_tbl is None:
+                # 分割してない場合は、roundで丸めるだけ
+                return [int(s) for s in np.round(val).flatten().tolist()]
+            else:
+                # 分割してある場合
+                n = self.encode_to_int(val)
+                return [n]
+
+    def decode_from_space_ArrayDiscreteSpace(self, val: List[int]) -> np.ndarray:
+        if self._stype == SpaceTypes.DISCRETE:
+            return np.array(val, self._dtype).reshape(self._shape)
+        else:
+            if self.division_tbl is None:
+                return np.array(val, dtype=self._dtype).reshape(self._shape)
+            else:
+                return self.division_tbl[val[0]]
+
+    # --- ContinuousSpace
+    def create_encode_space_ContinuousSpace(self):
+        raise NotSupportedError()
+
+    def encode_to_space_ContinuousSpace(self, val: np.ndarray) -> float:
+        raise NotSupportedError()
+
+    def decode_from_space_ContinuousSpace(self, val: float) -> np.ndarray:
+        raise NotSupportedError()
+
+    # --- ArrayContinuousSpace
+    def create_encode_space_ArrayContinuousSpace(self):
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+
+        return ArrayContinuousSpace(
+            len(self._low.flatten()),
+            self.low.flatten(),
+            self.high.flatten(),
+        )
+
+    def encode_to_space_ArrayContinuousSpace(self, val: np.ndarray) -> List[float]:
+        return [float(v) for v in val.flatten().tolist()]
+
+    def decode_from_space_ArrayContinuousSpace(self, val: List[float]) -> np.ndarray:
+        return np.array(val, dtype=self._dtype).reshape(self._shape)
+
+    # --- Box
+    def create_encode_space_Box(self, space_type: RLBaseTypes, np_dtype):
+        if self.stype == SpaceTypes.GRAY_2ch:
+            if space_type == RLBaseTypes.GRAY_2ch:
+                return self.copy()
+            elif space_type == RLBaseTypes.GRAY_3ch:
+                return self.copy(shape=self.shape + (1,), low=np.min(self.low), high=np.min(self.high), stype=SpaceTypes.GRAY_3ch)
+            elif space_type == RLBaseTypes.COLOR:
+                return self.copy(shape=self.shape + (3,), low=np.min(self.low), high=np.min(self.high), stype=SpaceTypes.COLOR)
+            elif space_type == RLBaseTypes.IMAGE:
+                return self.copy(shape=self.shape + (1,), low=np.min(self.low), high=np.min(self.high), stype=SpaceTypes.IMAGE)
+        elif self.stype == SpaceTypes.GRAY_3ch:
+            if space_type == RLBaseTypes.GRAY_2ch:
+                return self.copy(shape=self.shape[:2], low=np.min(self.low), high=np.min(self.high), stype=SpaceTypes.GRAY_2ch)
+            elif space_type == RLBaseTypes.GRAY_3ch:
+                return self.copy()
+            elif space_type == RLBaseTypes.COLOR:
+                return self.copy(shape=self.shape[:2] + (3,), low=np.min(self.low), high=np.min(self.high), stype=SpaceTypes.COLOR)
+            elif space_type == RLBaseTypes.IMAGE:
+                return self.copy(stype=SpaceTypes.IMAGE)
+        elif self.stype == SpaceTypes.COLOR:
+            if space_type == RLBaseTypes.GRAY_2ch:
+                return self.copy(shape=self.shape[:2], low=np.min(self.low), high=np.min(self.high), stype=SpaceTypes.GRAY_2ch)
+            elif space_type == RLBaseTypes.GRAY_3ch:
+                return self.copy(shape=self.shape[:2] + (1,), low=np.min(self.low), high=np.min(self.high), stype=SpaceTypes.GRAY_3ch)
+            elif space_type == RLBaseTypes.COLOR:
+                return self.copy()
+            elif space_type == RLBaseTypes.IMAGE:
+                return self.copy(stype=SpaceTypes.IMAGE)
+        elif self.stype == SpaceTypes.IMAGE:
+            if space_type == RLBaseTypes.GRAY_2ch:
+                raise NotSupportedError()
+            elif space_type == RLBaseTypes.GRAY_3ch:
+                raise NotSupportedError()
+            elif space_type == RLBaseTypes.COLOR:
+                raise NotSupportedError()
+            elif space_type == RLBaseTypes.IMAGE:
+                return self.copy()
+        return self.copy(dtype=np_dtype)
+
+    def encode_to_space_Box(self, x: np.ndarray, space) -> np.ndarray:
+        x = x.astype(space.dtype)
+        if x.shape == ():
+            x = x.reshape((1,))
+
+        if space.stype == SpaceTypes.GRAY_2ch:
+            if x.ndim == 3 and x.shape[-1] == 1:
+                x = x[..., 0]
+        elif space.stype == SpaceTypes.GRAY_3ch:
+            if x.ndim == 2:
+                x = x[..., np.newaxis]
+        elif space.stype in [SpaceTypes.COLOR, SpaceTypes.IMAGE]:
+            if x.ndim == 2:
+                x = x[..., np.newaxis]
+            if x.ndim == 3 and x.shape[-1] == 1:
+                x = np.repeat(x, space.shape[-1], axis=-1)
+        return x
+
+    def decode_from_space_Box(self, x: np.ndarray, space) -> np.ndarray:
+        if self._stype == SpaceTypes.GRAY_2ch:
+            if x.ndim == 3 and x.shape[-1] == 1:
+                x = x[..., 0]
+        elif self._stype == SpaceTypes.GRAY_3ch:
+            if x.ndim == 2:
+                x = x[..., np.newaxis]
+        elif self._stype in [SpaceTypes.COLOR, SpaceTypes.IMAGE]:
+            if x.ndim == 2:
+                x = x[..., np.newaxis]
+            if x.ndim == 3 and x.shape[-1] == 1:
+                x = np.repeat(x, space.shape[-1], axis=-1)
+        return x.astype(self._dtype)
+
+    # --- TextSpace
+    def create_encode_space_TextSpace(self):
         from srl.base.spaces.text import TextSpace
 
-        if isinstance(space, DiscreteSpace):
-            if self._stype == SpaceTypes.DISCRETE:
-                self._create_int_tbl()
-                assert self.encode_int_tbl is not None
-                key = val.flatten().tolist()
-                return self.encode_int_tbl[tuple(key)]
-            else:
-                assert self.division_tbl is not None, "Call 'create_division_tbl(division_num)' first"
-                # ユークリッド距離で一番近いものを選択
-                d = (self.division_tbl - val).reshape((self.division_tbl.shape[0], -1))
-                d = np.linalg.norm(d, axis=1)
-                return int(np.argmin(d))
-        elif isinstance(space, ArrayDiscreteSpace):
-            if self._stype == SpaceTypes.DISCRETE:
-                return [int(s) for s in val.flatten().tolist()]
-            else:
-                if self.division_tbl is None:
-                    # 分割してない場合は、roundで丸めるだけ
-                    return [int(s) for s in np.round(val).flatten().tolist()]
-                else:
-                    # 分割してある場合
-                    n = self.encode_to_int(val)
-                    return [n]
-        elif isinstance(space, ContinuousSpace):
-            raise NotSupportedError()
-        elif isinstance(space, ArrayContinuousSpace):
-            return [float(v) for v in val.flatten().tolist()]
-        elif isinstance(space, BoxSpace):
-            val = val.astype(space.dtype)
-            if val.shape == ():
-                val = val.reshape((1,))
-            return val
-        elif isinstance(space, TextSpace):
-            return ",".join([str(v) for v in val.flatten().tolist()])
-        elif isinstance(space, MultiSpace):
-            return val
-        raise NotImplementedError()
+        raise NotSupportedError()
 
-    def decode_from_space(self, val: Any, space: SpaceBase) -> np.ndarray:
-        from srl.base.spaces.array_continuous import ArrayContinuousSpace
-        from srl.base.spaces.array_discrete import ArrayDiscreteSpace
-        from srl.base.spaces.continuous import ContinuousSpace
-        from srl.base.spaces.discrete import DiscreteSpace
-        from srl.base.spaces.multi import MultiSpace
-        from srl.base.spaces.text import TextSpace
+    def encode_to_space_TextSpace(self, val: np.ndarray) -> str:
+        return ",".join([str(v) for v in val.flatten().tolist()])
 
-        if isinstance(space, DiscreteSpace):
-            if self._stype == SpaceTypes.DISCRETE:
-                self._create_int_tbl()
-                assert self.decode_int_tbl is not None
-                return np.array(self.decode_int_tbl[val], self._dtype).reshape(self._shape)
-            else:
-                if self.division_tbl is None:
-                    return np.full(self._shape, val, dtype=self._dtype)
-                else:
-                    return self.division_tbl[val]
-        elif isinstance(space, ArrayDiscreteSpace):
-            if self._stype == SpaceTypes.DISCRETE:
-                return np.array(val, self._dtype).reshape(self._shape)
-            else:
-                if self.division_tbl is None:
-                    return np.array(val, dtype=self._dtype).reshape(self._shape)
-                else:
-                    return self.division_tbl[val[0]]
-        elif isinstance(space, ContinuousSpace):
-            raise NotSupportedError()
-        elif isinstance(space, ArrayContinuousSpace):
-            return np.array(val, dtype=self._dtype).reshape(self._shape)
-        elif isinstance(space, BoxSpace):
-            return val.astype(self._dtype)
-        elif isinstance(space, TextSpace):
-            return np.array([float(v) for v in val.split(",")], self._dtype).reshape(self._shape)
-        elif isinstance(space, MultiSpace):
-            return val
-        raise NotImplementedError()
+    def decode_from_space_TextSpace(self, val: str) -> np.ndarray:
+        return np.array([float(v) for v in val.split(",")], self._dtype).reshape(self._shape)

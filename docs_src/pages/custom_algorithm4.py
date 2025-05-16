@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from srl.base.define import RLBaseActTypes, RLBaseObsTypes
+from srl.base.define import RLBaseTypes
 from srl.base.rl.config import RLConfig
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
@@ -23,11 +23,11 @@ class Config(RLConfig[DiscreteSpace, ArrayDiscreteSpace]):
     gamma: float = 0.9
     lr: float = 0.1
 
-    def get_base_action_type(self) -> RLBaseActTypes:
-        return RLBaseActTypes.DISCRETE
+    def get_base_action_type(self) -> RLBaseTypes:
+        return RLBaseTypes.DISCRETE
 
-    def get_base_observation_type(self) -> RLBaseObsTypes:
-        return RLBaseObsTypes.DISCRETE
+    def get_base_observation_type(self) -> RLBaseTypes:
+        return RLBaseTypes.DISCRETE
 
     def get_name(self) -> str:
         return "MyRL"

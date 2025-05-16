@@ -1,22 +1,18 @@
 @startuml class_rl
 
-enum RLBaseActTypes {
+enum RLBaseTypes {
     NONE
     DISCRETE
-    CONTINUOUS
+    ARRAY_DISCRETE
+    ...
 }
 
-enum RLBaseObsTypes {
-    NONE
-    DISCRETE
-    BOX
-}
 
 abstract RLConfig {
     .. abstract ..
     get_name() : str
-    get_base_action_type() : RLBaseActTypes
-    get_base_observation_type() : RLBaseObsTypes
+    get_base_action_type() : RLBaseTypes
+    get_base_observation_type() : RLBaseTypes
     .. Runtime properties ..
     action_space : SpaceBase
     observation_space : SpaceBase
@@ -86,8 +82,7 @@ note "Keeps run-time state.\nAbsorbs the difference with the environment." as Wo
 WorkerRun . WorkerRunMemo
 RunContext . WorkerRun
 
-RLBaseActTypes . RLConfig
-RLBaseObsTypes . RLConfig
+RLBaseTypes . RLConfig
 
 RLConfig --- RLWorker
 RLConfig --- RLTrainer

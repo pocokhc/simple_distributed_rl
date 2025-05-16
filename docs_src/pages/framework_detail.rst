@@ -77,38 +77,13 @@ Interface Type
    * - BoxSpace
      - NDArray[AnyType]
      - srl.base.define.SpaceTypes
+   * - TextSpace
+     - str
+     - DISCRETE
    * - MultiSpace
      - list[SpaceBase]
      - MULTI
+   * - AnySpace
+     - any
+     - UNKNOWN
 
-
-+ RL type
-
-.. list-table::
-   :header-rows: 0
-  
-   * - 
-     - Action
-     - Observation
-     - Observation window
-   * - Discrete
-     - | int  
-       | DiscreteSpace
-     - | list[int]
-       | ArrayDiscreteSpace
-     - | list[int]
-       | ArrayDiscreteSpace
-   * - Continuous
-     - | list[float]
-       | ArrayContinuousSpace
-     - | NDArray[np.float32]
-       | BoxSpace
-     - | NDArray[np.float32]
-       | BoxSpace
-   * - Image
-     - | NDArray[np.uint8]
-       | BoxSpace
-     - | NDArray[np.float32]
-       | BoxSpace
-     - | NDArray[np.float32]
-       | BoxSpace

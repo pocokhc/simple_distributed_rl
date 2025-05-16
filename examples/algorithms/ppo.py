@@ -2,7 +2,7 @@ import numpy as np
 
 import srl
 from srl.algorithms import ppo
-from srl.base.define import RLBaseActTypes
+from srl.base.define import RLBaseTypes
 from srl.utils import common
 
 common.logger_print()
@@ -21,11 +21,11 @@ def main(mode: str):
 
     if mode == "DISCRETE":
         TRAIN_COUNT = 30000
-        rl_config.override_action_type = RLBaseActTypes.DISCRETE
+        rl_config.override_action_type = RLBaseTypes.DISCRETE
     else:
         TRAIN_COUNT = 30000
         rl_config.entropy_weight = 1.0
-        rl_config.override_action_type = RLBaseActTypes.CONTINUOUS
+        rl_config.override_action_type = RLBaseTypes.ARRAY_CONTINUOUS
 
     runner = srl.Runner(env_config, rl_config)
     runner.model_summary()
@@ -42,5 +42,5 @@ def main(mode: str):
 
 
 if __name__ == "__main__":
-    main("DISCRETE")
-    # main("CONTINUOUS")
+    # main("DISCRETE")
+    main("CONTINUOUS")

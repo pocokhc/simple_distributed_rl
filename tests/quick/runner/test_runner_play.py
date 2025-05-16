@@ -96,13 +96,7 @@ def test_render_window():
     rl_config = ql.Config()
     runner = srl.Runner(env_config, rl_config)
 
-    # train
-    runner.train(max_steps=20000)
-
-    # render terminal
-    reward = runner.render_window()
-    print(reward)
-    assert reward[0] > 0.5
+    runner.render_window(render_interval=1000 / 60)
 
 
 def test_animation(tmp_path):

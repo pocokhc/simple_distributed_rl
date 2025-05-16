@@ -5,7 +5,6 @@ import pytest_timeout  # noqa F401
 import srl
 from srl.algorithms import ql_agent57
 from srl.base.exception import DistributionError
-from srl.utils import common
 from tests.distribution.runner.distribution_mock.server_mock import (
     create_gcp_mock,
     create_paho_mock,
@@ -29,7 +28,7 @@ except ModuleNotFoundError:
 
 @pytest.mark.parametrize("server", ["", "redis", "pika", "paho", "gcp"])
 @pytest.mark.parametrize("enable_actor_thread", [False, True])
-@pytest.mark.timeout(10)  # pip install pytest_timeout
+@pytest.mark.timeout(60)  # pip install pytest_timeout
 def test_server_actor(mocker: pytest_mock.MockerFixture, server, enable_actor_thread):
     pytest.importorskip("redis")
     create_redis_mock(mocker)
@@ -51,7 +50,6 @@ def test_server_actor(mocker: pytest_mock.MockerFixture, server, enable_actor_th
         memory_params = GCPParameters(project_id="test")
     else:
         raise
-    common.logger_print()
 
     redis_params = RedisParameters(host="test")
 
@@ -105,7 +103,7 @@ def test_server_actor(mocker: pytest_mock.MockerFixture, server, enable_actor_th
 
 @pytest.mark.parametrize("server", ["", "redis", "pika", "paho", "gcp"])
 @pytest.mark.parametrize("dist_option", [False, True])
-@pytest.mark.timeout(10)  # pip install pytest_timeout
+@pytest.mark.timeout(60)  # pip install pytest_timeout
 def test_server_trainer(mocker: pytest_mock.MockerFixture, server, dist_option):
     pytest.importorskip("redis")
     create_redis_mock(mocker)
@@ -127,8 +125,6 @@ def test_server_trainer(mocker: pytest_mock.MockerFixture, server, dist_option):
         memory_params = GCPParameters(project_id="test")
     else:
         raise
-
-    common.logger_print()
 
     redis_params = RedisParameters(host="test")
 

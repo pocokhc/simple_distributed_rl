@@ -7,7 +7,7 @@ import time
 import traceback
 from typing import Callable, List, Optional, cast
 
-from srl.base.context import RunContext
+from srl.base.context import RunContext, RunState
 from srl.base.env.env_run import EnvRun
 from srl.base.exception import DistributionError
 from srl.base.rl.memory import RLMemory
@@ -392,9 +392,9 @@ def _run_actor(
     context.training = True
     context.disable_trainer = True
     # context.max_episodes = -1
-    # context.max_memory = -1
+    context.max_memory = -1
     # context.max_steps = -1
-    # context.max_train_count = -1
+    context.max_train_count = -1
     # context.timeout = -1
     workers, main_worker_idx = context.rl_config.make_workers(
         context.players,
@@ -402,15 +402,14 @@ def _run_actor(
         parameter,
         cast(RLMemory, memory),
     )
+    state = RunState()
+    state.env = env
+    state.parameter = parameter
+    state.memory = cast(RLMemory, memory)
+    state.worker = workers[main_worker_idx]
+    state.workers = workers
     try:
-        core_play.play(
-            context=context,
-            env=env,
-            workers=workers,
-            main_worker_idx=main_worker_idx,
-            trainer=None,
-            callbacks=callbacks,
-        )
+        core_play.play(context, state, callbacks=callbacks)
     except DistributionError:
         raise
     finally:
@@ -512,9 +511,10 @@ def run_forever(
     used_device_tf, used_device_torch = setup_device(
         framework,
         device,
-        set_CUDA_VISIBLE_DEVICES_if_CPU,
-        tf_enable_memory_growth,
-        tf_mixed_precision_policy_name,
+        is_mp_main_process=True,
+        set_CUDA_VISIBLE_DEVICES_if_CPU=set_CUDA_VISIBLE_DEVICES_if_CPU,
+        tf_enable_memory_growth=tf_enable_memory_growth,
+        tf_mixed_precision_policy_name=tf_mixed_precision_policy_name,
     )
     task_manager_params = TaskManagerParams(
         "actor",

@@ -43,7 +43,7 @@ class MpConfig:
     trainer_parameter_send_interval: float = 1  # sec
     actor_parameter_sync_interval: float = 1  # sec
     train_to_mem_queue_capacity: int = 100
-    mem_to_train_queue_capacity: int = 10
+    mem_to_train_queue_capacity: int = 5
 
 
 # --------------------
@@ -425,13 +425,13 @@ def _train_parameter_communicate(
 
         gc.collect()
 
-        logger.info(traceback.format_exc())
         end_signal.value = True
+        logger.error(traceback.format_exc())
         exception_queue.put(1)
         logger.error("[trainer, parameter thread] end_signal=True (MemoryError)")
     except Exception:
-        logger.info(traceback.format_exc())
         end_signal.value = True
+        logger.error(traceback.format_exc())
         exception_queue.put(1)
         logger.error("[trainer, parameter thread] end_signal=True (error)")
     finally:

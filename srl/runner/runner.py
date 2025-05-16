@@ -249,7 +249,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         actor_devices: Union[str, List[str]] = "AUTO",
         enable_mp_memory: bool = True,
         train_to_mem_queue_capacity: int = 100,
-        mem_to_train_queue_capacity: int = 10,
+        mem_to_train_queue_capacity: int = 5,
         # --- stop config
         timeout: float = -1,
         max_train_count: int = -1,

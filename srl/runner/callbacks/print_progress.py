@@ -23,7 +23,7 @@ class PrintProgress(RunCallback, Evaluate):
 
     # mode: str = "simple"
     start_time: int = 1
-    interval_limit: int = 60 * 5
+    interval_limit: int = 60 * 2
     single_line: bool = True
     progress_env_info: bool = False
     progress_train_info: bool = True

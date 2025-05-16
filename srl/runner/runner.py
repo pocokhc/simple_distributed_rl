@@ -740,14 +740,9 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self,
         # rendering
         render_kwargs: dict = {},
-        step_stop: bool = False,
         render_skip_step: bool = True,
         # render option
         render_interval: float = -1,
-        render_worker: int = 0,
-        render_add_rl_terminal: bool = True,
-        render_add_rl_rgb: bool = True,
-        render_add_info_text: bool = True,
         # --- stop config
         timeout: float = -1,
         max_steps: int = -1,
@@ -784,19 +779,14 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         # --- rendering
         from srl.runner.callbacks.rendering import Rendering
 
-        callbacks.append(
-            Rendering(
-                mode="window",
-                kwargs=render_kwargs,
-                step_stop=step_stop,
-                render_interval=render_interval,
-                render_skip_step=render_skip_step,
-                render_worker=render_worker,
-                render_add_rl_terminal=render_add_rl_terminal,
-                render_add_rl_rgb=render_add_rl_rgb,
-                render_add_info_text=render_add_info_text,
-            )
+        rendering = Rendering(
+            mode="window",
+            kwargs=render_kwargs,
+            step_stop=False,
+            render_interval=render_interval,
+            render_skip_step=render_skip_step,
         )
+        callbacks.append(rendering)
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=False)
@@ -811,8 +801,6 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         )
         self._parameter_dat = None
         self._memory_dat = None
-
-        return self.state.episode_rewards_list[0]
 
     def run_render(
         self,
@@ -861,7 +849,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
 
-        render = Rendering(
+        rendering = Rendering(
             mode="rgb_array",
             kwargs=render_kwargs,
             step_stop=step_stop,
@@ -871,7 +859,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
             render_add_rl_rgb=render_add_rl_rgb,
             render_add_info_text=render_add_info_text,
         )
-        callbacks.append(render)
+        callbacks.append(rendering)
         # -----------------
 
         if enable_progress:
@@ -890,7 +878,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
 
         if self.context.run_name != "eval":
             logger.info(f"render step: {self.state.total_step}, reward: {self.state.episode_rewards_list[0]}")
-        return render
+        return rendering
 
     def animation_save_gif(
         self,

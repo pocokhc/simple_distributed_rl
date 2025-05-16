@@ -267,7 +267,7 @@ class RunnerBase(Generic[TRLConfig]):
     def set_progress(
         self,
         start_time: int = 1,
-        interval_limit: int = 60 * 5,
+        interval_limit: int = 60 * 2,
         single_line=True,
         env_info: bool = False,
         train_info: bool = True,

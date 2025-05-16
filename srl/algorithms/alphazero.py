@@ -124,7 +124,19 @@ register(
 
 
 class Memory(RLReplayBuffer):
-    pass
+    def setup(self) -> None:
+        super().setup()
+        self.q_min = float("inf")
+        self.q_max = float("-inf")
+        self.register_worker_func(self.add_q, lambda x1, x2: (x1, x2))
+        self.register_trainer_recv_func(self.get_q)
+
+    def add_q(self, q_min, q_max, serialized: bool = False):
+        self.q_min = min(self.q_min, q_min)
+        self.q_max = max(self.q_max, q_max)
+
+    def get_q(self):
+        return self.q_min, self.q_max
 
 
 class Network(KerasModelAddedSummary):
@@ -234,32 +246,23 @@ class Network(KerasModelAddedSummary):
 class Parameter(RLParameter[Config]):
     def setup(self):
         self.network = Network(self.config)
-
-        # cache用 (simulationで何回も使うので)
-        self.P = {}
-        self.V = {}
+        self.q_min = float("inf")
+        self.q_max = float("-inf")
 
     def call_restore(self, data: Any, **kwargs) -> None:
-        self.network.set_weights(data)
-        self.reset_cache()
+        self.network.set_weights(data[0])
+        self.q_min = min(self.q_min, data[1])
+        self.q_max = max(self.q_max, data[2])
 
     def call_backup(self, **kwargs):
-        return self.network.get_weights()
+        return [
+            self.network.get_weights(),
+            self.q_min,
+            self.q_max,
+        ]
 
     def summary(self, **kwargs):
         self.network.summary(**kwargs)
-
-    # ------------------------
-
-    def pred_PV(self, state, state_str):
-        if state_str not in self.P:
-            p, v = self.network(np.asarray([state]))
-            self.P[state_str] = p[0].numpy()
-            self.V[state_str] = v[0][0].numpy()
-
-    def reset_cache(self):
-        self.P = {}
-        self.V = {}
 
 
 class Trainer(RLTrainer[Config, Parameter, Memory]):
@@ -286,137 +289,144 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 
         self.train_count += 1
 
-        # 学習したらキャッシュは削除
-        self.parameter.reset_cache()
+        # --- 正規化用Qを保存(parameterはtrainerからしか保存されない)
+        # (remote_memory -> trainer -> parameter)
+        q = self.memory.get_q()
+        if q is not None:
+            self.parameter.q_min = min(self.parameter.q_min, q[0])
+            self.parameter.q_max = max(self.parameter.q_max, q[1])
 
 
-# ------------------------------------------------------
-# Worker
-# ------------------------------------------------------
+class Node:
+    def __init__(self, prior: float, is_root):
+        self.prior = prior
+        self.is_root = is_root
+        self.visit_count: int = 0
+        self.value_sum: float = 0.0
+        self.children: List[Node] = []
+        self.reward: float = 0.0
+        self.v: float = 0.0
+        self.score: float = 0.0
+        self.enemy_turn: bool = False
+
+    @property
+    def value(self) -> float:
+        return self.value_sum / self.visit_count if self.visit_count > 0 else 0.0
+
+    def expand(self, policy: List[float], v) -> None:
+        self.v = v
+        self.children = [Node(prior, is_root=False) for prior in policy]
+
+
+class MCTS:
+    def __init__(self, config: Config, parameter: Parameter) -> None:
+        self.cfg = config
+        self.parameter = parameter
+
+    def simulation(self, env: EnvRun, root_state: np.ndarray, training):
+        # --- root情報
+        p, v = self.parameter.network(root_state[np.newaxis, ...])
+        root = Node(prior=0.0, is_root=True)
+        root.expand(p[0].numpy(), v[0][0].numpy())
+
+        dat = env.backup()
+        for _ in range(self.cfg.num_simulations):
+            # --- 子ノードまで降りる
+            node = root
+            search_path = [node]
+            while node.children:
+                # select action
+                action = self._select_action(node, env.get_invalid_actions(), training)
+                node = node.children[action]
+                search_path.append(node)
+
+                # env step
+                player_idx = env.next_player
+                state: Any = env.step_from_rl(action, self.cfg)
+                node.reward = env.rewards[player_idx]
+                node.enemy_turn = player_idx != env.next_player
+
+            if env.done:
+                value = 0
+            else:
+                # --- expand
+                p, v = self.parameter.network(state[np.newaxis, ...])
+                value = v[0][0].numpy()
+                node.expand(p[0].numpy(), value)
+
+            # --- backup
+            for node in reversed(search_path):
+                # 相手ターンは報酬が最小になってほしいので-をかける
+                if node.enemy_turn:
+                    value = -value
+                value = node.reward + self.cfg.discount * value
+                node.value_sum += value
+                node.visit_count += 1
+
+                # 正規化用
+                q = node.value
+                self.parameter.q_min = min(self.parameter.q_min, q)
+                self.parameter.q_max = max(self.parameter.q_max, q)
+
+            # --- simulation last
+            env.restore(dat)
+        return root
+
+    def _select_action(self, node: Node, invalid_actions: list, training: bool):
+        if node.is_root and training:
+            noises = np.random.dirichlet([self.cfg.root_dirichlet_alpha] * self.cfg.action_space.n)
+            e = self.cfg.root_exploration_fraction
+
+        N = node.visit_count
+        c = np.log((1 + N + self.cfg.c_base) / self.cfg.c_base) + self.cfg.c_init
+        scores = np.zeros(self.cfg.action_space.n)
+        for a, child in enumerate(node.children):
+            n = child.visit_count
+            p = child.prior
+            q = child.value
+
+            # rootはディリクレノイズを追加
+            if node.is_root and training:
+                p = (1 - e) * p + e * noises[a]
+
+            # 過去観測したQ値で正規化(MinMax)
+            if self.parameter.q_min < self.parameter.q_max:
+                q = (q - self.parameter.q_min) / (self.parameter.q_max - self.parameter.q_min)
+
+            node.score = q + c * p * (np.sqrt(N) / (1 + n))
+            scores[a] = node.score
+
+        scores[invalid_actions] = -np.inf
+        action = int(np.random.choice(np.where(scores == np.max(scores))[0]))
+        return action
+
+
 class Worker(RLWorker[Config, Parameter, Memory]):
+    def on_setup(self, worker, context) -> None:
+        self.mcts = MCTS(self.config, self.parameter)
+
     def on_reset(self, worker):
         self.sampling_step = 0
         self.history = []
-
-        self.N = {}  # 訪問回数(s,a)
-        self.W = {}  # 累計報酬(s,a)
-
-    def _init_state(self, state_str):
-        if state_str not in self.N:
-            self.N[state_str] = [0 for _ in range(self.config.action_space.n)]
-            self.W[state_str] = [0 for _ in range(self.config.action_space.n)]
+        self.root = None
 
     def policy(self, worker) -> int:
-        self.state = worker.state
-        self.state_str = self.config.observation_space.to_str(self.state)
-        self.invalid_actions = worker.invalid_actions
-        self._init_state(self.state_str)
-
         # --- シミュレーションしてpolicyを作成
-        dat = worker.env.backup()
-        for _ in range(self.config.num_simulations):
-            self._simulation(worker.env, self.state, self.state_str)
-            worker.env.restore(dat)
+        root = self.mcts.simulation(worker.env, worker.state, self.training)
+        if self.rendering:
+            self.root = root
 
         # --- (教師データ) 試行回数を元に確率を計算
-        N = np.sum(self.N[self.state_str])
-        self.step_policy = [self.N[self.state_str][a] / N for a in range(self.config.action_space.n)]
+        action_select_count = np.array([n.visit_count for n in root.children])
+        self.step_policy = action_select_count / root.visit_count
 
         # --- episodeの序盤は試行回数に比例した確率でアクションを選択、それ以外は最大試行回数
         if self.sampling_step < self.config.sampling_steps:
-            action = funcs.random_choice_by_probs(self.N[self.state_str])
+            action = funcs.random_choice_by_probs(action_select_count)
         else:
-            counts = np.asarray(self.N[self.state_str])
-            action = np.random.choice(np.where(counts == counts.max())[0])
+            action = np.random.choice(np.where(action_select_count == action_select_count.max())[0])
 
         return int(action)
-
-    def _simulation(self, env: EnvRun, state: np.ndarray, state_str: str, depth: int = 0):
-        if depth >= env.max_episode_steps:  # for safety
-            return 0
-
-        # PVを予測
-        self._init_state(state_str)
-        self.parameter.pred_PV(state, state_str)
-
-        # actionを選択
-        puct_list = self._calc_puct(state_str, env.get_invalid_actions(), depth == 0)
-        action = int(np.random.choice(np.where(puct_list == np.max(puct_list))[0]))
-
-        # 1step
-        player_index = env.next_player
-        n_state: Any = env.step_from_rl(action, self.worker)
-        reward = env.rewards[player_index]
-        n_state_str = self.config.observation_space.to_str(n_state)
-        enemy_turn = player_index != env.next_player
-
-        if env.done:
-            n_value = 0
-        elif self.N[state_str][action] == 0:
-            # leaf node ならロールアウト
-            self.parameter.pred_PV(n_state, n_state_str)
-            n_value = self.parameter.V[n_state_str]
-        else:
-            # 子ノードに降りる(展開)
-            n_value = self._simulation(env, n_state, n_state_str, depth + 1)
-
-        # 次が相手のターンなら、報酬は最小になってほしいので-をかける
-        if enemy_turn:
-            n_value = -n_value
-
-        # 割引報酬
-        reward = reward + self.config.discount * n_value
-
-        # 結果を記録
-        self.N[state_str][action] += 1
-        self.W[state_str][action] += reward
-
-        return reward
-
-    def _calc_puct(self, state_str, invalid_actions, is_root):
-        # ディリクレノイズ
-        if is_root:
-            noises = np.random.dirichlet([self.config.root_dirichlet_alpha] * self.config.action_space.n)
-        else:
-            noises = []
-
-        N = np.sum(self.N[state_str])
-        scores = np.zeros(self.config.action_space.n)
-        for a in range(self.config.action_space.n):
-            if a in invalid_actions:
-                score = -np.inf
-            else:
-                # P(s,a): 過去のMCTSの結果を教師あり学習した結果
-                # U(s,a) = C(s) * P(s,a) * sqrt(N(s)) / (1+N(s,a))
-                # C(s) = log((1+N(s)+base)/base) + c_init
-                # score = Q(s,a) + U(s,a)
-                P = self.parameter.P[state_str][a]
-
-                # rootはディリクレノイズを追加
-                if is_root:
-                    e = self.config.root_exploration_fraction
-                    P = (1 - e) * P + e * noises[a]
-
-                n = self.N[state_str][a]
-                c = np.log((1 + N + self.config.c_base) / self.config.c_base) + self.config.c_init
-                u = c * P * (np.sqrt(N) / (1 + n))
-                q = 0 if n == 0 else self.W[state_str][a] / n
-                score = q + u
-
-                if np.isnan(score):
-                    logger.warning(
-                        "puct score is nan. action={}, score={}, q={}, u={}, P={}".format(
-                            a,
-                            score,
-                            q,
-                            u,
-                            self.parameter.P[state_str],
-                        )
-                    )
-                    score = -np.inf
-
-            scores[a] = score
-        return scores
 
     def on_step(self, worker):
         self.sampling_step += 1
@@ -424,46 +434,38 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         if not self.training:
             return
 
-        self.history.append([self.state, self.step_policy, worker.reward])
+        # 正規化用Qを保存できるように送信(memory -> trainer -> parameter)
+        self.memory.add_q(self.parameter.q_min, self.parameter.q_max)
+        self.info["q_min"] = self.parameter.q_min
+        self.info["q_max"] = self.parameter.q_max
+
+        self.history.append([worker.state, self.step_policy, worker.reward])
 
         if worker.done:
-            # 報酬を逆伝搬
+            # calc discount reward
             reward = 0
             for state, step_policy, step_reward in reversed(self.history):
                 reward = step_reward + self.config.discount * reward
                 self.memory.add([state, step_policy, reward])
 
     def render_terminal(self, worker, **kwargs) -> None:
-        self._init_state(self.state_str)
-        self.parameter.pred_PV(self.state, self.state_str)
-        puct = self._calc_puct(self.state_str, self.invalid_actions, False)
-        maxa = np.argmax(self.N[self.state_str])
-        N = np.sum(self.N[self.state_str])
+        if self.root is None:
+            return
 
-        print(f"V_net: {self.parameter.V[self.state_str]:.5f}")
+        print(f"V: {float(self.root.v):.5f}")
+
+        children = self.root.children
+        policy = self.step_policy
 
         def _render_sub(a: int) -> str:
-            if self.state_str in self.W:
-                q = self.W[self.state_str][a]
-                c = self.N[self.state_str][a]
-                if c != 0:
-                    q = q / c
-                if N == 0:
-                    p = 0
-                else:
-                    p = (self.N[self.state_str][a] / N) * 100
-            else:
-                p = 0
-                q = 0
-                c = 0
+            node = children[a]
+            q = node.value
 
-            s = "{:5.1f}% ({:7d})(N), {:9.5f}(Q), {:9.5f}(P_net), {:.5f}(PUCT)".format(
-                p,
-                c,
-                q,
-                self.parameter.P[self.state_str][a],
-                puct[a],
-            )
+            s = f"{policy[a] * 100:5.1f}%"
+            s += f"({int(node.visit_count):4d})(N)"
+            s += f" {q:6.3f}(Q)"
+            s += f" {node.prior:6.3f}(P)"
+            s += f" {node.score:6.3f}(PUCT)"
             return s
 
-        worker.print_discrete_action_info(int(maxa), _render_sub)
+        worker.print_discrete_action_info(worker.action, _render_sub)

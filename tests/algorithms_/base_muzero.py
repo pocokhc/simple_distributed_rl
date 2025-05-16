@@ -42,41 +42,22 @@ class LongCase(CommonLongCase):
     def test_EasyGrid(self):
         rl_config = self._create_rl_config()
         rl_config.__init__(
-            num_simulations=20,
+            num_simulations=50,
             discount=0.9,
-            batch_size=16,
-            v_min=-2,
-            v_max=2,
-            unroll_steps=1,
+            batch_size=32,
+            lr=0.001,
+            reward_range=(-2, 2),
+            reward_range_num=10,
+            value_range=(-10, 10),
+            value_range_num=100,
+            unroll_steps=3,
             dynamics_blocks=1,
             enable_rescale=False,
             weight_decay=0,
         )
-        rl_config.lr = 0.001
         rl_config.input_image_block.set_alphazero_block(1, 16)
-        rl_config.memory.warmup_size = 200
-        rl_config.memory.set_replay_buffer()
+        rl_config.memory.warmup_size = 100
+        rl_config.memory.set_proportional()
         runner = self.create_test_runner("EasyGrid-layer", rl_config)
-        runner.train(max_train_count=3000)
-        assert runner.evaluate_compare_to_baseline_single_player()
-
-    def test_EasyGrid_PER(self):
-        rl_config = self._create_rl_config()
-        rl_config.__init__(
-            num_simulations=20,
-            discount=0.9,
-            batch_size=16,
-            v_min=-2,
-            v_max=2,
-            unroll_steps=1,
-            dynamics_blocks=1,
-            enable_rescale=False,
-            weight_decay=0,
-        )
-        rl_config.memory.warmup_size = 200
-        rl_config.lr = 0.002
-        rl_config.lr_scheduler.set_step(10_000, 0.0001)
-        rl_config.input_image_block.set_alphazero_block(1, 16)
-        runner = self.create_test_runner("EasyGrid-layer", rl_config)
-        runner.train(max_train_count=3000)
-        assert runner.evaluate_compare_to_baseline_single_player()
+        runner.train(max_train_count=10000)
+        assert runner.evaluate_compare_to_baseline_single_player(episode=5)

@@ -6,20 +6,18 @@ import srl
 from srl.algorithms import alphazero
 from srl.utils import common
 
+common.logger_print()
+
 
 def main_ox():
-    common.logger_print()
-
     rl_config = alphazero.Config(
-        num_simulations=100,
+        num_simulations=50,
         sampling_steps=1,
         batch_size=32,
+        lr=0.001,
         discount=1.0,
     )
     rl_config.memory.warmup_size = 100
-    rl_config.lr = 0.001
-    rl_config.lr_scheduler.clear()
-
     rl_config.input_image_block.set_alphazero_block(1, 32)
     rl_config.value_block.set((32,))
     rl_config.value_type = "rate"
@@ -28,10 +26,9 @@ def main_ox():
     env_config = srl.EnvConfig("OX-layer")
 
     runner = srl.Runner(env_config, rl_config)
-    runner.summary()
 
     # --- train(self play)
-    runner.train_mp(players=[None, None], max_train_count=2_000)
+    runner.train_mp(players=[None, None], max_train_count=5_000)
 
     # --- evaluate
     for players in [
@@ -54,32 +51,28 @@ def main_ox():
 
 
 def main_othello():
-    common.logger_print()
-
     rl_config = alphazero.Config(
         num_simulations=50,
         sampling_steps=1,
-        batch_size=128,
+        batch_size=64,
     )
     rl_config.lr_scheduler.set_piecewise(
         [1000, 5000],
         [0.001, 0.0005, 0.0002],
     )
     rl_config.memory.capacity = 100_000
-    rl_config.memory.warmup_size = 500
-    rl_config.input_image_block.set_alphazero_block(9, 64)
-    rl_config.value_block.set((128,))
-    rl_config.policy_block.set((128,))
+    rl_config.memory.warmup_size = 200
+    rl_config.input_image_block.set_alphazero_block(3, 64)
+    rl_config.value_block.set((64,))
+    rl_config.policy_block.set(())
 
     # 入力形式を WxHx2 の画像レイヤーで出力
     env_config = srl.EnvConfig("Othello4x4-layer")
 
     runner = srl.Runner(env_config, rl_config)
-    runner.summary()
 
     # --- train(self play)
-    runner.set_progress(interval_limit=30)
-    runner.train_mp(players=[None, None], max_train_count=5000)
+    runner.train_mp(players=[None, None], max_train_count=10000)
 
     # --- evaluate
     for players in [
@@ -99,6 +92,8 @@ def main_othello():
 
     # --- 対戦
     # runner.render_terminal(players=[None, "human"])
+
+    runner.replay_window()
 
 
 if __name__ == "__main__":

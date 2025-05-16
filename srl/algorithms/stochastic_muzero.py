@@ -52,10 +52,14 @@ class Config(RLConfig):
     #: <:ref:`PriorityReplayBufferConfig`>
     memory: PriorityReplayBufferConfig = field(default_factory=lambda: PriorityReplayBufferConfig())
 
-    # カテゴリ化する範囲
-    v_min: int = -10
-    v_max: int = 10
+    #: カテゴリ化する範囲
+    reward_range: tuple = (-10, 10)
+    reward_range_num: int = 100
+    #: カテゴリ化する範囲
+    value_range: tuple = (-10, 10)
+    value_range_num: int = 100
 
+    test_policy_tau: float = 0.1
     # policyの温度パラメータのリスト
     policy_tau: Optional[float] = None
     #: <:ref:`SchedulerConfig`>
@@ -88,7 +92,7 @@ class Config(RLConfig):
     weight_decay_afterstate: float = 0.001  # 強めに掛けたほうが安定する気がする
 
     # rescale
-    enable_rescale: bool = True
+    enable_rescale: bool = False
 
     def get_name(self) -> str:
         return "StochasticMuZero"
@@ -103,8 +107,10 @@ class Config(RLConfig):
 
     def validate_params(self) -> None:
         super().validate_params()
-        if not (self.v_min < self.v_max):
-            raise ValueError(f"assert {self.v_min} < {self.v_max}")
+        if not (self.value_range[0] < self.value_range[1]):
+            raise ValueError(f"assert {self.value_range[0]} < {self.value_range[1]}")
+        if not (self.reward_range[0] < self.reward_range[1]):
+            raise ValueError(f"assert {self.reward_range[0]} < {self.reward_range[1]}")
         if not (self.unroll_steps > 0):
             raise ValueError(f"assert {self.unroll_steps} > 0")
 
@@ -120,6 +126,7 @@ register(
 
 class Memory(RLPriorityReplayBuffer):
     def setup(self) -> None:
+        super().setup()
         self.q_min = float("inf")
         self.q_max = float("-inf")
         self.register_worker_func(self.add_q, lambda x1, x2: (x1, x2))
@@ -133,10 +140,7 @@ class Memory(RLPriorityReplayBuffer):
         return self.q_min, self.q_max
 
 
-# ------------------------------------------------------
-# network
-# ------------------------------------------------------
-class _RepresentationNetwork(KerasModelAddedSummary):
+class RepresentationNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -146,9 +150,8 @@ class _RepresentationNetwork(KerasModelAddedSummary):
         )
 
         # build & 出力shapeを取得
-        dummy_state = np.zeros(shape=(1,) + config.observation_space.shape, dtype=np.float32)
-        hidden_state = self(dummy_state)
-        self.hidden_state_shape = hidden_state.shape[1:]  # type:ignore , ignore check "None"
+        hidden_state = self(np.zeros(shape=(1,) + config.observation_space.shape, dtype=config.dtype))
+        self.hidden_state_shape = hidden_state.shape[1:]
 
     def call(self, state, training=False):
         x = self.in_block(state, training=training)
@@ -169,11 +172,13 @@ class _RepresentationNetwork(KerasModelAddedSummary):
         return x
 
 
-class _DynamicsNetwork(KerasModelAddedSummary):
+class DynamicsNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, as_shape):
         super().__init__()
+        self.tf_dtype = config.get_dtype("tf")
+        self.reward_range = config.reward_range
+        self.reward_range_num = config.reward_range_num
         self.c_size = config.codebook_size
-        v_num = config.v_max - config.v_min + 1
         h, w, ch = as_shape
 
         # --- hidden_state
@@ -196,7 +201,7 @@ class _DynamicsNetwork(KerasModelAddedSummary):
             kl.ReLU(),
             kl.Flatten(),
             kl.Dense(
-                v_num,
+                self.reward_range_num,
                 activation="softmax",
                 kernel_initializer="truncated_normal",
                 bias_initializer="truncated_normal",
@@ -205,8 +210,7 @@ class _DynamicsNetwork(KerasModelAddedSummary):
         ]
 
         # build
-        self._in_shape = (h, w, ch + self.c_size)
-        self(np.zeros((1,) + self._in_shape))
+        self(np.zeros((1, h, w, ch + self.c_size)))
 
     def call(self, in_state, training=False):
         # hidden state
@@ -240,13 +244,24 @@ class _DynamicsNetwork(KerasModelAddedSummary):
         epsilon = 1e-4  # div0 回避
         x = (x - s_min + epsilon) / tf.maximum((s_max - s_min), 2 * epsilon)
 
-        return x, reward_category
+        if training:
+            return x, reward_category
+
+        # reward
+        reward = funcs.twohot_decode(
+            reward_category.numpy(),
+            self.reward_range_num,
+            self.reward_range[0],
+            self.reward_range[1],
+        )
+        return x, reward
 
 
-class _PredictionNetwork(KerasModelAddedSummary):
-    def __init__(self, config: Config, hidden_shape):
+class PredictionNetwork(KerasModelAddedSummary):
+    def __init__(self, config: Config, s_state_shape):
         super().__init__()
-        v_num = config.v_max - config.v_min + 1
+        self.value_range = config.value_range
+        self.value_range_num = config.value_range_num
 
         # --- policy
         self.policy_layers = [
@@ -282,7 +297,7 @@ class _PredictionNetwork(KerasModelAddedSummary):
             kl.ReLU(),
             kl.Flatten(),
             kl.Dense(
-                v_num,
+                self.value_range_num,
                 activation="softmax",
                 kernel_initializer="truncated_normal",
                 bias_initializer="truncated_normal",
@@ -291,7 +306,7 @@ class _PredictionNetwork(KerasModelAddedSummary):
         ]
 
         # build
-        self(np.zeros((1,) + hidden_shape))
+        self(np.zeros((1,) + s_state_shape))
 
     def call(self, state, training=False):
         policy = state
@@ -304,8 +319,19 @@ class _PredictionNetwork(KerasModelAddedSummary):
 
         return policy, value
 
+    def predict(self, state):
+        p, v_category = self(state)
+        p = p.numpy()
+        v = funcs.twohot_decode(
+            v_category.numpy(),
+            self.value_range_num,
+            self.value_range[0],
+            self.value_range[1],
+        )
+        return p, v
 
-class _AfterstateDynamicsNetwork(KerasModelAddedSummary):
+
+class AfterstateDynamicsNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, hidden_shape):
         super().__init__()
         self.action_num = config.action_space.n
@@ -333,13 +359,14 @@ class _AfterstateDynamicsNetwork(KerasModelAddedSummary):
 
         # hidden_state + action_space
         in_state = tf.concat([hidden_state, action_image], axis=3)
-        return self.call(in_state, training=training)
+        return self(in_state, training=training)
 
 
-class _AfterstatePredictionNetwork(KerasModelAddedSummary):
+class AfterstatePredictionNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, as_shape):
         super().__init__()
-        v_num = config.v_max - config.v_min + 1
+        self.value_range = config.value_range
+        self.value_range_num = config.value_range_num
 
         # --- code
         self.code_layers = [
@@ -375,7 +402,7 @@ class _AfterstatePredictionNetwork(KerasModelAddedSummary):
             kl.ReLU(),
             kl.Flatten(),
             kl.Dense(
-                v_num,
+                self.value_range_num,
                 activation="softmax",
                 kernel_initializer="truncated_normal",
                 bias_initializer="truncated_normal",
@@ -396,8 +423,18 @@ class _AfterstatePredictionNetwork(KerasModelAddedSummary):
 
         return code, q
 
+    def predict(self, state):
+        code, q_category = self(state)
+        q = funcs.twohot_decode(
+            q_category.numpy(),
+            self.value_range_num,
+            self.value_range[0],
+            self.value_range[1],
+        )
+        return code, q
 
-class _VQVAE(KerasModelAddedSummary):
+
+class VQVAE(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
@@ -432,8 +469,7 @@ class _VQVAE(KerasModelAddedSummary):
         ]
 
         # build
-        self._in_shape = config.observation_space.shape
-        self(np.zeros((1,) + self._in_shape))
+        self(np.zeros((1,) + config.observation_space.shape))
 
     def call(self, state, training=False):
         x = self.in_block(state, training=training)
@@ -443,8 +479,7 @@ class _VQVAE(KerasModelAddedSummary):
             return x
         return self.encode(x), x
 
-    def encode(self, x):
-        # codebookから変換、とりあえず愚直に
+    def encode_np(self, x):
         batch = x.shape[0]
         codebook = np.tile(self.codebook, (batch, 1, 1))  # [1, c, c]->[b, c, c]
 
@@ -456,33 +491,48 @@ class _VQVAE(KerasModelAddedSummary):
         onehot = np.identity(self.c_size, dtype=np.float32)[indices]
         onehot = np.tile(onehot, (1, self.c_size)).reshape((-1, self.c_size, self.c_size))  # [b, c, c]
         code = np.sum(onehot * codebook, axis=2)  # [b, c, c]->[b, c]
+        return code
+
+    def encode(self, x):
+        batch_size = x.shape[0]
+
+        # [1, c, c] → [b, c, c]
+        codebook = tf.tile(self.codebook, [batch_size, 1, 1])
+
+        # [b, c] → [b, c * c] → [b, c, c]
+        x = tf.tile(x, [1, self.c_size])
+        x = tf.reshape(x, [-1, self.c_size, self.c_size])
+
+        # ユークリッド距離の計算 → [b, c]
+        x = tf.reduce_sum(tf.square(x - codebook), axis=2)
+
+        # 最小距離のインデックス → [b]
+        x = tf.argmin(x, axis=1)
+
+        # ワンホットエンコーディング → [b, c]
+        x = tf.one_hot(x, depth=self.c_size, dtype=tf.float32)
+
+        # [b, c] → [b, c * c] → [b, c, c]
+        x = tf.tile(x, [1, self.c_size])
+        x = tf.reshape(x, [-1, self.c_size, self.c_size])
+
+        # [b, c, c] * [b, c, c] → sum over axis=2 → [b, c]
+        code = tf.reduce_sum(x * codebook, axis=2)
 
         return code
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
 class Parameter(RLParameter):
     def setup(self) -> None:
-        self.representation_network = _RepresentationNetwork(self.config)
-        # 出力shapeを取得
+        self.representation_network = RepresentationNetwork(self.config)
         hidden_state_shape = self.representation_network.hidden_state_shape
-
-        self.dynamics_network = _DynamicsNetwork(self.config, hidden_state_shape)
-        self.prediction_network = _PredictionNetwork(self.config, hidden_state_shape)
-        self.afterstate_dynamics_network = _AfterstateDynamicsNetwork(self.config, hidden_state_shape)
-        self.afterstate_prediction_network = _AfterstatePredictionNetwork(self.config, hidden_state_shape)
-        self.vq_vae = _VQVAE(self.config)
-
+        self.dynamics_network = DynamicsNetwork(self.config, hidden_state_shape)
+        self.prediction_network = PredictionNetwork(self.config, hidden_state_shape)
+        self.afterstate_dynamics_network = AfterstateDynamicsNetwork(self.config, hidden_state_shape)
+        self.afterstate_prediction_network = AfterstatePredictionNetwork(self.config, hidden_state_shape)
+        self.vq_vae = VQVAE(self.config)
         self.q_min = np.inf
         self.q_max = -np.inf
-
-        # cache用 (simulationで何回も使うので)
-        self.P = {}
-        self.V = {}
-        self.C = {}
-        self.Q = {}
 
     def call_restore(self, data: Any, **kwargs) -> None:
         self.prediction_network.set_weights(data[0])
@@ -493,7 +543,6 @@ class Parameter(RLParameter):
         self.vq_vae.set_weights(data[5])
         self.q_min = data[6]
         self.q_max = data[7]
-        self.reset_cache()
 
     def call_backup(self, **kwargs):
         return [
@@ -515,47 +564,136 @@ class Parameter(RLParameter):
         self.afterstate_prediction_network.summary(**kwargs)
         self.vq_vae.summary(**kwargs)
 
-    # ------------------------
 
-    def prediction(self, state, state_str):
-        if state_str not in self.P:
-            p, v_category = self.prediction_network(state)  # type:ignore , ignore check "None"
-            self.P[state_str] = p[0].numpy()
-            self.V[state_str] = funcs.twohot_decode(
-                v_category.numpy()[0],
-                abs(self.config.v_max - self.config.v_min) + 1,
-                self.config.v_min,
-                self.config.v_max,
-            )
+class Node:
+    def __init__(self, prior: float, is_root):
+        self.prior = prior
+        self.is_root = is_root
+        self.visit_count: int = 0
+        self.value_sum: float = 0.0
+        self.children: List[Node] = []
+        self.reward: float = 0.0
+        self.score: float = 0.0
+        self.v = 0.0
+        self.s_state = None
+        self.is_afterstate = False
 
-    def afterstate_prediction(self, as_state, state_str):
-        if state_str not in self.C:
-            c, q_category = self.afterstate_prediction_network(as_state)  # type:ignore , ignore check "None"
-            self.Q[state_str] = funcs.twohot_decode(
-                q_category.numpy()[0],
-                abs(self.config.v_max - self.config.v_min) + 1,
-                self.config.v_min,
-                self.config.v_max,
-            )
-            self.C[state_str] = self.vq_vae.encode(c)
+    @property
+    def value(self) -> float:
+        return self.value_sum / self.visit_count if self.visit_count > 0 else 0.0
 
-    def reset_cache(self):
-        self.P = {}
-        self.V = {}
-        self.C = {}
-        self.Q = {}
+    def expand(self, policy: List[float]) -> None:
+        self.children = [Node(prior, is_root=False) for prior in policy]
 
 
-# ------------------------------------------------------
-# Trainer
-# ------------------------------------------------------
-def _scale_gradient(tensor, scale):
+class MCTS:
+    def __init__(self, config: Config, parameter: Parameter) -> None:
+        self.cfg = config
+        self.parameter = parameter
+
+    def simulation(self, root_state: np.ndarray, invalid_actions, training: bool):
+        # --- root情報
+        root_s_state = self.parameter.representation_network(root_state[np.newaxis, ...])
+        p, v = self.parameter.prediction_network.predict(root_s_state)
+        root = Node(prior=0.0, is_root=True)
+        root.s_state = root_s_state
+        root.is_afterstate = False
+        root.v = v[0]
+        root.expand(p[0])
+
+        for _ in range(self.cfg.num_simulations):
+            # --- 子ノードまで降りる
+            node = root
+            search_path = [node]
+            while node.children:
+                # select action
+                action = self._select_action(node, invalid_actions, training)
+                node = node.children[action]
+                search_path.append(node)
+                invalid_actions = []
+
+            # --- expand
+            parent_node = search_path[-2]
+            if parent_node.is_afterstate:
+                code, _ = self.parameter.afterstate_prediction_network.predict(parent_node.s_state)
+                s_state, reward = self.parameter.dynamics_network.predict(parent_node.s_state, code)
+                p, v = self.parameter.prediction_network.predict(s_state)
+                node.is_afterstate = False
+                node.reward = reward[0]
+            else:
+                s_state = self.parameter.afterstate_dynamics_network.predict(parent_node.s_state, [action])
+                code, v = self.parameter.afterstate_prediction_network.predict(s_state)
+                p = self.parameter.vq_vae.encode(code)
+                node.is_afterstate = True
+            node.s_state = s_state
+            node.v = v[0]
+            node.expand(p[0])
+
+            # --- backup
+            value = node.v
+            for node in reversed(search_path):
+                if not node.is_afterstate:
+                    value = node.reward + self.cfg.discount * value
+                node.value_sum += value
+                node.visit_count += 1
+
+                # 正規化用
+                q = node.value
+                self.parameter.q_min = min(self.parameter.q_min, q)
+                self.parameter.q_max = max(self.parameter.q_max, q)
+
+        return root
+
+    def _select_action(self, node: Node, invalid_actions: list, training: bool):
+        if node.is_root and training:
+            dir_alpha = self.cfg.root_dirichlet_alpha
+            if self.cfg.root_dirichlet_adaptive:
+                dir_alpha = 1.0 / np.sqrt(self.cfg.action_space.n - len(invalid_actions))
+            noises = np.random.dirichlet([dir_alpha] * self.cfg.action_space.n)
+            e = self.cfg.root_dirichlet_fraction
+
+        N = node.visit_count
+        c = np.log((1 + N + self.cfg.c_base) / self.cfg.c_base) + self.cfg.c_init
+        scores = np.zeros(self.cfg.action_space.n)
+        for a, child in enumerate(node.children):
+            n = child.visit_count
+            p = child.prior
+            q = child.value
+
+            # rootはディリクレノイズを追加
+            if node.is_root and training:
+                p = (1 - e) * p + e * noises[a]
+
+            # 過去観測したQ値で正規化(MinMax)
+            if self.parameter.q_min < self.parameter.q_max:
+                q = (q - self.parameter.q_min) / (self.parameter.q_max - self.parameter.q_min)
+
+            node.score = q + c * p * (np.sqrt(N) / (1 + n))
+            scores[a] = node.score
+
+        scores[invalid_actions] = -np.inf
+        action = int(np.random.choice(np.where(scores == np.max(scores))[0]))
+        return action
+
+
+def scale_gradient(tensor, scale):
     """muzeroより流用"""
     return tensor * scale + tf.stop_gradient(tensor) * (1 - scale)
 
 
+def cross_entropy_loss(y_true, y_pred):
+    y_pred = tf.clip_by_value(y_pred, 1e-6, y_pred)  # log(0)回避用
+    loss = -tf.reduce_sum(y_true * tf.math.log(y_pred), axis=-1)
+    return loss
+
+
+def mse_loss(y_true, y_pred):
+    return tf.reduce_mean(tf.square(y_true - y_pred), axis=-1)
+
+
 class Trainer(RLTrainer[Config, Parameter, Memory]):
     def on_setup(self) -> None:
+        self.np_dtype = self.config.get_dtype("np")
         self.opt_rep = keras.optimizers.Adam(learning_rate=self.config.lr_scheduler.apply_tf_scheduler(self.config.lr))
         self.opt_pre = keras.optimizers.Adam(learning_rate=self.config.lr_scheduler.apply_tf_scheduler(self.config.lr))
         self.opt_dyn = keras.optimizers.Adam(learning_rate=self.config.lr_scheduler.apply_tf_scheduler(self.config.lr))
@@ -563,80 +701,28 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.opt_after_pre = keras.optimizers.Adam(learning_rate=self.config.lr_scheduler.apply_tf_scheduler(self.config.lr))
         self.opt_vq_vae = keras.optimizers.Adam(learning_rate=self.config.lr_scheduler.apply_tf_scheduler(self.config.lr))
 
-    def _cross_entropy_loss(self, y_true, y_pred):
-        y_pred = tf.clip_by_value(y_pred, 1e-6, y_pred)  # log(0)回避用
-        loss = -tf.reduce_sum(y_true * tf.math.log(y_pred), axis=1)
-        return loss
-
-    def _mse_loss(self, y_true, y_pred):
-        return tf.reduce_mean(tf.square(y_true - y_pred))
-
     def train(self) -> None:
         batches = self.memory.sample()
         if batches is None:
             return
         batches, weights, update_args = batches
 
-        # (batch, dict, steps, val) -> (steps, batch, val)
+        # (batch, steps, val) -> (steps, batch, val)
         states_list = []
         actions_list = []
         policies_list = []
-        values_list = []
+        z_list = []
         rewards_list = []
         for i in range(self.config.unroll_steps + 1):
-            states = []
-            actions = []
-            policies = []
-            values = []
-            rewards = []
-            for b in batches:
-                states.append(b["states"][i])
-                policies.append(b["policies"][i])
-                values.append(b["values"][i])
-                if i < self.config.unroll_steps:
-                    actions.append(b["actions"][i])
-                    rewards.append(b["rewards"][i])
-            states_list.append(np.asarray(states))
-            actions_list.append(actions)
-            policies_list.append(np.asarray(policies).astype(np.float32))
-            values_list.append(np.asarray(values).astype(np.float32))
-            rewards_list.append(np.asarray(rewards).astype(np.float32))
+            states_list.append(np.asarray([b[i][0] for b in batches], dtype=self.np_dtype))
+            actions_list.append(np.asarray([b[i][1] for b in batches], dtype=np.int64))
+            policies_list.append(np.asarray([b[i][2] for b in batches], dtype=self.np_dtype))
+            z_list.append(np.asarray([b[i][3] for b in batches], dtype=self.np_dtype))
+            rewards_list.append(np.asarray([b[i][4] for b in batches], dtype=self.np_dtype))
 
         with tf.GradientTape() as tape:
-            # --- 1st step
-            hidden_states = self.parameter.representation_network(states_list[0], training=True)
-            p_pred, v_pred = self.parameter.prediction_network(hidden_states, training=True)
-
-            # loss
-            policy_loss = self._cross_entropy_loss(policies_list[0], p_pred)
-            v_loss = self._cross_entropy_loss(values_list[0], v_pred)
-            reward_loss = tf.constant([0] * self.config.batch_size, dtype=tf.float32)
-            chance_loss = tf.constant([0] * self.config.batch_size, dtype=tf.float32)
-            q_loss = tf.constant([0] * self.config.batch_size, dtype=tf.float32)
-            vae_loss = tf.constant([0] * self.config.batch_size, dtype=tf.float32)
-
-            # --- unroll steps
-            gradient_scale = 1 / self.config.unroll_steps
-            for t in range(self.config.unroll_steps):
-                after_states = self.parameter.afterstate_dynamics_network.predict(hidden_states, actions_list[t], training=True)
-                chance_pred, q_pred = self.parameter.afterstate_prediction_network(after_states, training=True)
-                chance_code, chance_vae_pred = self.parameter.vq_vae(states_list[t + 1], training=True)
-
-                chance_loss += _scale_gradient(self._cross_entropy_loss(chance_code, chance_pred), gradient_scale)
-                q_loss += _scale_gradient(self._cross_entropy_loss(values_list[t], q_pred), gradient_scale)
-                vae_loss += _scale_gradient(tf.reduce_mean(tf.square(chance_code - chance_vae_pred), axis=1), gradient_scale)
-
-                hidden_states, rewards_pred = self.parameter.dynamics_network.predict(after_states, chance_code, training=True)
-                p_pred, v_pred = self.parameter.prediction_network(hidden_states)
-
-                # 安定しなかったのでMSEに変更
-                policy_loss += _scale_gradient(self._mse_loss(policies_list[t + 1], p_pred), gradient_scale)
-                v_loss += _scale_gradient(self._mse_loss(values_list[t + 1], v_pred), gradient_scale)
-                reward_loss += _scale_gradient(self._cross_entropy_loss(rewards_list[t], rewards_pred), gradient_scale)
-
-                hidden_states = _scale_gradient(hidden_states, 0.5)
-
-            loss = v_loss + policy_loss + reward_loss + chance_loss + q_loss + self.config.commitment_cost * vae_loss
+            v_loss, p_loss, r_loss, chance_loss, q_loss, vae_loss = self._compute_train_loss(states_list, actions_list, rewards_list, policies_list, z_list)
+            loss = v_loss + p_loss + r_loss + chance_loss + q_loss + self.config.commitment_cost * vae_loss
             loss = tf.reduce_mean(loss * weights)
 
             # 各ネットワークの正則化項を加える
@@ -665,336 +751,215 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 
         self.train_count += 1
         self.info["loss"] = loss.numpy()
-        self.info["v_loss"] = np.mean(v_loss.numpy())
-        self.info["policy_loss"] = np.mean(policy_loss.numpy())
-        self.info["reward_loss"] = np.mean(reward_loss.numpy())
-        self.info["chance_loss"] = np.mean(chance_loss.numpy())
-        self.info["q_loss"] = np.mean(q_loss.numpy())
-        self.info["vae_loss"] = np.mean(vae_loss.numpy())
+        self.info["v_loss"] = np.mean(v_loss)
+        self.info["p_loss"] = np.mean(p_loss)
+        self.info["r_loss"] = np.mean(r_loss)
+        self.info["chance_loss"] = np.mean(chance_loss)
+        self.info["q_loss"] = np.mean(q_loss)
+        self.info["vae_loss"] = np.mean(vae_loss)
 
         # memory update
         priorities = np.abs(v_loss.numpy())
         self.memory.update(update_args, priorities, self.train_count)
 
-        # 学習したらキャッシュは削除
-        self.parameter.reset_cache()
-
         # --- 正規化用Qを保存(parameterはtrainerからしか保存されない)
         # (remote_memory -> trainer -> parameter)
-        q_min, q_max = self.memory.get_q()
-        self.parameter.q_min = q_min
-        self.parameter.q_max = q_max
+        q = self.memory.get_q()
+        if q is not None:
+            self.parameter.q_min = min(self.parameter.q_min, q[0])
+            self.parameter.q_max = max(self.parameter.q_max, q[1])
+
+    @tf.function
+    def _compute_train_loss(self, states_list, actions_list, rewards_list, policies_list, z_list):
+        hidden_states = self.parameter.representation_network(states_list[0], training=True)
+
+        # --- 1st step
+        p_pred, v_pred = self.parameter.prediction_network(hidden_states, training=True)
+        p_loss = cross_entropy_loss(policies_list[0], p_pred)
+        v_loss = cross_entropy_loss(z_list[0], v_pred)
+        r_loss = 0
+        chance_loss = 0
+        q_loss = 0
+        vae_loss = 0
+
+        # --- unroll steps
+        gradient_scale = 1 / self.config.unroll_steps
+        for t in range(self.config.unroll_steps):
+            after_states = self.parameter.afterstate_dynamics_network.predict(hidden_states, actions_list[t], training=True)
+            chance_pred, q_pred = self.parameter.afterstate_prediction_network(after_states, training=True)
+            chance_code, chance_vae_pred = self.parameter.vq_vae(states_list[t + 1], training=True)
+
+            chance_loss += scale_gradient(cross_entropy_loss(chance_code, chance_pred), gradient_scale)
+            q_loss += scale_gradient(cross_entropy_loss(z_list[t], q_pred), gradient_scale)
+            vae_loss += scale_gradient(mse_loss(chance_code, chance_vae_pred), gradient_scale)
+
+            hidden_states, rewards_pred = self.parameter.dynamics_network.predict(after_states, chance_code, training=True)
+            p_pred, v_pred = self.parameter.prediction_network(hidden_states)
+
+            p_loss += scale_gradient(cross_entropy_loss(policies_list[t + 1], p_pred), gradient_scale)
+            v_loss += scale_gradient(cross_entropy_loss(z_list[t + 1], v_pred), gradient_scale)
+            r_loss += scale_gradient(cross_entropy_loss(rewards_list[t], rewards_pred), gradient_scale)
+
+            hidden_states = scale_gradient(hidden_states, 0.5)
+
+        v_loss /= self.config.unroll_steps + 1
+        p_loss /= self.config.unroll_steps + 1
+        r_loss /= self.config.unroll_steps
+        chance_loss /= self.config.unroll_steps
+        q_loss /= self.config.unroll_steps
+        vae_loss /= self.config.unroll_steps
+        return v_loss, p_loss, r_loss, chance_loss, q_loss, vae_loss
 
 
-# ------------------------------------------------------
-# Worker
-# ------------------------------------------------------
 class Worker(RLWorker[Config, Parameter, Memory]):
     def on_setup(self, worker, context) -> None:
+        self.np_dtype = self.config.get_dtype("np")
         self.env_player_num = worker.env.player_num
         self.policy_tau_sch = self.config.policy_tau_scheduler.create(self.config.policy_tau)
-        self._v_min = np.inf
-        self._v_max = -np.inf
+        self.mcts = MCTS(self.config, self.parameter)
+        self.root = None
 
     def on_reset(self, worker):
         self.history = []
-        self.episode_history = []
-
-        self.N = {}  # 訪問回数(s,a)
-        self.W = {}  # 累計報酬(s,a)
-        self.Q = {}  # 報酬(s,a)
-
-    def _init_state(self, state_str, num):
-        if state_str not in self.N:
-            self.N[state_str] = [0 for _ in range(num)]
-            self.W[state_str] = [0 for _ in range(num)]
-            self.Q[state_str] = [0 for _ in range(num)]
 
     def policy(self, worker) -> int:
-        invalid_actions = worker.invalid_actions
-
         # --- シミュレーションしてpolicyを作成
-        self.s0 = self.parameter.representation_network(worker.state[np.newaxis, ...])
-        self.s0_str = self.s0.ref()  # type:ignore , ignore check "None"
-        for _ in range(self.config.num_simulations):
-            self._simulation(self.s0, self.s0_str, invalid_actions, is_afterstate=False)
-
-        # 正規化用Qを保存できるように送信(remote_memory -> trainer -> parameter)
-        self.memory.add_q(self.parameter.q_min, self.parameter.q_max)
-
-        # V
-        self.state_v = self.parameter.V[self.s0_str]
+        root = self.mcts.simulation(worker.state, worker.invalid_actions, self.training)
+        self.step_v = root.v
+        if self.rendering:
+            self.root = root
 
         # --- 確率に比例したアクションを選択
-        if not self.training:
-            policy_tau = 0  # 評価時は決定的に
-        else:
+        if self.training:
             policy_tau = self.policy_tau_sch.update(self.step_in_training).to_float()
-
-        if policy_tau == 0:
-            counts = np.asarray(self.N[self.s0_str])
-            action = np.random.choice(np.where(counts == counts.max())[0])
         else:
-            step_policy = np.array([self.N[self.s0_str][a] ** (1 / policy_tau) for a in range(self.config.action_space.n)])
+            policy_tau = self.config.test_policy_tau
+
+        action_select_count = np.array([n.visit_count for n in root.children])
+        if policy_tau == 0:
+            action = np.random.choice(np.where(action_select_count == action_select_count.max())[0])
+        else:
+            step_policy = np.maximum(action_select_count, 1e-8) ** (1 / policy_tau)
             step_policy /= step_policy.sum()
             action = funcs.random_choice_by_probs(step_policy)
 
         # 学習用のpolicyはtau=1
-        N = sum(self.N[self.s0_str])
-        self.step_policy = [self.N[self.s0_str][a] / N for a in range(self.config.action_space.n)]
+        self.step_policy = action_select_count / np.sum(action_select_count)
 
-        self.action = int(action)
-        return self.action
-
-    def _simulation(self, state, state_str, invalid_actions, is_afterstate, depth: int = 0):
-        if depth >= 99999:  # for safety
-            return 0
-
-        if not is_afterstate:
-            self._init_state(state_str, self.config.action_space.n)
-            self.parameter.prediction(state, state_str)
-
-            # actionを選択
-            puct_list = self._calc_puct(state_str, invalid_actions, depth == 0)
-            action = np.random.choice(np.where(puct_list == np.max(puct_list))[0])
-
-            # 次の状態を取得(after state)
-            n_state = self.parameter.afterstate_dynamics_network.predict(state, [action])
-            reward = 0
-            is_afterstate = True
-
-        else:
-            self._init_state(state_str, self.config.codebook_size)
-            self.parameter.afterstate_prediction(state, state_str)
-            c = self.parameter.C[state_str]
-            action = np.argmax(c[0])  # outcomes
-
-            # 次の状態を取得
-            n_state, reward_category = self.parameter.dynamics_network.predict(state, c)
-            reward = funcs.twohot_decode(
-                reward_category.numpy()[0],
-                abs(self.config.v_max - self.config.v_min) + 1,
-                self.config.v_min,
-                self.config.v_max,
-            )
-            is_afterstate = False
-
-        n_state_str = n_state.ref()
-        enemy_turn = self.env_player_num > 1  # 2player以上は相手番と決め打ち
-
-        if self.N[state_str][action] == 0:
-            # leaf node ならロールアウト
-            if is_afterstate:
-                self.parameter.afterstate_prediction(n_state, n_state_str)
-                n_value = self.parameter.Q[n_state_str]
-            else:
-                self.parameter.prediction(n_state, n_state_str)
-                n_value = self.parameter.V[n_state_str]
-
-        else:
-            # 子ノードに降りる(展開)
-            n_value = self._simulation(n_state, n_state_str, [], is_afterstate, depth + 1)
-
-        # 次が相手のターンなら、報酬は最小になってほしいので-をかける
-        if enemy_turn:
-            n_value = -n_value
-
-        # 割引報酬
-        reward = reward + self.config.discount * n_value
-
-        self.N[state_str][action] += 1
-        self.W[state_str][action] += reward
-        self.Q[state_str][action] = self.W[state_str][action] / self.N[state_str][action]
-
-        self.parameter.q_min = min(self.parameter.q_min, self.Q[state_str][action])
-        self.parameter.q_max = max(self.parameter.q_max, self.Q[state_str][action])
-
-        return reward
-
-    def _calc_puct(self, state_str, invalid_actions, is_root):
-        # ディリクレノイズ
-        if is_root:
-            dir_alpha = self.config.root_dirichlet_alpha
-            if self.config.root_dirichlet_adaptive:
-                dir_alpha = 1.0 / np.sqrt(self.config.action_space.n - len(invalid_actions))
-            noises = np.random.dirichlet([dir_alpha] * self.config.action_space.n)
-        else:
-            noises = []
-
-        N = np.sum(self.N[state_str])
-        scores = np.zeros(self.config.action_space.n)
-        for a in range(self.config.action_space.n):
-            if a in invalid_actions:
-                score = -np.inf
-            else:
-                # P(s,a): 過去のMCTSの結果を教師あり学習した結果
-                # U(s,a) = C(s) * P(s,a) * sqrt(N(s)) / (1+N(s,a))
-                # C(s) = log((1+N(s)+base)/base) + c_init
-                # score = Q(s,a) + U(s,a)
-                P = self.parameter.P[state_str][a]
-
-                # rootはディリクレノイズを追加
-                if is_root:
-                    e = self.config.root_dirichlet_fraction
-                    P = (1 - e) * P + e * noises[a]
-
-                n = self.N[state_str][a]
-                c = np.log((1 + N + self.config.c_base) / self.config.c_base) + self.config.c_init
-                u = c * P * (np.sqrt(N) / (1 + n))
-                q = self.Q[state_str][a]
-
-                # 過去観測したQ値で正規化(MinMax)
-                if self.parameter.q_min < self.parameter.q_max:
-                    q = (q - self.parameter.q_min) / (self.parameter.q_max - self.parameter.q_min)
-
-                score = q + u
-                if np.isnan(score):
-                    logger.warning(
-                        "puct score is nan. action={}, score={}, q={}, u={}, Q={}, P={}".format(
-                            a,
-                            score,
-                            q,
-                            u,
-                            self.Q[state_str],
-                            self.parameter.P[state_str],
-                        )
-                    )
-                    score = -np.inf
-
-            scores[a] = score
-        return scores
+        self.info["policy_tau"] = policy_tau
+        return int(action)
 
     def on_step(self, worker):
         if not self.training:
             return
 
+        # 正規化用Qを保存できるように送信(memory -> trainer -> parameter)
+        self.memory.add_q(self.parameter.q_min, self.parameter.q_max)
+        self.info["q_min"] = self.parameter.q_min
+        self.info["q_max"] = self.parameter.q_max
+
+        reward = worker.reward
+        if self.config.enable_rescale:
+            reward = rescaling(reward)
+
         self.history.append(
             {
                 "state": worker.state,
-                "action": self.action,
+                "action": worker.action,
                 "policy": self.step_policy,
-                "reward": worker.reward,
-                "state_v": self.state_v,
+                "reward": reward,
+                "v": self.step_v,
             }
         )
 
         if worker.done:
-            zero_category = funcs.twohot_encode(0, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max)
-            zero_state = np.zeros(self.config.observation_space.shape)
+            for _ in range(self.config.unroll_steps + 1):
+                self.history.append(
+                    {
+                        "state": worker.state,
+                        "action": random.randint(0, self.config.action_space.n - 1),
+                        "policy": [1 / self.config.action_space.n for _ in range(self.config.action_space.n)],
+                        "reward": 0,
+                        "v": 0,
+                    }
+                )
 
-            # calc MC reward
+            # --- calc discount reward
             reward = 0
             for h in reversed(self.history):
                 reward = h["reward"] + self.config.discount * reward
                 h["discount_reward"] = reward
 
-            # batch create
-            for idx in range(len(self.history)):
-                # --- policies
-                policies = [[1 / self.config.action_space.n] * self.config.action_space.n for _ in range(self.config.unroll_steps + 1)]
-                for i in range(self.config.unroll_steps + 1):
-                    if idx + i >= len(self.history):
-                        break
-                    policies[i] = self.history[idx + i]["policy"]
-
-                # --- values
-                values = [zero_category for _ in range(self.config.unroll_steps + 1)]
-                priority = 0
-                for i in range(self.config.unroll_steps + 1):
-                    if idx + i >= len(self.history):
-                        break
-                    v = self.history[idx + i]["discount_reward"]
-                    if self.config.enable_rescale:
-                        v = rescaling(v)
-                    priority += v - self.history[idx + i]["state_v"]
-                    self._v_min = min(self._v_min, v)
-                    self._v_max = max(self._v_max, v)
-                    values[i] = funcs.twohot_encode(v, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max)
-                priority /= self.config.unroll_steps + 1
-
-                # --- states
-                states = [zero_state for _ in range(self.config.unroll_steps + 1)]
-                for i in range(self.config.unroll_steps + 1):
-                    if idx + i >= len(self.history):
-                        break
-                    states[i] = self.history[idx + i]["state"]
-
-                # --- actions
-                actions = [random.randint(0, self.config.action_space.n - 1) for _ in range(self.config.unroll_steps)]
-                for i in range(self.config.unroll_steps):
-                    if idx + i >= len(self.history):
-                        break
-                    actions[i] = self.history[idx + i]["action"]
-
-                # --- reward
-                rewards = [zero_category for _ in range(self.config.unroll_steps)]
-                for i in range(self.config.unroll_steps):
-                    if idx + i >= len(self.history):
-                        break
-                    r = self.history[idx + i]["reward"]
-                    if self.config.enable_rescale:
-                        r = rescaling(r)
-                    self._v_min = min(self._v_min, r)
-                    self._v_max = max(self._v_max, r)
-                    rewards[i] = funcs.twohot_encode(r, abs(self.config.v_max - self.config.v_min) + 1, self.config.v_min, self.config.v_max)
-
-                self.memory.add(
-                    {
-                        "states": states,
-                        "actions": actions,
-                        "policies": policies,
-                        "values": values,
-                        "rewards": rewards,
-                    },
-                    priority,
+                # twohot value
+                h["twohot_z"] = funcs.twohot_encode(
+                    h["discount_reward"],
+                    self.config.value_range_num,
+                    self.config.value_range[0],
+                    self.config.value_range[1],
+                    self.np_dtype,
                 )
 
-        self.info["v_min"] = self._v_min
-        self.info["v_max"] = self._v_max
+                # twohot reward
+                h["twohot_reward"] = funcs.twohot_encode(
+                    h["reward"],
+                    self.config.reward_range_num,
+                    self.config.reward_range[0],
+                    self.config.reward_range[1],
+                    self.np_dtype,
+                )
+
+            # --- add batch
+            for idx in range(len(self.history) - self.config.unroll_steps - 1):
+                batch = []
+                priority = 0
+                for i in range(self.config.unroll_steps + 1):
+                    h = self.history[idx + i]
+                    priority += abs(h["v"] - h["discount_reward"])
+                    batch.append(
+                        [
+                            h["state"],
+                            h["action"],
+                            h["policy"],
+                            h["twohot_z"],
+                            h["twohot_reward"],
+                        ]
+                    )
+                priority /= self.config.unroll_steps + 1
+                self.memory.add(batch, priority)
 
     def render_terminal(self, worker, **kwargs) -> None:
-        self._init_state(self.s0_str, self.config.action_space.n)
-        self.parameter.prediction(self.s0, self.s0_str)
-        puct = self._calc_puct(self.s0_str, worker.invalid_actions, False)
-        maxa = self.action
+        if self.root is None:
+            return
 
-        v = self.parameter.V[self.s0_str]
+        v = float(self.root.v)
         if self.config.enable_rescale:
             v = inverse_rescaling(v)
-
         print(f"V: {v:.5f}")
 
+        s_state = self.parameter.representation_network(worker.state[np.newaxis, ...])
+        children = self.root.children
+        policy = self.step_policy
+
         def _render_sub(a: int) -> str:
-            after_state = self.parameter.afterstate_dynamics_network.predict(self.s0, [a])
-            c, q_category = self.parameter.afterstate_prediction_network(after_state)
-            q = funcs.twohot_decode(
-                q_category.numpy()[0],
-                abs(self.config.v_max - self.config.v_min) + 1,
-                self.config.v_min,
-                self.config.v_max,
-            )
-            c = self.parameter.vq_vae.encode(c)
-            _, reward_category = self.parameter.dynamics_network.predict(after_state, c)
-            reward = funcs.twohot_decode(
-                reward_category.numpy()[0],
-                abs(self.config.v_max - self.config.v_min) + 1,
-                self.config.v_min,
-                self.config.v_max,
-            )
+            node = children[a]
+            after_state = self.parameter.afterstate_dynamics_network.predict(s_state, [a])
+            code, q = self.parameter.afterstate_prediction_network.predict(after_state)
+            p = self.parameter.vq_vae.encode(code)
+            _, reward = self.parameter.dynamics_network.predict(after_state, code)
 
             if self.config.enable_rescale:
                 q = inverse_rescaling(q)
                 reward = inverse_rescaling(reward)
 
-            s = f"{self.step_policy[a] * 100:5.1f}%"
-            s += f" {self.N[self.s0_str][a]:7d}(N)"
-            s += f" {self.Q[self.s0_str][a]:9.5f}(Q)"
-            s += f", {puct[a]:9.5f}(PUCT)"
-            s += f", {self.parameter.P[self.s0_str][a]:9.5f}(P)"
-
-            s += f", {q:9.5f}(Q_pred)"
-            s += f", {np.argmax(c[0]):3d}(code)"
-            s += f", {reward:9.5f}(reward)"
+            s = f"{policy[a] * 100:4.1f}%"
+            s += f"({int(node.visit_count):3d})(N)"
+            s += f" {node.value:5.3f}(Q)"
+            s += f" {node.prior:6.3f}(P)"
+            s += f" {node.score:6.3f}(PUCT)"
+            s += f" {reward[0]:6.3f}(reward)"
+            s += f", {q[0]:6.3f}(Q_pred)"
+            s += f", {np.argmax(code[0]):d}(code)"
+            s += f", {p[0][a]}(p)"
             return s
 
-        worker.print_discrete_action_info(int(maxa), _render_sub)
+        worker.print_discrete_action_info(worker.action, _render_sub)

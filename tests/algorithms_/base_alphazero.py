@@ -50,9 +50,10 @@ class LongCase(CommonLongCase):
     def test_Grid(self):
         rl_config = self._create_rl_config()
         rl_config.discount = 0.9
+        rl_config.num_simulations = 50
         rl_config.memory.warmup_size = 100
         runner = self.create_test_runner("Grid-layer", rl_config)
-        runner.train(max_train_count=1000)
+        runner.train(max_train_count=500)
         assert runner.evaluate_compare_to_baseline_single_player()
 
     def test_OX(self):

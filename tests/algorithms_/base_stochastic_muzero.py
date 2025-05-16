@@ -36,21 +36,23 @@ class LongCase(CommonLongCase):
             num_simulations=10,
             discount=0.9,
             batch_size=16,
-            v_min=-2,
-            v_max=2,
+            reward_range=(-2, 2),
+            reward_range_num=10,
+            value_range=(-2, 2),
+            value_range_num=10,
             unroll_steps=2,
             dynamics_blocks=1,
             enable_rescale=False,
             codebook_size=4,
         )
-        rl_config.memory.warmup_size = 200
-        rl_config.lr = 0.001
-        rl_config.memory.set_replay_buffer()
+        rl_config.memory.warmup_size = 100
+        rl_config.lr = 0.01
+        rl_config.memory.set_proportional()
         rl_config.input_image_block.set_alphazero_block(1, 16)
         return rl_config
 
     def test_Grid(self):
         rl_config = self._create_rl_config()
-        runner = self.create_test_runner("Grid-Layer", rl_config)
-        runner.train(max_train_count=10000)
+        runner = self.create_test_runner("Grid-layer", rl_config)
+        runner.train(max_train_count=5000)
         assert runner.evaluate_compare_to_baseline_single_player(baseline=0.4)

@@ -58,11 +58,17 @@ def _play_trainer_only(
 ):
     # --- 0 create instance
     if state.parameter is None:
-        state.parameter = context.rl_config.make_parameter(state.env)
+        if state.trainer is None:
+            state.parameter = context.rl_config.make_parameter(state.env)
+        else:
+            state.parameter = state.trainer.parameter
     if parameter_dat is not None:
         state.parameter.restore(parameter_dat)
     if state.memory is None:
-        state.memory = context.rl_config.make_memory(state.env)
+        if state.trainer is None:
+            state.memory = context.rl_config.make_memory(state.env)
+        else:
+            state.memory = state.trainer.memory
     if memory_dat is not None:
         state.memory.restore(memory_dat)
     if state.trainer is None:

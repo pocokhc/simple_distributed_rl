@@ -9,7 +9,7 @@ from srl.base.rl.algorithms.base_vanilla_policy import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.base.spaces.array_continuous import ArrayContinuousSpace
+from srl.base.spaces.continuous import ContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.rl import functions as funcs
 from srl.rl.memories.single_use_buffer import RLSingleUseBuffer
@@ -58,7 +58,10 @@ class Parameter(RLParameter[Config]):
 
     def get_probs(self, state_str: str, invalid_actions):
         if state_str not in self.policy:
-            self.policy[state_str] = [None if a in invalid_actions else 0.0 for a in range(self.config.action_space.n)]
+            self.policy[state_str] = [
+                None if a in invalid_actions else 0.0
+                for a in range(self.config.action_space.n)  # type: ignore
+            ]
 
         probs = []
         for val in self.policy[state_str]:
@@ -176,7 +179,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             else:
                 env_action = funcs.get_random_max_index(probs, invalid_actions)
 
-        elif isinstance(self.config.action_space, ArrayContinuousSpace):
+        elif isinstance(self.config.action_space, ContinuousSpace):
             act_space = self.config.action_space
             # --- 連続
             # パラメータ
@@ -190,8 +193,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
 
             # -inf～infの範囲を取るので実際に環境に渡すアクションはlowとhighで切り取る
             # 本当はポリシーが変化しちゃうのでよくない（暫定対処）
-            env_action = np.clip(env_action, act_space.low[0], act_space.high[0])
-            env_action = [env_action]  # list float
+            env_action = np.clip(env_action, act_space.low, act_space.high)
 
         return env_action
 
@@ -230,6 +232,6 @@ class Worker(RLWorker[Config, Parameter, Memory]):
 
             worker.print_discrete_action_info(int(maxa), _render_sub)
 
-        elif isinstance(self.config.action_space, ArrayContinuousSpace):
+        elif isinstance(self.config.action_space, ContinuousSpace):
             mean, stddev = self.parameter.get_normal(self.state)
             print(f"mean {mean:.5f}, stddev {stddev:.5f}")

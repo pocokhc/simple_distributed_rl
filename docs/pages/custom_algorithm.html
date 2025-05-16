@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Making a Custom algorithm &mdash; SimpleDistributedRL 1.1.0.0 ドキュメント</title>
+  <title>Making a Custom algorithm &mdash; SimpleDistributedRL 1.2.0 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=4ed23968"></script>
+      <script src="../_static/documentation_options.js?v=f7e61824"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -80,10 +80,8 @@
 <li class="toctree-l1"><a class="reference internal" href="env_config.html">EnvConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rl_config_tree.html">RLConfig Parameters</a></li>
-<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Configuration related)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-train-related">Runner(Train related)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-runtime-related">Runner(Runtime related)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="runner.html#runner-distribution-related">Runner(Distribution related)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Base)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#id1">Runner</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
 <ul>
@@ -258,7 +256,7 @@
 </div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">srl.base.rl.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">RLConfig</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">srl.base.define</span><span class="w"> </span><span class="kn">import</span> <span class="n">RLBaseActTypes</span><span class="p">,</span> <span class="n">RLBaseObsTypes</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">srl.base.define</span><span class="w"> </span><span class="kn">import</span> <span class="n">RLBaseTypes</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">srl.base.rl.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">Processor</span>
 
 <span class="c1"># 必ず dataclass で書いてください</span>
@@ -273,15 +271,15 @@
 <span class="w">      </span><span class="sd">&quot;&quot;&quot; ユニークな名前を返す &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="k">def</span><span class="w"> </span><span class="nf">get_base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseActTypes</span><span class="p">:</span>
+   <span class="k">def</span><span class="w"> </span><span class="nf">get_base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">      アルゴリズムが想定するアクションのタイプ(srl.base.define.RLBaseActTypes)を返してください。</span>
+<span class="sd">      アルゴリズムが想定するアクションのタイプ(srl.base.define.RLBaseTypes)を返してください。</span>
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="k">def</span><span class="w"> </span><span class="nf">get_base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseObsTypes</span><span class="p">:</span>
+   <span class="k">def</span><span class="w"> </span><span class="nf">get_base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">      アルゴリズムが想定する環境から受け取る状態のタイプ(srl.base.define.RLBaseObsTypes)を返してください。</span>
+<span class="sd">      アルゴリズムが想定する環境から受け取る状態のタイプ(srl.base.define.RLBaseTypes)を返してください。</span>
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
@@ -805,7 +803,7 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">srl.base.define</span><span class="w"> </span><span class="kn">import</span> <span class="n">RLBaseActTypes</span><span class="p">,</span> <span class="n">RLBaseObsTypes</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">srl.base.define</span><span class="w"> </span><span class="kn">import</span> <span class="n">RLBaseTypes</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">srl.base.rl.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">RLConfig</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">srl.base.rl.memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">RLMemory</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">srl.base.rl.parameter</span><span class="w"> </span><span class="kn">import</span> <span class="n">RLParameter</span>
@@ -823,11 +821,11 @@
     <span class="n">gamma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.9</span>
     <span class="n">lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseActTypes</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">RLBaseActTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">RLBaseTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseObsTypes</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">RLBaseObsTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">RLBaseTypes</span><span class="o">.</span><span class="n">DISCRETE</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">get_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;MyRL&quot;</span>

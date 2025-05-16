@@ -118,7 +118,7 @@ Making a Custom algorithm
 
    from dataclasses import dataclass
    from srl.base.rl.config import RLConfig
-   from srl.base.define import RLBaseActTypes, RLBaseObsTypes
+   from srl.base.define import RLBaseTypes
    from srl.base.rl.processor import Processor
 
    # 必ず dataclass で書いてください
@@ -133,15 +133,15 @@ Making a Custom algorithm
          """ ユニークな名前を返す """
          raise NotImplementedError()
 
-      def get_base_action_type(self) -> RLBaseActTypes:
+      def get_base_action_type(self) -> RLBaseTypes:
          """
-         アルゴリズムが想定するアクションのタイプ(srl.base.define.RLBaseActTypes)を返してください。
+         アルゴリズムが想定するアクションのタイプ(srl.base.define.RLBaseTypes)を返してください。
          """
          raise NotImplementedError()
 
-      def get_base_observation_type(self) -> RLBaseObsTypes:
+      def get_base_observation_type(self) -> RLBaseTypes:
          """
-         アルゴリズムが想定する環境から受け取る状態のタイプ(srl.base.define.RLBaseObsTypes)を返してください。
+         アルゴリズムが想定する環境から受け取る状態のタイプ(srl.base.define.RLBaseTypes)を返してください。
          """
          raise NotImplementedError()
 

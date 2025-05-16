@@ -163,5 +163,8 @@ class RLEpisodeReplayBuffer(Generic[TRLConfig], EpisodeReplayBuffer, RLMemory[TR
         assert isinstance(self.config.memory, EpisodeReplayBufferConfig)  # type: ignore
         EpisodeReplayBuffer.__init__(self, self.config.memory, self.config.batch_size, self.config.batch_length)  # type: ignore
 
-        self.register_worker_func(self.add, self.serialize)
-        self.register_trainer_recv_func(self.sample)
+    def setup(self, register_add: bool = True, register_sample: bool = True) -> None:
+        if register_add:
+            self.register_worker_func(self.add, self.serialize)
+        if register_sample:
+            self.register_trainer_recv_func(self.sample)

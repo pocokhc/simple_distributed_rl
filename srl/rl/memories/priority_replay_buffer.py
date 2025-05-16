@@ -273,6 +273,9 @@ class RLPriorityReplayBuffer(Generic[TRLConfig], PriorityReplayBuffer, RLMemory[
         assert isinstance(self.config.memory, PriorityReplayBufferConfig)  # type: ignore
         PriorityReplayBuffer.__init__(self, self.config.memory, self.config.batch_size, self.config.get_dtype("np"))  # type: ignore
 
-        self.register_worker_func(self.add, self.serialize)
-        self.register_trainer_recv_func(self.sample)
-        self.register_trainer_send_func(self.update)
+    def setup(self, register_add: bool = True, register_sample: bool = True) -> None:
+        if register_add:
+            self.register_worker_func(self.add, self.serialize)
+        if register_sample:
+            self.register_trainer_recv_func(self.sample)
+            self.register_trainer_send_func(self.update)

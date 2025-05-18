@@ -32,6 +32,10 @@ class MultiSpace(SpaceBase[list]):
         return len(self.spaces)
 
     @property
+    def name(self) -> str:
+        return "Multi"
+
+    @property
     def stype(self) -> SpaceTypes:
         return SpaceTypes.MULTI
 

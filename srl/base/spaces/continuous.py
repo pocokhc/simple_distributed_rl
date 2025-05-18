@@ -34,6 +34,10 @@ class ContinuousSpace(SpaceBase[float]):
         return self._high
 
     @property
+    def name(self) -> str:
+        return "Continuous"
+
+    @property
     def stype(self) -> SpaceTypes:
         return SpaceTypes.CONTINUOUS
 

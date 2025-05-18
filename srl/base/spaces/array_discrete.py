@@ -46,6 +46,10 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         return self._high
 
     @property
+    def name(self) -> str:
+        return "ArrayDiscrete"
+
+    @property
     def stype(self) -> SpaceTypes:
         return SpaceTypes.DISCRETE
 

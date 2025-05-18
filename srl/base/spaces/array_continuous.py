@@ -54,6 +54,10 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
     def dtype(self):
         return self._dtype
 
+    @property
+    def name(self) -> str:
+        return "ArrayContinuous"
+
     def sample(self, mask: List[List[float]] = []) -> List[float]:
         if len(mask) > 0:
             logger.info(f"mask is not support: {mask}")

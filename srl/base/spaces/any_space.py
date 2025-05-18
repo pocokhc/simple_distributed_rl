@@ -8,6 +8,10 @@ from srl.base.spaces.space import SpaceBase
 
 
 class AnySpace(SpaceBase[Any]):
+    @property
+    def name(self) -> str:
+        return "Any"
+
     def sample(self, mask: List[Any] = []) -> Any:
         raise NotSupportedError()
 

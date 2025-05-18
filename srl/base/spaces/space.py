@@ -23,6 +23,11 @@ _T = TypeVar("_T")
 
 
 class SpaceBase(ABC, Generic[_T]):
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        raise NotImplementedError()
+
     @abstractmethod
     def sample(self, mask: List[_T] = []) -> _T:
         """Returns a random value"""

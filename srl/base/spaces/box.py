@@ -60,6 +60,10 @@ class BoxSpace(SpaceBase[np.ndarray]):
         return self._high
 
     @property
+    def name(self) -> str:
+        return "Box"
+
+    @property
     def stype(self) -> SpaceTypes:
         return self._stype
 

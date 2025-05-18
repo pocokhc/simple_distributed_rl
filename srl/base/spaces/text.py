@@ -49,6 +49,10 @@ class TextSpace(SpaceBase[str]):
         return self._padding
 
     @property
+    def name(self) -> str:
+        return "Text"
+
+    @property
     def stype(self) -> SpaceTypes:
         return SpaceTypes.DISCRETE
 

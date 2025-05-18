@@ -28,6 +28,10 @@ class DiscreteSpace(SpaceBase[int]):
         return self._start
 
     @property
+    def name(self) -> str:
+        return "Discrete"
+
+    @property
     def stype(self) -> SpaceTypes:
         return SpaceTypes.DISCRETE
 

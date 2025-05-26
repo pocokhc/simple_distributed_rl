@@ -130,6 +130,7 @@ animation_save_gifで生成された画像は以下です。
 |AlphaZero  |Image      |Discrete|✔        |-    |100%|MDP base|
 |MuZero     |Image      |Discrete|✔        |-    |100%||
 |StochasticMuZero|Image |Discrete|✔        |-    |100%||
+|EfficientZeroV2|Image  |Both    |✔        |-    |100%||
 
 ## モデルベース
 

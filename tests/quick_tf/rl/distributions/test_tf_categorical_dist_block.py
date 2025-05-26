@@ -32,15 +32,13 @@ def test_loss(unimix):
             print(f"{i}: {loss.numpy()}")
 
     x_true, y_true = _create_dataset(10)
-    dist = m(x_true)
-    dist.set_unimix(unimix)
+    dist = m(x_true).to_unimix_dist(unimix)
     print(x_true.reshape(-1))
     print(y_true)
     print(dist.sample())
 
     x_true, y_true = _create_dataset(1000)
-    dist = m(x_true)
-    dist.set_unimix(unimix)
+    dist = m(x_true).to_unimix_dist(unimix)
     y_pred = dist.sample(onehot=True)
     rmse = np.sqrt(np.mean((y_true - y_pred) ** 2))
     print(f"rmse: {rmse}")
@@ -72,8 +70,7 @@ def test_loss_grad(unimix):
         def call(self, x):
             for h in self.h1:
                 x = h(x)
-            dist = self.block(x)
-            dist.set_unimix(self.unimix)
+            dist = self.block(x).to_unimix_dist(unimix)
             x = dist.rsample()
             for h in self.h2:
                 x = h(x)

@@ -18,32 +18,32 @@ class BernoulliDist:
     def logits(self):
         return self._logits
 
-    def mean(self):
+    def mean(self, **kwargs):
         raise NotImplementedError()
 
-    def mode(self):
+    def mode(self, **kwargs):
         return tf.math.greater_equal(self._probs, tf.constant(0.5))
 
-    def variance(self):
+    def variance(self, **kwargs):
         raise NotImplementedError()
 
     def prob(self):
         return self._probs
 
-    def sample(self):
+    def sample(self, **kwargs):
         r = tf.random.uniform(tf.shape(self._probs))
         r = tf.math.greater_equal(self._probs, r)
         return r
 
-    def rsample(self):
+    def rsample(self, **kwargs):
         r = tf.random.uniform(tf.shape(self._probs))
         r = tf.math.greater_equal(self._probs, r)
         return r
 
-    def log_probs(self):
+    def log_probs(self, **kwargs):
         raise NotImplementedError()  # TODO
 
-    def log_prob(self, a):
+    def log_prob(self, a, **kwargs):
         raise NotImplementedError()  # TODO
 
     @tf.function

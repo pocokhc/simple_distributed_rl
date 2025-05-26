@@ -36,39 +36,45 @@ class NormalDist:
         self._loc = loc
         self._log_scale = log_scale
 
-    def mean(self):
+    def increase_variance(self, delta_std: float | tf.Tensor) -> None:
+        """標準偏差に加算して分散を増やす (How: scale に delta_std を加算して log_scale を更新する)"""
+        # Why not: log_scale だけ更新して scale と不整合が出るのを防ぐため
+        delta = tf.convert_to_tensor(delta_std, dtype=self._scale.dtype)
+        self._scale = self._scale + delta
+        self._log_scale = tf.math.log(self._scale)
+
+    def mean(self, **kwargs):
         return self._loc
 
-    def mode(self):
+    def mode(self, **kwargs):
         return self._loc
 
-    def stddev(self):
+    def stddev(self, **kwargs):
         return tf.math.exp(self._log_scale)
 
-    def variance(self):
+    def variance(self, **kwargs):
         return self.stddev() ** 2
 
-    def sample(self):
+    def sample(self, **kwargs):
         return tf.random.normal(self._loc.shape, self._loc, self.stddev())
 
-    def rsample(self):
+    def rsample(self, **kwargs):
         e = tf.random.normal(shape=self._loc.shape)
         return self._loc + self.stddev() * e
 
-    def log_prob(self, x):
+    def log_prob(self, x, **kwargs):
         return compute_normal_logprob(self._loc, self.stddev(), self._log_scale, x)
 
-    def entropy(self):
+    def entropy(self, **kwargs):
         return 0.5 + 0.5 * math.log(2 * math.pi) + self._log_scale
 
-    # -------------
-    def rsample_logprob(self):
+    def rsample_logprob(self, **kwargs):
         e = tf.random.normal(shape=self._loc.shape)
         y = self._loc + self.stddev() * e
         log_prob = compute_normal_logprob(self._loc, self.stddev(), self._log_scale, y)
         return y, log_prob
 
-    def policy(self, low=None, high=None, training: bool = False):
+    def policy(self, low=None, high=None, training: bool = False, **kwargs):
         if training:
             y = self.sample()
         else:
@@ -81,22 +87,30 @@ class NormalDistSquashed:
     def __init__(self, loc, log_scale):
         self._loc = loc
         self._log_scale = log_scale
-        self._scale = tf.math.exp(self._log_scale)
+        self._scale = tf.math.exp(log_scale)
+
+    def increase_variance(self, delta_std: float | tf.Tensor) -> None:
+        """標準偏差に加算して分散を増やす (How: scale に delta_std を加算して log_scale を更新する)"""
+        # Why not: log_scale だけ更新して scale と不整合が出るのを防ぐため
+        delta = tf.convert_to_tensor(delta_std, dtype=self._scale.dtype)
+        self._scale = self._scale + delta
+        self._log_scale = tf.math.log(self._scale)
 
     def mean(self):
-        return tf.tanh(self._loc)
+        return tf.tanh(self._loc)  # 近似値
 
     def mode(self):
         return tf.tanh(self._loc)
 
     def stddev(self):
-        return tf.ones_like(self._loc, self._loc.dtype)  # 多分…
+        raise NotImplementedError()
 
     def variance(self):
-        return self.stddev() ** 2
+        raise NotImplementedError()
 
     def sample(self):
-        y = tf.random.normal(self._loc.shape, self._loc, self._scale)
+        e = tf.random.normal(shape=self._loc.shape)
+        y = self._loc + self._scale * e
         return tf.tanh(y)
 
     def rsample(self):
@@ -112,8 +126,6 @@ class NormalDistSquashed:
     def entropy(self):
         # squashedは未確認（TODO）
         raise NotImplementedError()
-
-    # -------------
 
     def rsample_logprob(self):
         e = tf.random.normal(shape=self._loc.shape)

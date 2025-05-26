@@ -16,18 +16,25 @@ class TwoHotDist:
         self.high = high
         self.use_symlog = use_symlog
 
-    def probs(self):
+    def probs(self, **kwargs):
         return tf.nn.softmax(self.logits, axis=-1)
 
-    def log_prob(self, probs, onehot_action):
+    def log_prob(self, probs, onehot_action, **kwargs):
         return tf.math.log(tf.reduce_sum(probs * onehot_action, axis=-1))
 
-    def mode(self):
+    def mode(self, **kwargs):
         x = tf.nn.softmax(self.logits, axis=-1)
         x = twohot_decode(x, self.bins, self.low, self.high)
         if self.use_symlog:
             x = symexp(x)
         return x
+
+    def sample(self, **kwargs):
+        probs = self.probs()
+        y = twohot_decode(probs, self.bins, self.low, self.high)
+        if self.use_symlog:
+            y = symexp(y)
+        return y
 
     @tf.function
     def compute_train_loss(self, y):
@@ -42,13 +49,6 @@ class TwoHotDist:
         probs = tf.clip_by_value(probs, 1e-10, 1)  # log(0)回避用
         loss = -tf.reduce_sum(y * tf.math.log(probs), axis=1)
         return tf.reduce_mean(loss)
-
-    def sample(self):
-        probs = self.probs()
-        y = twohot_decode(probs, self.bins, self.low, self.high)
-        if self.use_symlog:
-            y = symexp(y)
-        return y
 
 
 class TwoHotDistBlock(keras.Model):

@@ -15,6 +15,24 @@
 // TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除
 
 
+# v1.2.1
+
+**MainUpdates**
+
+1. [base.spaces]: ArrayContinuousを見直し、未実装部分を実装
+   - new/change: ArrayContinuousをlistとnpで明確に分割
+      - new: ArrayContinuousをnpで統一し、listはArrayContinuousListSpaceを作成
+      - [base.define] new: RLBaseTypes.ARRAY_CONTINUOUS_NPを追加
+      - change: RLアルゴリズムでこの型を使っていたものを修正
+      - change: runner内のマニュアル操作等で使っていたenc/dec変換関係を修正
+   - new: TODOだったImage関係の変換を作成
+   - new: TextSpace関係の変換を作成
+   - new: name変数を追加
+   - new: 連続値関係に、rescale_from関数を追加
+   - remove: int_size等、古い関数を削除（box以外）
+1. [algorithms] new: EfficientZeroV2を実装
+1. [rl.tf.distributions] update: 分布系のクラスを見直して整理
+
 # v1.2.0
 
 1. アルゴリズム側のSpaceを一部のSpaceだけではなく、全てのSpaceを選べるように修正

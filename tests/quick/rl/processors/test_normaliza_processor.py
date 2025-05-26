@@ -14,8 +14,8 @@ from srl.rl.processors.normalize_processor import NormalizeProcessor
     [
         [DiscreteSpace(5), ContinuousSpace(-1, 2), 4, 2.0],
         [ContinuousSpace(1, 4), ContinuousSpace(-1, 2), 4, 2],
-        [ArrayDiscreteSpace(2, 1, 4), ArrayContinuousSpace(2, -1, 2), [1, 4], [-1, 2]],
-        [ArrayContinuousSpace(2, 1, 4), ArrayContinuousSpace(2, -1, 2), [1, 4], [-1, 2]],
+        [ArrayDiscreteSpace(2, 1, 4), ArrayContinuousSpace(2, -1, 2), [1, 4], np.array([-1, 2], np.float32)],
+        [ArrayContinuousSpace(2, 1, 4), ArrayContinuousSpace(2, -1, 2), [1, 4], np.array([-1, 2], np.float32)],
         [
             BoxSpace((2, 1), 1, 4),
             BoxSpace((2, 1), -1, 2),
@@ -30,6 +30,7 @@ def test_1(space, true_space, state, true_state):
     # --- change space
     new_space = processor.remap_observation_space(space)
     print(new_space)
+    print(true_space)
     assert new_space == true_space
 
     # --- decode

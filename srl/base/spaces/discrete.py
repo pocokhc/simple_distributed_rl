@@ -1,6 +1,6 @@
 import logging
 import random
-from typing import Any, List, Tuple
+from typing import Any, List
 
 import numpy as np
 
@@ -117,82 +117,6 @@ class DiscreteSpace(SpaceBase[int]):
         return onehot
 
     # --------------------------------------
-    # action discrete
-    # --------------------------------------
-    @property
-    def int_size(self) -> int:
-        return self._n
-
-    def encode_to_int(self, val: int) -> int:
-        return val - self._start
-
-    def decode_from_int(self, val: int) -> int:
-        return val + self._start
-
-    # --------------------------------------
-    # observation discrete
-    # --------------------------------------
-    @property
-    def list_int_size(self) -> int:
-        return 1
-
-    @property
-    def list_int_low(self) -> List[int]:
-        return [0]
-
-    @property
-    def list_int_high(self) -> List[int]:
-        return [self.n - 1]
-
-    def encode_to_list_int(self, val: int) -> List[int]:
-        return [val - self._start]
-
-    def decode_from_list_int(self, val: List[int]) -> int:
-        return int(round(val[0])) + self._start
-
-    # --------------------------------------
-    # action continuous
-    # --------------------------------------
-    @property
-    def list_float_size(self) -> int:
-        return 1
-
-    @property
-    def list_float_low(self) -> List[float]:
-        return [0]
-
-    @property
-    def list_float_high(self) -> List[float]:
-        return [self.n - 1]
-
-    def encode_to_list_float(self, val: int) -> List[float]:
-        return [float(val - self._start)]
-
-    def decode_from_list_float(self, val: List[float]) -> int:
-        return int(round(val[0])) + self._start
-
-    # --------------------------------------
-    # observation continuous, image
-    # --------------------------------------
-    @property
-    def np_shape(self) -> Tuple[int, ...]:
-        return (1,)
-
-    @property
-    def np_low(self) -> np.ndarray:
-        return np.array([0])
-
-    @property
-    def np_high(self) -> np.ndarray:
-        return np.array([self.n - 1])
-
-    def encode_to_np(self, val: int, dtype) -> np.ndarray:
-        return np.array([val - self._start], dtype=dtype)
-
-    def decode_from_np(self, val: np.ndarray) -> int:
-        return int(round(val[0])) + self._start
-
-    # --------------------------------------
     # spaces
     # --------------------------------------
     def get_encode_type_list(self):
@@ -204,11 +128,11 @@ class DiscreteSpace(SpaceBase[int]):
         return priority_list, exclude_list
 
     def create_encode_space_Self(self):
-        return DiscreteSpace(self.int_size)  # startは0
+        return DiscreteSpace(self._n)  # startは0
 
     # --- DiscreteSpace
     def create_encode_space_DiscreteSpace(self):
-        return DiscreteSpace(self.int_size)  # startは0
+        return DiscreteSpace(self._n)  # startは0
 
     def encode_to_space_DiscreteSpace(self, val: int) -> int:
         return val - self._start
@@ -220,7 +144,7 @@ class DiscreteSpace(SpaceBase[int]):
     def create_encode_space_ArrayDiscreteSpace(self):
         from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 
-        return ArrayDiscreteSpace(self.list_int_size, self.list_int_low, self.list_int_high)
+        return ArrayDiscreteSpace(1, 0, self._n - 1)
 
     def encode_to_space_ArrayDiscreteSpace(self, val: int) -> List[int]:
         return [val - self._start]
@@ -241,29 +165,41 @@ class DiscreteSpace(SpaceBase[int]):
         return int(round(val)) + self._start
 
     # --- ArrayContinuousSpace
-    def create_encode_space_ArrayContinuousSpace(self):
-        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+    def create_encode_space_ArrayContinuousListSpace(self):
+        from srl.base.spaces.array_continuous_list import ArrayContinuousListSpace
 
-        return ArrayContinuousSpace(self.list_float_size, self.list_float_low, self.list_float_high)
+        return ArrayContinuousListSpace(1, 0, self.n - 1)
 
-    def encode_to_space_ArrayContinuousSpace(self, val: int) -> List[float]:
+    def encode_to_space_ArrayContinuousListSpace(self, val: int) -> List[float]:
         return [float(val - self._start)]
 
-    def decode_from_space_ArrayContinuousSpace(self, val: List[float]) -> int:
+    def decode_from_space_ArrayContinuousListSpace(self, val: List[float]) -> int:
         return int(round(val[0])) + self._start
+
+    # --- np
+    def create_encode_space_ArrayContinuousSpace(self, np_dtype):
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+
+        return ArrayContinuousSpace(1, 0, self.n - 1, np_dtype)
+
+    def encode_to_space_ArrayContinuousSpace(self, val: int, space) -> np.ndarray:
+        return np.array([float(val - self._start)], dtype=space.dtype)
+
+    def decode_from_space_ArrayContinuousSpace(self, val: np.ndarray) -> int:
+        return int(round(float(val[0]))) + self._start
 
     # --- Box
     def create_encode_space_Box(self, space_type: RLBaseTypes, np_dtype):
         from srl.base.spaces.box import BoxSpace
 
         if space_type == RLBaseTypes.GRAY_2ch:
-            return BoxSpace((1, 1), 0, self.n - 1, np.int64, SpaceTypes.GRAY_2ch)
+            return BoxSpace((1, 1), 0, self.n - 1, np.uint64, SpaceTypes.GRAY_2ch)
         elif space_type == RLBaseTypes.GRAY_3ch:
-            return BoxSpace((1, 1, 1), 0, self.n - 1, np.int64, SpaceTypes.GRAY_3ch)
+            return BoxSpace((1, 1, 1), 0, self.n - 1, np.uint64, SpaceTypes.GRAY_3ch)
         elif space_type == RLBaseTypes.COLOR:
-            return BoxSpace((1, 1, 3), 0, self.n - 1, np.int64, SpaceTypes.COLOR)
+            return BoxSpace((1, 1, 3), 0, self.n - 1, np.uint64, SpaceTypes.COLOR)
         elif space_type == RLBaseTypes.IMAGE:
-            return BoxSpace((1, 1, 1), 0, self.n - 1, np.int64, SpaceTypes.IMAGE)
+            return BoxSpace((1, 1, 1), 0, self.n - 1, np.uint64, SpaceTypes.IMAGE)
         return BoxSpace((1,), 0, self.n - 1, np_dtype, SpaceTypes.CONTINUOUS)
 
     def encode_to_space_Box(self, val: int, space) -> np.ndarray:
@@ -273,7 +209,7 @@ class DiscreteSpace(SpaceBase[int]):
         elif space.stype == SpaceTypes.GRAY_3ch:
             v = v.reshape((1, 1, 1))
         elif space.stype == SpaceTypes.COLOR:
-            v = np.full((1, 1, 3), v[0], space.dtype)
+            v = np.full((1, 1, 3), v[0], dtype=space.dtype)
         elif space.stype == SpaceTypes.IMAGE:
             v = v.reshape((1, 1, 1))
         return v
@@ -293,8 +229,9 @@ class DiscreteSpace(SpaceBase[int]):
     def create_encode_space_TextSpace(self):
         from srl.base.spaces.text import TextSpace
 
+        # 特殊: e, +
         max_len = len(str(self.n - self.start))
-        return TextSpace(max_len, min_length=1, sample_charset="0123456789-")
+        return TextSpace(max_len, min_length=1, charset="0123456789-")
 
     def encode_to_space_TextSpace(self, val: int) -> str:
         return str(val - self._start)

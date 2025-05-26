@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple, cast
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -15,7 +15,6 @@ from srl.base.rl.trainer import RLTrainer
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.space import SpaceBase
-from srl.rl import functions as funcs
 from srl.rl.memories.replay_buffer import ReplayBufferConfig, RLReplayBuffer
 from srl.rl.models.config.input_image_block import InputImageBlockConfig
 from srl.rl.models.config.input_value_block import InputValueBlockConfig
@@ -401,7 +400,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         self.v = None
         self.p_dist = None
 
-    def policy(self, worker) -> Any:
+    def policy(self, worker):
         state = worker.state
         if self.config.state_clip is not None:
             state = np.clip(state, self.config.state_clip[0], self.config.state_clip[1])
@@ -411,7 +410,6 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             self.v = v
             self.p_dist = p_dist
         if isinstance(self.config.action_space, DiscreteSpace):
-            act_space = cast(DiscreteSpace, self.config.action_space)
             onehot_action = p_dist.sample(onehot=True)
             env_action = int(np.argmax(onehot_action))
             batch = {
@@ -424,8 +422,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
                 batch["probs"] = p_dist.probs().numpy()[0]
             self.recent_batch.append(batch)
         elif isinstance(self.config.action_space, ArrayContinuousSpace):
-            act_space = cast(ArrayContinuousSpace, self.config.action_space)
-            action, env_action = p_dist.policy(act_space.low, act_space.high, self.training)
+            action, env_action = p_dist.policy(self.config.action_space.low, self.config.action_space.high, self.training)
             batch = {
                 "state": state,
                 "action": action.numpy()[0][0],
@@ -437,7 +434,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
                 batch["stddev"] = p_dist.stddev().numpy()[0]
             self.recent_batch.append(batch)
 
-            env_action = env_action.numpy()[0].tolist()
+            env_action = env_action.numpy()[0]
         else:
             raise UndefinedError(self.config.action_space)
 

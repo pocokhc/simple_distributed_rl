@@ -9,12 +9,12 @@ from srl.base.rl.config import TRLConfig
 from srl.base.rl.memory import TRLMemory
 from srl.base.rl.parameter import TRLParameter
 from srl.base.rl.worker import RLWorkerGeneric
-from srl.base.spaces.array_continuous import ArrayContinuousSpace
+from srl.base.spaces.array_continuous_list import ArrayContinuousListSpace
 from srl.base.spaces.box import BoxSpace
 
 
 @dataclass
-class RLConfig(RLConfigBase[ArrayContinuousSpace, BoxSpace]):
+class RLConfig(RLConfigBase[ArrayContinuousListSpace, BoxSpace]):
     def get_base_action_type(self) -> RLBaseTypes:
         return RLBaseTypes.ARRAY_CONTINUOUS
 
@@ -28,7 +28,7 @@ class RLWorker(
         TRLConfig,
         TRLParameter,
         TRLMemory,
-        ArrayContinuousSpace,
+        ArrayContinuousListSpace,
         List[float],
         BoxSpace,
         np.ndarray,

@@ -4,7 +4,9 @@ import pytest
 from srl.base import spaces
 from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.exception import NotSupportedError
+from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.text import TextSpace
 
 
 def test_space_basic():
@@ -235,6 +237,13 @@ def test_inf():
     np.testing.assert_array_equal(space.list_float_high, [np.inf] * 6)
 
 
+def test_rescale_from():
+    space = BoxSpace((3,), 0, 1)
+    x = np.array([10, 11, 12])
+    y = space.rescale_from(x, 10, 12)
+    assert (y == np.array([0, 0.5, 1], dtype=np.float32)).all()
+
+
 def test_sanitize():
     space = BoxSpace((2, 1), -1, 3)
 
@@ -302,7 +311,8 @@ CB = BoxSpace((2, 1), -1, 0)
         [DB, RLBaseTypes.DISCRETE, spaces.DiscreteSpace(4), 0, [[-1], [-1]]],
         [DB, RLBaseTypes.ARRAY_DISCRETE, spaces.ArrayDiscreteSpace(2, -1, 0), [-1, -1], [[-1], [-1]]],
         [DB, RLBaseTypes.CONTINUOUS, None, 0, [[-1], [-1]]],
-        [DB, RLBaseTypes.ARRAY_CONTINUOUS, spaces.ArrayContinuousSpace(2, -1, 0), [-1, -1], [[-1], [-1]]],
+        [DB, RLBaseTypes.ARRAY_CONTINUOUS_LIST, spaces.ArrayContinuousListSpace(2, -1, 0), [-1, -1], [[-1], [-1]]],
+        [DB, RLBaseTypes.ARRAY_CONTINUOUS, ArrayContinuousSpace(2, -1, 0), np.array([-1, -1], np.float32), [[-1], [-1]]],
         # box
         [
             DB,
@@ -346,7 +356,13 @@ CB = BoxSpace((2, 1), -1, 0)
             np.full((8, 4, 2), 2),
             np.full((8, 4, 2), 2),
         ],
-        # [DB, RLBaseTypes.TEXT, TextSpace(), "0", [[-1], [-1]]],  # TODO
+        [
+            CB,
+            RLBaseTypes.TEXT,
+            TextSpace(min_length=1, charset="0123456789-.,"),
+            "-1.0,0.0",
+            np.array([[-1.0], [0.0]], np.float32),
+        ],
     ],
 )
 def test_space(space: BoxSpace, create_space, true_space, val, decode_val):

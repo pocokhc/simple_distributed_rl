@@ -5,7 +5,9 @@ from srl.base import spaces
 from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.exception import NotSupportedError
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
+from srl.base.spaces.array_continuous_list import ArrayContinuousListSpace
 from srl.base.spaces.continuous import ContinuousSpace
+from srl.base.spaces.text import TextSpace
 
 
 def test_space_basic():
@@ -30,8 +32,8 @@ def test_space_basic():
 
     # --- stack
     o = space.create_stack_space(3)
-    assert isinstance(o, ArrayContinuousSpace)
-    assert o == ArrayContinuousSpace(3, -1, 3)
+    assert isinstance(o, ArrayContinuousListSpace)
+    assert o == ArrayContinuousListSpace(3, -1, 3)
     v = space.encode_stack([1, 1, 0])
     assert v == [1, 1, 0]
 
@@ -45,48 +47,9 @@ def test_space_get_default():
     assert space.get_default() == -2.0
 
 
-def test_no_division():
+def test_sample():
     space = ContinuousSpace(-1.8, 3.1)
     print(space)
-
-    # --- discrete
-    with pytest.raises(AssertionError):
-        _ = space.int_size
-    en = space.encode_to_int(1.2)
-    assert en == 1
-    de = space.decode_from_int(2)
-    assert de == 2.0
-
-    # --- list int
-    assert space.list_int_size == 1
-    assert space.list_int_low == [-2]
-    assert space.list_int_high == [3]
-    en = space.encode_to_list_int(1.2)
-    assert len(en) == 1
-    assert en[0] == 1
-    de = space.decode_from_list_int([1])
-    assert de == 1.0
-
-    # --- list float
-    assert space.list_float_size == 1
-    np.testing.assert_array_equal(space.list_float_low, [-1.8])
-    np.testing.assert_array_equal(space.list_float_high, [3.1])
-    de = space.decode_from_list_float([1.2])
-    assert isinstance(de, float)
-    assert de == 1.2
-    en = space.encode_to_list_float(1.2)
-    assert isinstance(en, list)
-    assert en == [1.2]
-
-    # --- continuous numpy
-    assert space.np_shape == (1,)
-    np.testing.assert_array_equal(space.low, [-1.8])
-    np.testing.assert_array_equal(space.high, [3.1])
-    de = space.decode_from_np(np.array([1.2]))
-    assert isinstance(de, float)
-    assert de == 1.2
-    en = space.encode_to_np(1.2, np.float32)
-    np.testing.assert_array_equal(en, np.array([1.2], dtype=np.float32))
 
     # --- sample
     for _ in range(100):
@@ -115,22 +78,6 @@ def test_discrete_division():
     ]
     np.testing.assert_array_equal(true_tbl, space.division_tbl)
 
-    # --- discrete
-    assert space.int_size == 5
-    en = space.encode_to_int(1.2)
-    assert en == 2
-    de = space.decode_from_int(2)
-    assert de == 1.0
-
-    # --- list int
-    assert space.list_int_size == 1
-    assert space.list_int_low == [0]
-    assert space.list_int_high == [5]
-    en = space.encode_to_list_int(1.2)
-    assert en == [2]
-    de = space.decode_from_list_int([1])
-    assert de == 0.0
-
 
 def test_inf():
     space = ContinuousSpace()
@@ -142,15 +89,12 @@ def test_inf():
         action = space.sample()
         assert isinstance(action, float)
 
-    # --- discrete
-    space.create_division_tbl(5)
-    en = space.encode_to_int(1.2)
-    assert en == 1
 
-    # --- continuous list
-    assert space.list_float_size == 1
-    np.testing.assert_array_equal(space.list_float_low, [-np.inf])
-    np.testing.assert_array_equal(space.list_float_high, [np.inf])
+def test_rescale_from():
+    space = ContinuousSpace(0, 1)
+    x = 10.0
+    y = space.rescale_from(x, 10, 12)
+    assert y == 0.0
 
 
 def test_sanitize():
@@ -192,9 +136,10 @@ def test_sanitize2():
         [RLBaseTypes.DISCRETE, spaces.DiscreteSpace(5, 0), 1, 0],
         [RLBaseTypes.ARRAY_DISCRETE, spaces.ArrayDiscreteSpace(1, -1, 3), [2], 2.0],
         [RLBaseTypes.CONTINUOUS, spaces.ContinuousSpace(-1, 3), 1.1, 1.1],
-        [RLBaseTypes.ARRAY_CONTINUOUS, spaces.ArrayContinuousSpace(1, -1, 3), [1.1], 1.1],
+        [RLBaseTypes.ARRAY_CONTINUOUS_LIST, spaces.ArrayContinuousListSpace(1, -1, 3), [1.1], 1.1],
+        [RLBaseTypes.ARRAY_CONTINUOUS, ArrayContinuousSpace(1, -1, 3), np.array([1.25], np.float32), 1.25],
         [RLBaseTypes.BOX, spaces.BoxSpace((1,), -1, 3), np.full((1,), 0.25, np.float32), 0.25],
-        # [RLBaseTypes.TEXT, TextSpace(), "2", 3],  # TODO
+        [RLBaseTypes.TEXT, TextSpace(min_length=1, charset="0123456789-."), "-0.5", -0.5],
     ],
 )
 def test_space(create_space, true_space, val, decode_val):

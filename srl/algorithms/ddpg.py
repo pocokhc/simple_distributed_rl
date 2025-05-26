@@ -302,7 +302,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 # Worker
 # ------------------------------------------------------
 class Worker(RLWorker):
-    def policy(self, worker) -> List[float]:
+    def policy(self, worker):
         self.action = self.parameter.actor_online(worker.state[np.newaxis, ...]).numpy()[0]
 
         if self.training:
@@ -313,7 +313,6 @@ class Worker(RLWorker):
         # (-1, 1) -> (action range)
         env_action = (self.action + 1) / 2
         env_action = self.config.action_space.low + env_action * (self.config.action_space.high - self.config.action_space.low)
-        env_action = env_action.tolist()
         return env_action
 
     def on_step(self, worker):

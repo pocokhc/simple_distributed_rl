@@ -4,6 +4,7 @@ import pytest
 from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.exception import NotSupportedError
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
+from srl.base.spaces.array_continuous_list import ArrayContinuousListSpace
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.continuous import ContinuousSpace
@@ -18,7 +19,7 @@ def test_space_basic():
             DiscreteSpace(5),
             ArrayDiscreteSpace(2, 0, 5),
             ContinuousSpace(0, 2),
-            ArrayContinuousSpace(2, 0, 2),
+            ArrayContinuousListSpace(2, 0, 2),
             BoxSpace((2, 1), 0, 2),
         ]
     )
@@ -55,8 +56,8 @@ def test_space_basic():
         [
             ArrayDiscreteSpace(3, 0, 4),
             ArrayDiscreteSpace(2 * 3, 0, 5),
-            ArrayContinuousSpace(3, 0, 2),
-            ArrayContinuousSpace(2 * 3, 0, 2),
+            ArrayContinuousListSpace(3, 0, 2),
+            ArrayContinuousListSpace(2 * 3, 0, 2),
             BoxSpace((3, 2, 1), 0, 2),
         ]
     )
@@ -71,7 +72,7 @@ def test_sanitize():
             DiscreteSpace(2),
             ArrayDiscreteSpace(2, 0, 1),
             ContinuousSpace(0, 1),
-            ArrayContinuousSpace(2, 0, 1),
+            ArrayContinuousListSpace(2, 0, 1),
             BoxSpace((2, 1), 0, 1),
         ]
     )
@@ -99,7 +100,7 @@ def test_sample():
             DiscreteSpace(5),
             ArrayDiscreteSpace(2, 0, 5),
             ContinuousSpace(0, 2),
-            ArrayContinuousSpace(2, 0, 2),
+            ArrayContinuousListSpace(2, 0, 2),
             BoxSpace((2, 1), 0, 2),
         ]
     )
@@ -119,7 +120,7 @@ def test_valid_actions():
             DiscreteSpace(5),
             ArrayDiscreteSpace(2, 0, 5),
             ContinuousSpace(0, 2),
-            ArrayContinuousSpace(2, 0, 2),
+            ArrayContinuousListSpace(2, 0, 2),
             BoxSpace((2, 1), 0, 2),
         ]
     )
@@ -166,9 +167,10 @@ def test_valid_actions():
         [RLBaseTypes.DISCRETE, DiscreteSpace(108, 0), 0, [0, [0], 0.0, [0.0], np.array([0], dtype=np.float32)]],
         [RLBaseTypes.ARRAY_DISCRETE, ArrayDiscreteSpace(5, 0, [1, 1, 3, 3, 3]), [1, 1, 1, 1, 1], [1, [1], 0.5, [0.5], np.array([0.5], dtype=np.float32)]],
         [RLBaseTypes.CONTINUOUS, None, 1.1, 1.1],
-        [RLBaseTypes.ARRAY_CONTINUOUS, ArrayContinuousSpace(5, 0, 1), [1, 1, 1, 1, 1], [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32)]],
+        [RLBaseTypes.ARRAY_CONTINUOUS_LIST, ArrayContinuousListSpace(5, 0, 1), [1, 1, 1.0, 1.0, 1.0], [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32)]],
+        [RLBaseTypes.ARRAY_CONTINUOUS, ArrayContinuousSpace(5, 0, 1), np.array([1, 1, 1.0, 1.0, 1.0], np.float32), [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32)]],
         [RLBaseTypes.BOX, BoxSpace((5, 1), 0, 1), np.full((5, 1), 0, np.float32), [0, [0], 0, [0], np.array([0], dtype=np.float32)]],
-        # [RLBaseTypes.TEXT, TextSpace(1, 1), "2", 3],  # TODO
+        [RLBaseTypes.TEXT, TextSpace(-1, 1, "0123456789-,._"), "1_1_1.0_1.0_1.0", [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32)]],
     ],
 )
 def test_space(create_space, true_space, val, decode_val):
@@ -177,7 +179,7 @@ def test_space(create_space, true_space, val, decode_val):
             DiscreteSpace(2),
             ArrayDiscreteSpace(1, 0, 1),
             ContinuousSpace(0, 1),
-            ArrayContinuousSpace(1, 0, 1),
+            ArrayContinuousListSpace(1, 0, 1),
             BoxSpace((1,), 0, 1),
         ]
     )

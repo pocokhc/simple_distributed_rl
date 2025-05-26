@@ -1,11 +1,10 @@
 import logging
 import random
-from typing import Any, List, Tuple
+from typing import Any, List
 
 import numpy as np
 
 from srl.base.define import RLBaseTypes, SpaceTypes
-from srl.base.exception import NotSupportedError
 from srl.base.spaces.space import SpaceBase
 
 logger = logging.getLogger(__name__)
@@ -32,6 +31,14 @@ class ContinuousSpace(SpaceBase[float]):
     @property
     def high(self):
         return self._high
+
+    def rescale_from(self, x: float, src_low: float, src_high: float) -> float:
+        assert src_low < src_high
+        assert not self._is_inf
+        x = ((x - src_low) / (src_high - src_low)) * (self._high - self._low) + self._low
+        return x
+
+    # ----------------------------------------
 
     @property
     def name(self) -> str:
@@ -107,14 +114,14 @@ class ContinuousSpace(SpaceBase[float]):
         if self.division_tbl is None:
             s = ")"
         else:
-            s = f", division({self.int_size})"
+            s = f", division({len(self.division_tbl)})"
         return f"Continuous({self.low} - {self.high}{s}"
 
     # --- stack
     def create_stack_space(self, length: int):
-        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+        from srl.base.spaces.array_continuous_list import ArrayContinuousListSpace
 
-        return ArrayContinuousSpace(length, self._low, self._high)
+        return ArrayContinuousListSpace(length, self._low, self._high)
 
     def encode_stack(self, val: List[float]) -> List[float]:
         return val
@@ -142,108 +149,12 @@ class ContinuousSpace(SpaceBase[float]):
         logger.info(f"created division: {division_num}(n={n})")
 
     # --------------------------------------
-    # action discrete
-    # --------------------------------------
-    @property
-    def int_size(self) -> int:
-        assert self.division_tbl is not None, "Call 'create_division_tbl(division_num)' first"
-        return len(self.division_tbl)
-
-    def encode_to_int(self, val: float) -> int:
-        if self.division_tbl is None:
-            return int(round(val))
-        else:
-            # 一番近いもの
-            d = np.abs(self.division_tbl - val)
-            return int(np.argmin(d))
-
-    def decode_from_int(self, val: int) -> float:
-        if self.division_tbl is None:
-            return float(val)
-        else:
-            return self.division_tbl[val]
-
-    # --------------------------------------
-    # observation discrete
-    # --------------------------------------
-    @property
-    def list_int_size(self) -> int:
-        return 1
-
-    @property
-    def list_int_low(self) -> List[int]:
-        if self.division_tbl is None:
-            return [int(round(self._low))]
-        else:
-            return [0]
-
-    @property
-    def list_int_high(self) -> List[int]:
-        if self.division_tbl is None:
-            return [int(round(self._high))]
-        else:
-            return [len(self.division_tbl)]
-
-    def encode_to_list_int(self, val: float) -> List[int]:
-        if self.division_tbl is None:
-            return [int(round(val))]
-        else:
-            return [self.encode_to_int(val)]
-
-    def decode_from_list_int(self, val: List[int]) -> float:
-        if self.division_tbl is None:
-            return float(val[0])
-        else:
-            return self.division_tbl[val[0]]
-
-    # --------------------------------------
-    # action continuous
-    # --------------------------------------
-    @property
-    def list_float_size(self) -> int:
-        return 1
-
-    @property
-    def list_float_low(self) -> List[float]:
-        return [self._low]
-
-    @property
-    def list_float_high(self) -> List[float]:
-        return [self._high]
-
-    def encode_to_list_float(self, val: float) -> List[float]:
-        return [val]
-
-    def decode_from_list_float(self, val: List[float]) -> float:
-        return val[0]
-
-    # --------------------------------------
-    # observation continuous, image
-    # --------------------------------------
-    @property
-    def np_shape(self) -> Tuple[int, ...]:
-        return (1,)
-
-    @property
-    def np_low(self) -> np.ndarray:
-        return np.array([self._low])
-
-    @property
-    def np_high(self) -> np.ndarray:
-        return np.array([self._high])
-
-    def encode_to_np(self, val: float, dtype) -> np.ndarray:
-        return np.array([val], dtype=dtype)
-
-    def decode_from_np(self, val: np.ndarray) -> float:
-        return float(val[0])
-
-    # --------------------------------------
     # spaces
     # --------------------------------------
     def get_encode_type_list(self):
         priority_list = [
             RLBaseTypes.CONTINUOUS,
+            RLBaseTypes.ARRAY_CONTINUOUS_LIST,
             RLBaseTypes.ARRAY_CONTINUOUS,
             RLBaseTypes.BOX,
             RLBaseTypes.ARRAY_DISCRETE,
@@ -255,7 +166,8 @@ class ContinuousSpace(SpaceBase[float]):
     def create_encode_space_DiscreteSpace(self):
         from srl.base.spaces.discrete import DiscreteSpace
 
-        return DiscreteSpace(self.int_size)  # startは0
+        assert self.division_tbl is not None, "Call 'create_division_tbl(division_num)' first"
+        return DiscreteSpace(len(self.division_tbl))  # startは0
 
     def encode_to_space_DiscreteSpace(self, val: float) -> int:
         if self.division_tbl is None:
@@ -275,13 +187,24 @@ class ContinuousSpace(SpaceBase[float]):
     def create_encode_space_ArrayDiscreteSpace(self):
         from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 
-        return ArrayDiscreteSpace(self.list_int_size, self.list_int_low, self.list_int_high)
+        if self.division_tbl is None:
+            return ArrayDiscreteSpace(
+                1,
+                [int(round(self._low))],
+                [int(round(self._high))],
+            )
+        else:
+            return ArrayDiscreteSpace(
+                1,
+                [0],
+                [len(self.division_tbl)],
+            )
 
     def encode_to_space_ArrayDiscreteSpace(self, val: float) -> List[int]:
         if self.division_tbl is None:
             return [int(round(val))]
         else:
-            return [self.encode_to_int(val)]
+            return [self.encode_to_space_DiscreteSpace(val)]
 
     def decode_from_space_ArrayDiscreteSpace(self, val: List[int]) -> float:
         if self.division_tbl is None:
@@ -300,34 +223,71 @@ class ContinuousSpace(SpaceBase[float]):
         return float(val)
 
     # --- ArrayContinuousSpace
-    def create_encode_space_ArrayContinuousSpace(self):
-        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+    def create_encode_space_ArrayContinuousListSpace(self):
+        from srl.base.spaces.array_continuous_list import ArrayContinuousListSpace
 
-        return ArrayContinuousSpace(self.list_float_size, self.list_float_low, self.list_float_high)
+        return ArrayContinuousListSpace(1, [self._low], [self._high])
 
-    def encode_to_space_ArrayContinuousSpace(self, val: float) -> List[float]:
+    def encode_to_space_ArrayContinuousListSpace(self, val: float) -> List[float]:
         return [val]
 
-    def decode_from_space_ArrayContinuousSpace(self, val: List[float]) -> float:
+    def decode_from_space_ArrayContinuousListSpace(self, val: List[float]) -> float:
+        return val[0]
+
+    # --- ArrayContinuousNpSpace
+    def create_encode_space_ArrayContinuousSpace(self, np_dtype):
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+
+        return ArrayContinuousSpace(1, self._low, self._high, np_dtype)
+
+    def encode_to_space_ArrayContinuousSpace(self, val: float, space) -> np.ndarray:
+        return np.array([val], dtype=space.dtype)
+
+    def decode_from_space_ArrayContinuousSpace(self, val: np.ndarray) -> float:
         return float(val[0])
 
     # --- Box
     def create_encode_space_Box(self, space_type: RLBaseTypes, np_dtype):
         from srl.base.spaces.box import BoxSpace
 
-        # TODO: Box Image
-
-        return BoxSpace(self.np_shape, self.np_low, self.np_high, np_dtype, stype=SpaceTypes.CONTINUOUS)
+        if space_type == RLBaseTypes.GRAY_2ch:
+            return BoxSpace((1, 1), self._low, self._high, np_dtype, SpaceTypes.GRAY_2ch)
+        elif space_type == RLBaseTypes.GRAY_3ch:
+            return BoxSpace((1, 1, 1), self._low, self._high, np_dtype, SpaceTypes.GRAY_3ch)
+        elif space_type == RLBaseTypes.COLOR:
+            return BoxSpace((1, 1, 3), self._low, self._high, np_dtype, SpaceTypes.COLOR)
+        elif space_type == RLBaseTypes.IMAGE:
+            return BoxSpace((1, 1, 1), self._low, self._high, np_dtype, SpaceTypes.IMAGE)
+        return BoxSpace((1,), self._low, self._high, np_dtype, stype=SpaceTypes.CONTINUOUS)
 
     def encode_to_space_Box(self, val: float, space) -> np.ndarray:
+        if space.stype == SpaceTypes.GRAY_2ch:
+            return np.array([[val]], dtype=space.dtype)
+        elif space.stype == SpaceTypes.GRAY_3ch:
+            return np.array([[[val]]], dtype=space.dtype)
+        elif space.stype == SpaceTypes.COLOR:
+            return np.array([[[val] * 3]], dtype=space.dtype)
+        elif space.stype == SpaceTypes.IMAGE:
+            return np.array([[[val]]], dtype=space.dtype)
         return np.array([val], space.dtype)
 
     def decode_from_space_Box(self, val: np.ndarray, space) -> float:
+        if space.stype == SpaceTypes.GRAY_2ch:
+            val = val.reshape(-1)
+        elif space.stype == SpaceTypes.GRAY_3ch:
+            val = val.reshape(-1)
+        elif space.stype == SpaceTypes.COLOR:
+            val = val[0, 0, 0]
+        elif space.stype == SpaceTypes.IMAGE:
+            val = val.reshape(-1)
         return float(val[0])
 
     # --- TextSpace
     def create_encode_space_TextSpace(self):
-        raise NotSupportedError()
+        from srl.base.spaces.text import TextSpace
+
+        # 特殊: e, inf, nan, +
+        return TextSpace(min_length=1, charset="0123456789-.")
 
     def encode_to_space_TextSpace(self, val: float) -> str:
         return str(val)

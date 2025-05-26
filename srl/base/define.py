@@ -123,6 +123,7 @@ class RLBaseTypes(enum.Flag):
     DISCRETE = enum.auto()
     ARRAY_DISCRETE = enum.auto()
     CONTINUOUS = enum.auto()
+    ARRAY_CONTINUOUS_LIST = enum.auto()
     ARRAY_CONTINUOUS = enum.auto()
     BOX = enum.auto()
     GRAY_2ch = enum.auto()  # (height, width)
@@ -140,7 +141,7 @@ class RLBaseTypes(enum.Flag):
             if mode_upper in RLBaseTypes.__members__:
                 return RLBaseTypes[mode_upper]
             else:
-                raise ValueError(f"Unknown mode: {mode}")
+                raise ValueError(f"Unknown mode: {mode}, members: {list(RLBaseTypes.__members__.keys())}")
         else:
             raise TypeError(f"mode must be a str or RLBaseTypes, not {type(mode).__name__}")
 

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Generic, List, Tuple, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, List, Tuple, TypeVar, cast
 
 import numpy as np
 
@@ -8,6 +8,7 @@ from srl.base.exception import NotSupportedError
 
 if TYPE_CHECKING:
     from srl.base.spaces.array_continuous import ArrayContinuousSpace
+    from srl.base.spaces.array_continuous_list import ArrayContinuousListSpace
     from srl.base.spaces.array_discrete import ArrayDiscreteSpace
     from srl.base.spaces.box import BoxSpace
     from srl.base.spaces.continuous import ContinuousSpace
@@ -26,6 +27,16 @@ class SpaceBase(ABC, Generic[_T]):
     @property
     @abstractmethod
     def name(self) -> str:
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def stype(self) -> SpaceTypes:
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def dtype(self):
         raise NotImplementedError()
 
     @abstractmethod
@@ -81,16 +92,6 @@ class SpaceBase(ABC, Generic[_T]):
     def get_valid_actions(self, masks: List[_T] = []) -> List[_T]:
         """Returns a valid actions"""
         raise NotSupportedError()
-
-    @property
-    @abstractmethod
-    def stype(self) -> SpaceTypes:
-        raise NotImplementedError()
-
-    @property
-    @abstractmethod
-    def dtype(self):
-        raise NotImplementedError()
 
     # --- stack
     @abstractmethod
@@ -152,8 +153,10 @@ class SpaceBase(ABC, Generic[_T]):
             return self.create_encode_space_ArrayDiscreteSpace()
         elif space_type == RLBaseTypes.CONTINUOUS:
             return self.create_encode_space_ContinuousSpace()
+        elif space_type == RLBaseTypes.ARRAY_CONTINUOUS_LIST:
+            return self.create_encode_space_ArrayContinuousListSpace()
         elif space_type == RLBaseTypes.ARRAY_CONTINUOUS:
-            return self.create_encode_space_ArrayContinuousSpace()
+            return self.create_encode_space_ArrayContinuousSpace(np_dtype)
         elif space_type in [
             RLBaseTypes.BOX,
             RLBaseTypes.GRAY_2ch,
@@ -169,46 +172,40 @@ class SpaceBase(ABC, Generic[_T]):
         raise NotImplementedError(space_type)
 
     def encode_to_space(self, val: _T, space: "SpaceBase") -> Any:
-        from srl.base.spaces.array_continuous import ArrayContinuousSpace
-        from srl.base.spaces.array_discrete import ArrayDiscreteSpace
-        from srl.base.spaces.box import BoxSpace
-        from srl.base.spaces.continuous import ContinuousSpace
-        from srl.base.spaces.discrete import DiscreteSpace
-        from srl.base.spaces.text import TextSpace
-
-        if isinstance(space, DiscreteSpace):
+        if space.name == "Discrete":
             return self.encode_to_space_DiscreteSpace(val)
-        elif isinstance(space, ArrayDiscreteSpace):
+        elif space.name == "ArrayDiscrete":
             return self.encode_to_space_ArrayDiscreteSpace(val)
-        elif isinstance(space, ContinuousSpace):
+        elif space.name == "Continuous":
             return self.encode_to_space_ContinuousSpace(val)
-        elif isinstance(space, ArrayContinuousSpace):
-            return self.encode_to_space_ArrayContinuousSpace(val)
-        elif isinstance(space, BoxSpace):
-            return self.encode_to_space_Box(val, space)
-        elif isinstance(space, TextSpace):
+        elif space.name == "ArrayContinuousList":
+            return self.encode_to_space_ArrayContinuousListSpace(val)
+        elif space.name == "ArrayContinuous":
+            return self.encode_to_space_ArrayContinuousSpace(val, space)
+        elif space.name == "Box":
+            from srl.base.spaces.box import BoxSpace
+
+            return self.encode_to_space_Box(val, cast(BoxSpace, space))
+        elif space.name == "Text":
             return self.encode_to_space_TextSpace(val)
         return val
 
     def decode_from_space(self, val: Any, space: "SpaceBase") -> _T:
-        from srl.base.spaces.array_continuous import ArrayContinuousSpace
-        from srl.base.spaces.array_discrete import ArrayDiscreteSpace
-        from srl.base.spaces.box import BoxSpace
-        from srl.base.spaces.continuous import ContinuousSpace
-        from srl.base.spaces.discrete import DiscreteSpace
-        from srl.base.spaces.text import TextSpace
-
-        if isinstance(space, DiscreteSpace):
+        if space.name == "Discrete":
             return self.decode_from_space_DiscreteSpace(val)
-        elif isinstance(space, ArrayDiscreteSpace):
+        elif space.name == "ArrayDiscrete":
             return self.decode_from_space_ArrayDiscreteSpace(val)
-        elif isinstance(space, ContinuousSpace):
+        elif space.name == "Continuous":
             return self.decode_from_space_ContinuousSpace(val)
-        elif isinstance(space, ArrayContinuousSpace):
+        elif space.name == "ArrayContinuousList":
+            return self.decode_from_space_ArrayContinuousListSpace(val)
+        elif space.name == "ArrayContinuous":
             return self.decode_from_space_ArrayContinuousSpace(val)
-        elif isinstance(space, BoxSpace):
-            return self.decode_from_space_Box(val, space)
-        elif isinstance(space, TextSpace):
+        elif space.name == "Box":
+            from srl.base.spaces.box import BoxSpace
+
+            return self.decode_from_space_Box(val, cast(BoxSpace, space))
+        elif space.name == "Text":
             return self.decode_from_space_TextSpace(val)
         return val
 
@@ -245,11 +242,21 @@ class SpaceBase(ABC, Generic[_T]):
     def decode_from_space_ContinuousSpace(self, val: float) -> _T:
         raise NotImplementedError()
 
-    # --- ArrayContinuousSpace
-    def create_encode_space_ArrayContinuousSpace(self) -> "ArrayContinuousSpace":
+    # --- ArrayContinuousListSpace
+    def create_encode_space_ArrayContinuousListSpace(self) -> "ArrayContinuousListSpace":
         raise NotImplementedError()
 
-    def encode_to_space_ArrayContinuousSpace(self, val: _T) -> List[float]:
+    def encode_to_space_ArrayContinuousListSpace(self, val: _T) -> List[float]:
+        raise NotImplementedError()
+
+    def decode_from_space_ArrayContinuousListSpace(self, val: List[float]) -> _T:
+        raise NotImplementedError()
+
+    # --- ArrayContinuousSpace
+    def create_encode_space_ArrayContinuousSpace(self, np_dtype) -> "ArrayContinuousSpace":
+        raise NotImplementedError()
+
+    def encode_to_space_ArrayContinuousSpace(self, val: _T, space) -> List[float]:
         raise NotImplementedError()
 
     def decode_from_space_ArrayContinuousSpace(self, val: List[float]) -> _T:

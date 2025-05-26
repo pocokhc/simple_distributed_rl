@@ -1,3 +1,4 @@
+from pprint import pprint
 from typing import Literal, cast
 
 import numpy as np
@@ -9,20 +10,14 @@ from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.env.registration import register as register_env
 from srl.base.rl.registration import register as register_rl
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
+from srl.base.spaces.array_continuous_list import ArrayContinuousListSpace
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.continuous import ContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
-from srl.base.spaces.multi import MultiSpace
 from srl.base.spaces.space import SpaceBase
+from srl.base.spaces.text import TextSpace
 from tests.quick.base.rl import worker_run_stub
-
-_D = DiscreteSpace
-_AD = ArrayDiscreteSpace
-_C = ContinuousSpace
-_AC = ArrayContinuousSpace
-_B = BoxSpace
-_M = MultiSpace
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -103,6 +98,8 @@ def _test_obs_episode(
     env.reset()
     worker.reset(0)
     env_action = worker.policy()
+    print(worker.state)
+    print(true_rl_states[0])
     if window_length == 1:
         assert _equal_data(worker.state, true_rl_states[0])
     else:
@@ -198,169 +195,217 @@ def _test_obs_episode(
 _params = [
     # --- ARRAY_DISCRETE
     dict(
-        env_obs_space=_D(5),
+        env_obs_space=DiscreteSpace(5),
         rl_obs_type=RLBaseTypes.ARRAY_DISCRETE,
         rl_obs_mode="",
         rl_obs_div_num=-1,
         render_image_window_length=2,  # 1とそれ以外はテスト全体でどちらかをcheck
-        true_obs_env_space=_D(5),
+        true_obs_env_space=DiscreteSpace(5),
         true_obs_space_one=ArrayDiscreteSpace(1, 0, 4),
         true_obs_space=ArrayDiscreteSpace(2, 0, 4),
         env_states=[1, 2, 3],
         true_rl_states=[[1], [2], [3]],
     ),
     dict(
-        env_obs_space=_AD(2, 0, 5),
+        env_obs_space=ArrayDiscreteSpace(2, 0, 5),
         rl_obs_type=RLBaseTypes.ARRAY_DISCRETE,
         rl_obs_mode="",
         rl_obs_div_num=-1,
         render_image_window_length=1,  # 1とそれ以外はテスト全体でどちらかをcheck
-        true_obs_env_space=_AD(2, 0, 5),
+        true_obs_env_space=ArrayDiscreteSpace(2, 0, 5),
         true_obs_space_one=ArrayDiscreteSpace(2, 0, 5),
         true_obs_space=ArrayDiscreteSpace(4, 0, 5),
         env_states=[[0, 1], [0, 2], [0, 3]],
         true_rl_states=[[0, 1], [0, 2], [0, 3]],
     ),
     dict(
-        env_obs_space=_C(0, 5),
+        env_obs_space=ContinuousSpace(0, 5),
         rl_obs_type=RLBaseTypes.ARRAY_DISCRETE,
         rl_obs_mode="",
         rl_obs_div_num=-1,
         render_image_window_length=2,
-        true_obs_env_space=_C(0, 5),
+        true_obs_env_space=ContinuousSpace(0, 5),
         true_obs_space_one=ArrayDiscreteSpace(1, 0, 5),
         true_obs_space=ArrayDiscreteSpace(2, 0, 5),
         env_states=[1.2, 2.2, 3.2],
         true_rl_states=[[1], [2], [3]],
     ),
     dict(
-        env_obs_space=_C(0, 5),
+        env_obs_space=ContinuousSpace(0, 5),
         rl_obs_type=RLBaseTypes.ARRAY_DISCRETE,
         rl_obs_mode="",
         rl_obs_div_num=6,
         render_image_window_length=2,
-        true_obs_env_space=_C(0, 5),
+        true_obs_env_space=ContinuousSpace(0, 5),
         true_obs_space_one=ArrayDiscreteSpace(1, 0, 6),
         true_obs_space=ArrayDiscreteSpace(2, 0, 6),
         env_states=[1.2, 2.2, 3.2],
         true_rl_states=[[1], [2], [3]],
     ),
     dict(
-        env_obs_space=_AC(2, 0, 5),
+        env_obs_space=ArrayContinuousListSpace(2, 0, 5),
         rl_obs_type=RLBaseTypes.ARRAY_DISCRETE,
         rl_obs_mode="",
         rl_obs_div_num=-1,
         render_image_window_length=2,
-        true_obs_env_space=_AC(2, 0, 5),
+        true_obs_env_space=ArrayContinuousListSpace(2, 0, 5),
         true_obs_space_one=ArrayDiscreteSpace(2, 0, 5),
         true_obs_space=ArrayDiscreteSpace(4, 0, 5),
         env_states=[[1.1, 2.1], [1.1, 3.1], [1.1, 4.1]],
         true_rl_states=[[1, 2], [1, 3], [1, 4]],
     ),
     dict(
-        env_obs_space=_AC(2, 0, 5),
+        env_obs_space=ArrayContinuousListSpace(2, 0, 5),
         rl_obs_type=RLBaseTypes.ARRAY_DISCRETE,
         rl_obs_mode="",
         rl_obs_div_num=6,
         render_image_window_length=2,
-        true_obs_env_space=_AC(2, 0, 5),
+        true_obs_env_space=ArrayContinuousListSpace(2, 0, 5),
         true_obs_space_one=ArrayDiscreteSpace(1, 0, 4),
         true_obs_space=ArrayDiscreteSpace(2, 0, 4),
         env_states=[[1.1, 2.1], [1.1, 3.1], [1.1, 4.1]],
         true_rl_states=[[0], [1], [1]],
     ),
     dict(
-        env_obs_space=_B((2, 1), -1, 5),
+        env_obs_space=ArrayContinuousSpace(2, 0, 5),
         rl_obs_type=RLBaseTypes.ARRAY_DISCRETE,
         rl_obs_mode="",
         rl_obs_div_num=-1,
         render_image_window_length=2,
-        true_obs_env_space=_B((2, 1), -1, 5),
+        true_obs_env_space=ArrayContinuousSpace(2, 0, 5),
+        true_obs_space_one=ArrayDiscreteSpace(2, 0, 5),
+        true_obs_space=ArrayDiscreteSpace(4, 0, 5),
+        env_states=[[1.1, 2.1], [1.1, 3.1], [1.1, 4.1]],
+        true_rl_states=[[1, 2], [1, 3], [1, 4]],
+    ),
+    dict(
+        env_obs_space=ArrayContinuousSpace(2, 0, 5),
+        rl_obs_type=RLBaseTypes.ARRAY_DISCRETE,
+        rl_obs_mode="",
+        rl_obs_div_num=6,
+        render_image_window_length=2,
+        true_obs_env_space=ArrayContinuousSpace(2, 0, 5),
+        true_obs_space_one=ArrayDiscreteSpace(1, 0, 4),
+        true_obs_space=ArrayDiscreteSpace(2, 0, 4),
+        env_states=[[1.1, 2.1], [1.1, 3.1], [1.1, 4.1]],
+        true_rl_states=[[0], [1], [1]],
+    ),
+    dict(
+        env_obs_space=BoxSpace((2, 1), -1, 5),
+        rl_obs_type=RLBaseTypes.ARRAY_DISCRETE,
+        rl_obs_mode="",
+        rl_obs_div_num=-1,
+        render_image_window_length=2,
+        true_obs_env_space=BoxSpace((2, 1), -1, 5),
         true_obs_space_one=ArrayDiscreteSpace(2, -1, 5),
         true_obs_space=ArrayDiscreteSpace(4, -1, 5),
         env_states=[np.array([[1.1], [2.1]]), np.array([[1.1], [3.1]]), np.array([[1.1], [4.1]])],
         true_rl_states=[[1, 2], [1, 3], [1, 4]],
     ),
     dict(
-        env_obs_space=_B((2, 1), 0, 5),
+        env_obs_space=BoxSpace((2, 1), 0, 5),
         rl_obs_type=RLBaseTypes.ARRAY_DISCRETE,
         rl_obs_mode="",
         rl_obs_div_num=6,
         render_image_window_length=2,
-        true_obs_env_space=_B((2, 1), 0, 5),
+        true_obs_env_space=BoxSpace((2, 1), 0, 5),
         true_obs_space_one=ArrayDiscreteSpace(1, 0, 4),
         true_obs_space=ArrayDiscreteSpace(2, 0, 4),
         env_states=[np.array([[1.1], [2.1]]), np.array([[1.1], [3.1]]), np.array([[1.1], [4.1]])],
         true_rl_states=[[0], [1], [1]],
     ),
+    dict(
+        env_obs_space=TextSpace(max_length=2),
+        rl_obs_type=RLBaseTypes.ARRAY_DISCRETE,
+        rl_obs_mode="",
+        rl_obs_div_num=-1,
+        render_image_window_length=2,
+        true_obs_env_space=TextSpace(max_length=2),
+        true_obs_space_one=ArrayDiscreteSpace(2, 0, 127),
+        true_obs_space=ArrayDiscreteSpace(4, 0, 127),
+        env_states=["12", "34", "56"],
+        true_rl_states=[[49, 50], [51, 52], [53, 54]],
+    ),
     # --- BOX
     dict(
-        env_obs_space=_D(5),
+        env_obs_space=DiscreteSpace(5),
         rl_obs_type=RLBaseTypes.BOX,
         rl_obs_mode="",
         rl_obs_div_num=-1,
         render_image_window_length=2,
-        true_obs_env_space=_D(5),
+        true_obs_env_space=DiscreteSpace(5),
         true_obs_space_one=BoxSpace((1,), 0, 4, np.float32, SpaceTypes.CONTINUOUS),
         true_obs_space=BoxSpace((2, 1), 0, 4, np.float32, SpaceTypes.CONTINUOUS),
         env_states=[1, 2, 3],
         true_rl_states=[np.array([1], np.float32), np.array([2], np.float32), np.array([3], np.float32)],
     ),
     dict(
-        env_obs_space=_AD(3, 0, 5),
+        env_obs_space=ArrayDiscreteSpace(3, 0, 5),
         rl_obs_type=RLBaseTypes.BOX,
         rl_obs_mode="",
         rl_obs_div_num=-1,
         render_image_window_length=2,
-        true_obs_env_space=_AD(3, 0, 5),
+        true_obs_env_space=ArrayDiscreteSpace(3, 0, 5),
         true_obs_space_one=BoxSpace((3,), 0, 5, np.float32, SpaceTypes.CONTINUOUS),
         true_obs_space=BoxSpace((2, 3), 0, 5, np.float32, SpaceTypes.CONTINUOUS),
         env_states=[[0, 1, 1], [0, 2, 2], [0, 3, 3]],
         true_rl_states=[np.array([0, 1, 1], np.float32), np.array([0, 2, 2], np.float32), np.array([0, 3, 3], np.float32)],
     ),
     dict(
-        env_obs_space=_C(0, 5),
+        env_obs_space=ContinuousSpace(0, 5),
         rl_obs_type=RLBaseTypes.BOX,
         rl_obs_mode="",
         rl_obs_div_num=-1,
         render_image_window_length=2,
-        true_obs_env_space=_C(0, 5),
+        true_obs_env_space=ContinuousSpace(0, 5),
         true_obs_space_one=BoxSpace((1,), 0, 5),
         true_obs_space=BoxSpace((2, 1), 0, 5),
         env_states=[1.2, 2.2, 3.2],
         true_rl_states=[np.array([1.2], np.float32), np.array([2.2], np.float32), np.array([3.2], np.float32)],
     ),
     dict(
-        env_obs_space=_AC(3, 0, 5),
+        env_obs_space=ArrayContinuousListSpace(3, 0, 5),
         rl_obs_type=RLBaseTypes.BOX,
         rl_obs_mode="",
         rl_obs_div_num=-1,
         render_image_window_length=2,
-        true_obs_env_space=_AC(3, 0, 5),
+        true_obs_env_space=ArrayContinuousListSpace(3, 0, 5),
         true_obs_space_one=BoxSpace((3,), 0, 5),
         true_obs_space=BoxSpace((2, 3), 0, 5),
         env_states=[[1.1, 2.1, 2.1], [1.1, 3.1, 3.1], [1.1, 4.1, 4.1]],
         true_rl_states=[np.array([1.1, 2.1, 2.1], np.float32), np.array([1.1, 3.1, 3.1], np.float32), np.array([1.1, 4.1, 4.1], np.float32)],
     ),
     dict(
-        env_obs_space=_B((3, 1), -1, 5),
+        env_obs_space=ArrayContinuousSpace(3, 0, 5),
         rl_obs_type=RLBaseTypes.BOX,
         rl_obs_mode="",
         rl_obs_div_num=-1,
         render_image_window_length=2,
-        true_obs_env_space=_B((3, 1), -1, 5),
+        true_obs_env_space=ArrayContinuousSpace(3, 0, 5),
+        true_obs_space_one=BoxSpace((3,), 0, 5),
+        true_obs_space=BoxSpace((2, 3), 0, 5),
+        env_states=[np.array([1.1, 2.1, 2.1], np.float32), np.array([1.1, 3.1, 3.1], np.float32), np.array([1.1, 4.1, 4.1], np.float32)],
+        true_rl_states=[np.array([1.1, 2.1, 2.1], np.float32), np.array([1.1, 3.1, 3.1], np.float32), np.array([1.1, 4.1, 4.1], np.float32)],
+    ),
+    dict(
+        env_obs_space=BoxSpace((3, 1), -1, 5),
+        rl_obs_type=RLBaseTypes.BOX,
+        rl_obs_mode="",
+        rl_obs_div_num=-1,
+        render_image_window_length=2,
+        true_obs_env_space=BoxSpace((3, 1), -1, 5),
         true_obs_space_one=BoxSpace((3, 1), -1, 5),
         true_obs_space=BoxSpace((2, 3, 1), -1, 5),
         env_states=np.array([[[1.1], [2.1], [2.1]], [[1.1], [3.1], [3.1]], [[1.1], [4.1], [4.1]]]),
         true_rl_states=np.array([[[1.1], [2.1], [2.1]], [[1.1], [3.1], [3.1]], [[1.1], [4.1], [4.1]]], np.float32),
     ),
     dict(
-        env_obs_space=_B((3, 1), 0, 5, np.uint8),
+        env_obs_space=BoxSpace((3, 1), 0, 5, np.uint8),
         rl_obs_type=RLBaseTypes.BOX,
         rl_obs_mode="",
         rl_obs_div_num=-1,
         render_image_window_length=2,
-        true_obs_env_space=_B((3, 1), 0, 5, np.uint8),
+        true_obs_env_space=BoxSpace((3, 1), 0, 5, np.uint8),
         true_obs_space_one=BoxSpace((3, 1), 0, 5, np.float32, SpaceTypes.DISCRETE),
         true_obs_space=BoxSpace((2, 3, 1), 0, 5, np.float32, SpaceTypes.DISCRETE),
         env_states=np.array([[[1], [2], [2]], [[1], [3], [3]], [[1], [4], [4]]]),
@@ -415,6 +460,18 @@ _params = [
         env_states=[np.ones((16, 16, 5)), np.ones((16, 16, 5)), np.ones((16, 16, 5))],
         true_rl_states=[np.ones((16, 16, 5)), np.ones((16, 16, 5)), np.ones((16, 16, 5))],
     ),
+    dict(
+        env_obs_space=TextSpace(max_length=1),
+        rl_obs_type=RLBaseTypes.BOX,
+        rl_obs_mode="",
+        rl_obs_div_num=-1,
+        render_image_window_length=2,
+        true_obs_env_space=TextSpace(max_length=1),
+        true_obs_space_one=BoxSpace((1,), 0, 127, stype=SpaceTypes.CONTINUOUS),
+        true_obs_space=BoxSpace((2, 1), 0, 127, stype=SpaceTypes.CONTINUOUS),
+        env_states=["1", "2", "3"],
+        true_rl_states=[np.array([49]), np.array([50]), np.array([51])],
+    ),
     # --- render_image
     dict(
         env_obs_space=DiscreteSpace(1),
@@ -452,6 +509,7 @@ _params = [
 @pytest.mark.parametrize("window_length", [1, 2])
 def test_obs(kwargs, window_length):
     kwargs["window_length"] = window_length
+    pprint(kwargs)
     _test_obs_episode(**kwargs)
 
 

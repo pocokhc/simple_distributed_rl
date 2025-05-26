@@ -98,13 +98,23 @@ class AnySpace(SpaceBase[Any]):
         return val
 
     # --- ArrayContinuousSpace
-    def create_encode_space_ArrayContinuousSpace(self):
+    def create_encode_space_ArrayContinuousListSpace(self):
         return self
 
-    def encode_to_space_ArrayContinuousSpace(self, val: Any) -> List[float]:
+    def encode_to_space_ArrayContinuousListSpace(self, val: Any) -> List[float]:
         return val
 
-    def decode_from_space_ArrayContinuousSpace(self, val: List[float]) -> Any:
+    def decode_from_space_ArrayContinuousListSpace(self, val: List[float]) -> Any:
+        return val
+
+    # --- np
+    def create_encode_space_ArrayContinuousSpace(self, np_dtype):
+        return self
+
+    def encode_to_space_ArrayContinuousSpace(self, val: Any, space) -> np.ndarray:
+        return val
+
+    def decode_from_space_ArrayContinuousSpace(self, val: np.ndarray) -> Any:
         return val
 
     # --- Box

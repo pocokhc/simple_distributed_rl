@@ -385,7 +385,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             act_space = self.config.action_space
             self.action, env_action = p_dist.policy(act_space.low, act_space.high, self.training)
             self.action = self.action.numpy()[0]
-            env_action = env_action.numpy()[0].tolist()
+            env_action = env_action.numpy()[0]
         else:
             raise UndefinedError(self.config.action_space)
 

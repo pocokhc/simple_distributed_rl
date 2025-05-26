@@ -71,8 +71,11 @@ Interface Type
    * - ContinuousSpace
      - float
      - CONTINUOUS
-   * - ArrayContinuousSpace
+   * - ArrayContinuousListSpace
      - list[float]
+     - CONTINUOUS
+   * - ArrayContinuousSpace
+     - NDArray[list[float]]
      - CONTINUOUS
    * - BoxSpace
      - NDArray[AnyType]

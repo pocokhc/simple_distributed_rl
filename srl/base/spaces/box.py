@@ -1,6 +1,7 @@
 import logging
 import random
 import time
+import warnings
 from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
@@ -59,9 +60,49 @@ class BoxSpace(SpaceBase[np.ndarray]):
     def high(self):
         return self._high
 
-    @property
-    def name(self) -> str:
-        return "Box"
+    def rescale_from(self, x: np.ndarray, src_low: float, src_high: float) -> np.ndarray:
+        assert src_low < src_high
+        assert not self._is_inf
+        x = ((x - src_low) / (src_high - src_low)) * (self._high - self._low) + self._low
+        return x
+
+    def to_image(self, x: np.ndarray) -> np.ndarray:
+        """
+        入力された x を画像データとして uint8 に変換する。
+        """
+
+        # 無限範囲の場合はスケーリング不可
+        if self._is_inf:
+            raise ValueError("Cannot convert to image when low or high is infinite.")
+
+        if self._stype == SpaceTypes.GRAY_2ch:
+            assert x.ndim == 2, f"{self._stype.name} expects (H, W), got {x.shape}"
+            x = x[..., None]  # (H, W, 1)
+            x = np.repeat(x, 3, axis=2)  # (H, W, 3)
+        elif self._stype == SpaceTypes.GRAY_3ch:
+            assert x.ndim == 3 and x.shape[2] == 1, f"{self._stype.name} expects (H, W, 1), got {x.shape}"
+            x = np.repeat(x, 3, axis=2)  # (H, W, 3)
+        elif self._stype in {SpaceTypes.COLOR, SpaceTypes.IMAGE}:
+            assert x.ndim == 3, f"{self._stype.name} expects 3D shape (H, W, C), got {x.shape}"
+            if x.shape[2] == 1:
+                x = np.repeat(x, 3, axis=2)  # (H, W, 1) → (H, W, 3)
+            elif x.shape[2] != 3:
+                raise ValueError(f"{self._stype.name} expects channel=3, got {x.shape[2]}")
+        else:
+            raise ValueError(f"Unsupported stype for image conversion: {self._stype.name}")
+
+        # スケーリング
+        high = np.max(self.high)
+        low = np.min(self.low)
+        if low < high:
+            scale = 255.0 / (high - low)
+            offset = -low * scale
+            x = x * scale + offset
+        x_clipped = np.clip(x, 0, 255)
+
+        return x_clipped.astype(np.uint8)
+
+    # ----------------------------------------
 
     @property
     def stype(self) -> SpaceTypes:
@@ -70,6 +111,10 @@ class BoxSpace(SpaceBase[np.ndarray]):
     @property
     def dtype(self):
         return self._dtype
+
+    @property
+    def name(self) -> str:
+        return "Box"
 
     def sample(self, mask: List[np.ndarray] = []) -> np.ndarray:
         if self._stype == SpaceTypes.DISCRETE:
@@ -157,44 +202,8 @@ class BoxSpace(SpaceBase[np.ndarray]):
         if self.division_tbl is None:
             s = ""
         else:
-            s = f", division({self.int_size})"
+            s = f", division({len(self.division_tbl)})"
         return f"Box{self.shape}, range[{np.min(self.low)}, {np.max(self.high)}]{s}, {self._dtype}, {self._stype}"
-
-    def to_image(self, x: np.ndarray) -> np.ndarray:
-        """
-        入力された x を画像データとして uint8 に変換する。
-        """
-
-        # 無限範囲の場合はスケーリング不可
-        if self._is_inf:
-            raise ValueError("Cannot convert to image when low or high is infinite.")
-
-        if self._stype == SpaceTypes.GRAY_2ch:
-            assert x.ndim == 2, f"{self._stype.name} expects (H, W), got {x.shape}"
-            x = x[..., None]  # (H, W, 1)
-            x = np.repeat(x, 3, axis=2)  # (H, W, 3)
-        elif self._stype == SpaceTypes.GRAY_3ch:
-            assert x.ndim == 3 and x.shape[2] == 1, f"{self._stype.name} expects (H, W, 1), got {x.shape}"
-            x = np.repeat(x, 3, axis=2)  # (H, W, 3)
-        elif self._stype in {SpaceTypes.COLOR, SpaceTypes.IMAGE}:
-            assert x.ndim == 3, f"{self._stype.name} expects 3D shape (H, W, C), got {x.shape}"
-            if x.shape[2] == 1:
-                x = np.repeat(x, 3, axis=2)  # (H, W, 1) → (H, W, 3)
-            elif x.shape[2] != 3:
-                raise ValueError(f"{self._stype.name} expects channel=3, got {x.shape[2]}")
-        else:
-            raise ValueError(f"Unsupported stype for image conversion: {self._stype.name}")
-
-        # スケーリング
-        high = np.max(self.high)
-        low = np.min(self.low)
-        if low < high:
-            scale = 255.0 / (high - low)
-            offset = -low * scale
-            x = x * scale + offset
-        x_clipped = np.clip(x, 0, 255)
-
-        return x_clipped.astype(np.uint8)
 
     # --- stack
     def create_stack_space(self, length: int):
@@ -303,6 +312,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
     # --------------------------------------
     @property
     def int_size(self) -> int:
+        warnings.warn("This is deprecated and will be removed in future versions.", category=DeprecationWarning, stacklevel=2)
         if self._stype == SpaceTypes.DISCRETE:
             self._create_int_tbl()
             assert self.decode_int_tbl is not None
@@ -340,6 +350,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
     # --------------------------------------
     @property
     def list_int_size(self) -> int:
+        warnings.warn("This is deprecated and will be removed in future versions.", category=DeprecationWarning, stacklevel=2)
         if self._stype == SpaceTypes.DISCRETE:
             return len(self._low.flatten())
         else:
@@ -350,6 +361,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
 
     @property
     def list_int_low(self) -> List[int]:
+        warnings.warn("This is deprecated and will be removed in future versions.", category=DeprecationWarning, stacklevel=2)
         if self._stype == SpaceTypes.DISCRETE:
             return self._low.flatten().tolist()
         else:
@@ -360,6 +372,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
 
     @property
     def list_int_high(self) -> List[int]:
+        warnings.warn("This is deprecated and will be removed in future versions.", category=DeprecationWarning, stacklevel=2)
         if self._stype == SpaceTypes.DISCRETE:
             return self._high.flatten().tolist()
         else:
@@ -394,14 +407,17 @@ class BoxSpace(SpaceBase[np.ndarray]):
     # --------------------------------------
     @property
     def list_float_size(self) -> int:
+        warnings.warn("This is deprecated and will be removed in future versions.", category=DeprecationWarning, stacklevel=2)
         return len(self._low.flatten())
 
     @property
     def list_float_low(self) -> List[float]:
+        warnings.warn("This is deprecated and will be removed in future versions.", category=DeprecationWarning, stacklevel=2)
         return self.low.flatten().tolist()
 
     @property
     def list_float_high(self) -> List[float]:
+        warnings.warn("This is deprecated and will be removed in future versions.", category=DeprecationWarning, stacklevel=2)
         return self.high.flatten().tolist()
 
     def encode_to_list_float(self, val: np.ndarray) -> List[float]:
@@ -415,14 +431,17 @@ class BoxSpace(SpaceBase[np.ndarray]):
     # --------------------------------------
     @property
     def np_shape(self) -> Tuple[int, ...]:
+        warnings.warn("This is deprecated and will be removed in future versions.", category=DeprecationWarning, stacklevel=2)
         return self._shape
 
     @property
     def np_low(self) -> np.ndarray:
+        warnings.warn("This is deprecated and will be removed in future versions.", category=DeprecationWarning, stacklevel=2)
         return self._low
 
     @property
     def np_high(self) -> np.ndarray:
+        warnings.warn("This is deprecated and will be removed in future versions.", category=DeprecationWarning, stacklevel=2)
         return self._high
 
     def encode_to_np(self, val: np.ndarray, dtype) -> np.ndarray:
@@ -451,18 +470,23 @@ class BoxSpace(SpaceBase[np.ndarray]):
         priority_list += [
             RLBaseTypes.BOX,
             RLBaseTypes.ARRAY_CONTINUOUS,
+            RLBaseTypes.ARRAY_CONTINUOUS_LIST,
             RLBaseTypes.ARRAY_DISCRETE,
         ]
         exclude_list = [RLBaseTypes.CONTINUOUS]
         return priority_list, exclude_list
 
     # --- DiscreteSpace
-    def create_encode_space_DiscreteSpace(self):
-        from srl.base.spaces.discrete import DiscreteSpace
+    def _get_int_size(self) -> int:
+        if self._stype == SpaceTypes.DISCRETE:
+            self._create_int_tbl()
+            assert self.decode_int_tbl is not None
+            return len(self.decode_int_tbl)
+        else:
+            assert self.division_tbl is not None, "Call 'create_division_tbl(division_num)' first"
+            return len(self.division_tbl)
 
-        return DiscreteSpace(self.int_size)  # startは0
-
-    def encode_to_space_DiscreteSpace(self, val: np.ndarray) -> int:
+    def _encode_to_int(self, val: np.ndarray) -> int:
         if self._stype == SpaceTypes.DISCRETE:
             self._create_int_tbl()
             assert self.encode_int_tbl is not None
@@ -474,6 +498,14 @@ class BoxSpace(SpaceBase[np.ndarray]):
             d = (self.division_tbl - val).reshape((self.division_tbl.shape[0], -1))
             d = np.linalg.norm(d, axis=1)
             return int(np.argmin(d))
+
+    def create_encode_space_DiscreteSpace(self):
+        from srl.base.spaces.discrete import DiscreteSpace
+
+        return DiscreteSpace(self._get_int_size())  # startは0
+
+    def encode_to_space_DiscreteSpace(self, val: np.ndarray) -> int:
+        return self._encode_to_int(val)
 
     def decode_from_space_DiscreteSpace(self, val: int) -> np.ndarray:
         if self._stype == SpaceTypes.DISCRETE:
@@ -490,7 +522,25 @@ class BoxSpace(SpaceBase[np.ndarray]):
     def create_encode_space_ArrayDiscreteSpace(self):
         from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 
-        return ArrayDiscreteSpace(self.list_int_size, self.list_int_low, self.list_int_high)
+        if self._stype == SpaceTypes.DISCRETE:
+            return ArrayDiscreteSpace(
+                len(self._low.flatten()),
+                self._low.flatten().tolist(),
+                self._high.flatten().tolist(),
+            )
+
+        if self.division_tbl is None:
+            return ArrayDiscreteSpace(
+                len(self._low.flatten()),
+                np.round(self._low.flatten()).tolist(),
+                np.round(self._high.flatten()).tolist(),
+            )
+        else:
+            return ArrayDiscreteSpace(
+                1,
+                [0],
+                [self._get_int_size()],
+            )
 
     def encode_to_space_ArrayDiscreteSpace(self, val: np.ndarray) -> List[int]:
         if self._stype == SpaceTypes.DISCRETE:
@@ -501,8 +551,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
                 return [int(s) for s in np.round(val).flatten().tolist()]
             else:
                 # 分割してある場合
-                n = self.encode_to_int(val)
-                return [n]
+                return [self._encode_to_int(val)]
 
     def decode_from_space_ArrayDiscreteSpace(self, val: List[int]) -> np.ndarray:
         if self._stype == SpaceTypes.DISCRETE:
@@ -524,20 +573,37 @@ class BoxSpace(SpaceBase[np.ndarray]):
         raise NotSupportedError()
 
     # --- ArrayContinuousSpace
-    def create_encode_space_ArrayContinuousSpace(self):
+    def create_encode_space_ArrayContinuousListSpace(self):
+        from srl.base.spaces.array_continuous_list import ArrayContinuousListSpace
+
+        return ArrayContinuousListSpace(
+            len(self._low.flatten()),
+            self._low.flatten(),
+            self._high.flatten(),
+        )
+
+    def encode_to_space_ArrayContinuousListSpace(self, val: np.ndarray) -> List[float]:
+        return [float(v) for v in val.flatten().tolist()]
+
+    def decode_from_space_ArrayContinuousListSpace(self, val: List[float]) -> np.ndarray:
+        return np.array(val, dtype=self._dtype).reshape(self._shape)
+
+    # --- np
+    def create_encode_space_ArrayContinuousSpace(self, np_dtype):
         from srl.base.spaces.array_continuous import ArrayContinuousSpace
 
         return ArrayContinuousSpace(
             len(self._low.flatten()),
-            self.low.flatten(),
-            self.high.flatten(),
+            self._low.flatten(),
+            self._high.flatten(),
+            dtype=np_dtype,
         )
 
-    def encode_to_space_ArrayContinuousSpace(self, val: np.ndarray) -> List[float]:
-        return [float(v) for v in val.flatten().tolist()]
+    def encode_to_space_ArrayContinuousSpace(self, val: np.ndarray, space) -> np.ndarray:
+        return val.flatten().astype(dtype=space.dtype)
 
-    def decode_from_space_ArrayContinuousSpace(self, val: List[float]) -> np.ndarray:
-        return np.array(val, dtype=self._dtype).reshape(self._shape)
+    def decode_from_space_ArrayContinuousSpace(self, val: np.ndarray) -> np.ndarray:
+        return val.astype(dtype=self._dtype).reshape(self._shape)
 
     # --- Box
     def create_encode_space_Box(self, space_type: RLBaseTypes, np_dtype):
@@ -615,7 +681,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
     def create_encode_space_TextSpace(self):
         from srl.base.spaces.text import TextSpace
 
-        raise NotSupportedError()
+        return TextSpace(min_length=1, charset="0123456789-.,")
 
     def encode_to_space_TextSpace(self, val: np.ndarray) -> str:
         return ",".join([str(v) for v in val.flatten().tolist()])

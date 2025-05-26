@@ -23,7 +23,8 @@ class _PlayableCallback(RunCallback):
         self.valid_actions: list = []
         self.action: int = 0
         self.env.action_space.create_division_tbl(action_division_num)
-        self.action_num = self.env.action_space.int_size
+        self.enc_space = self.env.action_space.create_encode_space_DiscreteSpace()
+        self.action_num = self.enc_space.n
 
     def on_episode_begin(self, context: RunContext, state: RunStateActor, **kwargs):
         self._read_valid_actions()
@@ -33,17 +34,17 @@ class _PlayableCallback(RunCallback):
 
     def _read_valid_actions(self):
         # 入力可能なアクションを読み取り
-        invalid_actions = [self.env.action_space.encode_to_int(a) for a in self.env.invalid_actions]
+        invalid_actions = [self.env.action_space.encode_to_space_DiscreteSpace(a) for a in self.env.invalid_actions]
         self.valid_actions = [a for a in range(self.action_num) if a not in invalid_actions]
 
     def on_step_action_after(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         # アクションでpolicyの結果を置き換える
-        manual_action = self.env.action_space.decode_from_int(self.action)
+        manual_action = self.env.action_space.decode_from_space_DiscreteSpace(self.action)
         state.action = manual_action
         state.workers[state.worker_idx].override_action(manual_action)
 
     def get_env_action(self):
-        return self.env.action_space.decode_from_int(self.action)
+        return self.env.action_space.decode_from_space_DiscreteSpace(self.action)
 
 
 class PlayableGame(GameWindow):
@@ -77,6 +78,7 @@ class PlayableGame(GameWindow):
         while True:
             gen_status, _, gen_state = next(self.gen_play)
             if gen_status == "on_episode_begin":
+                assert gen_state.worker is not None
                 self.run_worker = gen_state.worker
                 break
             logger.debug(f"{gen_status=}")

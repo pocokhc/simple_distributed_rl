@@ -7,6 +7,7 @@ from tests.algorithms_ import (
     base_diamond,
     base_dqn,
     base_dreamer_v3,
+    base_efficient_zero_v2,
     base_go_dqn,
     base_go_explore,
     base_muzero,
@@ -51,6 +52,10 @@ class Test_dqn(_CommonOption, base_dqn.LongCase):
 
 
 class Test_dreamer_v3(_CommonOption, base_dreamer_v3.LongCase):
+    pass
+
+
+class Test_base_efficient_zero_v2(_CommonOption, base_efficient_zero_v2.LongCase):
     pass
 
 

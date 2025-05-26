@@ -134,6 +134,7 @@ Please refer to the following documents for creating original environments and a
 |AlphaZero  |Image      |Discrete|✔        |-    |100%|MDP base|
 |MuZero     |Image      |Discrete|✔        |-    |100%|MDP base|
 |StochasticMuZero|Image |Discrete|✔        |-    |100%|MDP base|
+|EfficientZeroV2|Image  |Both    |✔        |-    |100%||
 
 ## ModelBase
 

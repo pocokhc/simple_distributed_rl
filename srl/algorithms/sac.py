@@ -1,19 +1,18 @@
 from dataclasses import dataclass, field
-from typing import Any, List, cast
+from typing import Any, List
 
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import SpaceTypes
 from srl.base.exception import UndefinedError
 from srl.base.rl.algorithms.base_ppo import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import RLProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.spaces.np_array import NpArraySpace
 from srl.base.spaces.space import SpaceBase
 from srl.rl.memories.replay_buffer import ReplayBufferConfig, RLReplayBuffer
 from srl.rl.models.config.input_image_block import InputImageBlockConfig
@@ -21,7 +20,7 @@ from srl.rl.models.config.input_value_block import InputValueBlockConfig
 from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 from srl.rl.tf import helper as helper_tf
-from srl.rl.tf.distributions.categorical_dist_block import CategoricalDistBlock
+from srl.rl.tf.distributions.categorical_gumbel_dist_block import CategoricalGumbelDistBlock
 from srl.rl.tf.distributions.normal_dist_block import NormalDistBlock
 from srl.rl.tf.model import KerasModelAddedSummary
 
@@ -59,35 +58,34 @@ class Config(RLConfig):
     #: Batch size
     batch_size: int = 32
     #: <:ref:`ReplayBufferConfig`>
-    memory: ReplayBufferConfig = field(default_factory=lambda: ReplayBufferConfig(capacity=1000))
+    memory: ReplayBufferConfig = field(default_factory=lambda: ReplayBufferConfig())
 
     #: discount
-    discount: float = 0.9
+    discount: float = 0.99
     #: policy learning rate
-    lr_policy: float = 0.001
+    lr_policy: float = 0.0001
     #: <:ref:`LRSchedulerConfig`>
     lr_policy_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
     #: q learning rate
-    lr_q: float = 0.001
+    lr_q: float = 0.0001
     #: <:ref:`LRSchedulerConfig`>
     lr_q_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
     #: alpha learning rate
-    lr_alpha: float = 0.001
+    lr_alpha: float = 0.0001
     #: <:ref:`LRSchedulerConfig`>
     lr_alpha_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
     #: soft_target_update_tau
     soft_target_update_tau: float = 0.02
     #: hard_target_update_interval
-    hard_target_update_interval: int = 100
+    hard_target_update_interval: int = 10000
     #: actionが連続値の時、正規分布をtanhで-1～1に丸めるか
     enable_normal_squashed: bool = True
 
+    start_steps: int = 10000
     #: entropy alphaを自動調整するか
     entropy_alpha_auto_scale: bool = True
     #: entropy alphaの初期値
     entropy_alpha: float = 0.2
-    #: Q値の計算からエントロピーボーナスを除外します
-    entropy_bonus_exclude_q: float = False
 
     #: 勾配爆発の対策, 平均、分散、ランダムアクションで大きい値を出さないようにclipする
     enable_stable_gradients: bool = True
@@ -133,10 +131,11 @@ class PolicyNetwork(KerasModelAddedSummary):
 
         # out
         if isinstance(config.action_space, DiscreteSpace):
-            self.policy_dist_block = CategoricalDistBlock(config.action_space.n)
-        elif isinstance(config.action_space, ArrayContinuousSpace):
+            # self.policy_dist_block = CategoricalDistBlock(config.action_space.n)
+            self.policy_dist_block = CategoricalGumbelDistBlock(config.action_space.n)
+        elif isinstance(config.action_space, NpArraySpace):
             self.policy_dist_block = NormalDistBlock(
-                cast(ArrayContinuousSpace, config.action_space).size,
+                config.action_space.size,
                 enable_squashed=self.config.enable_normal_squashed,
                 enable_stable_gradients=self.config.enable_stable_gradients,
                 stable_gradients_scale_range=self.config.stable_gradients_scale_range,
@@ -156,25 +155,22 @@ class PolicyNetwork(KerasModelAddedSummary):
     def compute_train_loss(self, state, q1_model, q2_model, alpha):
         p_dist = self(state, training=True)
 
-        if self.config.action_space.stype == SpaceTypes.DISCRETE:
+        if isinstance(self.config.action_space, DiscreteSpace):
             action = p_dist.rsample()
-            logpi = p_dist.log_probs()
-            entropy = -tf.reduce_sum(tf.exp(logpi) * logpi, axis=1, keepdims=True)
-        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
+            entropy = p_dist.entropy()
+        else:
             action, logpi = p_dist.rsample_logprob()
             entropy = -logpi
-        else:
-            raise UndefinedError(self.config.action_space.stype)
 
         # Q値を出力、小さいほうを使う
         q1 = q1_model([state, action])
         q2 = q2_model([state, action])
         q_min = tf.minimum(q1, q2)
 
-        policy_loss = q_min + (alpha * entropy)
+        policy_loss = q_min + alpha * entropy
         policy_loss = -tf.reduce_mean(policy_loss)
         policy_loss += tf.reduce_sum(self.losses)  # 正則化項
-        return policy_loss, logpi
+        return policy_loss, entropy
 
 
 class QNetwork(KerasModelAddedSummary):
@@ -191,13 +187,13 @@ class QNetwork(KerasModelAddedSummary):
 
         # build
         if isinstance(config.action_space, DiscreteSpace):
-            self._in_shape2 = (config.action_space.n,)
+            act_shape = (config.action_space.n,)
         else:
-            self._in_shape2 = (config.action_space.size,)
+            act_shape = (config.action_space.size,)
         self(
             [
                 self.in_block.create_dummy_data(config.get_dtype("np")),
-                np.zeros((1,) + self._in_shape2),
+                np.zeros((1,) + act_shape),
             ]
         )
 
@@ -258,13 +254,14 @@ class Parameter(RLParameter):
 
 class Trainer(RLTrainer[Config, Parameter, Memory]):
     def on_setup(self) -> None:
+        self.np_dtype = self.config.get_dtype("np")
         self.q1_optimizer = keras.optimizers.Adam(learning_rate=self.config.lr_q_scheduler.apply_tf_scheduler(self.config.lr_q))
         self.q2_optimizer = keras.optimizers.Adam(learning_rate=self.config.lr_q_scheduler.apply_tf_scheduler(self.config.lr_q))
         self.policy_optimizer = keras.optimizers.Adam(learning_rate=self.config.lr_policy_scheduler.apply_tf_scheduler(self.config.lr_policy))
         self.alpha_optimizer = None
 
         # エントロピーαの目標値、-1*アクション数が良いらしい
-        if self.config.action_space.stype == SpaceTypes.DISCRETE:
+        if isinstance(self.config.action_space, DiscreteSpace):
             n = self.config.action_space.n
         else:
             n = self.config.action_space.size
@@ -275,18 +272,12 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         if batches is None:
             return
 
-        (
-            states,
-            actions,
-            n_states,
-            rewards,
-            dones,
-        ) = zip(*batches)
-        states = np.asarray(states)
-        actions = np.asarray(actions)
-        n_states = np.asarray(n_states)
-        dones = np.asarray(dones, dtype=np.float32)[..., np.newaxis]
-        rewards = np.asarray(rewards, dtype=np.float32)[..., np.newaxis]
+        (state, action, n_state, reward, done) = zip(*batches)
+        state = np.asarray(state, dtype=self.np_dtype)
+        action = np.asarray(action, dtype=self.np_dtype)
+        n_state = np.asarray(n_state, dtype=self.np_dtype)
+        done = np.asarray(done, dtype=self.np_dtype)[..., np.newaxis]
+        reward = np.asarray(reward, dtype=self.np_dtype)[..., np.newaxis]
 
         if not self.parameter.load_log_alpha:
             # restore時に再度作り直す必要あり
@@ -297,48 +288,43 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         alpha = np.exp(self.parameter.log_alpha)
 
         # ポリシーより次の状態のアクションを取得し、次の状態のアクションlogpiを取得
-        n_p_dist = self.parameter.policy(n_states)
-        if self.config.action_space.stype == SpaceTypes.DISCRETE:
-            n_action = n_p_dist.rsample()
-            n_logpi = n_p_dist.log_prob(n_action)
-            entropy = -n_logpi
-        elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
-            n_action, n_logpi = n_p_dist.rsample_logprob()
-            entropy = -n_logpi
+        n_p_dist = self.parameter.policy(n_state)
+        if isinstance(self.config.action_space, DiscreteSpace):
+            n_action = n_p_dist.sample(onehot=True)
+            n_entropy = n_p_dist.entropy()
         else:
-            raise UndefinedError(self.config.action_space.stype)
+            n_action, n_logpi = n_p_dist.rsample_logprob()
+            n_entropy = -n_logpi
 
         # 2つのQ値から小さいほうを採用(Clipped Double Q learning)
-        n_q1 = self.parameter.q1_target([n_states, n_action])
-        n_q2 = self.parameter.q2_target([n_states, n_action])
+        n_q1 = self.parameter.q1_target([n_state, n_action])
+        n_q2 = self.parameter.q2_target([n_state, n_action])
         n_qval = tf.minimum(n_q1, n_q2)
-        if self.config.entropy_bonus_exclude_q:
-            target_q = rewards + (1 - dones) * self.config.discount * n_qval
-        else:
-            target_q = rewards + (1 - dones) * self.config.discount * (n_qval + alpha * entropy)
+        target_q = reward + (1 - done) * self.config.discount * (n_qval + alpha * n_entropy)
 
         # --- Qモデルの学習
-        # 一緒に学習すると-と+で釣り合う場合がある
         self.parameter.q1_online.trainable = True
         self.parameter.q2_online.trainable = True
         with tf.GradientTape() as tape:
-            q1_loss = self.parameter.q1_online.compute_train_loss(states, actions, target_q)
-        grads = tape.gradient(q1_loss, self.parameter.q1_online.trainable_variables)
-        self.q1_optimizer.apply_gradients(zip(grads, self.parameter.q1_online.trainable_variables))
+            q1_loss = self.parameter.q1_online.compute_train_loss(state, action, target_q)
+            q2_loss = self.parameter.q2_online.compute_train_loss(state, action, target_q)
+            loss = q1_loss + q2_loss
+        variables = [
+            self.parameter.q1_online.trainable_variables,
+            self.parameter.q2_online.trainable_variables,
+        ]
+        grads = tape.gradient(loss, variables)
+        self.q1_optimizer.apply_gradients(zip(grads[0], variables[0]))
+        self.q2_optimizer.apply_gradients(zip(grads[1], variables[1]))
         self.info["q1_loss"] = q1_loss.numpy()
-
-        with tf.GradientTape() as tape:
-            q2_loss = self.parameter.q2_online.compute_train_loss(states, actions, target_q)
-        grads = tape.gradient(q2_loss, self.parameter.q2_online.trainable_variables)
-        self.q2_optimizer.apply_gradients(zip(grads, self.parameter.q2_online.trainable_variables))
         self.info["q2_loss"] = q2_loss.numpy()
 
         # --- ポリシーの学習
         self.parameter.q1_online.trainable = False
         self.parameter.q2_online.trainable = False
         with tf.GradientTape() as tape:
-            policy_loss, logpi = self.parameter.policy.compute_train_loss(
-                states,
+            policy_loss, entropy = self.parameter.policy.compute_train_loss(
+                state,
                 self.parameter.q1_online,
                 self.parameter.q2_online,
                 alpha,
@@ -350,8 +336,8 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         # --- 方策エントロピーαの自動調整
         if self.config.entropy_alpha_auto_scale:
             with tf.GradientTape() as tape:
-                entropy_diff = logpi + self.target_entropy
-                log_alpha_loss = tf.reduce_mean(-tf.exp(self.parameter.log_alpha) * entropy_diff)
+                entropy_diff = entropy - self.target_entropy
+                log_alpha_loss = tf.reduce_mean(tf.exp(self.parameter.log_alpha) * entropy_diff)
             grad = tape.gradient(log_alpha_loss, self.parameter.log_alpha)
             self.alpha_optimizer.apply_gradients([(grad, self.parameter.log_alpha)])
             self.info["alpha_loss"] = log_alpha_loss.numpy()
@@ -369,19 +355,21 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 
 
 class Worker(RLWorker[Config, Parameter, Memory]):
-    def policy(self, worker) -> Any:
+    def policy(self, worker):
+        if self.training and self.step_in_training < self.config.start_steps:
+            env_action = self.sample_action()
+            self.action = env_action
+            if isinstance(self.config.action_space, DiscreteSpace):
+                self.action = worker.get_onehot_action(env_action)
+            return env_action
+
         p_dist = self.parameter.policy(worker.state[np.newaxis, ...])
         if isinstance(self.config.action_space, DiscreteSpace):
-            self.action = p_dist.sample(onehot=True).numpy()[0]
-            env_action = int(np.argmax(self.action))
+            env_action = int(p_dist.sample().numpy()[0])
+            self.action = worker.get_onehot_action(env_action)
             if self.rendering:
                 self.probs = p_dist.probs().numpy()[0]
-
-            # --- debug
-            # env_action = self.sample_action()
-            # self.action = np.identity(self.config.action_space.n, dtype=np.float32)[env_action]
-
-        elif isinstance(self.config.action_space, ArrayContinuousSpace):
+        elif isinstance(self.config.action_space, NpArraySpace):
             act_space = self.config.action_space
             self.action, env_action = p_dist.policy(act_space.low, act_space.high, self.training)
             self.action = self.action.numpy()[0]
@@ -408,7 +396,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             [
                 worker.state,
                 self.action,
-                worker.state,
+                worker.next_state,
                 worker.reward,
                 worker.done,
             ]
@@ -432,7 +420,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
 
             worker.print_discrete_action_info(int(maxa), _render_sub)
 
-        elif isinstance(self.config.action_space, ArrayContinuousSpace):
+        elif isinstance(self.config.action_space, NpArraySpace):
             dist = self.parameter.policy(state)
             print(f"action: {self.action}")
             print(f"mean  : {dist.mean().numpy()[0][0]}")

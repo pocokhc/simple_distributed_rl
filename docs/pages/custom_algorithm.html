@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Making a Custom algorithm &mdash; SimpleDistributedRL 1.2.0 ドキュメント</title>
+  <title>Making a Custom algorithm &mdash; SimpleDistributedRL 1.2.0.3 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=f7e61824"></script>
+      <script src="../_static/documentation_options.js?v=a5cbf489"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -273,13 +273,13 @@
 
    <span class="k">def</span><span class="w"> </span><span class="nf">get_base_action_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">      アルゴリズムが想定するアクションのタイプ(srl.base.define.RLBaseTypes)を返してください。</span>
+<span class="sd">      アルゴリズムが想定するアクションのタイプを指定してください。</span>
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
    <span class="k">def</span><span class="w"> </span><span class="nf">get_base_observation_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RLBaseTypes</span><span class="p">:</span>
 <span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">      アルゴリズムが想定する環境から受け取る状態のタイプ(srl.base.define.RLBaseTypes)を返してください。</span>
+<span class="sd">      アルゴリズムが想定する環境から受け取る状態のタイプを指定してください。</span>
 <span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
@@ -324,7 +324,10 @@
       <span class="k">return</span> <span class="p">[]</span>
 </pre></div>
 </div>
-<p>※ __post_init__ の利用はコンストラクタの値が上書きされるので非推奨です。</p>
+<div class="line-block">
+<div class="line">get_base_action_type/get_base_observation_typeで指定できる型は <a class="reference internal" href="framework_detail.html#rlbasetypes"><span class="std std-ref">RLBaseTypes(srl.base.define)</span></a> を参考にしてください。</div>
+<div class="line">※ __post_init__ の利用はコンストラクタの値が上書きされるので非推奨です。</div>
+</div>
 </section>
 <section id="memory">
 <h3>2-2. Memory<a class="headerlink" href="#memory" title="Link to this heading"></a></h3>

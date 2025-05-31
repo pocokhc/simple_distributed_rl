@@ -135,13 +135,13 @@ Making a Custom algorithm
 
       def get_base_action_type(self) -> RLBaseTypes:
          """
-         アルゴリズムが想定するアクションのタイプ(srl.base.define.RLBaseTypes)を返してください。
+         アルゴリズムが想定するアクションのタイプを指定してください。
          """
          raise NotImplementedError()
 
       def get_base_observation_type(self) -> RLBaseTypes:
          """
-         アルゴリズムが想定する環境から受け取る状態のタイプ(srl.base.define.RLBaseTypes)を返してください。
+         アルゴリズムが想定する環境から受け取る状態のタイプを指定してください。
          """
          raise NotImplementedError()
 
@@ -186,7 +186,8 @@ Making a Custom algorithm
          return []
 
 
-※ __post_init__ の利用はコンストラクタの値が上書きされるので非推奨です。
+| get_base_action_type/get_base_observation_typeで指定できる型は :ref:`RLBaseTypes` を参考にしてください。
+| ※ __post_init__ の利用はコンストラクタの値が上書きされるので非推奨です。
 
 
 2-2. Memory

@@ -105,7 +105,7 @@ RLBaseTypes(srl.base.define)
      - Space
      - Note
    * - NONE
-     - -
+     - 
      - copy
      - No Change
    * - DISCRETE
@@ -127,15 +127,15 @@ RLBaseTypes(srl.base.define)
    * - NP_ARRAY
      - NDArray[float]
      - ArrayNpSpace
-     - float固定
+     - float固定（configで変更可能）
    * - NP_ARRAY_UNTYPED
      - NDArray[int] or NDArray[float]
      - ArrayNpSpace
      - dtype変換なし
    * - BOX
-     - NDArray[Any]
+     - NDArray[float]
      - BoxSpace
-     - float固定
+     - float固定（configで変更可能）
    * - BOX_UNTYPED
      - NDArray[Any]
      - BoxSpace

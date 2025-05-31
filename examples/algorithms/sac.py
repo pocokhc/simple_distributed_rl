@@ -43,13 +43,14 @@ def main_continuous():
     rl_config.lr_q = 0.003
     rl_config.memory.capacity = 10000
     rl_config.memory.warmup_size = 1000
+    rl_config.start_steps = 1000
     rl_config.policy_hidden_block.set((64, 64, 64))
     rl_config.q_hidden_block.set((128, 128, 128))
     runner = srl.Runner(env_config, rl_config)
     runner.model_summary()
 
     # --- train
-    runner.train(max_episodes=30)
+    runner.train(max_episodes=50)
 
     # --- evaluate
     rewards = runner.evaluate()
@@ -59,5 +60,5 @@ def main_continuous():
 
 
 if __name__ == "__main__":
-    main_discrete()
-    # main_continuous()
+    # main_discrete()
+    main_continuous()

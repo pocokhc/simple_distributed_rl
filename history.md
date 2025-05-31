@@ -17,12 +17,12 @@
 
 # v1.3.0
 
-1. Spaceとアルゴリズムとの関係を見直して曖昧な仕様を明確化、それにまつわる変更
+1. Spaceとアルゴリズムとの関係を見直して曖昧な仕様を明確化
    - 主にアルゴリズム側でContinuous関係の状態/アクションを扱っている場合に影響がある可能性があります
-   - アクションでContinuousを扱う場合の型が list[float] → NDArray[list[float]] に変更になります
-   - 状態はdtypeがRLConfigで指定されている型（float）に基本統一されます
+   もし自作アルゴリズムでget_base_action_type/get_base_observation_typeを指定している場合はタイプを見直してください（ドキュメント参照）
+      - アクションでContinuousを扱う場合の型が list[float] → NDArray[list[float]] に変更になります
+      - 状態はdtypeがRLConfigで指定されている型（float）の統一がより明確にされました
 2. EfficientZeroV2を実装
-
 
 **MainUpdates**
 
@@ -34,6 +34,7 @@
    - change: RLアルゴリズムで影響ある箇所を修正
    - new: TODOだったImage関係の変換を作成
    - new: TextSpace関係の変換を作成（gymも対応）
+   - update: MultiSpaceとBoxの変換を強化
    - new: name変数を追加
    - change: is_discrete/is_continuousをstypeではなくdtypeで判断するように変更
    - new: 連続値関係に、rescale_from関数を追加

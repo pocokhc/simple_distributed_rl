@@ -15,23 +15,42 @@
 // TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除
 
 
-# v1.2.1
+# v1.3.0
+
+1. Spaceとアルゴリズムとの関係を見直して曖昧な仕様を明確化、それにまつわる変更
+   - 主にアルゴリズム側でContinuous関係の状態/アクションを扱っている場合に影響がある可能性があります
+   - アクションでContinuousを扱う場合の型が list[float] → NDArray[list[float]] に変更になります
+   - 状態はdtypeがRLConfigで指定されている型（float）に基本統一されます
+2. EfficientZeroV2を実装
+
 
 **MainUpdates**
 
-1. [base.spaces]: ArrayContinuousを見直し、未実装部分を実装
-   - new/change: ArrayContinuousをlistとnpで明確に分割
-      - new: ArrayContinuousをnpで統一し、listはArrayContinuousListSpaceを作成
-      - [base.define] new: RLBaseTypes.ARRAY_CONTINUOUS_NPを追加
-      - change: RLアルゴリズムでこの型を使っていたものを修正
-      - change: runner内のマニュアル操作等で使っていたenc/dec変換関係を修正
+1. [base.spaces]: Continuous関係のSpaceを見直し、未実装部分も実装
+   - new/change: ArrayContinuousからlistとnpを明確に区別
+      - new: NpArrayを作成し、ArrayContinuousはlistのみに変更
+      - [base.define] new: RLBaseTypesから画像系削除し、np関係を次に統一（NP_ARRAY、NP_ARRAY_UNTYPED、BOX、BOX_UNTYPED）
+      - RLBaseTypesに関わるドキュメントを追加
+   - change: RLアルゴリズムで影響ある箇所を修正
    - new: TODOだったImage関係の変換を作成
-   - new: TextSpace関係の変換を作成
+   - new: TextSpace関係の変換を作成（gymも対応）
    - new: name変数を追加
+   - change: is_discrete/is_continuousをstypeではなくdtypeで判断するように変更
    - new: 連続値関係に、rescale_from関数を追加
    - remove: int_size等、古い関数を削除（box以外）
+   - change: runner内のマニュアル操作等（replay_window等）で使っていたenc/dec変換関係を修正
 1. [algorithms] new: EfficientZeroV2を実装
 1. [rl.tf.distributions] update: 分布系のクラスを見直して整理
+
+**OtherUpdates**
+
+1. [algorithms.sac] fix: 学習が安定するように修正
+
+**Bug Fixes**
+
+1. [base.spaces.box] fix: check_valで値がnanの場合もFlaseになるように修正
+1. [algorithms.ppo] fix: actionがnanになる場合のコードを追加
+
 
 # v1.2.0
 

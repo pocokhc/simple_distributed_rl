@@ -51,10 +51,8 @@ Class diagram
 .. image:: ../../diagrams/class_runner.png
 
 
-Space
-----------------
-
-+ SpaceBase(srl.base.spaces)
+Space(srl.base.spaces)
+----------------------------
 
 .. list-table::
    :header-rows: 0

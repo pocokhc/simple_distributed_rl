@@ -593,8 +593,7 @@ class RSSM(KerasModelAddedSummary):
             # (batch, stoch, classes) -> (batch * stoch, classes)
             batch = x.shape[0]
             x = tf.reshape(x, (batch * self.stoch_size, self.classes))
-            dist = CategoricalDist(x)
-            dist.set_unimix(self.unimix)
+            dist = CategoricalDist(x).to_unimix_dist(self.unimix)
             # (batch * stoch, classes) -> (batch, stoch, classes) -> (batch, stoch * classes)
             stoch = tf.cast(
                 tf.reshape(dist.rsample(), (batch, self.stoch_size, self.classes)),
@@ -627,8 +626,7 @@ class RSSM(KerasModelAddedSummary):
             # (batch, stoch, classes) -> (batch * stoch, classes)
             batch = x.shape[0]
             x = tf.reshape(x, (batch * self.stoch_size, self.classes))
-            dist = CategoricalDist(x)
-            dist.set_unimix(self.unimix)
+            dist = CategoricalDist(x).to_unimix_dist(self.unimix)
             # (batch * stoch, classes) -> (batch, stoch, classes) -> (batch, stoch * classes)
             stoch = tf.cast(
                 tf.reshape(dist.rsample(), (batch, self.stoch_size, self.classes)),
@@ -1249,11 +1247,6 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.opt_critic = keras.optimizers.Adam(learning_rate=self.config.lr_critic_scheduler.apply_tf_scheduler(self.config.lr_critic))
         self.opt_actor = keras.optimizers.Adam(learning_rate=self.config.lr_actor_scheduler.apply_tf_scheduler(self.config.lr_actor))
 
-        # self.seq_action = [[] for _ in range(self.config.batch_size)]
-        # self.seq_next_state = [[] for _ in range(self.config.batch_size)]
-        # self.seq_reward = [[] for _ in range(self.config.batch_size)]
-        # self.seq_undone = [[] for _ in range(self.config.batch_size)]
-        # self.seq_unterminated = [[] for _ in range(self.config.batch_size)]
         self.stoch, self.deter = self.parameter.dynamics.get_initial_state(self.config.batch_size)
 
     def train(self) -> None:
@@ -1576,7 +1569,7 @@ def _compute_V(
     return horizon_V
 
 
-class Worker(RLWorker):
+class Worker(RLWorker[Config, Parameter, Memory]):
     def on_setup(self, worker, context) -> None:
         self.screen = None
 
@@ -1603,7 +1596,7 @@ class Worker(RLWorker):
         self.deter = deter
         self.stoch = post["stoch"]
 
-    def policy(self, worker) -> Any:
+    def policy(self, worker):
         # debug
         if random.random() < self.config.epsilon:
             env_action = self.sample_action()
@@ -1846,7 +1839,9 @@ class Worker(RLWorker):
             value = self.parameter.critic(feat).mode()
 
             n_img = next_state[0].numpy() * 255
-            s = f"act {action.numpy()[0]}, mean {act_dist.mean().numpy()[0]}, std {act_dist.stddev().numpy()[0]}"
+            s = f"act {action.numpy()[0]}, mean {act_dist.mean().numpy()[0]}"
+            if not self.config.actor_continuous_enable_normal_squashed:
+                s += f", std {act_dist.stddev().numpy()[0]}"
             s += f", reward {reward.numpy()[0][0]:.5f}"
             s += f", done {(1 - cont.numpy()[0][0]) * 100:4.1f}%"
             s += f", value {value.numpy()[0][0]:.5f}"

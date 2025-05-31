@@ -1,12 +1,14 @@
 import os
 
 import numpy as np
+import pytest
 
 import srl
 from srl.algorithms import ql
 
 
 def test_train(tmpdir):
+    pytest.importorskip("mlflow")
     rl_config = ql.Config()
     runner = srl.Runner("Grid", rl_config)
 
@@ -38,6 +40,7 @@ def test_train(tmpdir):
 
 
 def test_method():
+    pytest.importorskip("mlflow")
     from srl.runner.callbacks.mlflow_callback import MLFlowCallback
 
     rl_config = ql.Config()

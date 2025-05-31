@@ -1,11 +1,10 @@
 import logging
 import random
 import time
-from typing import Any, Generator, List, Optional, Tuple, cast
+from typing import Any, Generator, List, Optional, Tuple
 
 from srl.base.context import RunContext, RunState
 from srl.base.run.callback import RunCallback
-from srl.base.run.core_play import RunStateActor
 from srl.utils import common
 
 logger = logging.getLogger(__name__)
@@ -17,13 +16,13 @@ def play_generator(
     parameter_dat: Optional[Any] = None,
     memory_dat: Optional[Any] = None,
     callbacks: List[RunCallback] = [],
-) -> Generator[Tuple[str, RunContext, RunStateActor], None, None]:
+) -> Generator[Tuple[str, RunContext, RunState], None, None]:
     # Generator[YieldType, SendType, ReturnType]
 
     # context.check_stop_config()  # generatorはチェックしない
 
     if state is None:
-        state: RunStateActor = cast(RunStateActor, RunState())
+        state = RunState()
     state.init()
 
     # --- 0 create instance

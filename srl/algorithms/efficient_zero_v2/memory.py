@@ -59,12 +59,8 @@ class Memory(RLPriorityReplayBuffer[Config]):
 
         # --- reanalyze
         # TODO: 実装するならここ
-        s_states = self.parameter.net.representation(states)
-        hc = self.parameter.net.dynamics_net.get_initial_state(len(states))
-        for i in range(self.config.unroll_steps + 1):
-            s_states, value_prefix, hc = self.parameter.net.dynamics(s_states, hc, actions_list[i], training=True)
 
-        return states, actions_list, value_prefix_list, policies_list, z_list, weights, update_args
+        return states_list, actions_list, value_prefix_list, policies_list, z_list, weights, update_args
 
     def update_parameter(self, dat):
         self.parameter.restore(dat)

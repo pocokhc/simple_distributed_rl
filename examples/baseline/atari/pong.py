@@ -42,7 +42,7 @@ def train_dqn():
         enable_reward_clip=False,
         enable_double_dqn=True,
         enable_rescale=False,
-        memory=dqn.ReplayBufferConfig(
+        memory=dqn.PriorityReplayBufferConfig(
             warmup_size=1000,
             capacity=10_000,
             compress=False,

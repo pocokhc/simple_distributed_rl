@@ -389,28 +389,20 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         # 優先度
         # 1. override
         # 2. RL base type
-        # 3. RL base typeが複数ある場合はその中からenv側の変換が最も少ないのを選択
+        # 3. 複数ある場合はその中からenv側の変換が最も少ないのを選択
         if override_type != RLBaseTypes.NONE:
             if not (required_type & override_type):
                 logger.warning(f"An attempt is being made to overwrite a type that is not defined. override: {override_type}, required: {RLBaseTypes.to_list(required_type)}")
             required_type = override_type
 
         if bin(required_type.value).count("1") > 1:
-            priority_list, exclude_list = env_space.get_encode_type_list()
-            for stype in priority_list:
+            for stype in env_space.get_encode_list():
                 if required_type & stype:
                     required_type = stype
                     break
             else:
-                # exclude_listを除いた中から取得する
-                for stype in RLBaseTypes.to_list(required_type):
-                    if stype in exclude_list:
-                        continue
-                    required_type = stype
-                    break
-                else:
-                    logger.warning(f"Undefined space. {env_space}")
-                    required_type = RLBaseTypes.NONE
+                logger.warning(f"Undefined space. {env_space}")
+                required_type = RLBaseTypes.NONE
 
         # --- rl DISCRETE
         if required_type in [
@@ -420,7 +412,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             # RLがDISCRETEを要求する場合、(ENVがCONTINUOUSなら)分割する
             env_space.create_division_tbl(division_num)
 
-        rl_space = env_space.create_encode_space(required_type, self.get_dtype("np"))
+        rl_space = env_space.create_encode_space(required_type, self)
         return rl_space, required_type
 
     # --- setup property

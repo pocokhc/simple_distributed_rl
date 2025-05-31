@@ -22,6 +22,7 @@ class TextSpace(SpaceBase[str]):
         charset: str = alphanumeric,
         padding: str = " ",
     ) -> None:
+        super().__init__()
         self._max_length = max_length
         self._min_length = min_length
         self._charset = charset
@@ -60,7 +61,7 @@ class TextSpace(SpaceBase[str]):
 
     @property
     def dtype(self):
-        return np.uint64
+        return np.uint
 
     def sample(self, mask: str = "") -> str:
         if self._max_length <= 0:
@@ -132,6 +133,21 @@ class TextSpace(SpaceBase[str]):
     # --------------------------------------
     # spaces
     # --------------------------------------
+    def get_encode_list(self):
+        arr = [
+            RLBaseTypes.TEXT,
+            RLBaseTypes.ARRAY_DISCRETE,
+            RLBaseTypes.ARRAY_CONTINUOUS,
+            RLBaseTypes.NP_ARRAY,
+            RLBaseTypes.NP_ARRAY_UNTYPED,
+            RLBaseTypes.BOX,
+            RLBaseTypes.BOX_UNTYPED,
+            RLBaseTypes.MULTI,
+            # RLBaseTypes.DISCRETE, NG
+            # RLBaseTypes.CONTINUOUS, NG
+        ]
+        return arr
+
     def get_encode_type_list(self):
         priority_list = [RLBaseTypes.TEXT]
         exclude_list = [RLBaseTypes.DISCRETE, RLBaseTypes.CONTINUOUS]
@@ -182,64 +198,79 @@ class TextSpace(SpaceBase[str]):
         return str(val)
 
     # --- ArrayContinuousSpace
-    def create_encode_space_ArrayContinuousListSpace(self):
-        from srl.base.spaces.array_continuous_list import ArrayContinuousListSpace
-
-        if self._max_length <= 0:
-            raise NotSupportedError()
-        return ArrayContinuousListSpace(self._max_length, 0.0, float(0x7F))
-
-    def encode_to_space_ArrayContinuousListSpace(self, val: str) -> List[float]:
-        val = val + self._padding * (self._max_length - len(val))
-        return [float(ord(c)) for c in val]
-
-    def decode_from_space_ArrayContinuousListSpace(self, val: List[float]) -> str:
-        return "".join([chr(int(n)) for n in val])
-
-    # --- np
-    def create_encode_space_ArrayContinuousSpace(self, np_dtype):
+    def create_encode_space_ArrayContinuousSpace(self):
         from srl.base.spaces.array_continuous import ArrayContinuousSpace
 
         if self._max_length <= 0:
             raise NotSupportedError()
         return ArrayContinuousSpace(self._max_length, 0.0, float(0x7F))
 
-    def encode_to_space_ArrayContinuousSpace(self, val: str, space) -> np.ndarray:
-        return np.array(self.encode_to_space_ArrayContinuousListSpace(val), dtype=space.dtype)
+    def encode_to_space_ArrayContinuousSpace(self, val: str) -> List[float]:
+        val = val + self._padding * (self._max_length - len(val))
+        return [float(ord(c)) for c in val]
 
-    def decode_from_space_ArrayContinuousSpace(self, val: np.ndarray) -> str:
-        return self.decode_from_space_ArrayContinuousListSpace(val.tolist())
+    def decode_from_space_ArrayContinuousSpace(self, val: List[float]) -> str:
+        return "".join([chr(int(n)) for n in val])
 
-    # --- Box
-    def create_encode_space_Box(self, space_type: RLBaseTypes, np_dtype):
-        from srl.base.spaces.box import BoxSpace
+    # --- NpArray
+    def create_encode_space_NpArraySpace(self, dtype):
+        from srl.base.spaces.np_array import NpArraySpace
 
         if self._max_length <= 0:
             raise NotSupportedError()
+        return NpArraySpace(self._max_length, 0.0, float(0x7F), dtype, SpaceTypes.DISCRETE)
 
-        if space_type == RLBaseTypes.GRAY_2ch:
-            logger.warning("Not defined. Converts CONTINUOUS.")
-        elif space_type == RLBaseTypes.GRAY_3ch:
-            logger.warning("Not defined. Converts CONTINUOUS.")
-        elif space_type == RLBaseTypes.COLOR:
-            logger.warning("Not defined. Converts CONTINUOUS.")
-        elif space_type == RLBaseTypes.IMAGE:
-            return BoxSpace((1, 1, self._max_length), 0, 0x7F, dtype=np_dtype, stype=SpaceTypes.IMAGE)
+    def encode_to_space_NpArraySpace(self, val: str, dtype) -> np.ndarray:
+        return np.array(self.encode_to_space_ArrayContinuousSpace(val), dtype=dtype)
 
-        return BoxSpace((self._max_length,), 0, 0x7F, np_dtype, stype=SpaceTypes.CONTINUOUS)
+    def decode_from_space_NpArraySpace(self, val: np.ndarray) -> str:
+        return self.decode_from_space_ArrayContinuousSpace(val.tolist())
 
-    def encode_to_space_Box(self, val: str, space) -> np.ndarray:
-        arr = self.encode_to_space_ArrayContinuousListSpace(val)
-        if space.stype == SpaceTypes.IMAGE:
-            return np.asarray([[arr]], dtype=space.dtype)
-        return np.array(arr, dtype=space.dtype)
+    # --- NpArrayUnTyped
+    def create_encode_space_NpArrayUnTyped(self):
+        from srl.base.spaces.np_array import NpArraySpace
 
-    def decode_from_space_Box(self, val: np.ndarray, space) -> str:
-        if space.stype == SpaceTypes.IMAGE:
-            arr = val.reshape(-1).tolist()
-        else:
-            arr = val.tolist()
-        return self.decode_from_space_ArrayContinuousListSpace(arr)
+        if self._max_length <= 0:
+            raise NotSupportedError()
+        return NpArraySpace(self._max_length, 0.0, float(0x7F), self.dtype, SpaceTypes.DISCRETE)
+
+    def encode_to_space_NpArrayUnTyped(self, val: str) -> np.ndarray:
+        return np.array(self.encode_to_space_ArrayDiscreteSpace(val), dtype=self.dtype)
+
+    def decode_from_space_NpArrayUnTyped(self, val: np.ndarray) -> str:
+        return self.decode_from_space_ArrayDiscreteSpace(val.tolist())
+
+    # --- Box
+    def create_encode_space_Box(self, dtype):
+        if self._max_length <= 0:
+            raise NotSupportedError()
+
+        from srl.base.spaces.box import BoxSpace
+
+        return BoxSpace((self._max_length,), 0, 0x7F, dtype, SpaceTypes.DISCRETE)
+
+    def encode_to_space_Box(self, val: str, dtype) -> np.ndarray:
+        arr = self.encode_to_space_ArrayContinuousSpace(val)
+        return np.array(arr, dtype=dtype)
+
+    def decode_from_space_Box(self, val: np.ndarray) -> str:
+        return self.decode_from_space_ArrayContinuousSpace(val.tolist())
+
+    # --- BoxUnTyped
+    def create_encode_space_BoxUnTyped(self):
+        if self._max_length <= 0:
+            raise NotSupportedError()
+
+        from srl.base.spaces.box import BoxSpace
+
+        return BoxSpace((self._max_length,), 0, 0x7F, self.dtype, SpaceTypes.DISCRETE)
+
+    def encode_to_space_BoxUnTyped(self, val: str) -> np.ndarray:
+        arr = self.encode_to_space_ArrayDiscreteSpace(val)
+        return np.array(arr, dtype=self.dtype)
+
+    def decode_from_space_BoxUnTyped(self, val: np.ndarray) -> str:
+        return self.decode_from_space_ArrayDiscreteSpace(val.tolist())
 
     # --- TextSpace
     def create_encode_space_TextSpace(self):
@@ -250,3 +281,15 @@ class TextSpace(SpaceBase[str]):
 
     def decode_from_space_TextSpace(self, val: str) -> str:
         return val
+
+    # --- Multi
+    def create_encode_space_MultiSpace(self):
+        from srl.base.spaces.multi import MultiSpace
+
+        return MultiSpace([self.copy()])
+
+    def encode_to_space_MultiSpace(self, val: str) -> list:
+        return [val]
+
+    def decode_from_space_MultiSpace(self, val: list) -> str:
+        return val[0]

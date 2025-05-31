@@ -25,7 +25,7 @@ def main(mode: str):
     else:
         TRAIN_COUNT = 30000
         rl_config.entropy_weight = 1.0
-        rl_config.override_action_type = RLBaseTypes.ARRAY_CONTINUOUS
+        rl_config.override_action_type = RLBaseTypes.NP_ARRAY
 
     runner = srl.Runner(env_config, rl_config)
     runner.model_summary()

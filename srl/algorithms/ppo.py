@@ -5,15 +5,14 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import SpaceTypes
 from srl.base.exception import UndefinedError
 from srl.base.rl.algorithms.base_ppo import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.processor import RLProcessor
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
-from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.spaces.np_array import NpArraySpace
 from srl.base.spaces.space import SpaceBase
 from srl.rl.memories.replay_buffer import ReplayBufferConfig, RLReplayBuffer
 from srl.rl.models.config.input_image_block import InputImageBlockConfig
@@ -179,7 +178,7 @@ class ActorCriticNetwork(KerasModelAddedSummary):
         self.policy_block = config.policy_block.create_tf_block()
         if isinstance(config.action_space, DiscreteSpace):
             self.policy_dist_block = CategoricalDistBlock(config.action_space.n)
-        elif isinstance(config.action_space, ArrayContinuousSpace):
+        elif isinstance(config.action_space, NpArraySpace):
             self.policy_dist_block = NormalDistBlock(
                 config.action_space.size,
                 enable_squashed=False,
@@ -242,15 +241,13 @@ class ActorCriticNetwork(KerasModelAddedSummary):
             policy_loss = tf.minimum(loss_unclipped, loss_clipped)
 
         elif self.config.surrogate_type == "kl":
-            if self.config.action_space.stype == SpaceTypes.DISCRETE:
+            if isinstance(self.config.action_space, DiscreteSpace):
                 new_probs = p_dist.probs()
                 kl = tf_funcs.compute_kl_divergence(old_probs, new_probs)
-            elif self.config.action_space.stype == SpaceTypes.CONTINUOUS:
+            else:
                 new_mean = p_dist.mean()
                 new_stddev = p_dist.stddev()
                 kl = tf_funcs.compute_kl_divergence_normal(old_mean, old_stddev, new_mean, new_stddev)
-            else:
-                raise UndefinedError(self.config.action_space.stype)
             policy_loss = ratio * advantage - adaptive_kl_beta * kl
         elif self.config.surrogate_type == "":
             policy_loss = ratio * advantage
@@ -338,7 +335,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         old_mean = 0
         old_stddev = 0
         old_v = 0
-        if self.config.action_space.stype == SpaceTypes.DISCRETE:
+        if isinstance(self.config.action_space, DiscreteSpace):
             actions = np.asarray([e["action"] for e in batches])
             old_logpi = np.asarray([e["log_prob"] for e in batches])[..., np.newaxis]
             if self.config.surrogate_type == "kl":
@@ -421,7 +418,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             if self.config.surrogate_type == "kl":
                 batch["probs"] = p_dist.probs().numpy()[0]
             self.recent_batch.append(batch)
-        elif isinstance(self.config.action_space, ArrayContinuousSpace):
+        elif isinstance(self.config.action_space, NpArraySpace):
             action, env_action = p_dist.policy(self.config.action_space.low, self.config.action_space.high, self.training)
             batch = {
                 "state": state,
@@ -508,7 +505,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
                 return s
 
             worker.print_discrete_action_info(int(maxa), _render_sub)
-        elif isinstance(self.config.action_space, ArrayContinuousSpace):
+        elif isinstance(self.config.action_space, NpArraySpace):
             print(f"mean  : {self.p_dist.mean().numpy()[0][0]}")
             print(f"stddev: {self.p_dist.stddev().numpy()[0][0]}")
         else:

@@ -14,8 +14,8 @@ class QuickCase(CommonQuickCase):
             [RLBaseTypes.DISCRETE, "MC", "", ""],
             [RLBaseTypes.DISCRETE, "MC", "ave", "clip"],
             [RLBaseTypes.DISCRETE, "GAE", "std", "kl"],
-            [RLBaseTypes.ARRAY_CONTINUOUS, "GAE", "normal", "kl"],
-            [RLBaseTypes.ARRAY_CONTINUOUS, "MC", "advantage", "clip"],
+            [RLBaseTypes.NP_ARRAY, "GAE", "normal", "kl"],
+            [RLBaseTypes.NP_ARRAY, "MC", "advantage", "clip"],
         ]
     )
     def rl_param(self, request):

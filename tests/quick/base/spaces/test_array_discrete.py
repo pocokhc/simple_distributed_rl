@@ -4,8 +4,8 @@ import pytest
 from srl.base import spaces
 from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.exception import NotSupportedError
-from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
+from srl.base.spaces.np_array import NpArraySpace
 from srl.base.spaces.text import TextSpace
 
 
@@ -164,9 +164,11 @@ def test_valid_actions():
         [RLBaseTypes.DISCRETE, spaces.DiscreteSpace(25), 2, [-1, 1]],
         [RLBaseTypes.ARRAY_DISCRETE, spaces.ArrayDiscreteSpace(2, -1, 3), [1, 1], [1, 1]],
         [RLBaseTypes.CONTINUOUS, None, 1.0, [1, 1]],
-        [RLBaseTypes.ARRAY_CONTINUOUS_LIST, spaces.ArrayContinuousListSpace(2, -1, 3), [1.0, 1.0], [1, 1]],
-        [RLBaseTypes.ARRAY_CONTINUOUS, ArrayContinuousSpace(2, -1, 3), np.array([1.0, 1.0], np.float32), [1, 1]],
-        [RLBaseTypes.BOX, spaces.BoxSpace((2,), -1, 3), np.full((2,), 2), [2, 2]],
+        [RLBaseTypes.ARRAY_CONTINUOUS, spaces.ArrayContinuousSpace(2, -1, 3), [1.0, 1.0], [1, 1]],
+        [RLBaseTypes.NP_ARRAY, NpArraySpace(2, -1, 3, np.float32, SpaceTypes.DISCRETE), np.array([1.0, 1.0], np.float32), [1, 1]],
+        [RLBaseTypes.NP_ARRAY_UNTYPED, NpArraySpace(2, -1, 3, np.int64), np.array([1, 1], np.int64), [1, 1]],
+        [RLBaseTypes.BOX, spaces.BoxSpace((2,), -1, 3, np.float32, SpaceTypes.DISCRETE), np.full((2,), 2.0, np.float32), [2, 2]],
+        [RLBaseTypes.BOX_UNTYPED, spaces.BoxSpace((2,), -1, 3, np.int64), np.full((2,), 2), [2, 2]],
         [RLBaseTypes.TEXT, TextSpace(min_length=1, charset="0123456789,"), "2,1", [2, 1]],
     ],
 )
@@ -181,6 +183,7 @@ def test_space(create_space, true_space, val, decode_val):
 
     target_space = space.create_encode_space(create_space)
     print(target_space)
+    print(true_space)
     assert target_space == true_space
 
     de = space.decode_from_space(val, target_space)

@@ -5,11 +5,11 @@ import numpy as np
 
 from srl.base.define import EnvObservationType
 from srl.base.rl.processor import RLProcessor
-from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.continuous import ContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.spaces.np_array import NpArraySpace
 from srl.base.spaces.space import SpaceBase
 
 
@@ -27,10 +27,10 @@ class NormalizeProcessor(RLProcessor):
             return ContinuousSpace(self.feature_rang[0], self.feature_rang[1])
 
         if isinstance(prev_space, ArrayDiscreteSpace):
-            return ArrayContinuousSpace(prev_space._size, self.feature_rang[0], self.feature_rang[1])
+            return NpArraySpace(prev_space._size, self.feature_rang[0], self.feature_rang[1])
 
-        if isinstance(prev_space, ArrayContinuousSpace):
-            return ArrayContinuousSpace(prev_space._size, self.feature_rang[0], self.feature_rang[1])
+        if isinstance(prev_space, NpArraySpace):
+            return NpArraySpace(prev_space._size, self.feature_rang[0], self.feature_rang[1])
 
         if isinstance(prev_space, BoxSpace):
             return BoxSpace(prev_space.shape, self.feature_rang[0], self.feature_rang[1])
@@ -62,7 +62,7 @@ class NormalizeProcessor(RLProcessor):
                 state[i] = ((state[i] - _low) / (_high - _low)) * (_max - _min) + _min
             return state
 
-        if isinstance(prev_space, ArrayContinuousSpace):
+        if isinstance(prev_space, NpArraySpace):
             state = cast(List[float], state)
             state = state[:]  # copy
             for i in range(prev_space.size):

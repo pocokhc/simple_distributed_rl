@@ -5,8 +5,8 @@ from srl.base import spaces
 from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.exception import NotSupportedError
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
-from srl.base.spaces.array_continuous_list import ArrayContinuousListSpace
 from srl.base.spaces.continuous import ContinuousSpace
+from srl.base.spaces.np_array import NpArraySpace
 from srl.base.spaces.text import TextSpace
 
 
@@ -32,8 +32,8 @@ def test_space_basic():
 
     # --- stack
     o = space.create_stack_space(3)
-    assert isinstance(o, ArrayContinuousListSpace)
-    assert o == ArrayContinuousListSpace(3, -1, 3)
+    assert isinstance(o, ArrayContinuousSpace)
+    assert o == ArrayContinuousSpace(3, -1, 3)
     v = space.encode_stack([1, 1, 0])
     assert v == [1, 1, 0]
 
@@ -136,9 +136,11 @@ def test_sanitize2():
         [RLBaseTypes.DISCRETE, spaces.DiscreteSpace(5, 0), 1, 0],
         [RLBaseTypes.ARRAY_DISCRETE, spaces.ArrayDiscreteSpace(1, -1, 3), [2], 2.0],
         [RLBaseTypes.CONTINUOUS, spaces.ContinuousSpace(-1, 3), 1.1, 1.1],
-        [RLBaseTypes.ARRAY_CONTINUOUS_LIST, spaces.ArrayContinuousListSpace(1, -1, 3), [1.1], 1.1],
-        [RLBaseTypes.ARRAY_CONTINUOUS, ArrayContinuousSpace(1, -1, 3), np.array([1.25], np.float32), 1.25],
+        [RLBaseTypes.ARRAY_CONTINUOUS, spaces.ArrayContinuousSpace(1, -1, 3), [1.1], 1.1],
+        [RLBaseTypes.NP_ARRAY, NpArraySpace(1, -1, 3), np.array([1.25], np.float32), 1.25],
+        [RLBaseTypes.NP_ARRAY_UNTYPED, NpArraySpace(1, -1, 3), np.array([1.25], np.float32), 1.25],
         [RLBaseTypes.BOX, spaces.BoxSpace((1,), -1, 3), np.full((1,), 0.25, np.float32), 0.25],
+        [RLBaseTypes.BOX_UNTYPED, spaces.BoxSpace((1,), -1, 3), np.full((1,), 0.25, np.float32), 0.25],
         [RLBaseTypes.TEXT, TextSpace(min_length=1, charset="0123456789-."), "-0.5", -0.5],
     ],
 )

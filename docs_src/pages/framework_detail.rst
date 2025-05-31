@@ -51,7 +51,7 @@ Class diagram
 .. image:: ../../diagrams/class_runner.png
 
 
-Interface Type
+Space
 ----------------
 
 + SpaceBase(srl.base.spaces)
@@ -71,12 +71,12 @@ Interface Type
    * - ContinuousSpace
      - float
      - CONTINUOUS
-   * - ArrayContinuousListSpace
+   * - ArrayContinuousSpace
      - list[float]
      - CONTINUOUS
-   * - ArrayContinuousSpace
-     - NDArray[list[float]]
-     - CONTINUOUS
+   * - NpArraySpace
+     - NDArray[int] or NDArray[float]  # 1D
+     - DISCRETE or CONTINUOUS
    * - BoxSpace
      - NDArray[AnyType]
      - srl.base.define.SpaceTypes
@@ -89,4 +89,63 @@ Interface Type
    * - AnySpace
      - any
      - UNKNOWN
+
+
+.. _RLBaseTypes:
+
+RLBaseTypes(srl.base.define)
+--------------------------------
+
+
+.. list-table::
+   :header-rows: 0
+
+   * - Name
+     - Type
+     - Space
+     - Note
+   * - NONE
+     - -
+     - copy
+     - No Change
+   * - DISCRETE
+     - int
+     - DiscreteSpace
+     - 
+   * - ARRAY_DISCRETE
+     - list[int]
+     - ArrayDiscreteSpace
+     - 
+   * - CONTINUOUS
+     - float
+     - ContinuousSpace
+     - 
+   * - ARRAY_CONTINUOUS
+     - list[float]
+     - ArrayContinuousSpace
+     - 
+   * - NP_ARRAY
+     - NDArray[float]
+     - ArrayNpSpace
+     - float固定
+   * - NP_ARRAY_UNTYPED
+     - NDArray[int] or NDArray[float]
+     - ArrayNpSpace
+     - dtype変換なし
+   * - BOX
+     - NDArray[Any]
+     - BoxSpace
+     - float固定
+   * - BOX_UNTYPED
+     - NDArray[Any]
+     - BoxSpace
+     - dtype変換なし
+   * - TEXT
+     - str
+     - TextSpace
+     - 
+   * - MULTI
+     - list
+     - MultiSpace
+     - 
 

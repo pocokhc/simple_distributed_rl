@@ -19,6 +19,7 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
         low: Union[int, List[int]],
         high: Union[int, List[int]],
     ) -> None:
+        super().__init__()
         assert size > 0
         self._size = size
 
@@ -223,16 +224,20 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
     # --------------------------------------
     # spaces
     # --------------------------------------
-    def get_encode_type_list(self):
-        priority_list = [
+    def get_encode_list(self):
+        return [
             RLBaseTypes.ARRAY_DISCRETE,
             RLBaseTypes.DISCRETE,
-            RLBaseTypes.ARRAY_CONTINUOUS_LIST,
+            #
+            RLBaseTypes.NP_ARRAY,
+            RLBaseTypes.NP_ARRAY_UNTYPED,
             RLBaseTypes.ARRAY_CONTINUOUS,
             RLBaseTypes.BOX,
+            RLBaseTypes.BOX_UNTYPED,
+            RLBaseTypes.CONTINUOUS,
+            RLBaseTypes.TEXT,
+            RLBaseTypes.MULTI,
         ]
-        exclude_list = [RLBaseTypes.CONTINUOUS]
-        return priority_list, exclude_list
 
     # --- DiscreteSpace
     def create_encode_space_DiscreteSpace(self):
@@ -254,9 +259,7 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
 
     # --- ArrayDiscreteSpace
     def create_encode_space_ArrayDiscreteSpace(self):
-        from srl.base.spaces.array_discrete import ArrayDiscreteSpace
-
-        return ArrayDiscreteSpace(self._size, self._low, self._high)
+        return self.copy()
 
     def encode_to_space_ArrayDiscreteSpace(self, val: List[int]) -> List[int]:
         return val
@@ -266,101 +269,105 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
 
     # --- ContinuousSpace
     def create_encode_space_ContinuousSpace(self):
-        raise NotSupportedError()
+        if self._size != 1:
+            raise NotSupportedError()
+        from srl.base.spaces.continuous import ContinuousSpace
+
+        return ContinuousSpace(self._low[0], self._high[0])
 
     def encode_to_space_ContinuousSpace(self, val: List[int]) -> float:
-        raise NotSupportedError()
+        return float(val[0])
 
     def decode_from_space_ContinuousSpace(self, val: float) -> List[int]:
-        raise NotSupportedError()
+        return [int(round(val))]
 
     # --- ArrayContinuousSpace
-    def create_encode_space_ArrayContinuousListSpace(self):
-        from srl.base.spaces.array_continuous_list import ArrayContinuousListSpace
+    def create_encode_space_ArrayContinuousSpace(self):
+        from srl.base.spaces.array_continuous import ArrayContinuousSpace
 
-        return ArrayContinuousListSpace(
+        return ArrayContinuousSpace(
             self._size,
             [float(n) for n in self._low],
             [float(n) for n in self._high],
         )
 
-    def encode_to_space_ArrayContinuousListSpace(self, val: List[int]) -> List[float]:
+    def encode_to_space_ArrayContinuousSpace(self, val: List[int]) -> List[float]:
         return [float(v) for v in val]
 
-    def decode_from_space_ArrayContinuousListSpace(self, val: List[float]) -> List[int]:
+    def decode_from_space_ArrayContinuousSpace(self, val: List[float]) -> List[int]:
         return [int(round(v)) for v in val]
 
-    # --- ArrayContinuousNpSpace
-    def create_encode_space_ArrayContinuousSpace(self, np_dtype):
-        from srl.base.spaces.array_continuous import ArrayContinuousSpace
+    # --- NpArray
+    def create_encode_space_NpArraySpace(self, dtype):
+        from srl.base.spaces.np_array import NpArraySpace
 
-        return ArrayContinuousSpace(
+        return NpArraySpace(
             self._size,
-            np.array(self._low, dtype=np_dtype),
-            np.array(self._high, dtype=np_dtype),
-            dtype=np_dtype,
+            [float(n) for n in self._low],
+            [float(n) for n in self._high],
+            dtype,
+            SpaceTypes.DISCRETE,
         )
 
-    def encode_to_space_ArrayContinuousSpace(self, val: List[int], space) -> np.ndarray:
-        return np.asarray(val, dtype=space.dtype)
+    def encode_to_space_NpArraySpace(self, val: List[int], dtype) -> np.ndarray:
+        return np.asarray(val, dtype=dtype)
 
-    def decode_from_space_ArrayContinuousSpace(self, val: np.ndarray) -> List[int]:
+    def decode_from_space_NpArraySpace(self, val: np.ndarray) -> List[int]:
+        return [int(round(v)) for v in val.tolist()]
+
+    # --- NpArrayUnTyped
+    def create_encode_space_NpArrayUnTyped(self):
+        from srl.base.spaces.np_array import NpArraySpace
+
+        return NpArraySpace(
+            self._size,
+            [float(n) for n in self._low],
+            [float(n) for n in self._high],
+            self.dtype,
+            SpaceTypes.DISCRETE,
+        )
+
+    def encode_to_space_NpArrayUnTyped(self, val: List[int]) -> np.ndarray:
+        return np.asarray(val, dtype=self.dtype)
+
+    def decode_from_space_NpArrayUnTyped(self, val: np.ndarray) -> List[int]:
         return [int(round(v)) for v in val.tolist()]
 
     # --- Box
-    def create_encode_space_Box(self, space_type: RLBaseTypes, np_dtype):
+    def create_encode_space_Box(self, dtype):
         from srl.base.spaces.box import BoxSpace
 
-        low = np.array(self._low, dtype=np_dtype)
-        high = np.array(self._high, dtype=np_dtype)
-        if space_type == RLBaseTypes.GRAY_2ch:
-            if self._size == 1:
-                return BoxSpace((1, 1), low, high, dtype=np_dtype, stype=SpaceTypes.GRAY_2ch)
-            else:
-                logger.warning("Not defined. Converts CONTINUOUS.")
-        elif space_type == RLBaseTypes.GRAY_3ch:
-            if self._size == 1:
-                return BoxSpace((1, 1, 1), low, high, dtype=np_dtype, stype=SpaceTypes.GRAY_2ch)
-            else:
-                logger.warning("Not defined. Converts CONTINUOUS.")
-        elif space_type == RLBaseTypes.COLOR:
-            if self._size == 1 or self._size == 3:
-                return BoxSpace((1, 1, 3), low, high, dtype=np_dtype, stype=SpaceTypes.COLOR)
-            else:
-                logger.warning("Not defined. Converts CONTINUOUS.")
-        elif space_type == RLBaseTypes.IMAGE:
-            return BoxSpace((1, 1, self._size), low, high, dtype=np_dtype, stype=SpaceTypes.IMAGE)
-        return BoxSpace((self._size,), low, high, dtype=np_dtype, stype=SpaceTypes.CONTINUOUS)
+        return BoxSpace(
+            (self._size,),
+            [float(n) for n in self._low],
+            [float(n) for n in self._high],
+            dtype,
+            SpaceTypes.DISCRETE,
+        )
 
-    def encode_to_space_Box(self, val: List[int], space) -> np.ndarray:
-        if space.stype == SpaceTypes.GRAY_2ch:
-            return np.asarray([val], dtype=space.dtype)
-        elif space.stype == SpaceTypes.GRAY_3ch:
-            return np.asarray([[val]], dtype=space.dtype)
-        elif space.stype == SpaceTypes.COLOR:
-            if self._size == 1:
-                return np.full((1, 1, 3), val[0], dtype=space.dtype)
-            else:
-                return np.asarray([[val]], dtype=space.dtype)
-        elif space.stype == SpaceTypes.IMAGE:
-            return np.asarray([[val]], dtype=space.dtype)
-        return np.asarray(val, dtype=space.dtype)
+    def encode_to_space_Box(self, val: List[int], dtype) -> np.ndarray:
+        return np.asarray(val, dtype=dtype)
 
-    def decode_from_space_Box(self, val: np.ndarray, space) -> List[int]:
-        if space.stype == SpaceTypes.GRAY_2ch:
-            arr = val.reshape(-1).tolist()
-        elif space.stype == SpaceTypes.GRAY_3ch:
-            arr = val.reshape(-1).tolist()
-        elif space.stype == SpaceTypes.COLOR:
-            if self._size == 1:
-                arr = val[0, 0, 0].tolist()
-            else:
-                arr = val.reshape(-1).tolist()
-        elif space.stype == SpaceTypes.IMAGE:
-            arr = val.reshape(-1).tolist()
-        else:
-            arr = val.tolist()
-        return [int(round(a)) for a in arr]
+    def decode_from_space_Box(self, val: np.ndarray) -> List[int]:
+        return [int(round(a)) for a in val.tolist()]
+
+    # --- BoxUnTyped
+    def create_encode_space_BoxUnTyped(self):
+        from srl.base.spaces.box import BoxSpace
+
+        return BoxSpace(
+            (self._size,),
+            [float(n) for n in self._low],
+            [float(n) for n in self._high],
+            self.dtype,
+            SpaceTypes.DISCRETE,
+        )
+
+    def encode_to_space_BoxUnTyped(self, val: List[int]) -> np.ndarray:
+        return np.asarray(val, dtype=self.dtype)
+
+    def decode_from_space_BoxUnTyped(self, val: np.ndarray) -> List[int]:
+        return [int(round(a)) for a in val.tolist()]
 
     # --- TextSpace
     def create_encode_space_TextSpace(self):
@@ -376,3 +383,15 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
 
     def decode_from_space_TextSpace(self, val: str) -> List[int]:
         return [int(v) for v in val.split(",")]
+
+    # --- Multi
+    def create_encode_space_MultiSpace(self):
+        from srl.base.spaces.multi import MultiSpace
+
+        return MultiSpace([self.copy()])
+
+    def encode_to_space_MultiSpace(self, val: List[int]) -> list:
+        return [val]
+
+    def decode_from_space_MultiSpace(self, val: list) -> List[int]:
+        return val[0]

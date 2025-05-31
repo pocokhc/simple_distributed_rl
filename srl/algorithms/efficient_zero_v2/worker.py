@@ -4,8 +4,8 @@ from typing import Any
 
 import numpy as np
 
-from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.spaces.np_array import NpArraySpace
 from srl.rl import functions as funcs
 from srl.rl.functions import inverse_rescaling, rescaling
 
@@ -85,7 +85,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
                 self.step_policy = node_cnt / node_cnt
 
             return int(self.action)
-        elif isinstance(self.config.action_space, ArrayContinuousSpace):
+        elif isinstance(self.config.action_space, NpArraySpace):
             self.step_policy = None
             env_action = self.config.action_space.rescale_from(self.action, -1, 1)
             return env_action
@@ -118,7 +118,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
                 if isinstance(self.config.action_space, DiscreteSpace):
                     dummy_action = random.randint(0, self.config.action_space.n - 1)
                     dummy_policy = [1 / self.config.action_space.n for _ in range(self.config.action_space.n)]
-                elif isinstance(self.config.action_space, ArrayContinuousSpace):
+                elif isinstance(self.config.action_space, NpArraySpace):
                     dummy_action = np.tanh(np.random.normal(size=(self.config.action_space.size,)))
                     dummy_policy = None
                 self.history.append(
@@ -216,7 +216,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
 
             worker.print_discrete_action_info(worker.action, _render_sub)
 
-        elif isinstance(self.config.action_space, ArrayContinuousSpace):
+        elif isinstance(self.config.action_space, NpArraySpace):
             for node in self.root.children:
                 s = f" {node.visit_count:3d}(N)"
                 s += f" {node.q:5.3f}(Q)"

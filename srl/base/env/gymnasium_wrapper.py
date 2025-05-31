@@ -87,9 +87,11 @@ def _space_change_from_gym_to_srl_sub(gym_space: gym_spaces.Space) -> Optional[U
         pass  # not support
 
     if isinstance(gym_space, gym_spaces.Text):
-        shape = (gym_space.max_length,)
-        # TODO TextSpace
-        return srl_spaces.BoxSpace(shape, 0, len(gym_space.character_set), np.int64, SpaceTypes.DISCRETE)
+        return srl_spaces.TextSpace(
+            gym_space.max_length,
+            gym_space.min_length,
+            str(gym_space.character_set),
+        )
 
     if isinstance(gym_space, gym_spaces.Sequence):
         pass  # not support
@@ -152,8 +154,7 @@ def _space_encode_from_gym_to_srl_sub(gym_space: gym_spaces.Space, x: Any):
         pass  # not support
 
     if isinstance(gym_space, gym_spaces.Text):
-        arr = [gym_space.character_index(v) for v in x]
-        return arr
+        return str(x)
 
     if isinstance(gym_space, gym_spaces.Sequence):
         pass  # not support
@@ -203,7 +204,7 @@ def _space_decode_to_srl_from_gym_sub(gym_space: gym_spaces.Space, x: Any, idx=0
         pass  # not support
 
     if isinstance(gym_space, gym_spaces.Text):
-        pass  # TODO
+        return x[idx], idx + 1
 
     if isinstance(gym_space, gym_spaces.Sequence):
         pass  # not support

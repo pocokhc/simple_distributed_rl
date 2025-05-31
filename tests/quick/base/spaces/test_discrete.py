@@ -4,11 +4,11 @@ import pytest
 from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.exception import NotSupportedError
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
-from srl.base.spaces.array_continuous_list import ArrayContinuousListSpace
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.continuous import ContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.spaces.np_array import NpArraySpace
 from srl.base.spaces.text import TextSpace
 
 
@@ -163,17 +163,15 @@ def test_valid_actions():
 @pytest.mark.parametrize(
     "create_space, true_space, val, decode_val",
     [
-        [RLBaseTypes.NONE, DiscreteSpace(5, 0), 2, 3],
+        [RLBaseTypes.NONE, DiscreteSpace(5, 1), 2, 2],
         [RLBaseTypes.DISCRETE, DiscreteSpace(5, 0), 2, 3],
         [RLBaseTypes.ARRAY_DISCRETE, ArrayDiscreteSpace(1, 0, 4), [2], 3],
         [RLBaseTypes.CONTINUOUS, ContinuousSpace(0, 4), 2, 3],
-        [RLBaseTypes.ARRAY_CONTINUOUS_LIST, ArrayContinuousListSpace(1, 0, 4), [2], 3],
-        [RLBaseTypes.ARRAY_CONTINUOUS, ArrayContinuousSpace(1, 0, 4), np.array([2], np.float32), 3],
-        [RLBaseTypes.BOX, BoxSpace((1,), 0, 4, np.float32, SpaceTypes.CONTINUOUS), np.full((1,), 2), 3],
-        [RLBaseTypes.GRAY_2ch, BoxSpace((1, 1), 0, 4, np.uint64, SpaceTypes.GRAY_2ch), np.full((1, 1), 2), 3],
-        [RLBaseTypes.GRAY_3ch, BoxSpace((1, 1, 1), 0, 4, np.uint64, SpaceTypes.GRAY_3ch), np.full((1, 1, 1), 2), 3],
-        [RLBaseTypes.COLOR, BoxSpace((1, 1, 3), 0, 4, np.uint64, SpaceTypes.COLOR), np.full((1, 1, 3), 2), 3],
-        [RLBaseTypes.IMAGE, BoxSpace((1, 1, 1), 0, 4, np.uint64, SpaceTypes.IMAGE), np.full((1, 1, 1), 2), 3],
+        [RLBaseTypes.ARRAY_CONTINUOUS, ArrayContinuousSpace(1, 0, 4), [2], 3],
+        [RLBaseTypes.NP_ARRAY, NpArraySpace(1, 0, 4, np.float32, SpaceTypes.DISCRETE), np.array([2.0], np.float32), 3],
+        [RLBaseTypes.NP_ARRAY_UNTYPED, NpArraySpace(1, 0, 4, np.uint), np.array([2], np.uint), 3],
+        [RLBaseTypes.BOX, BoxSpace((1,), 0, 4, np.float32, SpaceTypes.DISCRETE), np.full((1,), 2.0, np.float32), 3],
+        [RLBaseTypes.BOX_UNTYPED, BoxSpace((1,), 0, 4, np.uint), np.full((1,), 2, np.int64), 3],
         [RLBaseTypes.TEXT, TextSpace(1, 1, "0123456789-"), "2", 3],
     ],
 )

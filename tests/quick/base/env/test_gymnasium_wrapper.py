@@ -287,6 +287,37 @@ def test_space2():
     assert val == val
 
 
+def test_space_text():
+    pytest.importorskip("gymnasium")
+
+    from gymnasium import spaces
+
+    from srl.base.env.gymnasium_wrapper import (
+        space_change_from_gym_to_srl,
+        space_decode_to_srl_from_gym,
+        space_encode_from_gym_to_srl,
+    )
+
+    space = spaces.Text(3)
+    srl_space = space_change_from_gym_to_srl(space)
+    print(srl_space)
+    assert srl_space.stype == SpaceTypes.DISCRETE
+    assert isinstance(srl_space, srl_spaces.TextSpace)
+
+    val = space.sample()
+    pprint(val)
+    val = "10"
+
+    encode_val = space_encode_from_gym_to_srl(space, val)
+    pprint(encode_val)
+    assert encode_val == "10"
+
+    decode_val = space_decode_to_srl_from_gym(space, srl_space, encode_val)
+    print("----")
+    pprint(decode_val)
+    assert val == val
+
+
 def test_original_space():
     pytest.importorskip("gymnasium")
 

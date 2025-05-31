@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Detailed Framework &mdash; SimpleDistributedRL 1.2.0.3 ドキュメント</title>
+  <title>Detailed Framework &mdash; SimpleDistributedRL 1.3.0 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=a5cbf489"></script>
+      <script src="../_static/documentation_options.js?v=8633527d"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -207,10 +207,7 @@
 <td><p>Note</p></td>
 </tr>
 <tr class="row-even"><td><p>NONE</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
+<td></td>
 <td><p>copy</p></td>
 <td><p>No Change</p></td>
 </tr>
@@ -237,7 +234,7 @@
 <tr class="row-odd"><td><p>NP_ARRAY</p></td>
 <td><p>NDArray[float]</p></td>
 <td><p>ArrayNpSpace</p></td>
-<td><p>float固定</p></td>
+<td><p>float固定（configで変更可能）</p></td>
 </tr>
 <tr class="row-even"><td><p>NP_ARRAY_UNTYPED</p></td>
 <td><p>NDArray[int] or NDArray[float]</p></td>
@@ -245,9 +242,9 @@
 <td><p>dtype変換なし</p></td>
 </tr>
 <tr class="row-odd"><td><p>BOX</p></td>
-<td><p>NDArray[Any]</p></td>
+<td><p>NDArray[float]</p></td>
 <td><p>BoxSpace</p></td>
-<td><p>float固定</p></td>
+<td><p>float固定（configで変更可能）</p></td>
 </tr>
 <tr class="row-even"><td><p>BOX_UNTYPED</p></td>
 <td><p>NDArray[Any]</p></td>

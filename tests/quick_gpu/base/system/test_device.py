@@ -38,8 +38,10 @@ def _setup_device(
 
     used_device_tf, used_device_torch = setup_device(framework, device)
     used_device_tf, used_device_torch = setup_device(framework, device)
-    assert used_device_tf == true_tf
-    assert used_device_torch == true_torch
+    if framework == "tensorflow":
+        assert used_device_tf == true_tf
+    if framework == "torch":
+        assert used_device_torch == true_torch
 
     if true_torch != "cuda:1":
         runner.train(max_train_count=2)

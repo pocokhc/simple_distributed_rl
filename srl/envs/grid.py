@@ -154,7 +154,7 @@ class _GridBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSp
     def reward_baseline(self) -> dict:
         return self.reward_baseline_
 
-    def reset(self, seed: Optional[int] = None, **kwargs) -> Any:
+    def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
         self.player_pos = random.choice(self.start_pos_list)
         self.action = Action.DOWN
         return self._create_state()

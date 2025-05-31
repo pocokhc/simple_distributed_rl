@@ -42,7 +42,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         act_dist, v, self.hc = self.parameter.actor_critic(obs, hc=self.hc)
         act = act_dist.sample()
 
-        return int(act.numpy()[0][0])
+        return int(act.numpy()[0])
 
     def on_step(self, worker):
         if not self.training and not self.rendering:

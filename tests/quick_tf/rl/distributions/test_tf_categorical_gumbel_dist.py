@@ -1,4 +1,6 @@
 import pytest
+
+pytest.importorskip("tensorflow")
 import tensorflow as tf
 
 from srl.rl.tf.distributions.categorical_gumbel_dist_block import CategoricalGumbelDist

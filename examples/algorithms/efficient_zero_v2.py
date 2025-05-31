@@ -21,13 +21,11 @@ def create_runner():
     rl_config.memory.warmup_size = 100
 
     runner = srl.Runner(env_config, rl_config)
-    runner.set_progress(interval_limit=60)
     return runner
 
 
 def train():
     runner = create_runner()
-
     runner.train_mp(max_train_count=5000)
     runner.save_parameter(str(Path(__file__).parent / "_efficient_zero.dat"))
 

@@ -226,6 +226,7 @@ class Parameter(RLParameter[Config]):
 
 class Trainer(RLTrainer[Config, Parameter, Memory]):
     def on_setup(self) -> None:
+        self.np_dtype = self.config.get_dtype("np")
         lr = self.config.lr_scheduler.apply_tf_scheduler(self.config.lr)
         self.actor_optimizer = keras.optimizers.Adam(learning_rate=lr)
         self.critic_optimizer = keras.optimizers.Adam(learning_rate=lr)
@@ -246,9 +247,9 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             n_states.append(b["next_state"])
             rewards.append(b["reward"])
             dones.append(b["done"])
-        states = np.asarray(states)
-        n_states = np.asarray(n_states)
-        actions = np.asarray(actions)
+        states = np.asarray(states).astype(self.np_dtype)
+        n_states = np.asarray(n_states).astype(self.np_dtype)
+        actions = np.asarray(actions).astype(self.np_dtype)
         dones = np.asarray(dones).reshape((-1, 1))
         rewards = np.asarray(rewards).reshape((-1, 1))
 

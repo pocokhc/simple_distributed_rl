@@ -164,6 +164,8 @@ class BoxSpace(SpaceBase[np.ndarray]):
             return False
         if self._shape != val.shape:
             return False
+        if np.isnan(val).any():
+            return False
         if (val < self._low).any():
             return False
         if (val > self._high).any():

@@ -81,8 +81,8 @@ class LongCase(CommonLongCase):
         return rl_config
 
     @pytest.mark.parametrize("ver", ["v1", "v2", "v3"])
-    def test_EasyGrid(self, ver):
-        env_config = srl.EnvConfig("EasyGrid")
+    def test_Grid(self, ver):
+        env_config = srl.EnvConfig("Grid")
         rl_config = self._create_rl_config(ver)
 
         # model
@@ -114,8 +114,8 @@ class LongCase(CommonLongCase):
             runner.train(max_train_count=3_000)
         elif ver == "v3":
             rl_config.warmup_world_model = 2_000
-            runner.train(max_train_count=3_000)
-        assert runner.evaluate_compare_to_baseline_single_player(episode=5, baseline=0.9)
+            runner.train(max_train_count=4_000)
+        assert runner.evaluate_compare_to_baseline_single_player(episode=10, baseline=0.4)
 
     @pytest.mark.parametrize("ver", ["v1", "v2", "v3"])
     def test_Grid_cont(self, ver):

@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass, field
 from typing import Any, List, Optional, Tuple
 
@@ -23,6 +24,8 @@ from srl.rl.tf import functions as tf_funcs
 from srl.rl.tf.distributions.categorical_dist_block import CategoricalDistBlock
 from srl.rl.tf.distributions.normal_dist_block import NormalDistBlock
 from srl.rl.tf.model import KerasModelAddedSummary
+
+logger = logging.getLogger(__name__)
 
 kl = keras.layers
 
@@ -150,9 +153,6 @@ class Memory(RLReplayBuffer):
     pass
 
 
-# ------------------------------------------------------
-# network
-# ------------------------------------------------------
 class ActorCriticNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
@@ -274,9 +274,6 @@ class ActorCriticNetwork(KerasModelAddedSummary):
         return policy_loss, value_loss, entropy_loss, kl
 
 
-# ------------------------------------------------------
-# Parameter
-# ------------------------------------------------------
 class Parameter(RLParameter):
     def setup(self):
         self.model = ActorCriticNetwork(self.config)
@@ -432,6 +429,9 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             self.recent_batch.append(batch)
 
             env_action = env_action.numpy()[0]
+            if np.isnan(env_action).any():
+                logger.warning(f"The action contains nan. It is now a random action. {env_action}")
+                env_action = self.sample_action()
         else:
             raise UndefinedError(self.config.action_space)
 

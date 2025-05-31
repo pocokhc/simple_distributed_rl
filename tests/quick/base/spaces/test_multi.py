@@ -163,26 +163,73 @@ def test_valid_actions():
 @pytest.mark.parametrize(
     "create_space, true_space, val, decode_val",
     [
-        [RLBaseTypes.NONE, MultiSpace, [1, [0], 0.1, [0.5], np.ones((1,))], [1, [0], 0.1, [0.5], np.ones((1,))]],
-        [RLBaseTypes.DISCRETE, DiscreteSpace(108, 0), 0, [0, [0], 0.0, [0.0], np.array([0], dtype=np.float32)]],
-        [RLBaseTypes.ARRAY_DISCRETE, ArrayDiscreteSpace(5, 0, [1, 1, 3, 3, 3]), [1, 1, 1, 1, 1], [1, [1], 0.5, [0.5], np.array([0.5], dtype=np.float32)]],
+        [
+            RLBaseTypes.NONE,
+            MultiSpace,
+            [1, [0], 0.1, [0.5], np.array([0.2], np.float32), np.ones((1, 1), np.float32), "5"],
+            [1, [0], 0.1, [0.5], np.array([0.2], np.float32), np.ones((1, 1), np.float32), "5"],
+        ],
+        [
+            RLBaseTypes.DISCRETE,
+            DiscreteSpace(2916, 0),
+            0,
+            [0, [0], 0.0, [0.0], np.array([0], dtype=np.float32), np.array([[0]], dtype=np.float32), "0"],
+        ],
+        [
+            RLBaseTypes.ARRAY_DISCRETE,
+            ArrayDiscreteSpace(7, 0, [1, 1, 3, 3, 3, 3, 127]),
+            [1, 1, 1, 1, 1, 1, 49],
+            [1, [1], 0.5, [0.5], np.array([0.5], dtype=np.float32), np.array([[0.5]], dtype=np.float32), "1"],
+        ],
         [RLBaseTypes.CONTINUOUS, None, 1.1, 1.1],
-        [RLBaseTypes.ARRAY_CONTINUOUS, ArrayContinuousSpace(5, 0, 1), [1, 1, 1.0, 1.0, 1.0], [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32)]],
-        [RLBaseTypes.NP_ARRAY, NpArraySpace(5, 0, 1), np.array([1, 1, 1.0, 1.0, 1.0], np.float32), [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32)]],
-        [RLBaseTypes.NP_ARRAY_UNTYPED, NpArraySpace(5, 0, 1), np.array([1, 1, 1.0, 1.0, 1.0], np.float32), [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32)]],
-        [RLBaseTypes.BOX, BoxSpace((5, 1), 0, 1), np.full((5, 1), 0, np.float32), [0, [0], 0, [0], np.array([0], dtype=np.float32)]],
-        [RLBaseTypes.BOX_UNTYPED, BoxSpace((5, 1), 0, 1), np.full((5, 1), 0, np.float32), [0, [0], 0, [0], np.array([0], dtype=np.float32)]],
-        [RLBaseTypes.TEXT, TextSpace(-1, 1, "0123456789-,._"), "1_1_1.0_1.0_1.0", [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32)]],
+        [
+            RLBaseTypes.ARRAY_CONTINUOUS,
+            ArrayContinuousSpace(7, 0, [1, 1, 1, 1, 1, 1, 127]),
+            [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 49.0],
+            [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32), np.array([[1.0]], dtype=np.float32), "1"],
+        ],
+        [
+            RLBaseTypes.NP_ARRAY,
+            NpArraySpace(7, 0, [1, 1, 1, 1, 1, 1, 127]),
+            np.array([1, 1, 1, 1, 1, 1, 49], np.float32),
+            [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32), np.array([[1.0]], dtype=np.float32), "1"],
+        ],
+        [
+            RLBaseTypes.NP_ARRAY_UNTYPED,
+            NpArraySpace(7, 0, [1, 1, 1, 1, 1, 1, 127]),
+            np.array([1, 1, 1, 1, 1, 1, 49], np.float32),
+            [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32), np.array([[1.0]], dtype=np.float32), "1"],
+        ],
+        [
+            RLBaseTypes.BOX,
+            BoxSpace((7,), 0, [1, 1, 1, 1, 1, 1, 127]),
+            np.array([1, 1, 1, 1, 1, 1, 49], np.float32),
+            [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32), np.array([[1.0]], dtype=np.float32), "1"],
+        ],
+        [
+            RLBaseTypes.BOX_UNTYPED,
+            BoxSpace((7,), 0, [1, 1, 1, 1, 1, 1, 127]),
+            np.array([1, 1, 1, 1, 1, 1, 49], np.float32),
+            [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32), np.array([[1.0]], dtype=np.float32), "1"],
+        ],
+        [
+            RLBaseTypes.TEXT,
+            TextSpace(-1, 1, "0123456789-,._"),
+            "1_1_1.0_1.0_1.0_1.0_5",
+            [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32), np.array([[1.0]], dtype=np.float32), "5"],
+        ],
     ],
 )
-def test_space(create_space, true_space, val, decode_val):
+def test_space_same_shape(create_space, true_space, val, decode_val):
     space = MultiSpace(
         [
             DiscreteSpace(2),
             ArrayDiscreteSpace(1, 0, 1),
             ContinuousSpace(0, 1),
             ArrayContinuousSpace(1, 0, 1),
-            BoxSpace((1,), 0, 1),
+            NpArraySpace(1, 0, 1),
+            BoxSpace((1, 1), 0, 1),
+            TextSpace(1, 1, "0123456789"),
         ]
     )
     print(space)
@@ -203,11 +250,12 @@ def test_space(create_space, true_space, val, decode_val):
         assert target_space == true_space
 
     de = space.decode_from_space(val, target_space)
-    print(de)
-    if isinstance(de, np.ndarray):
-        assert (de == decode_val).all()
-    else:
-        assert de == decode_val
+    for i in range(len(decode_val)):
+        print(i, de[i], decode_val[i])
+        if isinstance(de[i], np.ndarray):
+            assert (de[i] == decode_val[i]).all()
+        else:
+            assert de[i] == decode_val[i]
     assert space.check_val(de)
     en = space.encode_to_space(decode_val, target_space)
     print(en)
@@ -219,8 +267,203 @@ def test_space(create_space, true_space, val, decode_val):
     assert target_space.check_val(en)
 
     de = space.decode_from_space(en, target_space)
-    if isinstance(de, np.ndarray):
-        assert (de == decode_val).all()
+    for i in range(len(decode_val)):
+        print(i, de[i], decode_val[i])
+        if isinstance(de[i], np.ndarray):
+            assert (de[i] == decode_val[i]).all()
+        else:
+            assert de[i] == decode_val[i]
+    assert space.check_val(de)
+
+
+@pytest.mark.parametrize(
+    "create_space, true_space, val, decode_val",
+    [
+        [
+            RLBaseTypes.NONE,
+            MultiSpace,
+            [1, [0], 0.1, [0.5, 0.6, 0.7], np.array([0.2, 0.3], np.float32), np.ones((2, 1), np.float32), "5"],
+            [1, [0], 0.1, [0.5, 0.6, 0.7], np.array([0.2, 0.3], np.float32), np.ones((2, 1), np.float32), "5"],
+        ],
+        [
+            RLBaseTypes.DISCRETE,
+            DiscreteSpace(152064, 0),
+            0,
+            [0, [0], 0.0, [0.0, 0.0, 0.0], np.array([0, 0], dtype=np.float32), np.array([[0], [0]], dtype=np.float32), "0"],
+        ],
+        [
+            RLBaseTypes.ARRAY_DISCRETE,
+            ArrayDiscreteSpace(8, 0, [1, 1, 3, 8, 4, 4, 127, 127]),
+            [1, 1, 1, 1, 1, 1, 49, 49],
+            [1, [1], 0.5, [0.0, 0.0, 1.0], np.array([0, 1], dtype=np.float32), np.array([[0], [1]], dtype=np.float32), "11"],
+        ],
+        [RLBaseTypes.CONTINUOUS, None, 1.1, 1.1],
+        [
+            RLBaseTypes.ARRAY_CONTINUOUS,
+            ArrayContinuousSpace(12, 0, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 127, 127]),
+            [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 49.0, 49.0],
+            [1, [1], 1.0, [1.0, 1.0, 1.0], np.array([1, 1], dtype=np.float32), np.array([[1], [1]], dtype=np.float32), "11"],
+        ],
+        [
+            RLBaseTypes.NP_ARRAY,
+            NpArraySpace(12, 0, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 127, 127]),
+            np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 49, 49], np.float32),
+            [1, [1], 1.0, [1.0, 1.0, 1.0], np.array([1, 1], dtype=np.float32), np.array([[1], [1]], dtype=np.float32), "11"],
+        ],
+        [
+            RLBaseTypes.NP_ARRAY_UNTYPED,
+            NpArraySpace(12, 0, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 127, 127]),
+            np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 49, 49], np.float32),
+            [1, [1], 1.0, [1.0, 1.0, 1.0], np.array([1, 1], dtype=np.float32), np.array([[1], [1]], dtype=np.float32), "11"],
+        ],
+        [
+            RLBaseTypes.BOX,
+            BoxSpace((12,), 0, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 127, 127]),
+            np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 49, 49], np.float32),
+            [1, [1], 1.0, [1.0, 1.0, 1.0], np.array([1, 1], dtype=np.float32), np.array([[1], [1]], dtype=np.float32), "11"],
+        ],
+        [
+            RLBaseTypes.BOX_UNTYPED,
+            BoxSpace((12,), 0, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 127, 127]),
+            np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 49, 49], np.float32),
+            [1, [1], 1.0, [1.0, 1.0, 1.0], np.array([1, 1], dtype=np.float32), np.array([[1], [1]], dtype=np.float32), "11"],
+        ],
+        [
+            RLBaseTypes.TEXT,
+            TextSpace(-1, 1, "0123456789-,._"),
+            "1_1_1.0_1.0,1.0,1.0_1.0,1.0_1.0,1.0_55",
+            [1, [1], 1.0, [1.0, 1.0, 1.0], np.array([1, 1], dtype=np.float32), np.array([[1], [1]], dtype=np.float32), "55"],
+        ],
+    ],
+)
+def test_space_no_same_shape(create_space, true_space, val, decode_val):
+    space = MultiSpace(
+        [
+            DiscreteSpace(2),
+            ArrayDiscreteSpace(1, 0, 1),
+            ContinuousSpace(0, 1),
+            ArrayContinuousSpace(3, 0, 1),
+            NpArraySpace(2, 0, 1),
+            BoxSpace((2, 1), 0, 1),
+            TextSpace(2, 1, "0123456789"),
+        ]
+    )
+    print(space)
+    assert space.stype == SpaceTypes.MULTI
+    space.create_division_tbl(division_num=3)
+
+    if true_space is None:
+        with pytest.raises(NotSupportedError):
+            space.create_encode_space(create_space)
+        return
+
+    target_space = space.create_encode_space(create_space)
+    print(target_space)
+    print(true_space)
+    if create_space == RLBaseTypes.NONE:
+        assert target_space == space
     else:
-        assert de == decode_val
+        assert target_space == true_space
+
+    de = space.decode_from_space(val, target_space)
+    for i in range(len(decode_val)):
+        print(i, de[i], decode_val[i])
+        if isinstance(de[i], np.ndarray):
+            assert (de[i] == decode_val[i]).all()
+        else:
+            assert de[i] == decode_val[i]
+    assert space.check_val(de)
+    en = space.encode_to_space(decode_val, target_space)
+    print(en)
+    print(val)
+    if create_space == RLBaseTypes.NONE:
+        for i in range(len(val)):
+            if isinstance(en[i], np.ndarray):
+                assert (en[i] == val[i]).all()
+            else:
+                assert en[i] == val[i]
+    else:
+        if isinstance(en, np.ndarray):
+            assert (en == val).all()
+        else:
+            assert en == val
+    assert target_space.check_val(en)
+
+    de = space.decode_from_space(en, target_space)
+    for i in range(len(decode_val)):
+        print(i, de[i], decode_val[i])
+        if isinstance(de[i], np.ndarray):
+            assert (de[i] == decode_val[i]).all()
+        else:
+            assert de[i] == decode_val[i]
+    assert space.check_val(de)
+
+
+@pytest.mark.parametrize(
+    "create_space, true_space, val, decode_val",
+    [
+        [
+            RLBaseTypes.BOX,
+            BoxSpace((4, 3), 0, 1),
+            np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]], np.float32),
+            [[1, 1, 1], [1.0, 1.0, 1.0], np.array([1, 1, 1], dtype=np.float32), np.array([1, 1, 1], dtype=np.float32)],
+        ],
+        [
+            RLBaseTypes.BOX_UNTYPED,
+            BoxSpace((4, 3), 0, 1),
+            np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]], np.float32),
+            [[1, 1, 1], [1.0, 1.0, 1.0], np.array([1, 1, 1], dtype=np.float32), np.array([1, 1, 1], dtype=np.float32)],
+        ],
+    ],
+)
+def test_space_box(create_space, true_space, val, decode_val):
+    space = MultiSpace(
+        [
+            ArrayDiscreteSpace(3, 0, 1),
+            ArrayContinuousSpace(3, 0, 1),
+            NpArraySpace(3, 0, 1),
+            BoxSpace((3,), 0, 1),
+        ]
+    )
+    print(space)
+    assert space.stype == SpaceTypes.MULTI
+    space.create_division_tbl(division_num=3)
+
+    if true_space is None:
+        with pytest.raises(NotSupportedError):
+            space.create_encode_space(create_space)
+        return
+
+    target_space = space.create_encode_space(create_space)
+    print(target_space)
+    print(true_space)
+    if create_space == RLBaseTypes.NONE:
+        assert target_space == space
+    else:
+        assert target_space == true_space
+
+    de = space.decode_from_space(val, target_space)
+    for i in range(len(decode_val)):
+        print(i, de[i], decode_val[i])
+        if isinstance(de[i], np.ndarray):
+            assert (de[i] == decode_val[i]).all()
+        else:
+            assert de[i] == decode_val[i]
+    assert space.check_val(de)
+    en = space.encode_to_space(decode_val, target_space)
+    print(en)
+    print(val)
+    if isinstance(en, np.ndarray):
+        assert (en == val).all()
+    else:
+        assert en == val
+    assert target_space.check_val(en)
+
+    de = space.decode_from_space(en, target_space)
+    for i in range(len(decode_val)):
+        print(i, de[i], decode_val[i])
+        if isinstance(de[i], np.ndarray):
+            assert (de[i] == decode_val[i]).all()
+        else:
+            assert de[i] == decode_val[i]
     assert space.check_val(de)

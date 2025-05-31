@@ -4,11 +4,11 @@ import pytest
 from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.exception import NotSupportedError
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
-from srl.base.spaces.array_continuous_list import ArrayContinuousListSpace
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.continuous import ContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.spaces.np_array import NpArraySpace
 from srl.base.spaces.text import TextSpace
 
 
@@ -72,9 +72,11 @@ def test_sanitize():
         [RLBaseTypes.DISCRETE, DiscreteSpace(999, 0), 0, "0"],
         [RLBaseTypes.ARRAY_DISCRETE, ArrayDiscreteSpace(3, 0, 0x7F), [50, 51, 52], "234"],
         [RLBaseTypes.CONTINUOUS, ContinuousSpace(), 1.1, "1.1"],
-        [RLBaseTypes.ARRAY_CONTINUOUS_LIST, ArrayContinuousListSpace(3, 0, 0x7F), [50, 51, 52], "234"],
-        [RLBaseTypes.ARRAY_CONTINUOUS, ArrayContinuousSpace(3, 0, 0x7F), np.array([50, 51, 52], np.float32), "234"],
-        [RLBaseTypes.BOX, BoxSpace((3,), 0, 0x7F), np.array([50.0, 51.0, 52.0], np.float32), "234"],
+        [RLBaseTypes.ARRAY_CONTINUOUS, ArrayContinuousSpace(3, 0, 0x7F), [50, 51, 52], "234"],
+        [RLBaseTypes.NP_ARRAY, NpArraySpace(3, 0, 0x7F, np.float32, SpaceTypes.DISCRETE), np.array([50, 51, 52], np.float32), "234"],
+        [RLBaseTypes.NP_ARRAY_UNTYPED, NpArraySpace(3, 0, 0x7F, np.uint), np.array([50, 51, 52], np.uint), "234"],
+        [RLBaseTypes.BOX, BoxSpace((3,), 0, 0x7F, np.float32, SpaceTypes.DISCRETE), np.array([50, 51, 52], np.float32), "234"],
+        [RLBaseTypes.BOX_UNTYPED, BoxSpace((3,), 0, 0x7F, np.uint), np.array([50, 51, 52], np.uint), "234"],
         [RLBaseTypes.TEXT, TextSpace(3), "2", "2"],
     ],
 )

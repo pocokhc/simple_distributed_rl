@@ -13,8 +13,8 @@ class QuickCase(CommonQuickCase):
         params=[
             dict(override_action_type=RLBaseTypes.DISCRETE, entropy_bonus_exclude_q=False),
             dict(override_action_type=RLBaseTypes.DISCRETE, entropy_bonus_exclude_q=True),
-            dict(override_action_type=RLBaseTypes.ARRAY_CONTINUOUS, enable_normal_squashed=False),
-            dict(override_action_type=RLBaseTypes.ARRAY_CONTINUOUS, enable_normal_squashed=True),
+            dict(override_action_type=RLBaseTypes.NP_ARRAY, enable_normal_squashed=False),
+            dict(override_action_type=RLBaseTypes.NP_ARRAY, enable_normal_squashed=True),
         ]
     )
     def rl_param(self, request):

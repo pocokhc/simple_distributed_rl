@@ -2,7 +2,7 @@ from typing import Any, List
 
 import numpy as np
 
-from srl.base.define import SpaceTypes
+from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.exception import NotSupportedError
 from srl.base.spaces.space import SpaceBase
 
@@ -62,10 +62,19 @@ class AnySpace(SpaceBase[Any]):
     # --------------------------------------
     # spaces
     # --------------------------------------
-    def get_encode_type_list(self):
-        priority_list = []
-        exclude_list = []
-        return priority_list, exclude_list
+    def get_encode_list(self):
+        return [
+            RLBaseTypes.DISCRETE,
+            RLBaseTypes.ARRAY_DISCRETE,
+            RLBaseTypes.CONTINUOUS,
+            RLBaseTypes.ARRAY_CONTINUOUS,
+            RLBaseTypes.NP_ARRAY,
+            RLBaseTypes.NP_ARRAY_UNTYPED,
+            RLBaseTypes.BOX,
+            RLBaseTypes.BOX_UNTYPED,
+            RLBaseTypes.TEXT,
+            RLBaseTypes.MULTI,
+        ]
 
     # --- DiscreteSpace
     def create_encode_space_DiscreteSpace(self):
@@ -98,33 +107,53 @@ class AnySpace(SpaceBase[Any]):
         return val
 
     # --- ArrayContinuousSpace
-    def create_encode_space_ArrayContinuousListSpace(self):
+    def create_encode_space_ArrayContinuousSpace(self):
         return self
 
-    def encode_to_space_ArrayContinuousListSpace(self, val: Any) -> List[float]:
+    def encode_to_space_ArrayContinuousSpace(self, val: Any) -> List[float]:
         return val
 
-    def decode_from_space_ArrayContinuousListSpace(self, val: List[float]) -> Any:
+    def decode_from_space_ArrayContinuousSpace(self, val: List[float]) -> Any:
         return val
 
-    # --- np
-    def create_encode_space_ArrayContinuousSpace(self, np_dtype):
+    # --- NpArray
+    def create_encode_space_NpArraySpace(self, dtype):
         return self
 
-    def encode_to_space_ArrayContinuousSpace(self, val: Any, space) -> np.ndarray:
+    def encode_to_space_NpArraySpace(self, val: Any, dtype) -> np.ndarray:
         return val
 
-    def decode_from_space_ArrayContinuousSpace(self, val: np.ndarray) -> Any:
+    def decode_from_space_NpArraySpace(self, val: np.ndarray) -> Any:
+        return val
+
+    # --- NpArrayUnTyped
+    def create_encode_space_NpArrayUnTyped(self):
+        return self
+
+    def encode_to_space_NpArrayUnTyped(self, val: Any) -> np.ndarray:
+        return val
+
+    def decode_from_space_NpArrayUnTyped(self, val: np.ndarray) -> Any:
         return val
 
     # --- Box
-    def create_encode_space_Box(self, space_type, np_dtype):
+    def create_encode_space_Box(self, dtype):
         return self
 
-    def encode_to_space_Box(self, val: Any, space) -> np.ndarray:
+    def encode_to_space_Box(self, val: Any, dtype) -> np.ndarray:
         return val
 
-    def decode_from_space_Box(self, val: np.ndarray, space) -> Any:
+    def decode_from_space_Box(self, val: np.ndarray) -> Any:
+        return val
+
+    # --- BoxUnTyped
+    def create_encode_space_BoxUnTyped(self):
+        return self
+
+    def encode_to_space_BoxUnTyped(self, val: Any) -> np.ndarray:
+        return val
+
+    def decode_from_space_BoxUnTyped(self, val: np.ndarray) -> Any:
         return val
 
     # --- TextSpace
@@ -136,3 +165,13 @@ class AnySpace(SpaceBase[Any]):
 
     def decode_from_space_TextSpace(self, val: str) -> Any:
         return val
+
+    # --- Multi
+    def create_encode_space_MultiSpace(self):
+        raise NotImplementedError()
+
+    def encode_to_space_MultiSpace(self, val: Any) -> list:
+        raise NotImplementedError()
+
+    def decode_from_space_MultiSpace(self, val: list) -> Any:
+        raise NotImplementedError()

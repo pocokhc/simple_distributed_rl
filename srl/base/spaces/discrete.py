@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 class DiscreteSpace(SpaceBase[int]):
     def __init__(self, n: int, start: int = 0) -> None:
+        super().__init__()
         assert n > 0
         self._n = n
         self._start = start
@@ -119,16 +120,20 @@ class DiscreteSpace(SpaceBase[int]):
     # --------------------------------------
     # spaces
     # --------------------------------------
-    def get_encode_type_list(self):
-        priority_list = [
+    def get_encode_list(self):
+        return [
             RLBaseTypes.DISCRETE,
             RLBaseTypes.ARRAY_DISCRETE,
+            #
+            RLBaseTypes.NP_ARRAY,
+            RLBaseTypes.NP_ARRAY_UNTYPED,
+            RLBaseTypes.CONTINUOUS,
+            RLBaseTypes.ARRAY_CONTINUOUS,
+            RLBaseTypes.BOX,
+            RLBaseTypes.BOX_UNTYPED,
+            RLBaseTypes.TEXT,
+            RLBaseTypes.MULTI,
         ]
-        exclude_list = []
-        return priority_list, exclude_list
-
-    def create_encode_space_Self(self):
-        return DiscreteSpace(self._n)  # startは0
 
     # --- DiscreteSpace
     def create_encode_space_DiscreteSpace(self):
@@ -165,64 +170,63 @@ class DiscreteSpace(SpaceBase[int]):
         return int(round(val)) + self._start
 
     # --- ArrayContinuousSpace
-    def create_encode_space_ArrayContinuousListSpace(self):
-        from srl.base.spaces.array_continuous_list import ArrayContinuousListSpace
-
-        return ArrayContinuousListSpace(1, 0, self.n - 1)
-
-    def encode_to_space_ArrayContinuousListSpace(self, val: int) -> List[float]:
-        return [float(val - self._start)]
-
-    def decode_from_space_ArrayContinuousListSpace(self, val: List[float]) -> int:
-        return int(round(val[0])) + self._start
-
-    # --- np
-    def create_encode_space_ArrayContinuousSpace(self, np_dtype):
+    def create_encode_space_ArrayContinuousSpace(self):
         from srl.base.spaces.array_continuous import ArrayContinuousSpace
 
-        return ArrayContinuousSpace(1, 0, self.n - 1, np_dtype)
+        return ArrayContinuousSpace(1, 0, self.n - 1)
 
-    def encode_to_space_ArrayContinuousSpace(self, val: int, space) -> np.ndarray:
-        return np.array([float(val - self._start)], dtype=space.dtype)
+    def encode_to_space_ArrayContinuousSpace(self, val: int) -> List[float]:
+        return [float(val - self._start)]
 
-    def decode_from_space_ArrayContinuousSpace(self, val: np.ndarray) -> int:
+    def decode_from_space_ArrayContinuousSpace(self, val: List[float]) -> int:
+        return int(round(val[0])) + self._start
+
+    # --- NpArray
+    def create_encode_space_NpArraySpace(self, dtype):
+        from srl.base.spaces.np_array import NpArraySpace
+
+        return NpArraySpace(1, 0, self.n - 1, dtype, SpaceTypes.DISCRETE)
+
+    def encode_to_space_NpArraySpace(self, val: int, dtype) -> np.ndarray:
+        return np.array([val - self._start], dtype=dtype)
+
+    def decode_from_space_NpArraySpace(self, val: np.ndarray) -> int:
+        return int(round(float(val[0]))) + self._start
+
+    # --- NpArrayUnTyped
+    def create_encode_space_NpArrayUnTyped(self):
+        from srl.base.spaces.np_array import NpArraySpace
+
+        return NpArraySpace(1, 0, self.n - 1, np.uint, SpaceTypes.DISCRETE)
+
+    def encode_to_space_NpArrayUnTyped(self, val: int) -> np.ndarray:
+        return np.array([val - self._start], np.uint)
+
+    def decode_from_space_NpArrayUnTyped(self, val: np.ndarray) -> int:
         return int(round(float(val[0]))) + self._start
 
     # --- Box
-    def create_encode_space_Box(self, space_type: RLBaseTypes, np_dtype):
+    def create_encode_space_Box(self, dtype):
         from srl.base.spaces.box import BoxSpace
 
-        if space_type == RLBaseTypes.GRAY_2ch:
-            return BoxSpace((1, 1), 0, self.n - 1, np.uint64, SpaceTypes.GRAY_2ch)
-        elif space_type == RLBaseTypes.GRAY_3ch:
-            return BoxSpace((1, 1, 1), 0, self.n - 1, np.uint64, SpaceTypes.GRAY_3ch)
-        elif space_type == RLBaseTypes.COLOR:
-            return BoxSpace((1, 1, 3), 0, self.n - 1, np.uint64, SpaceTypes.COLOR)
-        elif space_type == RLBaseTypes.IMAGE:
-            return BoxSpace((1, 1, 1), 0, self.n - 1, np.uint64, SpaceTypes.IMAGE)
-        return BoxSpace((1,), 0, self.n - 1, np_dtype, SpaceTypes.CONTINUOUS)
+        return BoxSpace((1,), 0, self.n - 1, dtype, SpaceTypes.DISCRETE)
 
-    def encode_to_space_Box(self, val: int, space) -> np.ndarray:
-        v = np.array([val - self._start], space.dtype)
-        if space.stype == SpaceTypes.GRAY_2ch:
-            v = v.reshape((1, 1))
-        elif space.stype == SpaceTypes.GRAY_3ch:
-            v = v.reshape((1, 1, 1))
-        elif space.stype == SpaceTypes.COLOR:
-            v = np.full((1, 1, 3), v[0], dtype=space.dtype)
-        elif space.stype == SpaceTypes.IMAGE:
-            v = v.reshape((1, 1, 1))
-        return v
+    def encode_to_space_Box(self, val: int, dtype) -> np.ndarray:
+        return np.array([val - self._start], dtype=dtype)
 
-    def decode_from_space_Box(self, val: np.ndarray, space) -> int:
-        if space.stype == SpaceTypes.GRAY_2ch:
-            val = val.reshape(-1)
-        elif space.stype == SpaceTypes.GRAY_3ch:
-            val = val.reshape(-1)
-        elif space.stype == SpaceTypes.COLOR:
-            val = [np.mean(val)]  # type: ignore
-        elif space.stype == SpaceTypes.IMAGE:
-            val = val.reshape(-1)
+    def decode_from_space_Box(self, val: np.ndarray) -> int:
+        return int(round(val[0])) + self._start
+
+    # --- BoxUnTyped
+    def create_encode_space_BoxUnTyped(self):
+        from srl.base.spaces.box import BoxSpace
+
+        return BoxSpace((1,), 0, self.n - 1, np.uint, SpaceTypes.DISCRETE)
+
+    def encode_to_space_BoxUnTyped(self, val: int) -> np.ndarray:
+        return np.array([val - self._start], dtype=np.uint)
+
+    def decode_from_space_BoxUnTyped(self, val: np.ndarray) -> int:
         return int(round(val[0])) + self._start
 
     # --- TextSpace
@@ -238,3 +242,15 @@ class DiscreteSpace(SpaceBase[int]):
 
     def decode_from_space_TextSpace(self, val: str) -> int:
         return int(val) + self._start
+
+    # --- Multi
+    def create_encode_space_MultiSpace(self):
+        from srl.base.spaces.multi import MultiSpace
+
+        return MultiSpace([self.copy()])
+
+    def encode_to_space_MultiSpace(self, val: int) -> list:
+        return [val]
+
+    def decode_from_space_MultiSpace(self, val: list) -> int:
+        return val[0]

@@ -98,7 +98,7 @@ class DoneTypes(enum.Enum):
 
 
 class SpaceTypes(enum.Enum):
-    UNKNOWN = 0
+    UNKNOWN = enum.auto()
     DISCRETE = enum.auto()
     CONTINUOUS = enum.auto()
     GRAY_2ch = enum.auto()  # (height, width)
@@ -123,14 +123,13 @@ class RLBaseTypes(enum.Flag):
     DISCRETE = enum.auto()
     ARRAY_DISCRETE = enum.auto()
     CONTINUOUS = enum.auto()
-    ARRAY_CONTINUOUS_LIST = enum.auto()
     ARRAY_CONTINUOUS = enum.auto()
+    NP_ARRAY = enum.auto()
+    NP_ARRAY_UNTYPED = enum.auto()
     BOX = enum.auto()
-    GRAY_2ch = enum.auto()  # (height, width)
-    GRAY_3ch = enum.auto()  # (height, width, 1)
-    COLOR = enum.auto()  # (height, width, 3)
-    IMAGE = enum.auto()  # (height, width, ch)
+    BOX_UNTYPED = enum.auto()
     TEXT = enum.auto()
+    MULTI = enum.auto()
 
     @staticmethod
     def from_str(mode: Union[str, "RLBaseTypes"]) -> "RLBaseTypes":

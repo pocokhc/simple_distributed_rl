@@ -1,11 +1,11 @@
 import numpy as np
 import pytest
 
-from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.continuous import ContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.spaces.np_array import NpArraySpace
 from srl.rl.processors.normalize_processor import NormalizeProcessor
 
 
@@ -14,8 +14,8 @@ from srl.rl.processors.normalize_processor import NormalizeProcessor
     [
         [DiscreteSpace(5), ContinuousSpace(-1, 2), 4, 2.0],
         [ContinuousSpace(1, 4), ContinuousSpace(-1, 2), 4, 2],
-        [ArrayDiscreteSpace(2, 1, 4), ArrayContinuousSpace(2, -1, 2), [1, 4], np.array([-1, 2], np.float32)],
-        [ArrayContinuousSpace(2, 1, 4), ArrayContinuousSpace(2, -1, 2), [1, 4], np.array([-1, 2], np.float32)],
+        [ArrayDiscreteSpace(2, 1, 4), NpArraySpace(2, -1, 2), [1, 4], np.array([-1, 2], np.float32)],
+        [NpArraySpace(2, 1, 4), NpArraySpace(2, -1, 2), [1, 4], np.array([-1, 2], np.float32)],
         [
             BoxSpace((2, 1), 1, 4),
             BoxSpace((2, 1), -1, 2),

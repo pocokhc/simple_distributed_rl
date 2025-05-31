@@ -4,8 +4,8 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.spaces.np_array import NpArraySpace
 from srl.rl import functions as funcs
 from srl.rl.tf.distributions.categorical_gumbel_dist_block import CategoricalGumbelDistBlock
 from srl.rl.tf.distributions.normal_dist_block import NormalDistBlock
@@ -263,7 +263,7 @@ class PredictionNetwork(KerasModelAddedSummary):
         ]
         if isinstance(cfg.action_space, DiscreteSpace):
             self.policy_layers.append(CategoricalGumbelDistBlock(cfg.action_space.n))
-        elif isinstance(cfg.action_space, ArrayContinuousSpace):
+        elif isinstance(cfg.action_space, NpArraySpace):
             self.policy_layers.append(NormalDistBlock(cfg.action_space.size, enable_squashed=True))
 
         # --- value

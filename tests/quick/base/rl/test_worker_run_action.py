@@ -10,11 +10,11 @@ from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.env.registration import register as register_env
 from srl.base.rl.registration import register as register_rl
 from srl.base.spaces.array_continuous import ArrayContinuousSpace
-from srl.base.spaces.array_continuous_list import ArrayContinuousListSpace
 from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.continuous import ContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.spaces.np_array import NpArraySpace
 from srl.base.spaces.space import SpaceBase
 from tests.quick.base.rl import worker_run_stub
 
@@ -76,6 +76,7 @@ def _test_action_episode(
     assert not worker.terminated
 
     env_action = worker.policy()
+    print(env_act_space, env_action)
     assert _equal_data(worker.action, rl_act)
     assert env_act_space.check_val(env_action)
     assert _equal_data(env_action, true_env_act)
@@ -135,7 +136,7 @@ _params = [
         true_env_act=0.2222222222222222,
     ),
     dict(
-        env_act_space=ArrayContinuousListSpace(2, -1, 1),
+        env_act_space=ArrayContinuousSpace(2, -1, 1),
         rl_act_type=RLBaseTypes.DISCRETE,
         rl_act_type_override=RLBaseTypes.NONE,
         true_act_space=DiscreteSpace(9),
@@ -143,7 +144,7 @@ _params = [
         true_env_act=[-1.0, -1.0],
     ),
     dict(
-        env_act_space=ArrayContinuousSpace(2, -1, 1),
+        env_act_space=NpArraySpace(2, -1, 1),
         rl_act_type=RLBaseTypes.DISCRETE,
         rl_act_type_override=RLBaseTypes.NONE,
         true_act_space=DiscreteSpace(9),
@@ -161,49 +162,49 @@ _params = [
     # --- ArrayContinuousSpace
     dict(
         env_act_space=DiscreteSpace(5),
-        rl_act_type=RLBaseTypes.ARRAY_CONTINUOUS_LIST,
+        rl_act_type=RLBaseTypes.ARRAY_CONTINUOUS,
         rl_act_type_override=RLBaseTypes.NONE,
-        true_act_space=ArrayContinuousListSpace(1, 0, 4),
+        true_act_space=ArrayContinuousSpace(1, 0, 4),
         rl_act=[2.0],
         true_env_act=2,
     ),
     dict(
         env_act_space=ArrayDiscreteSpace(2, -1, 1),
-        rl_act_type=RLBaseTypes.ARRAY_CONTINUOUS_LIST,
+        rl_act_type=RLBaseTypes.ARRAY_CONTINUOUS,
         rl_act_type_override=RLBaseTypes.NONE,
-        true_act_space=ArrayContinuousListSpace(2, -1, 1),
+        true_act_space=ArrayContinuousSpace(2, -1, 1),
         rl_act=[1.0, 1.0],
         true_env_act=[1, 1],
     ),
     dict(
         env_act_space=ContinuousSpace(0, 1),
-        rl_act_type=RLBaseTypes.ARRAY_CONTINUOUS_LIST,
+        rl_act_type=RLBaseTypes.ARRAY_CONTINUOUS,
         rl_act_type_override=RLBaseTypes.NONE,
-        true_act_space=ArrayContinuousListSpace(1, 0, 1),
+        true_act_space=ArrayContinuousSpace(1, 0, 1),
         rl_act=[1.0],
         true_env_act=1.0,
     ),
     dict(
-        env_act_space=ArrayContinuousListSpace(1, 0, 1),
-        rl_act_type=RLBaseTypes.ARRAY_CONTINUOUS_LIST,
+        env_act_space=ArrayContinuousSpace(1, 0, 1),
+        rl_act_type=RLBaseTypes.ARRAY_CONTINUOUS,
         rl_act_type_override=RLBaseTypes.NONE,
-        true_act_space=ArrayContinuousListSpace(1, 0, 1),
+        true_act_space=ArrayContinuousSpace(1, 0, 1),
         rl_act=[1.0],
         true_env_act=[1.0],
     ),
     dict(
-        env_act_space=ArrayContinuousSpace(1, 0, 1),
-        rl_act_type=RLBaseTypes.ARRAY_CONTINUOUS_LIST,
+        env_act_space=NpArraySpace(1, 0, 1),
+        rl_act_type=RLBaseTypes.ARRAY_CONTINUOUS,
         rl_act_type_override=RLBaseTypes.NONE,
-        true_act_space=ArrayContinuousListSpace(1, 0, 1),
+        true_act_space=ArrayContinuousSpace(1, 0, 1),
         rl_act=[1.0],
         true_env_act=np.array([1.0], dtype=np.float32),
     ),
     dict(
         env_act_space=BoxSpace((2, 1), -1, 1),
-        rl_act_type=RLBaseTypes.ARRAY_CONTINUOUS_LIST,
+        rl_act_type=RLBaseTypes.ARRAY_CONTINUOUS,
         rl_act_type_override=RLBaseTypes.NONE,
-        true_act_space=ArrayContinuousListSpace(2, -1, 1),
+        true_act_space=ArrayContinuousSpace(2, -1, 1),
         rl_act=[1.0, 1.0],
         true_env_act=np.array([[1.0], [1.0]], np.float32),
     ),
@@ -216,18 +217,10 @@ _params = [
         rl_act=np.zeros((64, 64), np.float32),
         true_env_act=np.zeros((64, 64), np.float32),
     ),
-    dict(
-        env_act_space=BoxSpace((64, 64), 0, 1, stype=SpaceTypes.GRAY_2ch),
-        rl_act_type=RLBaseTypes.GRAY_3ch,
-        rl_act_type_override=RLBaseTypes.NONE,
-        true_act_space=BoxSpace((64, 64, 1), 0, 1, stype=SpaceTypes.GRAY_3ch),
-        rl_act=np.zeros((64, 64, 1), np.float32),
-        true_env_act=np.zeros((64, 64), np.float32),
-    ),
     # --- DISC | COUNT
     dict(
         env_act_space=DiscreteSpace(5),
-        rl_act_type=RLBaseTypes.DISCRETE | RLBaseTypes.ARRAY_CONTINUOUS,
+        rl_act_type=RLBaseTypes.DISCRETE | RLBaseTypes.NP_ARRAY,
         rl_act_type_override=RLBaseTypes.NONE,
         true_act_space=DiscreteSpace(5),
         rl_act=2,
@@ -235,7 +228,7 @@ _params = [
     ),
     dict(
         env_act_space=ArrayDiscreteSpace(2, -1, 1),
-        rl_act_type=RLBaseTypes.DISCRETE | RLBaseTypes.ARRAY_CONTINUOUS,
+        rl_act_type=RLBaseTypes.DISCRETE | RLBaseTypes.NP_ARRAY,
         rl_act_type_override=RLBaseTypes.NONE,
         true_act_space=DiscreteSpace(3 * 3),
         rl_act=2,
@@ -243,33 +236,33 @@ _params = [
     ),
     dict(
         env_act_space=ContinuousSpace(0, 1),
-        rl_act_type=RLBaseTypes.DISCRETE | RLBaseTypes.ARRAY_CONTINUOUS,
+        rl_act_type=RLBaseTypes.DISCRETE | RLBaseTypes.NP_ARRAY,
         rl_act_type_override=RLBaseTypes.NONE,
-        true_act_space=ArrayContinuousSpace(1, 0, 1),
+        true_act_space=NpArraySpace(1, 0, 1),
         rl_act=np.array([1.0], np.float32),
         true_env_act=1.0,
     ),
     dict(
-        env_act_space=ArrayContinuousListSpace(2, -1, 1),
-        rl_act_type=RLBaseTypes.DISCRETE | RLBaseTypes.ARRAY_CONTINUOUS,
+        env_act_space=ArrayContinuousSpace(2, -1, 1),
+        rl_act_type=RLBaseTypes.DISCRETE | RLBaseTypes.NP_ARRAY,
         rl_act_type_override=RLBaseTypes.NONE,
-        true_act_space=ArrayContinuousSpace(2, -1, 1),
+        true_act_space=NpArraySpace(2, -1, 1),
         rl_act=np.array([-1.0, -0.5], np.float32),
         true_env_act=[-1.0, -0.5],
     ),
     dict(
-        env_act_space=ArrayContinuousSpace(2, -1, 1),
-        rl_act_type=RLBaseTypes.DISCRETE | RLBaseTypes.ARRAY_CONTINUOUS,
+        env_act_space=NpArraySpace(2, -1, 1),
+        rl_act_type=RLBaseTypes.DISCRETE | RLBaseTypes.NP_ARRAY,
         rl_act_type_override=RLBaseTypes.NONE,
-        true_act_space=ArrayContinuousSpace(2, -1, 1),
+        true_act_space=NpArraySpace(2, -1, 1),
         rl_act=np.array([-1.0, -0.5], np.float32),
         true_env_act=np.array([-1.0, -0.5], np.float32),
     ),
     dict(
         env_act_space=BoxSpace((2, 1), -1, 1),
-        rl_act_type=RLBaseTypes.DISCRETE | RLBaseTypes.ARRAY_CONTINUOUS,
+        rl_act_type=RLBaseTypes.DISCRETE | RLBaseTypes.NP_ARRAY,
         rl_act_type_override=RLBaseTypes.NONE,
-        true_act_space=ArrayContinuousSpace(2, -1, 1),
+        true_act_space=NpArraySpace(2, -1, 1),
         rl_act=np.array([-1.0, -0.5], np.float32),
         true_env_act=np.array([[-1], [-0.5]], np.float32),
     ),
@@ -291,7 +284,7 @@ def test_action(kwargs):
         RLBaseTypes.NONE,
         RLBaseTypes.DISCRETE,
         RLBaseTypes.ARRAY_CONTINUOUS,
-        RLBaseTypes.DISCRETE | RLBaseTypes.ARRAY_CONTINUOUS,
+        RLBaseTypes.DISCRETE | RLBaseTypes.NP_ARRAY,
     ],
 )
 @pytest.mark.parametrize(
@@ -300,8 +293,8 @@ def test_action(kwargs):
         DiscreteSpace(5),
         ArrayDiscreteSpace(2, -1, 1),
         ContinuousSpace(0, 1),
-        ArrayContinuousListSpace(2, -1, 1),
         ArrayContinuousSpace(2, -1, 1),
+        NpArraySpace(2, -1, 1),
         BoxSpace((2, 1), -1, 1),
         BoxSpace((2, 1), -1, 1, np.int8),
         BoxSpace((2, 1), -1, 1, stype=SpaceTypes.COLOR),
@@ -331,10 +324,10 @@ def test_sample_action(env_act_space, rl_act_type):
         [DiscreteSpace(5), False],
         [ArrayDiscreteSpace(2, 0, 5), False],
         [ContinuousSpace(0, 5), False],
-        [ArrayContinuousListSpace(1), True],
-        [ArrayContinuousListSpace(1, 0, 5), False],
         [ArrayContinuousSpace(1), True],
         [ArrayContinuousSpace(1, 0, 5), False],
+        [NpArraySpace(1), True],
+        [NpArraySpace(1, 0, 5), False],
         [BoxSpace((1,)), True],
         [BoxSpace((1,), -1, 1), False],
     ],

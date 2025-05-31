@@ -10,7 +10,7 @@ from tests.algorithms_.common_quick_case import CommonQuickCase
 
 class QuickCase(CommonQuickCase):
     @pytest.fixture(
-        params=[RLBaseTypes.DISCRETE, RLBaseTypes.ARRAY_CONTINUOUS],  # action
+        params=[RLBaseTypes.DISCRETE, RLBaseTypes.NP_ARRAY],  # action
     )
     def rl_param(self, request):
         return request.param

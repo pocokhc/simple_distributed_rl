@@ -31,7 +31,7 @@ class RLWorker(
         TRLParameter,
         TRLMemory,
         Union[DiscreteSpace, ContinuousSpace],
-        int,
+        Union[int, float],
         ArrayDiscreteSpace,
         List[int],
     ],

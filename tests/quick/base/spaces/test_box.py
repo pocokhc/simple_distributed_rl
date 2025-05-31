@@ -4,8 +4,8 @@ import pytest
 from srl.base import spaces
 from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.exception import NotSupportedError
-from srl.base.spaces.array_continuous import ArrayContinuousSpace
 from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.np_array import NpArraySpace
 from srl.base.spaces.text import TextSpace
 
 
@@ -311,39 +311,31 @@ CB = BoxSpace((2, 1), -1, 0)
         [DB, RLBaseTypes.DISCRETE, spaces.DiscreteSpace(4), 0, [[-1], [-1]]],
         [DB, RLBaseTypes.ARRAY_DISCRETE, spaces.ArrayDiscreteSpace(2, -1, 0), [-1, -1], [[-1], [-1]]],
         [DB, RLBaseTypes.CONTINUOUS, None, 0, [[-1], [-1]]],
-        [DB, RLBaseTypes.ARRAY_CONTINUOUS_LIST, spaces.ArrayContinuousListSpace(2, -1, 0), [-1, -1], [[-1], [-1]]],
-        [DB, RLBaseTypes.ARRAY_CONTINUOUS, ArrayContinuousSpace(2, -1, 0), np.array([-1, -1], np.float32), [[-1], [-1]]],
+        [DB, RLBaseTypes.ARRAY_CONTINUOUS, spaces.ArrayContinuousSpace(2, -1, 0), [-1, -1], [[-1], [-1]]],
+        [DB, RLBaseTypes.NP_ARRAY, NpArraySpace(2, -1, 0, stype=SpaceTypes.DISCRETE), np.array([-1, -1], np.float32), [[-1], [-1]]],
+        [DB, RLBaseTypes.NP_ARRAY_UNTYPED, NpArraySpace(2, -1, 0, np.int64), np.array([-1, -1], np.int64), [[-1], [-1]]],
         # box
+        [DB, RLBaseTypes.BOX, BoxSpace((2, 1), -1, 0, np.float32, SpaceTypes.DISCRETE), np.array([[-1], [-1]], np.float32), [[-1], [-1]]],
+        [DB, RLBaseTypes.BOX_UNTYPED, BoxSpace((2, 1), -1, 0, np.int64), np.array([[-1], [-1]]), [[-1], [-1]]],
+        [CB, RLBaseTypes.BOX, BoxSpace((2, 1), -1.0, 0.0, np.float32), np.array([[-1], [-1]], np.float32), [[-1], [-1]]],
+        [CB, RLBaseTypes.BOX_UNTYPED, BoxSpace((2, 1), -1, 0, np.float32), np.array([[-1], [-1]], np.float32), [[-1], [-1]]],
+        # image
         [
-            DB,
-            RLBaseTypes.BOX,
-            BoxSpace((2, 1), -1, 0, np.float32, SpaceTypes.DISCRETE),
-            np.array([[-1], [-1]]),
-            [[-1], [-1]],
-        ],
-        [
-            CB,
-            RLBaseTypes.BOX,
-            BoxSpace((2, 1), -1, 0, np.float32, SpaceTypes.CONTINUOUS),
-            np.array([[-1], [-1]]),
-            [[-1], [-1]],
-        ],
-        [
-            BoxSpace((8, 4), 0, 255, np.int64, SpaceTypes.GRAY_2ch),
+            BoxSpace((8, 4), 0, 255, np.uint, SpaceTypes.GRAY_2ch),
             RLBaseTypes.BOX,
             BoxSpace((8, 4), 0, 255, np.float32, SpaceTypes.GRAY_2ch),
             np.full((8, 4), 2),
             np.full((8, 4), 2),
         ],
         [
-            BoxSpace((8, 4, 1), 0, 255, np.int64, SpaceTypes.GRAY_3ch),
+            BoxSpace((8, 4, 1), 0, 255, np.uint, SpaceTypes.GRAY_3ch),
             RLBaseTypes.BOX,
             BoxSpace((8, 4, 1), 0, 255, np.float32, SpaceTypes.GRAY_3ch),
             np.full((8, 4, 1), 2),
             np.full((8, 4, 1), 2),
         ],
         [
-            BoxSpace((8, 4, 3), 0, 255, np.int64, SpaceTypes.COLOR),
+            BoxSpace((8, 4, 3), 0, 255, np.uint, SpaceTypes.COLOR),
             RLBaseTypes.BOX,
             BoxSpace((8, 4, 3), 0, 255, np.float32, SpaceTypes.COLOR),
             np.full((8, 4, 3), 2),

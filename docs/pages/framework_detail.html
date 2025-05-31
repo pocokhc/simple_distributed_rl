@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Detailed Framework &mdash; SimpleDistributedRL 1.2.0 ドキュメント</title>
+  <title>Detailed Framework &mdash; SimpleDistributedRL 1.2.0.3 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=f7e61824"></script>
+      <script src="../_static/documentation_options.js?v=a5cbf489"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -58,7 +58,8 @@
 <li class="toctree-l2"><a class="reference internal" href="#play-flow">Play flow</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#multiplay-flow">Multiplay flow</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#class-diagram">Class diagram</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#interface-type">Interface Type</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#space">Space</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#rlbasetypes-srl-base-define">RLBaseTypes(srl.base.define)</a></li>
 </ul>
 </li>
 </ul>
@@ -146,8 +147,8 @@
 </ul>
 <img alt="../_images/class_runner.png" src="../_images/class_runner.png" />
 </section>
-<section id="interface-type">
-<h2>Interface Type<a class="headerlink" href="#interface-type" title="Link to this heading"></a></h2>
+<section id="space">
+<h2>Space<a class="headerlink" href="#space" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p>SpaceBase(srl.base.spaces)</p></li>
 </ul>
@@ -173,21 +174,95 @@
 <td><p>list[float]</p></td>
 <td><p>CONTINUOUS</p></td>
 </tr>
-<tr class="row-even"><td><p>BoxSpace</p></td>
+<tr class="row-even"><td><p>NpArraySpace</p></td>
+<td><p>NDArray[int] or NDArray[float]  # 1D</p></td>
+<td><p>DISCRETE or CONTINUOUS</p></td>
+</tr>
+<tr class="row-odd"><td><p>BoxSpace</p></td>
 <td><p>NDArray[AnyType]</p></td>
 <td><p>srl.base.define.SpaceTypes</p></td>
 </tr>
-<tr class="row-odd"><td><p>TextSpace</p></td>
+<tr class="row-even"><td><p>TextSpace</p></td>
 <td><p>str</p></td>
 <td><p>DISCRETE</p></td>
 </tr>
-<tr class="row-even"><td><p>MultiSpace</p></td>
+<tr class="row-odd"><td><p>MultiSpace</p></td>
 <td><p>list[SpaceBase]</p></td>
 <td><p>MULTI</p></td>
 </tr>
-<tr class="row-odd"><td><p>AnySpace</p></td>
+<tr class="row-even"><td><p>AnySpace</p></td>
 <td><p>any</p></td>
 <td><p>UNKNOWN</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="rlbasetypes-srl-base-define">
+<span id="rlbasetypes"></span><h2>RLBaseTypes(srl.base.define)<a class="headerlink" href="#rlbasetypes-srl-base-define" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Name</p></td>
+<td><p>Type</p></td>
+<td><p>Space</p></td>
+<td><p>Note</p></td>
+</tr>
+<tr class="row-even"><td><p>NONE</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>copy</p></td>
+<td><p>No Change</p></td>
+</tr>
+<tr class="row-odd"><td><p>DISCRETE</p></td>
+<td><p>int</p></td>
+<td><p>DiscreteSpace</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>ARRAY_DISCRETE</p></td>
+<td><p>list[int]</p></td>
+<td><p>ArrayDiscreteSpace</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>CONTINUOUS</p></td>
+<td><p>float</p></td>
+<td><p>ContinuousSpace</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>ARRAY_CONTINUOUS</p></td>
+<td><p>list[float]</p></td>
+<td><p>ArrayContinuousSpace</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>NP_ARRAY</p></td>
+<td><p>NDArray[float]</p></td>
+<td><p>ArrayNpSpace</p></td>
+<td><p>float固定</p></td>
+</tr>
+<tr class="row-even"><td><p>NP_ARRAY_UNTYPED</p></td>
+<td><p>NDArray[int] or NDArray[float]</p></td>
+<td><p>ArrayNpSpace</p></td>
+<td><p>dtype変換なし</p></td>
+</tr>
+<tr class="row-odd"><td><p>BOX</p></td>
+<td><p>NDArray[Any]</p></td>
+<td><p>BoxSpace</p></td>
+<td><p>float固定</p></td>
+</tr>
+<tr class="row-even"><td><p>BOX_UNTYPED</p></td>
+<td><p>NDArray[Any]</p></td>
+<td><p>BoxSpace</p></td>
+<td><p>dtype変換なし</p></td>
+</tr>
+<tr class="row-odd"><td><p>TEXT</p></td>
+<td><p>str</p></td>
+<td><p>TextSpace</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>MULTI</p></td>
+<td><p>list</p></td>
+<td><p>MultiSpace</p></td>
+<td></td>
 </tr>
 </tbody>
 </table>

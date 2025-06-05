@@ -24,7 +24,7 @@ class DownSamplingProcessor(RLProcessor):
             SpaceTypes.COLOR,
         ]:
             return None
-        return BoxSpace(self.resize, 0, self.max_level, np.uint8, SpaceTypes.GRAY_2ch)
+        return BoxSpace((self.resize[1], self.resize[0]), 0, self.max_level, np.uint8, SpaceTypes.GRAY_2ch)
 
     def remap_observation(self, state: EnvObservationType, prev_space: SpaceBase, new_space: SpaceBase, **kwargs) -> EnvObservationType:
         import cv2
@@ -35,6 +35,7 @@ class DownSamplingProcessor(RLProcessor):
         elif prev_space.stype == SpaceTypes.COLOR:
             state = cv2.cvtColor(state, cv2.COLOR_RGB2GRAY)
 
+        # (h,w) = cv2.resize((h,w), resize=(w, h))
         state = cv2.resize(state, self.resize, interpolation=cv2.INTER_NEAREST)
 
         state = np.round(self.max_level * (state / 255.0))

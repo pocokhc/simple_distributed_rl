@@ -3,11 +3,7 @@ import pickle
 import random
 import zlib
 from dataclasses import dataclass
-from typing import Any, Generic, List, Literal, cast
-
-from srl.base.define import RLMemoryTypes
-from srl.base.rl.config import TRLConfig
-from srl.base.rl.memory import RLMemory
+from typing import Any, List, cast
 
 logger = logging.getLogger(__name__)
 
@@ -30,34 +26,33 @@ class EpisodeReplayBuffer:
         self,
         config: EpisodeReplayBufferConfig,
         batch_size: int,
-        batch_length: int,
-        sample_type: Literal["random", "episode"] = "random",
+        prefix_size: int = 0,
+        suffix_size: int = 0,
+        skip_head: int = 0,
+        skip_tail: int = 0,
     ):
         self.cfg = config
         self.batch_size = batch_size
-        self.batch_length = batch_length
-        self.sample_type = sample_type
+        self.prefix_size = prefix_size
+        self.suffix_size = suffix_size
+        self.skip_head = skip_head
+        self.skip_tail = skip_tail
 
         self.buffer = []
-        self.idx = 0
         self.total_size = 0
         self._sequential_batches = [[] for _ in range(self.batch_size)]
 
-        self._validate_params(batch_size, batch_length)
-
-    def _validate_params(self, batch_size: int, batch_length: int):
+        # --- validate
         if not (self.cfg.warmup_size <= self.cfg.capacity):
             raise ValueError(f"assert {self.cfg.warmup_size} <= {self.cfg.capacity}")
         if not (batch_size > 0):
             raise ValueError(f"assert {batch_size} > 0")
         if not (batch_size <= self.cfg.warmup_size):
             raise ValueError(f"assert {batch_size} <= {self.cfg.warmup_size}")
-        if not (batch_length > 0):
-            raise ValueError(f"assert {batch_length} > 0")
 
     @property
-    def memory_type(self) -> RLMemoryTypes:
-        return RLMemoryTypes.BUFFER
+    def batch_length(self) -> int:
+        return self.prefix_size + 1 + self.suffix_size
 
     def length(self) -> int:
         return self.total_size
@@ -72,21 +67,16 @@ class EpisodeReplayBuffer:
             if self.cfg.compress:
                 steps = cast(List[Any], zlib.compress(pickle.dumps(steps), level=self.cfg.compress_level))
 
-        if self.sample_type == "random":
-            if size < self.batch_length:
-                logger.warning(f"Episode length must be equal to or greater than batch_length. episode_len={size}")
-            self.total_size += size - self.batch_length
-        else:
-            self.total_size += size
+        if size < self.batch_length + self.skip_head + self.skip_tail:
+            logger.warning(f"Episode length must be equal to or greater than batch_length. {size} >= {self.batch_length + self.skip_head + self.skip_tail}")
+        sample_size = size - (self.batch_length + self.skip_head + self.skip_tail) + 1
+        self.total_size += sample_size
+        self.buffer.append((steps, sample_size))
 
-        if len(self.buffer) < self.cfg.capacity:
-            self.buffer.append((steps, size))
-        else:
-            self.total_size -= self.buffer[self.idx][1]
-            self.buffer[self.idx] = (steps, size)
-        self.idx += 1
-        if self.idx >= self.cfg.capacity:
-            self.idx = 0
+        # capacityを超えないように減らす
+        while self.total_size > self.cfg.capacity:
+            _, sample_size = self.buffer.pop(0)
+            self.total_size -= sample_size
 
     def serialize(self, steps) -> Any:
         size = len(steps)
@@ -98,30 +88,36 @@ class EpisodeReplayBuffer:
     def sample(
         self,
         batch_size: int = -1,
-        batch_length: int = -1,
-        skip_head: int = 0,
-        skip_tail: int = 0,
+        prefix_size: int = -1,
+        suffix_size: int = -1,
+        skip_head: int = -1,
+        skip_tail: int = -1,
     ):
         if self.total_size < self.cfg.warmup_size:
             return None
         batch_size = self.batch_size if batch_size == -1 else batch_size
-        batch_length = self.batch_length if batch_length == -1 else batch_length
+        prefix_size = self.prefix_size if prefix_size == -1 else prefix_size
+        suffix_size = self.suffix_size if suffix_size == -1 else suffix_size
+        skip_head = self.skip_head if skip_head == -1 else skip_head
+        skip_tail = self.skip_tail if skip_tail == -1 else skip_tail
 
         # 各batchの各stepからランダムに取得
+        batch_length = prefix_size + 1 + suffix_size
         batches = []
         while len(batches) < batch_size:
             i = random.randint(0, len(self.buffer) - 1)
-            steps, size = self.buffer[i]
-            if size <= batch_length + skip_head + skip_tail:
-                logger.warning(f"Episode length must be equal to or greater than batch_length. episode_len={size}")
-                continue
-            j = random.randint(0, size - batch_length - skip_head - skip_tail) + skip_head
+            steps, _ = self.buffer[i]
             if self.cfg.compress:
                 steps = pickle.loads(zlib.decompress(steps))
+            sample_size = len(steps) - batch_length - skip_tail
+            if len(steps) < sample_size + batch_length:
+                logger.warning(f"Episode length must be equal to or greater than batch_length. {len(steps)} >= {sample_size + batch_length}")
+                continue
+            j = random.randint(skip_head, sample_size)
             batches.append(steps[j : j + batch_length])
         return batches
 
-    def sample_sequential_episodes(self):
+    def sample_sequential(self):
         """時系列に沿ったbatchを生成"""
         if self.total_size < self.cfg.warmup_size:
             return None
@@ -130,10 +126,10 @@ class EpisodeReplayBuffer:
         for i in range(self.batch_size):
             while len(self._sequential_batches[i]) < self.batch_length:
                 r = random.randint(0, len(self.buffer) - 1)
-                steps = self.buffer[r][0]
+                steps, _ = self.buffer[r]
                 if self.cfg.compress:
                     steps = pickle.loads(zlib.decompress(steps))
-                self._sequential_batches[i].extend(steps)
+                self._sequential_batches[i].extend(steps[self.skip_head : -self.skip_tail])
 
             batches.append(self._sequential_batches[i][: self.batch_length])
             self._sequential_batches[i] = self._sequential_batches[i][self.batch_length :]
@@ -142,29 +138,11 @@ class EpisodeReplayBuffer:
 
     def call_backup(self, **kwargs):
         return [
-            self.idx,
             self.total_size,
             self.buffer[:],
         ]
 
     def call_restore(self, data: Any, **kwargs) -> None:
-        self.idx = data[0]
-        self.total_size = data[1]
-        self.buffer = data[2][:]
+        self.total_size = data[0]
+        self.buffer = data[1][:]
         self._sequential_batches = [[] for _ in range(self.batch_size)]
-
-
-class RLEpisodeReplayBuffer(Generic[TRLConfig], EpisodeReplayBuffer, RLMemory[TRLConfig]):
-    def __init__(self, *args):
-        RLMemory.__init__(self, *args)
-        assert hasattr(self.config, "batch_size")
-        assert hasattr(self.config, "batch_length")
-        assert hasattr(self.config, "memory")
-        assert isinstance(self.config.memory, EpisodeReplayBufferConfig)  # type: ignore
-        EpisodeReplayBuffer.__init__(self, self.config.memory, self.config.batch_size, self.config.batch_length)  # type: ignore
-
-    def setup(self, register_add: bool = True, register_sample: bool = True) -> None:
-        if register_add:
-            self.register_worker_func(self.add, self.serialize)
-        if register_sample:
-            self.register_trainer_recv_func(self.sample)

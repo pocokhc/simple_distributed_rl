@@ -149,13 +149,6 @@ class RLBaseTypes(enum.Flag):
         return [f for f in type(flag) if (flag & f == f)]
 
 
-class RLMemoryTypes(enum.Enum):
-    UNKNOWN = enum.auto()
-    SEQUENCE = enum.auto()
-    BUFFER = enum.auto()
-    PRIORITY = enum.auto()
-
-
 RenderModeType = Literal[
     "",
     "terminal",

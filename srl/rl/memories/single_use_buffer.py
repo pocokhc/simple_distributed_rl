@@ -1,7 +1,6 @@
 import pickle
 from typing import Any, Generic
 
-from srl.base.define import RLMemoryTypes
 from srl.base.rl.config import TRLConfig
 from srl.base.rl.memory import RLMemory
 
@@ -9,10 +8,6 @@ from srl.base.rl.memory import RLMemory
 class SingleUseBuffer:
     def __init__(self):
         self.buffer = []
-
-    @property
-    def memory_type(self) -> RLMemoryTypes:
-        return RLMemoryTypes.SEQUENCE
 
     def length(self) -> int:
         return len(self.buffer)

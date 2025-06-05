@@ -9,7 +9,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import RLMemoryTypes, SpaceTypes
+from srl.base.define import SpaceTypes
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
@@ -120,10 +120,6 @@ class Memory(RLMemory[Config]):
         self.register_worker_func(self.add_c, lambda x1, x2: (x1, x2))
         self.register_trainer_recv_func(self.sample_vae)
         self.register_trainer_recv_func(self.sample_rnn)
-
-    @property
-    def memory_type(self) -> RLMemoryTypes:
-        return RLMemoryTypes.BUFFER
 
     def length(self) -> int:
         if self.config.train_mode == "vae":

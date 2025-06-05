@@ -6,7 +6,6 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.define import RLMemoryTypes
 from srl.base.rl.algorithms.base_dqn import RLConfig, RLWorker
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
@@ -103,10 +102,6 @@ class Memory(RLMemory[Config]):
         self.register_worker_func(self.add_q, self.memory_q.serialize)
         self.register_trainer_recv_func(self.sample_snd)
         self.register_trainer_recv_func(self.sample_q)
-
-    @property
-    def memory_type(self) -> RLMemoryTypes:
-        return RLMemoryTypes.BUFFER
 
     def length(self):
         return self.memory_q.length() + self.memory_snd.length()

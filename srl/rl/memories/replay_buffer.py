@@ -5,7 +5,6 @@ import zlib
 from dataclasses import dataclass
 from typing import Any, Generic
 
-from srl.base.define import RLMemoryTypes
 from srl.base.rl.config import TRLConfig
 from srl.base.rl.memory import RLMemory
 
@@ -40,10 +39,6 @@ class ReplayBuffer:
             raise ValueError(f"assert {batch_size} > 0")
         if not (batch_size <= self.cfg.warmup_size):
             raise ValueError(f"assert {batch_size} <= {self.cfg.warmup_size}")
-
-    @property
-    def memory_type(self) -> RLMemoryTypes:
-        return RLMemoryTypes.BUFFER
 
     def length(self) -> int:
         return len(self.buffer)

@@ -5,7 +5,6 @@ import time
 from abc import ABC
 from typing import Any, Callable, Dict, Generic, List, Optional, Protocol, Tuple, TypeVar, cast
 
-from srl.base.define import RLMemoryTypes
 from srl.base.rl.config import DummyRLConfig, TRLConfig
 from srl.utils.common import load_file, save_file
 
@@ -76,10 +75,6 @@ class RLMemory(ABC, Generic[TRLConfig]):
 
     def get_trainer_send_funcs(self):
         return self.__trainer_send_funcs
-
-    @property
-    def memory_type(self) -> RLMemoryTypes:
-        return RLMemoryTypes.UNKNOWN
 
     def length(self) -> int:
         return -1

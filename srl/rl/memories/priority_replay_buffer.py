@@ -6,7 +6,6 @@ from typing import Any, Generic, List, Literal, Optional
 
 import numpy as np
 
-from srl.base.define import RLMemoryTypes
 from srl.base.exception import UndefinedError
 from srl.base.rl.config import TRLConfig
 from srl.base.rl.memory import RLMemory
@@ -201,10 +200,6 @@ class PriorityReplayBuffer:
             raise ValueError(f"assert {batch_size} > 0")
         if not (batch_size <= self.cfg.warmup_size):
             raise ValueError(f"assert {batch_size} <= {self.cfg.warmup_size}")
-
-    @property
-    def memory_type(self) -> RLMemoryTypes:
-        return RLMemoryTypes.PRIORITY
 
     def length(self) -> int:
         return self.memory.length() + (self.demo_memory.length() if self.cfg.enable_demo_memory else 0)

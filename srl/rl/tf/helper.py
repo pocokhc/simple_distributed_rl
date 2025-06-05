@@ -1,4 +1,3 @@
-import numpy as np
 from tensorflow import keras
 
 """
@@ -8,7 +7,8 @@ tfに依存していない処理はfunctionsへ
 
 
 def model_soft_sync(target_model: keras.Model, source_model: keras.Model, tau: float):
-    target_model.set_weights(
-        (1 - tau) * np.array(target_model.get_weights(), dtype=object)
-        + tau * np.array(source_model.get_weights(), dtype=object)
-    )
+    new_w = [
+        (1 - tau) * w_tgt + tau * w
+        for w_tgt, w in zip(target_model.get_weights(), source_model.get_weights())  #
+    ]
+    target_model.set_weights(new_w)

@@ -1,13 +1,13 @@
 import numpy as np
 import pytest
 
+pytest.importorskip("torch")
+import torch
+
+from srl.rl.torch_ import helper
+
 
 def test_model_soft_sync():
-    pytest.importorskip("torch")
-    import torch
-
-    from srl.rl.torch_ import helper
-
     class Model(torch.nn.Module):
         def __init__(self):
             super().__init__()

@@ -161,7 +161,6 @@ class Config(RLConfig):
             raise ValueError(f"assert {self.horizon} >= 0")
 
     def decode_img(self, img, scale: float = 2):
-        self._processor.image_type
         import cv2
 
         img = np.clip(img, -1.0, 1.0)

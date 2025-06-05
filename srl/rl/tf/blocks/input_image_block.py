@@ -30,7 +30,7 @@ class InputImageBlock(KerasModelAddedSummary, AInputBlock):
         super().__init__(**kwargs)
         self.out_flatten = out_flatten
         self.rnn = rnn
-        self.in_shape = space.np_shape
+        self.in_shape = space.shape
 
         assert space.is_image(), f"Only image space can be used. {space=}"
         assert isinstance(space, BoxSpace)

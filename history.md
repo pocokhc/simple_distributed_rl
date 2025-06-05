@@ -14,6 +14,19 @@
 // RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
 // TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除
 
+# v1.3.1
+
+**MainUpdates**
+
+1. [base.define] remove: RLMemoryTypesを使っていないので削除
+1. [rl.memories] update: episode_replay_bufferを見直し、テストも追加
+
+**Bug Fixes**
+
+1. [bnse.spaces.box] fix: lowとhighの型が指定されないパターンがあったので修正
+1. [rl.tf.helper] fix: model_soft_syncの同期方法を改善+テスト作成
+1. [rl.processors.downsampling_processor] fix: wとhが逆だったので修正
+
 
 # v1.3.0
 
@@ -32,7 +45,6 @@
       - [base.define] new: RLBaseTypesから画像系削除し、np関係を次に統一（NP_ARRAY、NP_ARRAY_UNTYPED、BOX、BOX_UNTYPED）
       - RLBaseTypesに関わるドキュメントを追加
    - change: RLアルゴリズムで影響ある箇所を修正
-   - new: TODOだったImage関係の変換を作成
    - new: TextSpace関係の変換を作成（gymも対応）
    - update: MultiSpaceとBoxの変換を強化
    - new: name変数を追加

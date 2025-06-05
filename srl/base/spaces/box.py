@@ -24,8 +24,10 @@ class BoxSpace(SpaceBase[np.ndarray]):
         is_stack_ch: Optional[bool] = None,  # None is auto
     ) -> None:
         super().__init__()
-        self._low: np.ndarray = np.full(shape, low, dtype=dtype) if np.isscalar(low) else np.asarray(low)
-        self._high: np.ndarray = np.full(shape, high, dtype=dtype) if np.isscalar(high) else np.asarray(high)
+        self._low: np.ndarray = np.full(shape, low) if np.isscalar(low) else np.asarray(low)
+        self._high: np.ndarray = np.full(shape, high) if np.isscalar(high) else np.asarray(high)
+        self._low = self._low.astype(dtype)
+        self._high = self._high.astype(dtype)
         self._shape = tuple(shape)
         self._dtype = dtype
         if stype == SpaceTypes.UNKNOWN:
@@ -156,8 +158,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
             raise NotSupportedError()
 
     def sanitize(self, val: Any) -> np.ndarray:
-        val = np.asarray(val, self._dtype).reshape(self._shape)
-        return np.clip(val, self._low, self._high)
+        return np.asarray(val, self._dtype).reshape(self._shape).clip(self._low, self._high)
 
     def check_val(self, val: Any) -> bool:
         if not isinstance(val, np.ndarray):

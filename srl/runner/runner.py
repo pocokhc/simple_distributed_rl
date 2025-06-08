@@ -684,6 +684,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         # --- play config
         players: PlayersType = [],
         # --- other
+        training_flag: bool = False,
         callbacks: List[RunCallback] = [],
     ):
         callbacks = callbacks[:]
@@ -702,12 +703,15 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self.context.disable_trainer = True
         # play info
         self.context.distributed = False
-        self.context.training = False
+        self.context.training = training_flag
         self.context.train_only = False
         self.context.rollout = False
         # render_modeはRendering側で設定
         # self.context.env_render_mode = ""
         # self.context.rl_render_mode = ""
+
+        if training_flag:
+            params_dat = self.parameter.backup()
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -733,6 +737,9 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self._parameter_dat = None
         self._memory_dat = None
 
+        if training_flag:
+            self.parameter.restore(params_dat)
+
         state = cast(RunStateActor, self.state)
         return state.episode_rewards_list[0]
 
@@ -751,6 +758,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         # --- progress
         enable_progress: bool = True,
         # --- other
+        training_flag: bool = False,
         callbacks: List[RunCallback] = [],
     ):
         callbacks = callbacks[:]
@@ -769,12 +777,15 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self.context.disable_trainer = True
         # play info
         self.context.distributed = False
-        self.context.training = False
+        self.context.training = training_flag
         self.context.train_only = False
         self.context.rollout = False
         # render_modeはRendering側で設定
         # self.context.env_render_mode = ""
         # self.context.rl_render_mode = ""
+
+        if training_flag:
+            params_dat = self.parameter.backup()
 
         # --- rendering
         from srl.runner.callbacks.rendering import Rendering
@@ -802,6 +813,9 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self._parameter_dat = None
         self._memory_dat = None
 
+        if training_flag:
+            self.parameter.restore(params_dat)
+
     def run_render(
         self,
         # rendering
@@ -821,6 +835,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         # --- progress
         enable_progress: bool = True,
         # --- other
+        training_flag: bool = False,
         callbacks: List[RunCallback] = [],
     ):
         callbacks = callbacks[:]
@@ -839,12 +854,15 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self.context.disable_trainer = True
         # play info
         self.context.distributed = False
-        self.context.training = False
+        self.context.training = training_flag
         self.context.train_only = False
         self.context.rollout = False
         # render_modeはRendering側で設定
         # self.context.env_render_mode = ""
         # self.context.rl_render_mode = ""
+
+        if training_flag:
+            params_dat = self.parameter.backup()
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -876,6 +894,9 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self._parameter_dat = None
         self._memory_dat = None
 
+        if training_flag:
+            self.parameter.restore(params_dat)
+
         if self.context.run_name != "eval":
             logger.info(f"render step: {self.state.total_step}, reward: {self.state.episode_rewards_list[0]}")
         return rendering
@@ -902,6 +923,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         # --- progress
         enable_progress: bool = True,
         # --- other
+        training_flag: bool = False,
         callbacks: List[RunCallback] = [],
     ):
         render = self.run_render(
@@ -916,6 +938,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
             max_steps,
             players,
             enable_progress,
+            training_flag,
             callbacks,
         )
         render.save_gif(path, render_interval, render_scale)
@@ -944,6 +967,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         # --- progress
         enable_progress: bool = True,
         # --- other
+        training_flag: bool = False,
         callbacks: List[RunCallback] = [],
     ):
         render = self.run_render(
@@ -958,6 +982,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
             max_steps,
             players,
             enable_progress,
+            training_flag,
             callbacks,
         )
         render.save_avi(path, render_interval, render_scale, codec=codec)
@@ -984,6 +1009,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         # --- progress
         enable_progress: bool = True,
         # --- other
+        training_flag: bool = False,
         callbacks: List[RunCallback] = [],
     ):
         render = self.run_render(
@@ -998,6 +1024,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
             max_steps,
             players,
             enable_progress,
+            training_flag,
             callbacks,
         )
         render.display(render_interval, render_scale)
@@ -1013,6 +1040,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         # --- progress
         enable_progress: bool = True,
         # --- other
+        training_flag: bool = False,
         render_player: int = 0,
         print_state: bool = True,
         callbacks: List[RunCallback] = [],
@@ -1034,12 +1062,15 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self.context.disable_trainer = True
         # play info
         self.context.distributed = False
-        self.context.training = False
+        self.context.training = training_flag
         self.context.train_only = False
         self.context.rollout = False
         # render_modeはRePlayableGame側で設定
         # self.context.env_render_mode = ""
         # self.context.rl_render_mode = ""
+
+        if training_flag:
+            params_dat = self.parameter.backup()
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=False)
@@ -1057,6 +1088,9 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         )
         window.play()
 
+        if training_flag:
+            self.parameter.restore(params_dat)
+
     def play_terminal(
         self,
         action_division_num: int = 5,
@@ -1070,6 +1104,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         timeout: float = -1,
         max_steps: int = -1,
         # --- other
+        training_flag: bool = False,
         callbacks: List[RunCallback] = [],
     ):
         callbacks = callbacks[:]
@@ -1094,6 +1129,9 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         # render_modeはRendering側で設定
         # self.context.env_render_mode = ""
         # self.context.rl_render_mode = ""
+
+        if training_flag:
+            params_dat = self.parameter.backup()
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -1124,6 +1162,9 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self._parameter_dat = None
         self._memory_dat = None
 
+        if training_flag:
+            self.parameter.restore(params_dat)
+
         return self.state.episode_rewards_list[0]
 
     def play_window(
@@ -1137,7 +1178,8 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         max_steps: int = -1,
         # --- play config
         players: PlayersType = [],
-        # other
+        # --- other
+        training_flag: bool = False,
         callbacks: List[RunCallback] = [],
         _is_test: bool = False,  # for test
     ):
@@ -1157,12 +1199,15 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self.context.disable_trainer = True
         # play info
         self.context.distributed = False
-        self.context.training = enable_memory
+        self.context.training = enable_memory or training_flag
         self.context.train_only = False
         self.context.rollout = enable_memory
         # render_modeはPlayableGame側で設定
         # self.context.env_render_mode = ""
         # self.context.rl_render_mode = ""
+
+        if training_flag:
+            params_dat = self.parameter.backup()
 
         from srl.utils.common import is_packages_installed
 
@@ -1184,6 +1229,9 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
             _is_test=_is_test,
         )
         game.play()
+
+        if training_flag:
+            self.parameter.restore(params_dat)
 
     # --------------------------------------------
     # utils

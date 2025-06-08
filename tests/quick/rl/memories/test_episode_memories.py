@@ -74,6 +74,7 @@ def test_episode_sequential_replay_buffer(compress):
         suffix_size,
         skip_head,
         skip_tail,
+        sequential_stride=2,
     )
 
     # --- warmup
@@ -107,7 +108,7 @@ def test_episode_sequential_replay_buffer(compress):
     for b in batches:
         print(b)
         assert len(b) == prefix_size + 1 + suffix_size
-        assert b[0]["obs"] == 7
-        assert b[1]["obs"] == 3
-        assert b[2]["obs"] == 4
-        assert b[3]["obs"] == 5
+        assert b[0]["obs"] == 5
+        assert b[1]["obs"] == 6
+        assert b[2]["obs"] == 7
+        assert b[3]["obs"] == 3

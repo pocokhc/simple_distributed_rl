@@ -30,6 +30,7 @@ class EpisodeReplayBuffer:
         suffix_size: int = 0,
         skip_head: int = 0,
         skip_tail: int = 0,
+        sequential_stride: int = 1,
     ):
         self.cfg = config
         self.batch_size = batch_size
@@ -37,6 +38,7 @@ class EpisodeReplayBuffer:
         self.suffix_size = suffix_size
         self.skip_head = skip_head
         self.skip_tail = skip_tail
+        self.sequential_stride = sequential_stride
 
         self.buffer = []
         self.total_size = 0
@@ -67,9 +69,9 @@ class EpisodeReplayBuffer:
             if self.cfg.compress:
                 steps = cast(List[Any], zlib.compress(pickle.dumps(steps), level=self.cfg.compress_level))
 
-        if size < self.batch_length + self.skip_head + self.skip_tail:
-            logger.warning(f"Episode length must be equal to or greater than batch_length. {size} >= {self.batch_length + self.skip_head + self.skip_tail}")
         sample_size = size - (self.batch_length + self.skip_head + self.skip_tail) + 1
+        if sample_size < 0:
+            sample_size = 0
         self.total_size += sample_size
         self.buffer.append((steps, sample_size))
 
@@ -129,10 +131,16 @@ class EpisodeReplayBuffer:
                 steps, _ = self.buffer[r]
                 if self.cfg.compress:
                     steps = pickle.loads(zlib.decompress(steps))
-                self._sequential_batches[i].extend(steps[self.skip_head : -self.skip_tail])
+                if len(steps) <= self.skip_head + self.skip_tail:
+                    logger.warning(f"Episode length must be equal to or greater than batch_length. {len(steps)} > {self.skip_head + self.skip_tail}")
+                    continue
+                if self.skip_tail <= 0:
+                    self._sequential_batches[i].extend(steps[self.skip_head :])
+                else:
+                    self._sequential_batches[i].extend(steps[self.skip_head : -(self.skip_tail)])
 
             batches.append(self._sequential_batches[i][: self.batch_length])
-            self._sequential_batches[i] = self._sequential_batches[i][self.batch_length :]
+            self._sequential_batches[i] = self._sequential_batches[i][self.sequential_stride :]
 
         return batches
 

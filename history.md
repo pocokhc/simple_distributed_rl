@@ -14,18 +14,27 @@
 // RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
 // TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除
 
+
 # v1.3.1
+
+・バグ修正がメインです
+・episode_replay_bufferを本格的に実装
 
 **MainUpdates**
 
 1. [base.define] remove: RLMemoryTypesを使っていないので削除
 1. [rl.memories] update: episode_replay_bufferを見直し、テストも追加
+1. [runner.Runner] add: render関係でtrainingフラグをTrueで実行できる引数を追加
 
 **Bug Fixes**
 
 1. [bnse.spaces.box] fix: lowとhighの型が指定されないパターンがあったので修正
 1. [rl.tf.helper] fix: model_soft_syncの同期方法を改善+テスト作成
 1. [rl.processors.downsampling_processor] fix: wとhが逆だったので修正
+1. [rl.memories.priority_memories.cpp_module] fix: force_build時にビルドを複数回実行しないように修正
+1. [history] fix: v1.1.0の説明文でC++のPropotionalMemoryを使用する際の関数名が違っていたので修正
+× rl_config.memory.set_propotional_memory_cpp()
+〇 rl_config.memory.set_propotional_cpp()
 
 
 # v1.3.0
@@ -205,10 +214,10 @@
 rl_config = rainbow.Config()
 
 # 従来のPropotionalMemoryを使用
-rl_config.memory.set_propotional_memory()
+rl_config.memory.set_propotional()
 
 # 高速化したC++のPropotionalMemoryを使用
-rl_config.memory.set_propotional_memory_cpp()
+rl_config.memory.set_propotional_cpp()
 ```
 
 

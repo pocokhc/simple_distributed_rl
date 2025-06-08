@@ -29,13 +29,19 @@ def _find_module_path(module_name: str) -> Optional[str]:
     return candidates[0]
 
 
+__g_loaded_force_build = False
+
+
 def load_or_build_module(module_name: str, force_build: bool = False) -> ModuleType:
     module_name_cpp = f"{module_name}_cpp"
     module_path = _find_module_path(module_name_cpp)
     if (module_path is not None) and force_build:
-        if os.path.isfile(module_path):
+        global __g_loaded_force_build
+
+        if os.path.isfile(module_path) and (not __g_loaded_force_build):
             os.remove(module_path)
             module_path = None
+            __g_loaded_force_build = True
 
     if module_path is None:
         # ビルドしてからロードする、以下の理由により subprocess 経由で実行する

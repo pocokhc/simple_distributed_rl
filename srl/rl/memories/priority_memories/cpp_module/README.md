@@ -4,7 +4,6 @@
 2. Please install pybind11.(`pip install pybind11`)
 3. Execute the following and build it.
 ``` bash
-> cd cpp
 > python setup_cpp.py build_ext
 ```
 

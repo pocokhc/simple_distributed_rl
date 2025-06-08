@@ -8,8 +8,12 @@ from .config import Config
 
 class Memory(RLMemory[Config]):
     def setup(self):
-        batch_length = self.config.burnin + self.config.horizon + 1
-        self.memory = EpisodeReplayBuffer(self.config.memory, self.config.batch_size, batch_length)
+        batch_length = self.config.burnin + self.config.horizon
+        self.memory = EpisodeReplayBuffer(
+            self.config.memory,
+            self.config.batch_size,
+            suffix_size=batch_length,
+        )
 
         self.add = self.memory.add
         self.register_worker_func(self.memory.add, self.memory.serialize)
@@ -22,16 +26,16 @@ class Memory(RLMemory[Config]):
 
     def sample_diff(self):
         return self.memory.sample(
-            batch_length=self.config.denoiser_cfg.num_steps_conditioning + 1,
+            suffix_size=self.config.denoiser_cfg.num_steps_conditioning,
             skip_tail=self.config.horizon,
         )
 
     def sample_rewend(self):
-        return self.memory.sample(batch_length=self.config.burnin + self.config.horizon + 1)
+        return self.memory.sample(suffix_size=self.config.burnin + self.config.horizon)
 
     def sample_actor_critic(self):
         return self.memory.sample(
-            batch_length=self.config.denoiser_cfg.num_steps_conditioning + 1,
+            suffix_size=self.config.denoiser_cfg.num_steps_conditioning,
             skip_tail=self.config.horizon,
         )
 

@@ -22,37 +22,32 @@ jobs:
       - run: pip install .
       - run: pip install pytest pytest-mock pytest-timeout
       - name: Run pytest under tests/quick/
-        run: |
-          ps -ef
-          echo "=== PROCESSES AFTER PYTEST ==="
-          PYTHONPATH=. pytest tests/quick/ --timeout=60
-          echo "=== PROCESSES AFTER PYTEST ==="
-          ps -ef
+        run: PYTHONPATH=. pytest tests/quick/ --timeout=60
 
-  # pytest-low:
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 30
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-python@v5
-  #       with:
-  #         python-version: 3.8
-  #     # --- srl test
-  #     - name: Install srl
-  #       run: pip install -r dockers/low_requirements.txt
-  #     - name: Run pytest under tests/quick/
-  #       run: PYTHONPATH=. pytest tests/quick/ --timeout=60
+  pytest-low:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.8
+      # --- srl test
+      - name: Install srl
+        run: pip install -r dockers/low_requirements.txt
+      - name: Run pytest under tests/quick/
+        run: PYTHONPATH=. pytest tests/quick/ --timeout=60
 
-  # pytest-latest:
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 30
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-python@v5
-  #       with:
-  #         python-version: 3.13
-  #     # --- srl test
-  #     - name: Install srl
-  #       run: pip install .[dev]
-  #     - name: Run pytest under tests/quick/
-  #       run: PYTHONPATH=. pytest tests/quick/ --timeout=60
+  pytest-latest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.13
+      # --- srl test
+      - name: Install srl
+        run: pip install .[dev]
+      - name: Run pytest under tests/quick/
+        run: PYTHONPATH=. pytest tests/quick/ --timeout=60

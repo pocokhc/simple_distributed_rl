@@ -1,3 +1,7 @@
+import os
+
+import pytest
+
 from srl.utils.common import is_package_installed
 from tests.quick.examples.examples_common import setup_examples_test
 
@@ -40,6 +44,10 @@ def test_play_use_run():
     play_use_run.main()
 
 
+is_github_actions: bool = os.getenv("GITHUB_ACTIONS") == "true"
+
+
+@pytest.mark.skipif(is_github_actions)
 def test_play_mp():
     wkdir = setup_examples_test(add_path="raw")
 
@@ -48,6 +56,7 @@ def test_play_mp():
     play_mp.main()
 
 
+@pytest.mark.skipif(is_github_actions)
 def test_play_mp_memory():
     wkdir = setup_examples_test(add_path="raw")
 
@@ -56,6 +65,7 @@ def test_play_mp_memory():
     play_mp_memory.main()
 
 
+@pytest.mark.skipif(is_github_actions)
 def test_play_mp_no_queue():
     wkdir = setup_examples_test(add_path="raw")
 

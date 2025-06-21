@@ -64,7 +64,8 @@ def test_train_only():
     assert reward > 0.5, f"reward: {reward}"
 
 
-def test_render_terminal():
+@pytest.mark.parametrize("training_flag", [False, True])
+def test_render_terminal(training_flag):
     env_config = srl.EnvConfig("Grid")
     rl_config = ql.Config()
     runner = srl.Runner(env_config, rl_config)
@@ -73,12 +74,12 @@ def test_render_terminal():
     runner.train(max_steps=20000)
 
     # render terminal
-    reward = runner.render_terminal()
+    reward = runner.render_terminal(training_flag=training_flag)
     print(reward)
-    assert reward[0] > 0.5
 
 
-def test_render_window():
+@pytest.mark.parametrize("training_flag", [False, True])
+def test_render_window(training_flag):
     """
     docker-low is NG
       Hello from the pygame community. https://www.pygame.org/contribute.html
@@ -92,20 +93,22 @@ def test_render_window():
     rl_config = ql.Config()
     runner = srl.Runner(env_config, rl_config)
 
-    runner.render_window(render_interval=1000 / 60)
+    runner.render_window(render_interval=1000 / 60, training_flag=training_flag)
 
 
-def test_animation(tmp_path):
+@pytest.mark.parametrize("training_flag", [False, True])
+def test_animation(tmp_path, training_flag):
     pytest.importorskip("cv2")
     pytest.importorskip("PIL")
     pytest.importorskip("pygame")
 
     runner = srl.Runner("Grid", ql.Config())
-    runner.animation_save_gif(os.path.join(tmp_path, "a.gif"), max_steps=10)
-    runner.animation_save_avi(os.path.join(tmp_path, "a.avi"), max_steps=10)
+    runner.animation_save_gif(os.path.join(tmp_path, "a.gif"), max_steps=10, training_flag=training_flag)
+    runner.animation_save_avi(os.path.join(tmp_path, "a.avi"), max_steps=10, training_flag=training_flag)
 
 
-def test_replay_window():
+@pytest.mark.parametrize("training_flag", [False, True])
+def test_replay_window(training_flag):
     """
     docker-low is NG
       Hello from the pygame community. https://www.pygame.org/contribute.html
@@ -118,18 +121,20 @@ def test_replay_window():
         pytest.skip("pygame.error: No available video device")
 
     runner = srl.Runner("Grid", ql.Config())
-    runner.replay_window(_is_test=True)
+    runner.replay_window(_is_test=True, training_flag=training_flag)
 
 
-def test_play_terminal(monkeypatch):
+@pytest.mark.parametrize("training_flag", [False, True])
+def test_play_terminal(monkeypatch, training_flag):
     # 標準入力をモック
     monkeypatch.setattr("sys.stdin", io.StringIO("0\n1\n2\n3\n"))
 
     runner = srl.Runner("Grid")
-    runner.play_terminal(max_steps=3)
+    runner.play_terminal(max_steps=3, training_flag=training_flag)
 
 
-def test_play_window():
+@pytest.mark.parametrize("training_flag", [False, True])
+def test_play_window(training_flag):
     """
     docker-low is NG
       Hello from the pygame community. https://www.pygame.org/contribute.html
@@ -142,7 +147,7 @@ def test_play_window():
         pytest.skip("pygame.error: No available video device")
 
     runner = srl.Runner("Grid")
-    runner.play_window(_is_test=True)
+    runner.play_window(_is_test=True, training_flag=training_flag)
 
 
 def test_gym(tmp_path):

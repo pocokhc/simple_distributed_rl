@@ -41,7 +41,7 @@ class WorkerRunStubEpisode(RLWorker):
         assert False
 
     def on_step(self, worker):
-        if self.step_in_episode == 0:
+        if self.step_in_episode == 1:
             assert worker.state == [1]
             assert worker.next_state == [2]
             assert np.mean(worker.render_image_state) == 1
@@ -52,7 +52,7 @@ class WorkerRunStubEpisode(RLWorker):
             assert worker.terminated == False  # noqa: E712
             assert worker.invalid_actions == [1]
             assert worker.next_invalid_actions == [2]
-        elif self.step_in_episode == 1:
+        elif self.step_in_episode == 2:
             assert worker.state == [2]
             assert worker.next_state == [3]
             assert np.mean(worker.render_image_state) == 2
@@ -194,7 +194,7 @@ class WorkerRunStubEpisodeStacked(RLWorker):
         assert False
 
     def on_step(self, worker):
-        if self.step_in_episode == 0:
+        if self.step_in_episode == 1:
             assert worker.state == [0, 1]
             assert worker.next_state == [1, 2]
             assert (
@@ -223,7 +223,7 @@ class WorkerRunStubEpisodeStacked(RLWorker):
             assert worker.terminated == False  # noqa: E712
             assert worker.invalid_actions == [1]
             assert worker.next_invalid_actions == [2]
-        elif self.step_in_episode == 1:
+        elif self.step_in_episode == 2:
             assert worker.state == [1, 2]
             assert worker.next_state == [2, 3]
             assert (

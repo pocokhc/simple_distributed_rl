@@ -310,10 +310,10 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._reward = self._step_reward
             self._step_reward = 0.0
 
-            logger.debug("on_step")
-            self._worker.on_step(self)
             self._step_in_episode += 1
             self._step_in_training += 1
+            logger.debug("on_step")
+            self._worker.on_step(self)
 
             # step後にupdate
             self._prev_state = self._state

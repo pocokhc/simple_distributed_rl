@@ -1,4 +1,5 @@
 import copy
+from typing import List
 
 import torch
 import torch.nn as nn
@@ -66,3 +67,8 @@ def model_backup(model: nn.Module, to_cpu: bool = False):
             return copy.deepcopy(model).to("cpu").state_dict()
     else:
         return model.state_dict()
+
+
+def reset_model_parameters(params: List[nn.Parameter], rate: float, sigma: float = 2.0):
+    for param in params:
+        param.data.copy_(rate * param.data + torch.randn_like(param) * sigma)

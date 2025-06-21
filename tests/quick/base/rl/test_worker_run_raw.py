@@ -8,6 +8,7 @@ from srl.base.context import RunContext
 from srl.base.env.registration import register as register_env
 from srl.base.rl.registration import register as register_rl
 from srl.base.rl.worker import RLWorker
+from srl.utils.common import is_package_installed
 from tests.quick.base.rl import worker_run_stub
 
 
@@ -23,19 +24,22 @@ def scope_function():
 class WorkerRunStubEpisode(RLWorker):
     def on_reset(self, worker):
         assert worker.state == [1]
-        assert np.mean(worker.render_image_state) == 1
+        if self.config.use_render_image_state():
+            assert np.mean(worker.render_image_state) == 1
         assert worker.invalid_actions == [1]
         self.n_render = 0
 
     def policy(self, worker):
         if self.step_in_episode == 0:
             assert worker.state == [1]
-            assert np.mean(worker.render_image_state) == 1
+            if self.config.use_render_image_state():
+                assert np.mean(worker.render_image_state) == 1
             assert worker.invalid_actions == [1]
             return 1
         elif self.step_in_episode == 1:
             assert worker.state == [2]
-            assert np.mean(worker.render_image_state) == 2
+            if self.config.use_render_image_state():
+                assert np.mean(worker.render_image_state) == 2
             assert worker.invalid_actions == [2]
             return 2
         assert False
@@ -44,8 +48,9 @@ class WorkerRunStubEpisode(RLWorker):
         if self.step_in_episode == 1:
             assert worker.state == [1]
             assert worker.next_state == [2]
-            assert np.mean(worker.render_image_state) == 1
-            assert np.mean(worker.next_render_image_state) == 2
+            if self.config.use_render_image_state():
+                assert np.mean(worker.render_image_state) == 1
+                assert np.mean(worker.next_render_image_state) == 2
             assert worker.action == 1
             assert worker.reward == 1.0
             assert worker.done == False  # noqa: E712
@@ -55,8 +60,9 @@ class WorkerRunStubEpisode(RLWorker):
         elif self.step_in_episode == 2:
             assert worker.state == [2]
             assert worker.next_state == [3]
-            assert np.mean(worker.render_image_state) == 2
-            assert np.mean(worker.next_render_image_state) == 3
+            if self.config.use_render_image_state():
+                assert np.mean(worker.render_image_state) == 2
+                assert np.mean(worker.next_render_image_state) == 3
             assert worker.action == 2
             assert worker.reward == 2.0
             assert worker.done == True  # noqa: E712
@@ -72,16 +78,18 @@ class WorkerRunStubEpisode(RLWorker):
             assert worker.prev_state == [0]
             assert worker.state == [1]
             assert worker.action == 1
-            assert np.mean(worker.prev_render_image_state) == 0
-            assert np.mean(worker.render_image_state) == 1
+            if self.config.use_render_image_state():
+                assert np.mean(worker.prev_render_image_state) == 0
+                assert np.mean(worker.render_image_state) == 1
             assert worker.prev_invalid_actions == []
             assert worker.invalid_actions == [1]
         elif self.step_in_episode == 1:
             assert worker.prev_state == [1]
             assert worker.state == [2]
             assert worker.action == 2
-            assert np.mean(worker.prev_render_image_state) == 1
-            assert np.mean(worker.render_image_state) == 2
+            if self.config.use_render_image_state():
+                assert np.mean(worker.prev_render_image_state) == 1
+                assert np.mean(worker.render_image_state) == 2
             assert worker.prev_invalid_actions == [1]
             assert worker.invalid_actions == [2]
         else:
@@ -96,7 +104,7 @@ def test_episode():
     register_rl(worker_run_stub.WorkerRunStubRLConfig("StubEpisode"), "", "", "", __name__ + ":WorkerRunStubEpisode", check_duplicate=False)
     rl_config = worker_run_stub.WorkerRunStubRLConfig("StubEpisode")
     rl_config.enable_assertion = True
-    rl_config._use_render_image_state = True
+    rl_config._use_render_image_state = is_package_installed("pygame")
 
     # --- setup
     rl_config.setup(env)
@@ -125,7 +133,7 @@ def test_episode_runner():
     register_rl(worker_run_stub.WorkerRunStubRLConfig("StubEpisode"), "", "", "", __name__ + ":WorkerRunStubEpisode", check_duplicate=False)
     rl_config = worker_run_stub.WorkerRunStubRLConfig("StubEpisode")
     rl_config.enable_assertion = True
-    rl_config._use_render_image_state = True
+    rl_config._use_render_image_state = is_package_installed("pygame")
 
     import srl
 
@@ -145,16 +153,17 @@ class WorkerRunStubEpisodeStacked(RLWorker):
         assert worker.state == [0, 1]
         assert worker.get_state_one_step(-2) == [0]
         assert worker.get_state_one_step(-1) == [1]
-        assert (
-            worker.render_image_state
-            == np.stack(
-                [
-                    np.full((64, 32, 3), 0),
-                    np.full((64, 32, 3), 1),
-                ],
-                axis=0,
-            )
-        ).all()
+        if self.config.use_render_image_state():
+            assert (
+                worker.render_image_state
+                == np.stack(
+                    [
+                        np.full((64, 32, 3), 0),
+                        np.full((64, 32, 3), 1),
+                    ],
+                    axis=0,
+                )
+            ).all()
         assert worker.invalid_actions == [1]
         self.n_render = 0
 
@@ -163,32 +172,34 @@ class WorkerRunStubEpisodeStacked(RLWorker):
             assert worker.state == [0, 1]
             assert worker.get_state_one_step(-2) == [0]
             assert worker.get_state_one_step(-1) == [1]
-            assert (
-                worker.render_image_state
-                == np.stack(
-                    [
-                        np.full((64, 32, 3), 0),
-                        np.full((64, 32, 3), 1),
-                    ],
-                    axis=0,
-                )
-            ).all()
+            if self.config.use_render_image_state():
+                assert (
+                    worker.render_image_state
+                    == np.stack(
+                        [
+                            np.full((64, 32, 3), 0),
+                            np.full((64, 32, 3), 1),
+                        ],
+                        axis=0,
+                    )
+                ).all()
             assert worker.invalid_actions == [1]
             return 1
         elif self.step_in_episode == 1:
             assert worker.state == [1, 2]
             assert worker.get_state_one_step(-2) == [1]
             assert worker.get_state_one_step(-1) == [2]
-            assert (
-                worker.render_image_state
-                == np.stack(
-                    [
-                        np.full((64, 32, 3), 1),
-                        np.full((64, 32, 3), 2),
-                    ],
-                    axis=0,
-                )
-            ).all()
+            if self.config.use_render_image_state():
+                assert (
+                    worker.render_image_state
+                    == np.stack(
+                        [
+                            np.full((64, 32, 3), 1),
+                            np.full((64, 32, 3), 2),
+                        ],
+                        axis=0,
+                    )
+                ).all()
             assert worker.invalid_actions == [2]
             return 2
         assert False
@@ -197,26 +208,27 @@ class WorkerRunStubEpisodeStacked(RLWorker):
         if self.step_in_episode == 1:
             assert worker.state == [0, 1]
             assert worker.next_state == [1, 2]
-            assert (
-                worker.render_image_state
-                == np.stack(
-                    [
-                        np.full((64, 32, 3), 0),
-                        np.full((64, 32, 3), 1),
-                    ],
-                    axis=0,
-                )
-            ).all()
-            assert (
-                worker.next_render_image_state
-                == np.stack(
-                    [
-                        np.full((64, 32, 3), 1),
-                        np.full((64, 32, 3), 2),
-                    ],
-                    axis=0,
-                )
-            ).all()
+            if self.config.use_render_image_state():
+                assert (
+                    worker.render_image_state
+                    == np.stack(
+                        [
+                            np.full((64, 32, 3), 0),
+                            np.full((64, 32, 3), 1),
+                        ],
+                        axis=0,
+                    )
+                ).all()
+                assert (
+                    worker.next_render_image_state
+                    == np.stack(
+                        [
+                            np.full((64, 32, 3), 1),
+                            np.full((64, 32, 3), 2),
+                        ],
+                        axis=0,
+                    )
+                ).all()
             assert worker.action == 1
             assert worker.reward == 1.0
             assert worker.done == False  # noqa: E712
@@ -226,26 +238,27 @@ class WorkerRunStubEpisodeStacked(RLWorker):
         elif self.step_in_episode == 2:
             assert worker.state == [1, 2]
             assert worker.next_state == [2, 3]
-            assert (
-                worker.render_image_state
-                == np.stack(
-                    [
-                        np.full((64, 32, 3), 1),
-                        np.full((64, 32, 3), 2),
-                    ],
-                    axis=0,
-                )
-            ).all()
-            assert (
-                worker.next_render_image_state
-                == np.stack(
-                    [
-                        np.full((64, 32, 3), 2),
-                        np.full((64, 32, 3), 3),
-                    ],
-                    axis=0,
-                )
-            ).all()
+            if self.config.use_render_image_state():
+                assert (
+                    worker.render_image_state
+                    == np.stack(
+                        [
+                            np.full((64, 32, 3), 1),
+                            np.full((64, 32, 3), 2),
+                        ],
+                        axis=0,
+                    )
+                ).all()
+                assert (
+                    worker.next_render_image_state
+                    == np.stack(
+                        [
+                            np.full((64, 32, 3), 2),
+                            np.full((64, 32, 3), 3),
+                        ],
+                        axis=0,
+                    )
+                ).all()
             assert worker.action == 2
             assert worker.reward == 2.0
             assert worker.done == True  # noqa: E712
@@ -262,26 +275,27 @@ class WorkerRunStubEpisodeStacked(RLWorker):
             assert worker.state == [0, 1]
             assert worker.get_state_one_step(-2) == [0]
             assert worker.get_state_one_step(-1) == [1]
-            assert (
-                worker.prev_render_image_state
-                == np.stack(
-                    [
-                        np.full((64, 32, 3), 0),
-                        np.full((64, 32, 3), 0),
-                    ],
-                    axis=0,
-                )
-            ).all()
-            assert (
-                worker.render_image_state
-                == np.stack(
-                    [
-                        np.full((64, 32, 3), 0),
-                        np.full((64, 32, 3), 1),
-                    ],
-                    axis=0,
-                )
-            ).all()
+            if self.config.use_render_image_state():
+                assert (
+                    worker.prev_render_image_state
+                    == np.stack(
+                        [
+                            np.full((64, 32, 3), 0),
+                            np.full((64, 32, 3), 0),
+                        ],
+                        axis=0,
+                    )
+                ).all()
+                assert (
+                    worker.render_image_state
+                    == np.stack(
+                        [
+                            np.full((64, 32, 3), 0),
+                            np.full((64, 32, 3), 1),
+                        ],
+                        axis=0,
+                    )
+                ).all()
             assert worker.prev_invalid_actions == []
             assert worker.invalid_actions == [1]
         elif self.step_in_episode == 1:
@@ -289,26 +303,27 @@ class WorkerRunStubEpisodeStacked(RLWorker):
             assert worker.state == [1, 2]
             assert worker.get_state_one_step(-2) == [1]
             assert worker.get_state_one_step(-1) == [2]
-            assert (
-                worker.prev_render_image_state
-                == np.stack(
-                    [
-                        np.full((64, 32, 3), 0),
-                        np.full((64, 32, 3), 1),
-                    ],
-                    axis=0,
-                )
-            ).all()
-            assert (
-                worker.render_image_state
-                == np.stack(
-                    [
-                        np.full((64, 32, 3), 1),
-                        np.full((64, 32, 3), 2),
-                    ],
-                    axis=0,
-                )
-            ).all()
+            if self.config.use_render_image_state():
+                assert (
+                    worker.prev_render_image_state
+                    == np.stack(
+                        [
+                            np.full((64, 32, 3), 0),
+                            np.full((64, 32, 3), 1),
+                        ],
+                        axis=0,
+                    )
+                ).all()
+                assert (
+                    worker.render_image_state
+                    == np.stack(
+                        [
+                            np.full((64, 32, 3), 1),
+                            np.full((64, 32, 3), 2),
+                        ],
+                        axis=0,
+                    )
+                ).all()
             assert worker.prev_invalid_actions == [1]
             assert worker.invalid_actions == [2]
         elif self.step_in_episode == 2:
@@ -325,7 +340,7 @@ def test_episode_stacked():
     register_rl(worker_run_stub.WorkerRunStubRLConfig("StubEpisodeStacked"), "", "", "", __name__ + ":WorkerRunStubEpisodeStacked", check_duplicate=False)
     rl_config = worker_run_stub.WorkerRunStubRLConfig("StubEpisodeStacked")
     rl_config.enable_assertion = True
-    rl_config._use_render_image_state = True
+    rl_config._use_render_image_state = is_package_installed("pygame")
     rl_config.window_length = 2
     rl_config.render_image_window_length = 2
 
@@ -357,7 +372,7 @@ def test_episode_stacked_runner():
     register_rl(worker_run_stub.WorkerRunStubRLConfig("StubEpisodeStacked"), "", "", "", __name__ + ":WorkerRunStubEpisodeStacked", check_duplicate=False)
     rl_config = worker_run_stub.WorkerRunStubRLConfig("StubEpisodeStacked")
     rl_config.enable_assertion = True
-    rl_config._use_render_image_state = True
+    rl_config._use_render_image_state = is_package_installed("pygame")
     rl_config.window_length = 2
     rl_config.render_image_window_length = 2
 

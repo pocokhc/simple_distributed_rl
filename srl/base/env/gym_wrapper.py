@@ -150,7 +150,7 @@ def _space_encode_from_gym_to_srl_sub(gym_space: gym_spaces.Space, x: Any):
     # if isinstance(gym_space, gym_spaces.Graph):
     #    pass  # not support
 
-    if isinstance(gym_space, gym_spaces.Text):
+    if hasattr(gym_spaces, "Text") and isinstance(gym_space, gym_spaces.Text):
         return str(x)
 
     # if isinstance(gym_space, gym_spaces.Sequence):
@@ -200,7 +200,7 @@ def _space_decode_to_srl_from_gym_sub(gym_space: gym_spaces.Space, x: Any, idx=0
     # if isinstance(gym_space, gym_spaces.Graph):
     #    pass  # not support
 
-    if isinstance(gym_space, gym_spaces.Text):
+    if hasattr(gym_spaces, "Text") and isinstance(gym_space, gym_spaces.Text):
         return x[idx], idx + 1
 
     # if isinstance(gym_space, gym_spaces.Sequence):

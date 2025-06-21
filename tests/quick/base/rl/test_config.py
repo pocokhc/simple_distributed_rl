@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 import numpy as np
+import pytest
 
 import srl
 from srl.base.define import SpaceTypes
@@ -41,6 +42,8 @@ def test_dtype():
 
 
 def test_processor():
+    pytest.importorskip("pygamte")
+    pytest.importorskip("PIL")
     from srl.algorithms import ql
     from srl.rl.processors.image_processor import ImageProcessor
 
@@ -77,6 +80,9 @@ def test_copy():
 
 
 def test_summary():
+    pytest.importorskip("pygamte")
+    pytest.importorskip("PIL")
+
     config = TestConfig(window_length=4, observation_mode="render_image")
     config.summary()
     config.setup(srl.make_env("Grid"))

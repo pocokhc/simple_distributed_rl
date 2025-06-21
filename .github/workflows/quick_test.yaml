@@ -2,7 +2,7 @@ name: Run pytest
 
 on:
   push:
-    branches: ["main", "develop/*"]
+    branches: ["main", "develop/*", "feature/*"]
 
 jobs:
   pytest-ver:

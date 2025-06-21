@@ -19,6 +19,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       # --- srl test
+      - run: pip install --upgrade pip setuptools wheel
       - run: pip install .
       - run: pip install pytest pytest-mock pytest-timeout
       - name: Run pytest under tests/quick/

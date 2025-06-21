@@ -11,8 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 3.10を指定する方法が不明
-        python-version: [3.8, 3.9, 3.11, 3.12, 3.13]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -34,9 +33,10 @@ jobs:
           python-version: 3.8
       # --- srl test
       - name: Install srl
-      - run: pip install -U setuptools
-      - run: pip install .
-      - run: pip install pytest pytest-mock pytest-timeout
+        run: |
+          pip install -U setuptools
+          pip install .
+          pip install pytest pytest-mock pytest-timeout
       - name: Run pytest under tests/quick/
         run: PYTHONPATH=. pytest tests/quick/ --timeout=60
 

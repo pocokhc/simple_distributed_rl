@@ -47,7 +47,7 @@ def test_play_use_run():
 is_github_actions: bool = os.getenv("GITHUB_ACTIONS") == "true"
 
 
-@pytest.mark.skipif(is_github_actions)
+@pytest.mark.skipif(is_github_actions, reason="mpが不安定なため")
 def test_play_mp():
     wkdir = setup_examples_test(add_path="raw")
 
@@ -56,7 +56,7 @@ def test_play_mp():
     play_mp.main()
 
 
-@pytest.mark.skipif(is_github_actions)
+@pytest.mark.skipif(is_github_actions, reason="mpが不安定なため")
 def test_play_mp_memory():
     wkdir = setup_examples_test(add_path="raw")
 
@@ -65,7 +65,7 @@ def test_play_mp_memory():
     play_mp_memory.main()
 
 
-@pytest.mark.skipif(is_github_actions)
+@pytest.mark.skipif(is_github_actions, reason="mpが不安定なため")
 def test_play_mp_no_queue():
     wkdir = setup_examples_test(add_path="raw")
 

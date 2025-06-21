@@ -33,10 +33,7 @@ jobs:
           python-version: 3.8
       # --- srl test
       - name: Install srl
-        run: |
-          pip install -U setuptools
-          pip install .
-          pip install pytest pytest-mock pytest-timeout
+        run: pip install -r dockers/low_requirements.txt
       - name: Run pytest under tests/quick/
         run: PYTHONPATH=. pytest tests/quick/ --timeout=60
 

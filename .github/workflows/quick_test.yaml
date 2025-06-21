@@ -5,9 +5,11 @@ on:
     branches: ["main"]
     
 jobs:
-  pytest:
+  pytest-latest:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         #python-version: [3.8, 3.9, 3.10, 3.11, 3.12, 3.13]
         python-version: [3.13]
@@ -17,8 +19,21 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install srl as editable package
-        run: pip install -e .[dev]
+      # --- srl test
+      - name: Install srl
+        run: pip install .[dev]
+      - name: Run pytest under tests/quick/
+        run: pytest tests/quick/ --timeout=60
+
+  pytest-py3.8:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.8
+      # --- srl test
+      - run: pip install -r dockers/low_requirements.txt
       - name: Run pytest under tests/quick/
         run: PYTHONPATH=. pytest tests/quick/ --timeout=60
 

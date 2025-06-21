@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=42.0"]
+requires = ["setuptools>=62.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,7 +7,7 @@ name = "srl-framework"
 dynamic = ["version"]
 description = "Simple distributed reinforcement learning framework"
 readme = "README-pypi.md"
-license = "MIT"
+license = { text = "MIT" }
 license-files = ["LICENSE"]
 authors = [ { name = "poco", email = "pocopococpp198@gmail.com" } ]
 requires-python = ">=3.8"

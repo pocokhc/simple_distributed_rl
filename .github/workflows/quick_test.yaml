@@ -18,6 +18,5 @@ jobs:
       - run: pip install pytest pytest-mock pytest-timeout
 
       - name: Run pytest
-        run: echo a
-
+        run: pytest tests/quick/ --timeout=60
 

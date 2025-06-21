@@ -18,7 +18,7 @@ on:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      # --- srl test
+      
       - run: pip install numpy
       - name: Run pytest under tests/quick/
         run: PYTHONPATH=. pytest tests/quick/ --timeout=60

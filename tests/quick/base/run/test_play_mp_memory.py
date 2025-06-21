@@ -39,7 +39,7 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
     remote_qsize = cast(sharedctypes.Synchronized, mp.Value(ctypes.c_int, 0))
     remote_board = _DummyValue(None)
     end_signal = _DummyValue(False)
-    last_worker_param_queue = mp.Queue()
+    last_worker_param_queue = queue.Queue()  # mp.Queue()を使うとhungする
 
     # --- create task
     c = mocker.Mock(spec=RunCallback)
@@ -75,7 +75,7 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
         remote_board,
         0,
         end_signal,
-        last_worker_param_queue,
+        last_worker_param_queue,  # type: ignore
     )
 
     assert end_signal.value

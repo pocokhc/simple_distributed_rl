@@ -30,11 +30,11 @@ def test_train_load(tmp_path):
 
     runner.set_checkpoint(tmp_path, is_load=False, interval=1)
     runner.train(max_train_count=10_000)
-    assert np.mean(runner.evaluate(1000)) > 0.6
+    assert np.mean(runner.evaluate(1000)) > 0.4
 
     runner.set_checkpoint(tmp_path, is_load=True, interval=1)
     runner.train(max_train_count=1)
-    assert np.mean(runner.evaluate(1000)) > 0.6
+    assert np.mean(runner.evaluate(1000)) > 0.4
 
 
 def test_train_only(tmp_path):

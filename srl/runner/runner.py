@@ -905,7 +905,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
             self.parameter.restore(params_dat)
 
         if self.context.run_name != "eval":
-            logger.info(f"render step: {self.state.total_step}, reward: {self.state.episode_rewards_list[0]}")
+            logger.info(f"render step: {self.state.total_step}, reward: {self.state.episode_rewards_list}")
         return rendering
 
     def animation_save_gif(

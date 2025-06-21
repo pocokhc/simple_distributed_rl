@@ -114,7 +114,7 @@ def test_priority_memory(compress, memory_type):
         cfg.set_proportional()
     elif memory_type == "Proportional_cpp":
         pytest.importorskip("pybind11")
-        cfg.set_proportional_cpp()
+        cfg.set_proportional_cpp(force_build=True)
     elif memory_type == "RankBased":
         cfg.set_rankbased()
     elif memory_type == "RankBasedLinear":

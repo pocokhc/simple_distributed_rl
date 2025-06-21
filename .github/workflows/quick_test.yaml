@@ -47,7 +47,9 @@ jobs:
   #       with:
   #         python-version: 3.8
   #     # --- srl test
-  #     - run: pip install -r dockers/low_requirements.txt
+  #     - name: Install srl
+  #       run: pip install .
+  #     - run: pip install pytest pytest-mock pytest-timeout
   #     - name: Run pytest under tests/quick/
   #       run: PYTHONPATH=. pytest tests/quick/ --timeout=60
 

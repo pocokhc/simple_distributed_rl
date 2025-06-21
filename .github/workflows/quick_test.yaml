@@ -25,7 +25,7 @@ jobs:
         run: |
           ps -ef
           echo "=== PROCESSES AFTER PYTEST ==="
-          PYTHONPATH=. pytest tests/quick/ --timeout=60 -s
+          PYTHONPATH=. pytest tests/quick/ --timeout=60
           echo "=== PROCESSES AFTER PYTEST ==="
           ps -ef
 

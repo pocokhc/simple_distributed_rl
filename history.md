@@ -20,6 +20,7 @@
 
 **MainUpdates**
 
+1. github actionsで最低限のpytestを追加
 1. py3.8でpipが失敗したので最低versionを3.9に変更
 1. [runner.callbacks.mlflow] change: 学習中のhtmlの生成を止め、学習後に一括で生成できるmake_html_all_parametersを追加
 1. [base.rl.config] update: WorkerからParameterを更新するフラグを追加
@@ -41,7 +42,7 @@
 
 1. [rl.processors.image_processor] fix: resizeのHとWが逆だったので修正
 1. [base.rl.worker_run] fix: restoreのコピーを強化
-
+1. [base.spaces.continous] fix: np.random.normal(size=1)は非推奨だったのでsize=1を削除
 
 
 # v1.3.1

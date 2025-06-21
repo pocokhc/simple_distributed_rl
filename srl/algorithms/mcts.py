@@ -29,6 +29,9 @@ class Config(RLConfig):
     def use_backup_restore(self) -> bool:
         return True
 
+    def use_update_parameter_from_worker(self) -> bool:
+        return True
+
 
 register(
     Config(),
@@ -61,6 +64,9 @@ class Parameter(RLParameter[Config]):
             ]
         )
 
+    def update_from_worker_parameter(self, worker_parameger: "Parameter"):
+        self.call_restore(worker_parameger.call_backup())
+
     # ------------------------
 
     def init_state(self, state):
@@ -71,23 +77,7 @@ class Parameter(RLParameter[Config]):
 
 class Trainer(RLTrainer[Config, Parameter, Memory]):
     def train(self) -> None:
-        batches = self.memory.sample()
-        if batches is None:
-            return
-
-        for batch in batches:
-            if self.distributed:
-                state = batch["state"]
-                action = batch["action"]
-                reward = batch["reward"]
-                self.parameter.init_state(state)
-
-                self.parameter.N[state][action] += 1
-                self.parameter.W[state][action] += reward
-
-            self.train_count += 1
-
-        self.info["size"] = len(self.parameter.N)
+        self.train_count += 1
 
 
 class Worker(RLWorker[Config, Parameter, Memory]):
@@ -106,6 +96,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         c = [-np.inf if a in worker.invalid_actions else c[a] for a in range(self.config.action_space.n)]  # mask
         action = int(np.random.choice(np.where(c == np.max(c))[0]))
 
+        self.info["size"] = len(self.parameter.N)
         return action
 
     def _simulation(self, env: EnvRun, state: str, depth: int = 0):
@@ -144,14 +135,6 @@ class Worker(RLWorker[Config, Parameter, Memory]):
 
         self.parameter.N[state][action] += 1
         self.parameter.W[state][action] += reward
-
-        self.memory.add(
-            {
-                "state": state,
-                "action": action,
-                "reward": reward,
-            }
-        )
 
         return reward
 

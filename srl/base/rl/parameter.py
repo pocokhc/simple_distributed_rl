@@ -53,6 +53,13 @@ class RLParameter(ABC, Generic[TRLConfig]):
     def summary(self, **kwargs):
         pass  # NotImplemented
 
+    def update_from_worker_parameter(self, worker_parameger: "RLParameter") -> None:
+        """WorkerからParameterの更新がある場合、最後の結果を保存する処理を記載
+        - Configのuse_update_parameter_from_workerをTrueにする必要あり
+        - 分散学習の最後でのみ呼ばれます
+        """
+        pass  # NotImplemented
+
 
 class DummyRLParameter(RLParameter):
     def __init__(self, config: Optional[RLConfig] = None):

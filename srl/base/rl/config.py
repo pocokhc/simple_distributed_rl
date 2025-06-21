@@ -155,15 +155,17 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         return ""  # NotImplemented
 
     def get_processors(self, prev_observation_space: SpaceBase) -> List["RLProcessor"]:
-        return []  # NotImplemented
-
-    def get_render_image_processors(self, prev_observation_space: SpaceBase) -> List["RLProcessor"]:
+        """前処理を追加したい場合設定"""
         return []  # NotImplemented
 
     def setup_from_env(self, env: EnvRun) -> None:
+        """env初期化後に呼び出されます。env関係の初期化がある場合は記載してください。"""
         pass  # NotImplemented
 
     def setup_from_actor(self, actor_num: int, actor_id: int) -> None:
+        """Actor関係の初期化がある場合は記載
+        - 分散学習でactorが指定されたときに呼び出されます
+        """
         pass  # NotImplemented
 
     def get_changeable_parameters(self) -> List[str]:
@@ -171,13 +173,30 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         return []  # NotImplemented
 
     def use_backup_restore(self) -> bool:
+        """envのbackup/restoreを使う場合はTrue, MCTSなどで使用"""
         return False  # NotImplemented
 
     def use_render_image_state(self) -> bool:
+        """envの画像情報を使用
+        - use_render_image_stateをTrueにするとworker.render_img_stateが有効になります
+        - worker.render_img_state には env.render_rgb_array の画像が入ります
+        """
         return False  # NotImplemented
 
-    def use_env_render_mode(self) -> RenderModeType:
+    def get_render_image_processors(self, prev_observation_space: SpaceBase) -> List["RLProcessor"]:
+        """render_img_stateに対する前処理" """
+        return []  # NotImplemented
+
+    def override_env_render_mode(self) -> RenderModeType:
+        """envのrender_modeを上書き, humanのterminal入力等で使用"""
         return ""  # NotImplemented
+
+    def use_update_parameter_from_worker(self) -> bool:
+        """WorkerからParameterの更新がある場合はTrue
+        - Trueの場合、分散学習で parameter.update_from_worker_parameter が学習後に呼ばれます
+        - MCTSやGo系で使用
+        """
+        return False
 
     # ----------------------------
     # setup
@@ -342,11 +361,11 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
         # --------------------------------------------
 
-        # --- use_env_render_mode
-        if self.use_env_render_mode() != "":
+        # --- override_env_render_mode
+        if self.override_env_render_mode() != "":
             if self._request_env_render != "":
-                logger.warning(f"'request_env_render' has been overridden: {self._request_env_render} -> {self.use_env_render_mode()}")
-            self._request_env_render = self.use_env_render_mode()
+                logger.warning(f"'request_env_render' has been overridden: {self._request_env_render} -> {self.override_env_render_mode()}")
+            self._request_env_render = self.override_env_render_mode()
 
         # --- validate
         self.validate_params()

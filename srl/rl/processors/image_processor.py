@@ -70,7 +70,8 @@ class ImageProcessor(RLProcessor, EnvProcessor):
 
         # resize
         if self.resize is not None and new_shape != self.resize:
-            new_shape = self.resize
+            # shape=(H,W,C)
+            new_shape = (self.resize[1], self.resize[0])
 
         # norm
         new_dtype = prev_space.dtype
@@ -135,14 +136,13 @@ class ImageProcessor(RLProcessor, EnvProcessor):
                 pass  # warning normされたものはresizeできない
             else:
                 state = cv2.resize(state, self.resize)
-            assert state.shape[0] == self.resize[0] and state.shape[1] == self.resize[1]
 
         if self.normalize_type == "0to1":
             state = state.astype(np.float32)
             state /= self.max_val
         elif self.normalize_type == "-1to1":
             state = state.astype(np.float32)
-            state = (state / self.max_val) * 2 - 1
+            state = (state * 2.0 / self.max_val) - 1.0
 
         state = cast(np.ndarray, state)
         if len(state.shape) == 2 and self.image_type == SpaceTypes.GRAY_3ch:

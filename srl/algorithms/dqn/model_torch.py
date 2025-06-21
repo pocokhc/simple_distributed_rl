@@ -9,6 +9,7 @@ import torch.optim as optim
 from srl.base.rl.trainer import RLTrainer
 from srl.base.spaces.multi import MultiSpace
 from srl.rl.torch_.blocks.input_multi_block import InputMultiBlockConcat
+from srl.rl.torch_.helper import model_backup, model_restore
 
 from .dqn import CommonInterfaceParameter, Config, Memory
 
@@ -62,21 +63,11 @@ class Parameter(CommonInterfaceParameter):
         self.q_target.load_state_dict(self.q_online.state_dict())
 
     def call_restore(self, data: Any, from_cpu: bool = False, **kwargs) -> None:
-        if self.config.used_device_torch != "cpu" and from_cpu:
-            self.q_online.to("cpu").load_state_dict(data)
-            self.q_target.to("cpu").load_state_dict(data)
-            self.q_online.to(self.device)
-            self.q_target.to(self.device)
-        else:
-            self.q_online.load_state_dict(data)
-            self.q_target.load_state_dict(data)
+        model_restore(self.q_online, data, from_cpu)
+        model_restore(self.q_target, data, from_cpu)
 
     def call_backup(self, to_cpu: bool = False, **kwargs) -> Any:
-        # backupでdeviceを変えるとtrainerとの並列処理でバグの可能性あり
-        if self.config.used_device_torch != "cpu" and to_cpu:
-            return copy.deepcopy(self.q_online).to("cpu").state_dict()
-        else:
-            return self.q_online.state_dict()
+        return model_backup(self.q_online, to_cpu)
 
     def summary(self, **kwargs):
         print(self.q_online)

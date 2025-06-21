@@ -545,7 +545,6 @@ class RunnerBase(Generic[TRLConfig]):
         interval_eval: float = -1,
         interval_checkpoint: float = 60 * 30,
         enable_checkpoint: bool = True,
-        enable_html: bool = True,
         enable_eval: bool = True,
         eval_episode: int = 1,
         eval_timeout: float = -1,
@@ -561,7 +560,6 @@ class RunnerBase(Generic[TRLConfig]):
             interval_eval=interval_eval,
             interval_checkpoint=interval_checkpoint,
             enable_checkpoint=enable_checkpoint,
-            enable_html=enable_html,
             enable_eval=enable_eval,
             eval_episode=eval_episode,
             eval_timeout=eval_timeout,
@@ -581,12 +579,20 @@ class RunnerBase(Generic[TRLConfig]):
         if experiment_name == "":
             experiment_name = self.env_config.name
 
+        run_id = MLFlowCallback.get_run_id(experiment_name, self.rl_config.get_name(), run_idx)
         MLFlowCallback.load_parameter(
-            experiment_name,
+            run_id,
+            MLFlowCallback.get_parameter_files(run_id)[parameter_idx],
             self.make_parameter(),
-            run_idx,
-            parameter_idx,
         )
+
+    def make_html_all_parameters_in_mlflow(self, experiment_name: str = "", run_idx: int = -1, **render_kwargs):
+        from srl.runner.callbacks.mlflow_callback import MLFlowCallback
+
+        if experiment_name == "":
+            experiment_name = self.env_config.name
+        run_id = MLFlowCallback.get_run_id(experiment_name, self.rl_config.get_name(), run_idx)
+        MLFlowCallback.make_html_all_parameters(run_id, self.env_config, self.rl_config, **render_kwargs)
 
     def disable_mlflow(self):
         self._mlflow_kwargs = None

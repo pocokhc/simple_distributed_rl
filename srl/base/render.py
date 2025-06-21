@@ -86,6 +86,7 @@ class Render:
     def get_cached_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
         if self._cache_rgb_array is None:
             self._cache_rgb_array = self._render_obj.render_rgb_array(**kwargs)
+            # (H,W,C)
             if self._cache_rgb_array is not None:
                 self._cache_rgb_array = self._cache_rgb_array.astype(np.uint8)
 

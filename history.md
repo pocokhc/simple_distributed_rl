@@ -2,6 +2,7 @@
 1. keras3対応 → tfは@tf.functionが使えなくなるので遅くなる。torchはcpu()が必要になるっぽい、しばらく保留
 1. Async-SGD
 1. (distribution)オリジナルrl/env対応
+1. MCP化
 
 //// 中止(stopped)
 // (tensorboard) SRL上でいいI/Fの作成方法が思い浮かばず保留、tensorboardを愚直にいれると遅い
@@ -13,6 +14,33 @@
 // cached_propertyでちょっと高速化?→予想外のバグがでそうなので保留
 // RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
 // TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除
+
+
+# v1.3.2
+
+**MainUpdates**
+
+1. [runner.callbacks.mlflow] change: 学習中のhtmlの生成を止め、学習後に一括で生成できるmake_html_all_parametersを追加
+1. [base.rl.config] update: WorkerからParameterを更新するフラグを追加
+   - new: use_update_parameter_from_workerを作成
+   - [base.run.play_mp] update: 学習後にActor0のParameterをメインプロセスにコピーする処理を追加
+   - [base.run.play_mp] change: memoryを返すかのフラグ、return_memory_dataを引数に追加
+   - RLConfigの関数にコメントを追加
+   - rename: use_env_render_modeをoverride_env_render_modeに変更
+   - MCTSとgo_exploreを上記に合わせて修正
+1. [base.rl.worker_run] change: step_in_episodeを増やすタイミングをon_step後から前に変更
+
+**OtherUpdates**
+
+1. [rl.memories.episode_replay_buffer] update: sample_sequentialにdummy_step引数を追加
+1. [rl.torch_.helper] new: reset_model_parameters関数を追加
+1. [base.rl.worker_run] add: abort_episode関数を追加
+
+**Bug Fixes**
+
+1. [rl.processors.image_processor] fix: resizeのHとWが逆だったので修正
+1. [base.rl.worker_run] fix: restoreのコピーを強化
+
 
 
 # v1.3.1

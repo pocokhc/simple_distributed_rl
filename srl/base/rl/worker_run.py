@@ -674,6 +674,9 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._action = rl_action
         return rl_action
 
+    def abort_episode(self):
+        self._env.abort_episode()
+
     def print_discrete_action_info(self, maxa: int, func) -> None:
         view_actions_num = min(15, self.config.action_space.n)
         for action in range(view_actions_num):

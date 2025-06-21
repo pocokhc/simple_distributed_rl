@@ -20,6 +20,7 @@
 
 **MainUpdates**
 
+1. py3.8でpipが失敗したので最低versionを3.9に変更
 1. [runner.callbacks.mlflow] change: 学習中のhtmlの生成を止め、学習後に一括で生成できるmake_html_all_parametersを追加
 1. [base.rl.config] update: WorkerからParameterを更新するフラグを追加
    - new: use_update_parameter_from_workerを作成

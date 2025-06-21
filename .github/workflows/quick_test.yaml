@@ -4,21 +4,6 @@ on:
   pull_request:
     branches: ["main"]
 
-# jobs:
-#   pytest-latest:
-#     runs-on: ubuntu-latest
-#     timeout-minutes: 30
-#     steps:
-#       - uses: actions/checkout@v4
-#       - uses: actions/setup-python@v5
-#         with:
-#           python-version: 3.13
-#       # --- srl test
-#       - name: Install srl
-#         run: pip install .[dev]
-#       - name: Run pytest under tests/quick/
-#         run: PYTHONPATH=. pytest tests/quick/ --timeout=60
-
   pytest-min:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -37,17 +22,3 @@ on:
       - run: pip install numpy
       - name: Run pytest under tests/quick/
         run: PYTHONPATH=. pytest tests/quick/ --timeout=60
-
-  # pytest-low:
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 30
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-python@v5
-  #       with:
-  #         python-version: 3.8
-  #     # --- srl test
-  #     - run: pip install -r dockers/low_requirements.txt
-  #     - name: Run pytest under tests/quick/
-  #       run: PYTHONPATH=. pytest tests/quick/ --timeout=60
-

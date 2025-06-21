@@ -5,7 +5,7 @@ on:
     branches: ["main"]
 
 jobs:
-  pytest-min:
+  pytest-ver:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -19,7 +19,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       # --- srl test
-      - run: pip install numpy pytest pytest-mock pytest-timeout
+      - run: pip install .
+      - run: pip install pytest pytest-mock pytest-timeout
       - name: Run pytest under tests/quick/
         run: PYTHONPATH=. pytest tests/quick/ --timeout=60
 

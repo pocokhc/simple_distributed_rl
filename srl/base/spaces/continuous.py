@@ -57,7 +57,7 @@ class ContinuousSpace(SpaceBase[float]):
             logger.info(f"mask is not support: {mask}")
         if self._is_inf:
             # infの場合は正規分布に従う乱数
-            return float(np.random.normal(size=1))
+            return float(np.random.normal())
         r = random.random()
         return self._low + r * (self._high - self._low)
 

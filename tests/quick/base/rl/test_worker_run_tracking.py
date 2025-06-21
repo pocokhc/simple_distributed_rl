@@ -7,6 +7,7 @@ from srl.base.context import RunContext
 from srl.base.env.registration import register as register_env
 from srl.base.rl.registration import register as register_rl
 from srl.base.rl.worker import RLWorker
+from srl.utils.common import is_package_installed
 from tests.quick.base.rl import worker_run_stub
 
 
@@ -67,7 +68,7 @@ def test_episode():
 
     rl_config = worker_run_stub.WorkerRunStubRLConfig()
     rl_config.enable_assertion = True
-    rl_config._use_render_image_state = True
+    rl_config._use_render_image_state = is_package_installed("pygame")
 
     # --- setup
     rl_config.setup(env)

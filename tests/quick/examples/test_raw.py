@@ -1,3 +1,4 @@
+from srl.utils.common import is_package_installed
 from tests.quick.examples.examples_common import setup_examples_test
 
 
@@ -6,8 +7,12 @@ def test_env():
 
     import env  # type: ignore
 
-    env.main("Grid", render_interval=1000 / 180)
-    env.main("OX", render_interval=1000 / 180)
+    if is_package_installed("pygame"):
+        render_mode = "window"
+    else:
+        render_mode = "terminal"
+    env.main("Grid", render_interval=1000 / 180, render_mode=render_mode)
+    env.main("OX", render_interval=1000 / 180, render_mode=render_mode)
 
 
 def test_play():

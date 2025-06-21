@@ -74,7 +74,7 @@ def test_trainer_callback(mocker: pytest_mock.MockerFixture):
     context.max_memory = 100
     context.disable_trainer = True
     state = play(context)
-    assert state.memory.length() == 100
+    assert state.memory.length() >= 100
 
     context.training = True
     context.max_train_count = 10

@@ -4,7 +4,11 @@ import srl
 from srl.envs import grid, ox  # isort: skip # noqa F401
 
 
-def main(env_name: str, render_interval: float = 1000 / 5):
+def main(
+    env_name: str,
+    render_interval: float = 1000 / 5,
+    render_mode="window",  # "terminal" or "rgb_array" or "window"
+):
     env = srl.make_env(env_name)
     env.set_render_options(interval=render_interval)
 
@@ -12,7 +16,7 @@ def main(env_name: str, render_interval: float = 1000 / 5):
     print(f"observation_space: {env.observation_space}")
     print(f"player_num       : {env.player_num}")
 
-    env.setup(render_mode="window")  # "terminal" or "rgb_array" or "window"
+    env.setup(render_mode=render_mode)
     env.reset()
     env.render()
 

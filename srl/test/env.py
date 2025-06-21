@@ -19,6 +19,9 @@ def env_test(
     test_env_config.render_interval = 1
     test_env_config.enable_assertion = True
 
+    if not is_packages_installed(["pygame", "PIL"]):
+        test_render_window = False
+
     env = test_env_config.make()
     assert issubclass(env.__class__, EnvRun), "The way env is created is wrong. (Mainly due to framework side)"
 

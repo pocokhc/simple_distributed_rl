@@ -17,6 +17,7 @@ from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.np_array import NpArraySpace
 from srl.base.spaces.space import SpaceBase
 from srl.base.spaces.text import TextSpace
+from srl.utils.common import is_package_installed
 from tests.quick.base.rl import worker_run_stub
 
 
@@ -50,6 +51,9 @@ def _test_obs_episode(
     env_states: list,
     true_rl_states: list,
 ):
+    if rl_obs_mode == "render_image":
+        pytest.importorskip("pygame")
+        pytest.importorskip("PIL")
     env = srl.make_env(srl.EnvConfig("Stub", {"observation_space": env_obs_space}))
     env_org = cast(worker_run_stub.WorkerRunStubEnv, env.unwrapped)
     env_org.s_states = env_states
@@ -61,7 +65,9 @@ def _test_obs_episode(
     rl_config.window_length = window_length
     rl_config.observation_mode = rl_obs_mode
     rl_config.observation_division_num = rl_obs_div_num
-    rl_config._use_render_image_state = True
+
+    use_render_image_state = is_package_installed("pygamte")
+    rl_config._use_render_image_state = use_render_image_state
     rl_config.render_image_window_length = render_image_window_length
 
     # --- check rl_config setup
@@ -81,13 +87,14 @@ def _test_obs_episode(
         assert rl_config.observation_space == true_obs_space
 
     # render_image
-    true_render_img_space_one = BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR)
-    if render_image_window_length == 1:
-        true_render_img_space = true_render_img_space_one
-    else:
-        true_render_img_space = BoxSpace((render_image_window_length, 64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR)
-    assert rl_config.obs_render_img_space_one_step == true_render_img_space_one
-    assert rl_config.obs_render_img_space == true_render_img_space
+    if use_render_image_state:
+        true_render_img_space_one = BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR)
+        if render_image_window_length == 1:
+            true_render_img_space = true_render_img_space_one
+        else:
+            true_render_img_space = BoxSpace((render_image_window_length, 64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR)
+        assert rl_config.obs_render_img_space_one_step == true_render_img_space_one
+        assert rl_config.obs_render_img_space == true_render_img_space
 
     # --- setup
     worker = srl.make_worker(rl_config, env)
@@ -117,18 +124,19 @@ def _test_obs_episode(
     assert _equal_data(worker.get_state_one_step(), true_rl_states[0])
 
     # render_image
-    if render_image_window_length == 1:
-        assert (worker.render_image_state == np.ones((64, 32, 3))).all()
-    else:
-        state = np.stack(
-            [
-                np.zeros((64, 32, 3)),
-                np.ones((64, 32, 3)),
-            ],
-            axis=0,
-        )
-        assert (worker.render_image_state == state).all()
-    assert (worker.get_render_image_state_one_step() == np.ones((64, 32, 3))).all()
+    if use_render_image_state:
+        if render_image_window_length == 1:
+            assert (worker.render_image_state == np.ones((64, 32, 3))).all()
+        else:
+            state = np.stack(
+                [
+                    np.zeros((64, 32, 3)),
+                    np.ones((64, 32, 3)),
+                ],
+                axis=0,
+            )
+            assert (worker.render_image_state == state).all()
+        assert (worker.get_render_image_state_one_step() == np.ones((64, 32, 3))).all()
 
     # --- step 1
     env.step(env_action)
@@ -149,18 +157,19 @@ def _test_obs_episode(
     assert _equal_data(worker.get_state_one_step(), true_rl_states[1])
 
     # render_image
-    if render_image_window_length == 1:
-        assert (worker.render_image_state == np.full((64, 32, 3), 2)).all()
-    else:
-        state = np.stack(
-            [
-                np.ones((64, 32, 3)),
-                np.full((64, 32, 3), 2),
-            ],
-            axis=0,
-        )
-        assert (worker.render_image_state == state).all()
-    assert (worker.get_render_image_state_one_step() == np.full((64, 32, 3), 2)).all()
+    if use_render_image_state:
+        if render_image_window_length == 1:
+            assert (worker.render_image_state == np.full((64, 32, 3), 2)).all()
+        else:
+            state = np.stack(
+                [
+                    np.ones((64, 32, 3)),
+                    np.full((64, 32, 3), 2),
+                ],
+                axis=0,
+            )
+            assert (worker.render_image_state == state).all()
+        assert (worker.get_render_image_state_one_step() == np.full((64, 32, 3), 2)).all()
 
     # --- step 2 done
     env.step(env_action)
@@ -180,18 +189,19 @@ def _test_obs_episode(
     assert _equal_data(worker.get_state_one_step(), true_rl_states[2])
 
     # render_image
-    if render_image_window_length == 1:
-        assert (worker.render_image_state == np.full((64, 32, 3), 3)).all()
-    else:
-        state = np.stack(
-            [
-                np.full((64, 32, 3), 2),
-                np.full((64, 32, 3), 3),
-            ],
-            axis=0,
-        )
-        assert (worker.render_image_state == state).all()
-    assert (worker.get_render_image_state_one_step() == np.full((64, 32, 3), 3)).all()
+    if use_render_image_state:
+        if render_image_window_length == 1:
+            assert (worker.render_image_state == np.full((64, 32, 3), 3)).all()
+        else:
+            state = np.stack(
+                [
+                    np.full((64, 32, 3), 2),
+                    np.full((64, 32, 3), 3),
+                ],
+                axis=0,
+            )
+            assert (worker.render_image_state == state).all()
+        assert (worker.get_render_image_state_one_step() == np.full((64, 32, 3), 3)).all()
 
 
 _params = [

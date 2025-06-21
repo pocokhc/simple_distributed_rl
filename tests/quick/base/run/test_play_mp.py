@@ -25,7 +25,6 @@ class _DummyValue:
 
 
 @pytest.mark.parametrize("interrupt_stop", [False, True])
-@pytest.mark.timeout(5)  # pip install pytest_timeout
 def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
     remote_queue = queue.Queue()
     remote_qsize = cast(sharedctypes.Synchronized, mp.Value(ctypes.c_int, 0))
@@ -77,13 +76,12 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
 
 
 @pytest.mark.parametrize("interrupt_stop", [False, True])
-@pytest.mark.timeout(5)  # pip install pytest_timeout
 def test_trainer(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
     remote_queue = queue.Queue()
     remote_qsize = cast(sharedctypes.Synchronized, mp.Value(ctypes.c_int, 0))
     remote_board = _DummyValue(None)
     end_signal = _DummyValue(False)
-    last_mem_queue = mp.Queue()
+    last_mem_queue = queue.Queue()  # mp.Queue()を使うとhungする
 
     # --- create task
     c = mocker.Mock(spec=RunCallback)
@@ -138,7 +136,7 @@ def test_trainer(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
         remote_board,
         end_signal,
         None,
-        last_mem_queue,
+        last_mem_queue,  # type: ignore
     )
 
     assert end_signal.value

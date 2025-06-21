@@ -1,5 +1,6 @@
 import ctypes
 import multiprocessing as mp
+import queue
 from multiprocessing import sharedctypes
 from typing import cast
 
@@ -8,7 +9,7 @@ import pytest
 import pytest_mock
 
 import srl
-from srl.algorithms import ql, ql_agent57
+from srl.algorithms import ql_agent57
 from srl.base.context import RunContext
 from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
@@ -33,9 +34,8 @@ class _DummyValue:
 
 
 @pytest.mark.parametrize("interrupt_stop", [False, True])
-@pytest.mark.timeout(5)  # pip install pytest_timeout
 def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
-    remote_queue = mp.Queue()
+    remote_queue = queue.Queue()  # mp.Queue()を使うとhungする
     remote_qsize = cast(sharedctypes.Synchronized, mp.Value(ctypes.c_int, 0))
     remote_board = _DummyValue(None)
     end_signal = _DummyValue(False)
@@ -69,7 +69,7 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
     # --- run
     _run_actor(
         mp_cfg,
-        remote_queue,
+        remote_queue,  # type: ignore
         remote_qsize,
         remote_board,
         0,

@@ -53,3 +53,5 @@ jobs:
         run: PYTHONPATH=. pytest tests/quick/ --timeout=60
       - name: Run pytest under algotithms quick_classic
         run: PYTHONPATH=. pytest tests/algorithms_/test_quick_classic.py --timeout=60
+      - name: Run pytest under algotithms long_classic
+        run: PYTHONPATH=. pytest tests/algorithms_/test_long_classic.py --timeout=300

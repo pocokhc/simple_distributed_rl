@@ -165,7 +165,7 @@ class NormalDistBlock(nn.Module):
         self.h_layers = nn.ModuleList()
         for size in hidden_layer_sizes:
             self.h_layers.append(nn.Linear(in_size, size))
-            self.h_layers.append(activation(inplace=True))
+            self.h_layers.append(activation())
             in_size = size
         h_out_size = in_size
 
@@ -174,7 +174,7 @@ class NormalDistBlock(nn.Module):
         self.loc_layers = nn.ModuleList()
         for size in loc_layer_sizes:
             self.loc_layers.append(nn.Linear(in_size, size))
-            self.loc_layers.append(activation(inplace=True))
+            self.loc_layers.append(activation())
             in_size = size
         self.loc_layers.append(nn.Linear(in_size, out_size))
         in_size = out_size
@@ -188,7 +188,7 @@ class NormalDistBlock(nn.Module):
             self.log_scale_layers = nn.ModuleList()
             for size in scale_layer_sizes:
                 self.log_scale_layers.append(nn.Linear(in_size, size))
-                self.log_scale_layers.append(activation(inplace=True))
+                self.log_scale_layers.append(activation())
                 in_size = size
             self.log_scale_layers.append(nn.Linear(in_size, out_size))
 

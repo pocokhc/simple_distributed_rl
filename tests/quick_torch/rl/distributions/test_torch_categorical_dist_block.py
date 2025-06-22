@@ -61,14 +61,14 @@ def test_loss_grad(unimix):
             self.h1 = torch.nn.ModuleList(
                 [
                     torch.nn.Linear(1, 128),
-                    torch.nn.ReLU(inplace=True),
+                    torch.nn.ReLU(),
                 ]
             )
             self.block = CategoricalDistBlock(128, 5)
             self.h2 = torch.nn.ModuleList(
                 [
                     torch.nn.Linear(5, 128),
-                    torch.nn.ReLU(inplace=True),
+                    torch.nn.ReLU(),
                     torch.nn.Linear(128, 1),
                 ]
             )

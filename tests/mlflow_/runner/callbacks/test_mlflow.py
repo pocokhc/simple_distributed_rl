@@ -66,7 +66,8 @@ def test_method(tmpdir):
     runner.train(max_episodes=100)
 
     # --- metric
-    metrics = MLFlowCallback.get_metric("Grid", rl_config.get_name(), "reward0")
+    run_id = MLFlowCallback.get_run_id("test_Grid2", rl_config.get_name())
+    metrics = MLFlowCallback.get_metric(run_id, "reward0")
     assert metrics is not None
     for metric in metrics:
         print(f"{metric.key=}")

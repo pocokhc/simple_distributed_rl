@@ -495,6 +495,8 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             return
         state = self.config.observation_space.to_str(worker.state)
         n_state = self.config.observation_space.to_str(worker.next_state)
+        self.parameter.init_q(state)
+        self.parameter.init_q(n_state)
 
         # --- batch
         batch = [

@@ -34,7 +34,7 @@ class DQNImageBlock(nn.Module):
                     padding=3,
                     padding_mode="replicate",
                 ),
-                activation(inplace=True),
+                activation(),
                 nn.Conv2d(
                     filters,
                     filters * 2,
@@ -43,7 +43,7 @@ class DQNImageBlock(nn.Module):
                     padding=2,
                     padding_mode="replicate",
                 ),
-                activation(inplace=True),
+                activation(),
                 nn.Conv2d(
                     filters * 2,
                     filters * 2,
@@ -52,7 +52,7 @@ class DQNImageBlock(nn.Module):
                     padding=1,
                     padding_mode="replicate",
                 ),
-                activation(inplace=True),
+                activation(),
             ]
         )
 

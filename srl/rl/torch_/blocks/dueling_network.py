@@ -74,13 +74,13 @@ class DuelingNetworkBlock(nn.Module):
         # value
         self.v_layers = nn.ModuleList()
         self.v_layers.append(_Linear(in_size, hidden_units))
-        self.v_layers.append(activation(inplace=True))
+        self.v_layers.append(activation())
         self.v_layers.append(_Linear(hidden_units, 1))
 
         # advance
         self.adv_layers = nn.ModuleList()
         self.adv_layers.append(_Linear(in_size, hidden_units))
-        self.adv_layers.append(activation(inplace=True))
+        self.adv_layers.append(activation())
         self.adv_layers.append(_Linear(hidden_units, out_layer_units))
 
     def forward(self, x):

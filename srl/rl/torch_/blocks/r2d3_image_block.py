@@ -24,7 +24,7 @@ class R2D3ImageBlock(nn.Module):
                 _ResBlock(in_ch, filters, activation),
                 _ResBlock(filters, filters * 2, activation),
                 _ResBlock(filters * 2, filters * 2, activation),
-                activation(inplace=True),
+                activation(),
             ]
         )
 
@@ -65,7 +65,7 @@ class _ResBlock(nn.Module):
 class _ResidualBlock(nn.Module):
     def __init__(self, filters, activation):
         super().__init__()
-        self.act1 = activation(inplace=True)
+        self.act1 = activation()
         self.conv1 = nn.Conv2d(
             in_channels=filters,
             out_channels=filters,
@@ -73,7 +73,7 @@ class _ResidualBlock(nn.Module):
             stride=(1, 1),
             padding=(1, 1),
         )
-        self.act2 = activation(inplace=True)
+        self.act2 = activation()
         self.conv2 = nn.Conv2d(
             in_channels=filters,
             out_channels=filters,

@@ -30,7 +30,7 @@ class AlphaZeroImageBlock(nn.Module):
                     bias=False,
                 ),
                 nn.BatchNorm2d(filters),
-                activation(inplace=True),
+                activation(),
             ]
         )
         for _ in range(n_blocks):
@@ -66,7 +66,7 @@ class _ResidualBlock(nn.Module):
             bias=False,
         )
         self.bn1 = nn.BatchNorm2d(filters)
-        self.act1 = activation(inplace=True)
+        self.act1 = activation()
         self.conv2 = nn.Conv2d(
             in_channels=filters,
             out_channels=filters,
@@ -75,7 +75,7 @@ class _ResidualBlock(nn.Module):
             bias=False,
         )
         self.bn2 = nn.BatchNorm2d(filters)
-        self.act2 = activation(inplace=True)
+        self.act2 = activation()
 
     def forward(self, x):
         identity = x

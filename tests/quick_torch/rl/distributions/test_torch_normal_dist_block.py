@@ -93,14 +93,14 @@ def test_autoencoder(fixed_scale, enable_squashed):
             self.h1 = torch.nn.ModuleList(
                 [
                     torch.nn.Linear(1, 32),
-                    torch.nn.ReLU(inplace=True),
+                    torch.nn.ReLU(),
                 ]
             )
             self.block = NormalDistBlock(32, 32, fixed_scale=fixed_scale, enable_squashed=enable_squashed)
             self.h2 = torch.nn.ModuleList(
                 [
                     torch.nn.Linear(32, 1),
-                    torch.nn.ReLU(inplace=True),
+                    torch.nn.ReLU(),
                 ]
             )
 

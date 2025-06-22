@@ -82,7 +82,7 @@ class CategoricalDistBlock(nn.Module):
         self.h_layers = nn.ModuleList()
         for size in hidden_layer_sizes:
             self.h_layers.append(nn.Linear(in_size, size))
-            self.h_layers.append(activation(inplace=True))
+            self.h_layers.append(activation())
             in_size = size
         self.h_layers.append(nn.Linear(in_size, classes))
 

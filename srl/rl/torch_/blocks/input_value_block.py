@@ -58,7 +58,7 @@ class InputValueBlock(nn.Module, AInputBlock):
                 if use_bias and bias_initializer != "":
                     apply_initializer_torch(layer.bias, bias_initializer)
             self.hidden_layers.append(layer)
-            self.hidden_layers.append(activation(inplace=True))
+            self.hidden_layers.append(activation())
             in_size = size
 
         self.out_size = in_size

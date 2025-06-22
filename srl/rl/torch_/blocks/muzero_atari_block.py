@@ -30,7 +30,7 @@ class MuZeroAtariBlock(nn.Module):
                     padding=1,
                     bias=False,
                 ),
-                activation(inplace=True),
+                activation(),
                 _ResidualBlock(filters, activation, use_layer_normalization),
                 _ResidualBlock(filters, activation, use_layer_normalization),
                 nn.Conv2d(
@@ -41,7 +41,7 @@ class MuZeroAtariBlock(nn.Module):
                     padding=1,
                     bias=False,
                 ),
-                activation(inplace=True),
+                activation(),
                 _ResidualBlock(filters * 2, activation, use_layer_normalization),
                 _ResidualBlock(filters * 2, activation, use_layer_normalization),
                 _ResidualBlock(filters * 2, activation, use_layer_normalization),
@@ -84,7 +84,7 @@ class _ResidualBlock(nn.Module):
             self.bn1 = nn.LayerNorm(filters)
         else:
             self.bn1 = nn.BatchNorm2d(filters)
-        self.act1 = activation(inplace=True)
+        self.act1 = activation()
         self.conv2 = nn.Conv2d(
             in_channels=filters,
             out_channels=filters,
@@ -96,7 +96,7 @@ class _ResidualBlock(nn.Module):
             self.bn2 = nn.LayerNorm(filters)
         else:
             self.bn2 = nn.BatchNorm2d(filters)
-        self.act2 = activation(inplace=True)
+        self.act2 = activation()
 
     def forward(self, x):
         identity = x

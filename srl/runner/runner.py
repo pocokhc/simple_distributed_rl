@@ -250,6 +250,9 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         enable_mp_memory: bool = True,
         train_to_mem_queue_capacity: int = 100,
         mem_to_train_queue_capacity: int = 5,
+        # memory
+        return_memory_data: bool = False,
+        return_memory_timeout: int = 60 * 60 * 1,
         # --- stop config
         timeout: float = -1,
         max_train_count: int = -1,
@@ -316,6 +319,8 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
                     actor_parameter_sync_interval=actor_parameter_sync_interval,
                     train_to_mem_queue_capacity=train_to_mem_queue_capacity,
                     mem_to_train_queue_capacity=mem_to_train_queue_capacity,
+                    return_memory_data=return_memory_data,
+                    return_memory_timeout=return_memory_timeout,
                 ),
                 params_dat,
                 memory_dat,
@@ -333,6 +338,8 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
                     queue_capacity=queue_capacity,
                     trainer_parameter_send_interval=trainer_parameter_send_interval,
                     actor_parameter_sync_interval=actor_parameter_sync_interval,
+                    return_memory_data=return_memory_data,
+                    return_memory_timeout=return_memory_timeout,
                 ),
                 params_dat,
                 memory_dat,
@@ -898,7 +905,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
             self.parameter.restore(params_dat)
 
         if self.context.run_name != "eval":
-            logger.info(f"render step: {self.state.total_step}, reward: {self.state.episode_rewards_list[0]}")
+            logger.info(f"render step: {self.state.total_step}, reward: {self.state.episode_rewards_list}")
         return rendering
 
     def animation_save_gif(

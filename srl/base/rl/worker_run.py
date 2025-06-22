@@ -310,10 +310,10 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._reward = self._step_reward
             self._step_reward = 0.0
 
-            logger.debug("on_step")
-            self._worker.on_step(self)
             self._step_in_episode += 1
             self._step_in_training += 1
+            logger.debug("on_step")
+            self._worker.on_step(self)
 
             # step後にupdate
             self._prev_state = self._state
@@ -628,16 +628,16 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._episode_seed = dat[7]
         self._is_reset = dat[8]
         self._step_in_episode = dat[9]
-        self._prev_state = dat[10]
-        self._state = dat[11]
-        self._next_state = dat[12] if dat[12] is not None else None
-        self._one_states = dat[13][:]
-        self._prev_render_image = dat[14]
-        self._render_image = dat[15]
-        self._next_render_image = dat[16] if dat[16] is not None else None
-        self._one_render_images = dat[17][:]
-        self._prev_action = dat[18]
-        self._action = dat[19]
+        self._prev_state = self._config.observation_space.copy_value(dat[10])
+        self._state = self._config.observation_space.copy_value(dat[11])
+        self._next_state = self._config.observation_space.copy_value(dat[12]) if dat[12] is not None else None
+        self._one_states = [self._config.observation_space.copy_value(s) for s in dat[13]]
+        self._prev_render_image = self._config.obs_render_img_space.copy_value(dat[14])
+        self._render_image = self._config.obs_render_img_space.copy_value(dat[15])
+        self._next_render_image = self._config.obs_render_img_space.copy_value(dat[16]) if dat[16] is not None else None
+        self._one_render_images = [self._config.obs_render_img_space.copy_value(s) for s in dat[17]]
+        self._prev_action = self._config.action_space.copy_value(dat[18])
+        self._action = self._config.action_space.copy_value(dat[19])
         self._step_reward = dat[20]
         self._reward = dat[21]
         self._prev_invalid_actions = dat[22][:]
@@ -646,7 +646,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         # env
         self._env.restore(dat[25])
         # tracking
-        self._tracking_data = dat[26][:]
+        self._tracking_data = [d.copy() for d in dat[26]]
 
         if self._render.rendering:
             self._render.cache_reset()
@@ -673,6 +673,9 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             rl_action = cast(TActType, env_action)
         self._action = rl_action
         return rl_action
+
+    def abort_episode(self):
+        self._env.abort_episode()
 
     def print_discrete_action_info(self, maxa: int, func) -> None:
         view_actions_num = min(15, self.config.action_space.n)

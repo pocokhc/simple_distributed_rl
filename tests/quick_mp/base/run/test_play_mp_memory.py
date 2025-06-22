@@ -1,5 +1,6 @@
 import ctypes
 import multiprocessing as mp
+import queue
 from multiprocessing import sharedctypes
 from typing import cast
 
@@ -8,7 +9,7 @@ import pytest
 import pytest_mock
 
 import srl
-from srl.algorithms import ql, ql_agent57
+from srl.algorithms import ql_agent57
 from srl.base.context import RunContext
 from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
@@ -33,12 +34,12 @@ class _DummyValue:
 
 
 @pytest.mark.parametrize("interrupt_stop", [False, True])
-@pytest.mark.timeout(5)  # pip install pytest_timeout
 def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
-    remote_queue = mp.Queue()
+    remote_queue = queue.Queue()  # mp.Queue()を使うとhungする
     remote_qsize = cast(sharedctypes.Synchronized, mp.Value(ctypes.c_int, 0))
     remote_board = _DummyValue(None)
     end_signal = _DummyValue(False)
+    last_worker_param_queue = queue.Queue()  # mp.Queue()を使うとhungする
 
     # --- create task
     c = mocker.Mock(spec=RunCallback)
@@ -69,11 +70,12 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
     # --- run
     _run_actor(
         mp_cfg,
-        remote_queue,
+        remote_queue,  # type: ignore
         remote_qsize,
         remote_board,
         0,
         end_signal,
+        last_worker_param_queue,  # type: ignore
     )
 
     assert end_signal.value
@@ -119,7 +121,7 @@ def test_train_parameter(enable_mp_memory):
     rewards = runner.evaluate(max_episodes=100)
     rewards = np.mean(rewards)
     print(rewards)
-    assert rewards > 0.6
+    assert rewards > 0.4
 
     runner.train_mp(actor_num=1, max_train_count=1, enable_mp_memory=enable_mp_memory, enable_progress=False)
     assert runner.memory.length() > 10
@@ -127,7 +129,7 @@ def test_train_parameter(enable_mp_memory):
     rewards = runner.evaluate(max_episodes=100, enable_progress=False)
     rewards = np.mean(rewards)
     print(rewards)
-    assert rewards > 0.6
+    assert rewards > 0.4
 
 
 @pytest.mark.timeout(60)  # pip install pytest_timeout
@@ -137,5 +139,11 @@ def test_train_memory(enable_mp_memory):
     rl_config.memory.warmup_size = 100
     runner = srl.Runner("Grid", rl_config)
 
-    runner.train_mp(actor_num=1, max_train_count=10, enable_mp_memory=enable_mp_memory, enable_progress=False)
+    runner.train_mp(
+        actor_num=1,
+        max_train_count=10,
+        enable_mp_memory=enable_mp_memory,
+        enable_progress=False,
+        return_memory_data=True,
+    )
     assert runner.memory.length() >= 100

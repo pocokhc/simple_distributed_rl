@@ -14,12 +14,14 @@ import mlflow.tracking
 
 import srl
 from srl.base.context import RunContext, RunState
+from srl.base.env.config import EnvConfig
 from srl.base.rl.config import RLConfig
 from srl.base.rl.parameter import RLParameter
 from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
 from srl.base.run.core_train_only import RunStateTrainer
 from srl.runner.callbacks.evaluate import Evaluate
+from srl.runner.runner import Runner
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +36,6 @@ class MLFlowCallback(RunCallback, Evaluate):
     interval_eval: float = -1  # -1 is auto
     interval_checkpoint: float = 60 * 30
     enable_checkpoint: bool = True
-    enable_html: bool = True
 
     def on_start(self, context: RunContext, **kwargs) -> None:
         self._auto_run = False
@@ -68,11 +69,8 @@ class MLFlowCallback(RunCallback, Evaluate):
         d = context.to_dict(include_env_config=False, include_rl_config=False)
         mlflow.log_params({"context/" + k: v for k, v in d.items()})
 
-        if context.distributed:
-            # メインプロセス以外でtkinterを使うと落ちるので使わない
-            if self.enable_html:
-                logger.info("HTML generation outside the main process is disabled.")
-            self.enable_html = False
+        # if context.distributed:
+        #    # メインプロセス以外でtkinterを使うと落ちるので使わない
 
     def on_end(self, context: RunContext, **kwargs) -> None:
         if self._auto_run:
@@ -88,7 +86,6 @@ class MLFlowCallback(RunCallback, Evaluate):
         self._log_eval(context, state)
         if not context.distributed:
             self._log_checkpoint(context, state)
-            self._log_html(context, state)
         self.t0_episode = time.time()
         self.t0_eval = time.time()
         self.t0_checkpoint = time.time()
@@ -107,7 +104,6 @@ class MLFlowCallback(RunCallback, Evaluate):
 
         if _time - self.t0_checkpoint > self.interval_checkpoint:
             self._log_checkpoint(context, state)
-            self._log_html(context, state)
             self.t0_checkpoint = time.time()  # last
 
         return False
@@ -119,7 +115,6 @@ class MLFlowCallback(RunCallback, Evaluate):
         if not context.distributed:
             self._log_eval(context, state)
             self._log_checkpoint(context, state)
-            self._log_html(context, state)
 
     # ---------------------------------------------------------------
 
@@ -127,7 +122,6 @@ class MLFlowCallback(RunCallback, Evaluate):
         self._log_episode(context, state, is_worker=False, is_trainer=True)
         self._log_eval(context, state)
         self._log_checkpoint(context, state)
-        self._log_html(context, state)
         self.t0_episode = time.time()
         self.t0_eval = time.time()
         self.t0_checkpoint = time.time()
@@ -136,7 +130,6 @@ class MLFlowCallback(RunCallback, Evaluate):
         self._log_episode(context, state, is_worker=False, is_trainer=True)
         self._log_eval(context, state)
         self._log_checkpoint(context, state)
-        self._log_html(context, state)
 
     def on_train_after(self, context: RunContext, state, **kwargs) -> bool:
         _time = time.time()
@@ -151,7 +144,6 @@ class MLFlowCallback(RunCallback, Evaluate):
 
             if _time - self.t0_checkpoint > self.interval_checkpoint:
                 self._log_checkpoint(context, state)
-                self._log_html(context, state)
                 self.t0_checkpoint = time.time()  # last
 
         return False
@@ -217,64 +209,19 @@ class MLFlowCallback(RunCallback, Evaluate):
             state.parameter.save(path)
             mlflow.log_artifact(path, run_id=self.run_id)
 
-    def _log_html(self, context: RunContext, state):
-        if not self.enable_html:
-            return
-        step = self._get_step(context, state)
-        runner = self.create_eval_runner_if_not_exists(context, state)
-        render = runner.run_render(
-            enable_progress=False,
-            players=self.eval_players,
-        )
-        html = render.to_jshtml()
-        name = context.rl_config.name.replace(":", "_")
-        rewards = runner.state.last_episode_rewards
-        fn = f"{name}_{step}_{rewards}.html"
-        mlflow.log_text(html, fn, run_id=self.run_id)
-        d = {f"eval_reward{i}": r for i, r in enumerate(rewards)}
-        mlflow.log_metrics(d, step, run_id=self.run_id)
-
     # ---------------------------------------------------------------
 
     @staticmethod
-    def get_metric(env_name: str, rl_name: str, metric_name: str, idx: int = -1):
-        run_id = MLFlowCallback.get_run_id(env_name, rl_name, idx)
-        if run_id is None:
-            return None
-
-        # --- metric
+    def get_experiment_id(experiment_name: str):
         client = mlflow.tracking.MlflowClient()
-        metric_history = client.get_metric_history(run_id, metric_name)
-        return metric_history
+        for experiment in client.search_experiments(order_by=["creation_time DESC"]):
+            if experiment.name == experiment_name:
+                return experiment.experiment_id
+        return None
 
-    @staticmethod
-    def load_parameter(
-        experiment_name: str,
-        parameter: RLParameter[RLConfig],
-        run_idx: int = -1,
-        parameter_idx: int = -1,
-    ):
-        run_id = MLFlowCallback.get_run_id(experiment_name, parameter.config.name, run_idx)
-        if run_id is None:
-            return
-
-        path_list = []
-        files = cast(list[mlflow.entities.FileInfo], mlflow.artifacts.list_artifacts(run_id=run_id))
-        for file in files:
-            m = re.search(r"(.+)_(\d+)_model.dat", str(file.path))
-            if m:
-                path_list.append((int(m.group(2)), file.path))
-        path_list.sort()
-        path = path_list[parameter_idx][1]
-
-        logger.info(f"load artifact: run_id={run_id}, path={path}")
-        with tempfile.TemporaryDirectory() as temp_dir:
-            mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=path, dst_path=temp_dir)
-            parameter.load(os.path.join(temp_dir, path))
-
-    @staticmethod
-    def get_run_id(experiment_name: str, rl_name: str, idx: int = -1) -> Optional[str]:
-        experiment_id = MLFlowCallback.get_experiment_id(experiment_name)
+    @classmethod
+    def get_run_id(cls, experiment_name: str, rl_name: str, idx: int = -1) -> Optional[str]:
+        experiment_id = cls.get_experiment_id(experiment_name)
         if experiment_id is None:
             return None
 
@@ -286,10 +233,52 @@ class MLFlowCallback(RunCallback, Evaluate):
         run_id = runs.iloc[idx].run_id
         return run_id
 
-    @staticmethod
-    def get_experiment_id(experiment_name: str):
+    @classmethod
+    def get_metric(cls, run_id: Optional[str], metric_name: str):
+        if run_id is None:
+            return None
+
+        # --- metric
         client = mlflow.tracking.MlflowClient()
-        for experiment in client.search_experiments(order_by=["creation_time DESC"]):
-            if experiment.name == experiment_name:
-                return experiment.experiment_id
-        return None
+        metric_history = client.get_metric_history(run_id, metric_name)
+        return metric_history
+
+    @classmethod
+    def get_parameter_files(cls, run_id: Optional[str]):
+        if run_id is None:
+            return []
+
+        path_list = []
+        files = cast(list[mlflow.entities.FileInfo], mlflow.artifacts.list_artifacts(run_id=run_id))
+        for file in files:
+            m = re.search(r"(.+)_(\d+)_model.dat", str(file.path))
+            if m:
+                path_list.append((int(m.group(2)), file.path))
+        path_list.sort()
+        return [p[1] for p in path_list]
+
+    @staticmethod
+    def load_parameter(run_id: Optional[str], path: str, parameter: RLParameter[RLConfig]):
+        if run_id is None:
+            return
+
+        logger.info(f"load artifact: run_id={run_id}, path={path}")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=path, dst_path=temp_dir)
+            parameter.load(os.path.join(temp_dir, path))
+
+    @classmethod
+    def make_html_all_parameters(cls, run_id: Optional[str], env_config: EnvConfig, rl_config: RLConfig, **render_kwargs):
+        if run_id is None:
+            return
+        files = cls.get_parameter_files(run_id)
+
+        runner = Runner(env_config, rl_config)
+        for file in files:
+            logger.info(f"{run_id}: {file=}")
+            cls.load_parameter(run_id, file, runner.make_parameter())
+            render = runner.run_render(enable_progress=False, **render_kwargs)
+            html = render.to_jshtml()
+            rewards = runner.state.last_episode_rewards
+            fn = file[: -len("model.dat")] + f"{rewards}.html"
+            mlflow.log_text(html, fn, run_id=run_id)

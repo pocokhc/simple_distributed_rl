@@ -10,4 +10,5 @@ class AInputBlock(ABC):
         return tensor.unsqueeze(0) if add_expand_dim else tensor
 
     def to_torch_batches(self, data, device, torch_dtype) -> torch.Tensor:
+        # npを経由しないと遅い
         return torch.tensor(np.asarray(data), dtype=torch_dtype, device=device)

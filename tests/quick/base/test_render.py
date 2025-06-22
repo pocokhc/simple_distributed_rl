@@ -30,6 +30,8 @@ def test_render_terminal():
 
 
 def test_render_terminal_to_image():
+    pytest.importorskip("pygame")
+    pytest.importorskip("PIL")
     render = Render(StubRender())
     render.set_render_mode(mode="rgb_array")
 

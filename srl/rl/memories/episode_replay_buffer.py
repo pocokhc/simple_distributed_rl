@@ -3,7 +3,7 @@ import pickle
 import random
 import zlib
 from dataclasses import dataclass
-from typing import Any, List, cast
+from typing import Any, List, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ class EpisodeReplayBuffer:
             batches.append(steps[j : j + batch_length])
         return batches
 
-    def sample_sequential(self):
+    def sample_sequential(self, dummy_step: Optional[list] = None):
         """時系列に沿ったbatchを生成"""
         if self.total_size < self.cfg.warmup_size:
             return None
@@ -134,6 +134,9 @@ class EpisodeReplayBuffer:
                 if len(steps) <= self.skip_head + self.skip_tail:
                     logger.warning(f"Episode length must be equal to or greater than batch_length. {len(steps)} > {self.skip_head + self.skip_tail}")
                     continue
+                if dummy_step is not None:
+                    for _ in range(i):
+                        self._sequential_batches[i].append(dummy_step)
                 if self.skip_tail <= 0:
                     self._sequential_batches[i].extend(steps[self.skip_head :])
                 else:

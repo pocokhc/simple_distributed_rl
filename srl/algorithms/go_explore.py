@@ -112,6 +112,9 @@ class Config(RLConfig):
     def use_backup_restore(self) -> bool:
         return True
 
+    def use_update_parameter_from_worker(self) -> bool:
+        return True
+
 
 register(
     Config(),
@@ -204,6 +207,9 @@ class Parameter(RLParameter[Config]):
 
     def summary(self, **kwargs):
         self.q_online.summary(**kwargs)
+
+    def update_from_worker_parameter(self, worker_parameger: "Parameter"):
+        self.archive = copy.deepcopy(worker_parameger.archive)
 
     # -------------------------------------
 

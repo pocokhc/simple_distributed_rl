@@ -9,10 +9,17 @@ from srl.algorithms import ql
 
 def test_train(tmpdir):
     pytest.importorskip("mlflow")
+
+    import mlflow
+
+    mldir = os.path.join(tmpdir, "mlruns")
+    print(mldir)
+    mlflow.set_tracking_uri("file:///" + mldir)
+
     rl_config = ql.Config()
     runner = srl.Runner("Grid", rl_config)
 
-    runner.set_mlflow("test_Grid")
+    runner.set_mlflow("test_Grid", interval_checkpoint=1)
     runner.train(timeout=3)
 
     rewards = runner.evaluate(max_episodes=100)
@@ -38,9 +45,18 @@ def test_train(tmpdir):
     rewards = runner.evaluate(max_episodes=100)
     assert np.mean(rewards) > 0.6
 
+    # --- html
+    # TODO
 
-def test_method():
+
+def test_method(tmpdir):
     pytest.importorskip("mlflow")
+    import mlflow
+
+    mldir = os.path.join(tmpdir, "mlruns")
+    print(mldir)
+    mlflow.set_tracking_uri("file:///" + mldir)
+
     from srl.runner.callbacks.mlflow_callback import MLFlowCallback
 
     rl_config = ql.Config()
@@ -50,7 +66,8 @@ def test_method():
     runner.train(max_episodes=100)
 
     # --- metric
-    metrics = MLFlowCallback.get_metric("Grid", rl_config.get_name(), "reward0")
+    run_id = MLFlowCallback.get_run_id("test_Grid2", rl_config.get_name())
+    metrics = MLFlowCallback.get_metric(run_id, "reward0")
     assert metrics is not None
     for metric in metrics:
         print(f"{metric.key=}")

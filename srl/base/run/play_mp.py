@@ -43,6 +43,10 @@ class MpConfig:
     trainer_parameter_send_interval: float = 1  # sec
     actor_parameter_sync_interval: float = 1  # sec
 
+    # memory
+    return_memory_data: bool = False
+    return_memory_timeout: int = 60 * 60 * 1
+
 
 # --------------------
 # actor
@@ -165,6 +169,7 @@ def _run_actor(
     remote_board: Any,
     actor_id: int,
     end_signal: Any,
+    last_worker_param_queue: mp.Queue,
 ):
     try:
         logger.info(f"[actor{actor_id}] start.")
@@ -221,6 +226,12 @@ def _run_actor(
         state.worker = workers[main_worker_idx]
         state.workers = workers
         core_play.play(context, state, callbacks=callbacks)
+
+        if context.rl_config.use_update_parameter_from_worker():
+            # actor0のみ送信
+            if actor_id == 0:
+                logger.info(f"[actor{actor_id}] send parameter data")
+                last_worker_param_queue.put(parameter.backup())
 
     except MemoryError:
         import gc
@@ -439,7 +450,6 @@ def _run_trainer(cfg: MpConfig, remote_queue: queue.Queue, remote_qsize: sharedc
                 raise RuntimeError("An exception occurred in the memory thread.")
             else:
                 raise RuntimeError("An exception occurred in the parameter thread.")
-        logger.info("[trainer] end")
 
 
 # ----------------------------
@@ -515,6 +525,7 @@ def train(mp_config: MpConfig, parameter_dat: Optional[Any] = None, memory_dat: 
             remote_queue = manager.Queue()
             remote_board: Any = manager.Value(ctypes.c_char_p, None)
             last_mem_queue = mp.Queue()
+            last_worker_param_queue = mp.Queue()
 
             # params
             remote_board.set(pickle.dumps((0, parameter_dat)))
@@ -529,6 +540,7 @@ def train(mp_config: MpConfig, parameter_dat: Optional[Any] = None, memory_dat: 
                     remote_board,
                     actor_id,
                     end_signal,
+                    last_worker_param_queue,
                 )
                 ps = mp.Process(target=_run_actor, args=params)
                 actors_ps_list.append(ps)
@@ -568,15 +580,32 @@ def train(mp_config: MpConfig, parameter_dat: Optional[Any] = None, memory_dat: 
                 if end_signal.value:
                     break
 
-            # params
+            # --- parameter
             dat = remote_board.value
             if dat is not None:
                 _, params_dat = pickle.loads(dat)
+            try:
+                if context.rl_config.use_update_parameter_from_worker():
+                    work_params_dat = last_worker_param_queue.get(timeout=60 * 30)
+                    logger.info("actor0 parameter recved.")
+                    # tf/torchがimportされる可能性あり
+                    trainer_parameter = context.rl_config.make_parameter()
+                    trainer_parameter.restore(parameter_dat)
+                    worker_parameter = context.rl_config.make_parameter()
+                    worker_parameter.restore(work_params_dat)
+                    trainer_parameter.update_from_worker_parameter(worker_parameter)
+                    parameter_dat = trainer_parameter.backup()
+            except Exception:
+                logger.info(traceback.format_exc())
+                logger.error("Failed to receive parameter data.")
 
             # memory
             try:
-                if not last_mem_queue.empty():
-                    memory_dat = last_mem_queue.get(timeout=60 * 10)
+                if mp_config.return_memory_data:
+                    logger.info("memory data wait...")
+                    t0 = time.time()
+                    memory_dat = last_mem_queue.get(timeout=mp_config.return_memory_timeout)
+                    logger.info(f"memory data recived. {time.time() - t0:.3f}s")
             except Exception:
                 logger.info(traceback.format_exc())
                 logger.error("Failed to receive memory data.")

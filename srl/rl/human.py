@@ -21,7 +21,7 @@ class Config(RLConfig):
     def get_name(self) -> str:
         return "human"
 
-    def use_env_render_mode(self) -> RenderModeType:
+    def override_env_render_mode(self) -> RenderModeType:
         return "terminal"
 
 

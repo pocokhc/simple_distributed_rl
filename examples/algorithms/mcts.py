@@ -2,6 +2,9 @@ import numpy as np
 
 import srl
 from srl.algorithms import mcts
+from srl.utils import common
+
+common.logger_print()
 
 
 def main():

@@ -20,8 +20,7 @@
 
 **MainUpdates**
 
-1. github actionsで最低限のpytestを追加
-1. py3.8でpipが失敗したので最低versionを3.9に変更
+1. py3.8でpipが失敗したので最低versionを3.9に変更(lowはまだ3.8)
 1. [runner.callbacks.mlflow] change: 学習中のhtmlの生成を止め、学習後に一括で生成できるmake_html_all_parametersを追加
 1. [base.rl.config] update: WorkerからParameterを更新するフラグを追加
    - new: use_update_parameter_from_workerを作成
@@ -31,6 +30,7 @@
    - rename: use_env_render_modeをoverride_env_render_modeに変更
    - MCTSとgo_exploreを上記に合わせて修正
 1. [base.rl.worker_run] change: step_in_episodeを増やすタイミングをon_step後から前に変更
+1. github actionsで最低限のpytestを追加
 
 **OtherUpdates**
 

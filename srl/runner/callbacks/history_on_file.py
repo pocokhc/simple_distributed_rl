@@ -191,19 +191,17 @@ class HistoryOnFile(RunCallback, Evaluate):
             "time": time.time() - self.t0 + self._base.start_time,
         }
 
-        from srl.base.system import psutil_
-        from srl.base.system.pynvml_ import read_nvml
-
         try:
-            memory_percent = psutil_.read_memory()
-            cpu_percent = psutil_.read_cpu()
-            if not np.isnan(memory_percent):
-                d["system_memory"] = memory_percent
-                d["cpu"] = cpu_percent
+            from srl.base.system import psutil_
+
+            d["system_memory"] = psutil_.read_memory()
+            d["cpu"] = psutil_.read_cpu()
         except Exception:
             logger.debug(traceback.format_exc())
 
         try:
+            from srl.base.system.pynvml_ import read_nvml
+
             gpus = read_nvml()
             # device_id, rate.gpu, rate.memory
             for device_id, gpu, memory in gpus:

@@ -23,12 +23,12 @@ class InputImageBlock(nn.Module, AInputBlock):
         reshape_for_rnn: bool,
     ):
         super().__init__()
-        self.in_shape = space.np_shape
+        assert space.is_image(), f"Only image space can be used. {space=}"
+        assert isinstance(space, BoxSpace)
+        self.in_shape = space.shape
         self.out_flatten = out_flatten
         self.reshape_for_rnn = reshape_for_rnn
 
-        assert space.is_image(), f"Only image space can be used. {space=}"
-        assert isinstance(space, BoxSpace)
         self.reshape_block = InputImageReshapeBlock(space)
         self.image_block = create_block_from_config(config, self.reshape_block.out_shape)
 
@@ -96,7 +96,7 @@ class InputImageReshapeBlock(nn.Module):
 
         if self.space.stype == SpaceTypes.GRAY_2ch:
             if len(self.space.shape) == 2:
-                # (batch, h, w) -> (batch, h, w, 1)
+                # (batch, h, w) -> (batch, 1, h, w)
                 # (batch, h, w, 1) -> (batch, 1, h, w)
                 x = x.reshape(x.shape + (1,))
                 x = x.permute((0, 3, 1, 2))

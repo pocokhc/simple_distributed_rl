@@ -3,7 +3,7 @@ import pickle
 import random
 import zlib
 from dataclasses import dataclass
-from typing import Any, List, Optional, cast
+from typing import Any, Callable, List, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -119,31 +119,48 @@ class EpisodeReplayBuffer:
             batches.append(steps[j : j + batch_length])
         return batches
 
-    def sample_sequential(self, dummy_step: Optional[list] = None):
+    def sample_sequential(
+        self,
+        dummy_step: Optional[list] = None,
+        should_drop_batch_func: Optional[Callable[[int, List[list]], bool]] = None,
+    ):
         """時系列に沿ったbatchを生成"""
         if self.total_size < self.cfg.warmup_size:
             return None
 
-        batches = []
+        batches: List[list] = []
         for i in range(self.batch_size):
-            while len(self._sequential_batches[i]) < self.batch_length:
-                r = random.randint(0, len(self.buffer) - 1)
-                steps, _ = self.buffer[r]
-                if self.cfg.compress:
-                    steps = pickle.loads(zlib.decompress(steps))
-                if len(steps) <= self.skip_head + self.skip_tail:
-                    logger.warning(f"Episode length must be equal to or greater than batch_length. {len(steps)} > {self.skip_head + self.skip_tail}")
-                    continue
-                if dummy_step is not None:
-                    for _ in range(i):
-                        self._sequential_batches[i].append(dummy_step)
-                if self.skip_tail <= 0:
-                    self._sequential_batches[i].extend(steps[self.skip_head :])
-                else:
-                    self._sequential_batches[i].extend(steps[self.skip_head : -(self.skip_tail)])
+            for j in range(99):  # for safety
+                # --- 足りなくなったらbufferから追加
+                while len(self._sequential_batches[i]) < self.batch_length:
+                    r = random.randint(0, len(self.buffer) - 1)
+                    steps, _ = self.buffer[r]
+                    if self.cfg.compress:
+                        steps = pickle.loads(zlib.decompress(steps))
+                    if len(steps) <= self.skip_head + self.skip_tail:
+                        logger.warning(f"Episode length must be equal to or greater than batch_length. {len(steps)} > {self.skip_head + self.skip_tail}")
+                        continue
 
-            batches.append(self._sequential_batches[i][: self.batch_length])
-            self._sequential_batches[i] = self._sequential_batches[i][self.sequential_stride :]
+                    if self.skip_tail <= 0:
+                        steps = steps[self.skip_head :]
+                    else:
+                        steps = steps[self.skip_head : -self.skip_tail]
+                    if dummy_step is not None:
+                        self._sequential_batches[i].extend([dummy_step] * i)
+                    self._sequential_batches[i].extend(steps)
+
+                # --- batchを追加
+                batch = self._sequential_batches[i][: self.batch_length]
+                self._sequential_batches[i] = self._sequential_batches[i][self.sequential_stride :]
+                if should_drop_batch_func is not None:
+                    if should_drop_batch_func(i, batch):
+                        continue  # 追加できるまで繰り返す
+                batches.append(batch)
+                break
+            else:
+                logger.error("Failed to add batch.")
+                batches.append([None])
+                continue
 
         return batches
 

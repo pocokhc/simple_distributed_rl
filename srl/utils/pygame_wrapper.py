@@ -270,6 +270,8 @@ class PygameScreen:
         font: str = "",
         size: int = 18,
         color: Tuple[int, int, int] = (0, 0, 0),
+        outline_width: int = 0,
+        outline_color: Tuple[int, int, int] = (255, 255, 255),
     ) -> Tuple[int, int]:  # width, height
         global _fonts
 
@@ -284,6 +286,14 @@ class PygameScreen:
             _fonts[font_key] = pygame.font.Font(font, size)
 
         _font = _fonts[font_key]
+
+        if outline_width > 0:
+            for dx in range(-outline_width, outline_width + 1):
+                for dy in range(-outline_width, outline_width + 1):
+                    if dx == 0 and dy == 0:
+                        continue  # 中央は本体が描く
+                    self.surface.blit(_font.render(text, True, outline_color), (x + dx, y + dy))
+
         self.surface.blit(_font.render(text, False, color), (x, y))
         return _font.size(text)
 

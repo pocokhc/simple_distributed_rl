@@ -46,6 +46,8 @@ class PrintProgress(RunCallback, Evaluate):
         self.history_episode = []
         self.history_episode_start_idx = 0
 
+        self._debug_gpu_error = False
+
     def _update_progress(self):
         # 表示間隔を増やす、5s以下は5sに、それ以降は２倍
         if self.progress_timeout < 5:
@@ -308,33 +310,38 @@ class PrintProgress(RunCallback, Evaluate):
         if not context.enable_stats:
             return ""
 
-        from srl.base.system import psutil_
-        from srl.base.system.pynvml_ import read_nvml
-
         s = " "
         if context.actor_id == 0:
             try:
-                memory_percent = psutil_.read_memory()
-                cpu_percent = psutil_.read_cpu()
-                if not np.isnan(memory_percent):
-                    s += f"[CPU{cpu_percent:3.0f}%,M{memory_percent:2.0f}%]"
+                from srl.base.system import psutil_
+
+                mem = psutil_.read_memory()
+                cpu = psutil_.read_cpu()
+                s += f"[CPU{cpu:3.0f}%,M{mem:2.0f}%]"
             except Exception:
                 logger.debug(traceback.format_exc())
                 s += "[CPU error]"
 
             try:
+                from srl.base.system.pynvml_ import read_nvml
+
                 gpus = read_nvml()
                 # device_id, rate.gpu, rate.memory
                 s += "".join([f"[GPU{g[0]} {g[1]:2.0f}%,M{g[2]:2.0f}%]" for g in gpus])
             except Exception:
-                logger.debug(traceback.format_exc())
+                if self._debug_gpu_error:
+                    logger.debug(traceback.format_exc())
+                else:
+                    logger.info(traceback.format_exc())
+                    self._debug_gpu_error = True
                 s += "[GPU error]"
+
         else:
             try:
-                memory_percent = psutil_.read_memory()
-                cpu_percent = psutil_.read_cpu()
-                if not np.isnan(memory_percent):
-                    s += f"[CPU{cpu_percent:3.0f}%]"
+                from srl.base.system import psutil_
+
+                cpu = psutil_.read_cpu()
+                s += f"[CPU{cpu:3.0f}%]"
             except Exception:
                 logger.debug(traceback.format_exc())
                 s += "[CPU error]"

@@ -595,8 +595,8 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._config.observation_space.copy_value(self._state),
             self._config.observation_space.copy_value(self._next_state) if self._next_state is not None else None,
             [self._config.observation_space_one_step.copy_value(s) for s in self._one_states],
-            self._config.obs_render_img_space.copy_value(self._prev_render_image),
-            self._config.obs_render_img_space.copy_value(self._render_image),
+            self._config.obs_render_img_space.copy_value(self._prev_render_image) if self._use_render_image else None,
+            self._config.obs_render_img_space.copy_value(self._render_image) if self._use_render_image else None,
             self._config.obs_render_img_space.copy_value(self._next_render_image) if self._next_render_image is not None else None,
             [self._config.obs_render_img_space_one_step.copy_value(s) for s in self._one_render_images],
             self._config.action_space.copy_value(self._prev_action),
@@ -632,8 +632,8 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._state = self._config.observation_space.copy_value(dat[11])
         self._next_state = self._config.observation_space.copy_value(dat[12]) if dat[12] is not None else None
         self._one_states = [self._config.observation_space.copy_value(s) for s in dat[13]]
-        self._prev_render_image = self._config.obs_render_img_space.copy_value(dat[14])
-        self._render_image = self._config.obs_render_img_space.copy_value(dat[15])
+        self._prev_render_image = self._config.obs_render_img_space.copy_value(dat[14]) if dat[14] is not None else np.zeros((1,))
+        self._render_image = self._config.obs_render_img_space.copy_value(dat[15]) if dat[15] is not None else np.zeros((1,))
         self._next_render_image = self._config.obs_render_img_space.copy_value(dat[16]) if dat[16] is not None else None
         self._one_render_images = [self._config.obs_render_img_space.copy_value(s) for s in dat[17]]
         self._prev_action = self._config.action_space.copy_value(dat[18])

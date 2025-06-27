@@ -541,7 +541,7 @@ class RunnerBase(Generic[TRLConfig]):
         experiment_name: str = "",
         run_name: str = "",
         tags: dict = {},
-        interval_episode: float = 1,
+        interval_episode: float = 60,
         interval_eval: float = -1,
         interval_checkpoint: float = 60 * 30,
         enable_checkpoint: bool = True,

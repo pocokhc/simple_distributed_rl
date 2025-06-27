@@ -4,6 +4,7 @@ import os
 import re
 import tempfile
 import time
+import traceback
 from dataclasses import dataclass, field
 from typing import Optional, cast
 
@@ -32,7 +33,7 @@ class MLFlowCallback(RunCallback, Evaluate):
     run_name: str = ""
     tags: dict = field(default_factory=dict)
 
-    interval_episode: float = 1
+    interval_episode: float = 60
     interval_eval: float = -1  # -1 is auto
     interval_checkpoint: float = 60 * 30
     enable_checkpoint: bool = True
@@ -82,7 +83,7 @@ class MLFlowCallback(RunCallback, Evaluate):
         if context.actor_id != 0:
             return
         # --- error check
-        self._log_episode(context, state, is_worker=True, is_trainer=False)
+        self._log_actor(context, state)
         self._log_eval(context, state)
         if not context.distributed:
             self._log_checkpoint(context, state)
@@ -95,7 +96,7 @@ class MLFlowCallback(RunCallback, Evaluate):
             return False
         _time = time.time()
         if _time - self.t0_episode > self.interval_episode:
-            self._log_episode(context, state, is_worker=True, is_trainer=False)
+            self._log_actor(context, state)
             self.t0_episode = time.time()  # last
 
         if _time - self.t0_eval > self.interval_eval:
@@ -111,7 +112,7 @@ class MLFlowCallback(RunCallback, Evaluate):
     def on_episodes_end(self, context: RunContext, state, **kwargs) -> None:
         if context.actor_id != 0:
             return
-        self._log_episode(context, state, is_worker=True, is_trainer=False)
+        self._log_actor(context, state)
         if not context.distributed:
             self._log_eval(context, state)
             self._log_checkpoint(context, state)
@@ -119,7 +120,7 @@ class MLFlowCallback(RunCallback, Evaluate):
     # ---------------------------------------------------------------
 
     def on_trainer_start(self, context: RunContext, state, **kwargs) -> None:
-        self._log_episode(context, state, is_worker=False, is_trainer=True)
+        self._log_trainer(context, state)
         self._log_eval(context, state)
         self._log_checkpoint(context, state)
         self.t0_episode = time.time()
@@ -127,14 +128,14 @@ class MLFlowCallback(RunCallback, Evaluate):
         self.t0_checkpoint = time.time()
 
     def on_trainer_end(self, context: RunContext, state, **kwargs) -> None:
-        self._log_episode(context, state, is_worker=False, is_trainer=True)
+        self._log_trainer(context, state)
         self._log_eval(context, state)
         self._log_checkpoint(context, state)
 
     def on_train_after(self, context: RunContext, state, **kwargs) -> bool:
         _time = time.time()
         if _time - self.t0_episode > self.interval_episode:
-            self._log_episode(context, state, is_worker=False, is_trainer=True)
+            self._log_trainer(context, state)
             self.t0_episode = time.time()  # last
 
         if not context.distributed:
@@ -158,22 +159,63 @@ class MLFlowCallback(RunCallback, Evaluate):
             else:
                 return state.train_count
 
-    def _log_episode(self, context: RunContext, state: RunState, is_worker: bool, is_trainer: bool):
-        if is_worker:
-            state = cast(RunStateActor, state)
-            d = {}
-            for i, r in enumerate(state.last_episode_rewards):
-                d[f"reward{i}"] = r
-            if state.trainer is not None:
-                d2 = {"trainer/" + k: v for k, v in state.trainer.info.to_dict().items()}
-                d.update(d2)
-            d2 = {"worker/" + k: v for k, v in state.worker.info.to_dict().items()}
+    def _log_actor(self, context: RunContext, state: RunState):
+        state = cast(RunStateActor, state)
+        d = {}
+        for i, r in enumerate(state.last_episode_rewards):
+            d[f"reward{i}"] = r
+        d["env/episode"] = state.episode_count
+        d["env/total_step"] = state.total_step
+        if state.trainer is not None:
+            d2 = {"trainer/" + k: v for k, v in state.trainer.info.to_dict().items()}
+            d2["trainer/train_count"] = state.trainer.train_count
             d.update(d2)
-            mlflow.log_metrics(d, self._get_step(context, state), run_id=self.run_id)
-        if is_trainer:
-            state = cast(RunStateTrainer, state)
-            d = {"trainer/" + k: v for k, v in state.trainer.info.to_dict().items()}
-            mlflow.log_metrics(d, state.trainer.train_count, run_id=self.run_id)
+        d2 = {"worker/" + k: v for k, v in state.worker.info.to_dict().items()}
+        d.update(d2)
+        d.update(self._get_system_log(context, state))
+        mlflow.log_metrics(d, self._get_step(context, state), run_id=self.run_id)
+
+    def _log_trainer(self, context: RunContext, state: RunState):
+        state = cast(RunStateTrainer, state)
+        d = {"trainer/" + k: v for k, v in state.trainer.info.to_dict().items()}
+        d["trainer/train_count"] = state.trainer.train_count
+        d.update(self._get_system_log(context, state))
+        mlflow.log_metrics(d, state.trainer.train_count, run_id=self.run_id)
+
+    def _get_system_log(self, context: RunContext, state):
+        if not context.enable_stats:
+            return {}
+
+        d = {}
+        if context.actor_id == 0:
+            try:
+                from srl.base.system import psutil_
+
+                d["system/memory"] = psutil_.read_memory()
+                d["system/cpu"] = psutil_.read_cpu()
+            except Exception:
+                logger.debug(traceback.format_exc())
+
+            try:
+                from srl.base.system.pynvml_ import read_nvml
+
+                gpus = read_nvml()
+                # device_id, rate.gpu, rate.memory
+                for device_id, gpu, gpu_memory in gpus:
+                    d[f"system/gpu{device_id}"] = gpu
+                    d[f"system/gpu{device_id}_memory"] = gpu_memory
+            except Exception:
+                logger.debug(traceback.format_exc())
+
+        else:
+            try:
+                from srl.base.system import psutil_
+
+                d[f"system/actor{context.actor_id}/cpu"] = psutil_.read_cpu()
+            except Exception:
+                logger.debug(traceback.format_exc())
+
+        return d
 
     def _log_eval(self, context: RunContext, state):
         if not self.enable_eval:
@@ -191,13 +233,11 @@ class MLFlowCallback(RunCallback, Evaluate):
         if interval < 1:
             interval = 1
         interval = math.ceil(interval)
+        if interval > 60 * 10:
+            interval = 60 * 10
         if self.interval_eval < interval:
-            if interval > 60:
-                self.enable_eval = False
-                logger.info(f"Evaluation is done at the same time as the animation(eval time: {eval_time:.1f}s)")
-            else:
-                self.interval_eval = interval
-                logger.info(f"set eval interval: {interval:.0f}s (eval time: {eval_time:.3f}s)")
+            self.interval_eval = interval
+            logger.info(f"set eval interval: {interval:.0f}s (eval time: {eval_time:.3f}s)")
 
     def _log_checkpoint(self, context: RunContext, state):
         if not self.enable_checkpoint:

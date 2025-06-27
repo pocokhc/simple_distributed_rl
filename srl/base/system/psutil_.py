@@ -1,9 +1,6 @@
 import logging
-import math
 import traceback
 from typing import TYPE_CHECKING, Optional
-
-import numpy as np
 
 from srl.utils.common import is_package_installed
 
@@ -19,7 +16,7 @@ __psutil_process: Optional["psutil.Process"] = None
 
 def read_memory() -> float:
     if not is_package_installed("psutil"):
-        return math.nan
+        return -1
     import psutil
 
     return psutil.virtual_memory().percent
@@ -42,7 +39,7 @@ def read_cpu() -> float:
                 logger.info(e)
 
     if not __enable_psutil:
-        return math.nan
+        return -1
     assert __psutil_process is not None
 
     import psutil

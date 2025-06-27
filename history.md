@@ -15,12 +15,39 @@
 // RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
 // TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除
 
+# v1.3.3
+
+・後々の拡張を考えて深層学習関係のアルゴリズムをファイルからフォルダに変更・
+
+backup/restorのto_cpu,をsyncに変更
+
+**MainUpdates**
+
+1. [algorithms] move: 深層学習系のアルゴリズムをファイルからフォルダに変更（alphazero,c51,ddpg,dreamer_v3,go_dqn,go_explore,muzero,planet,ppo,r2d2,sac,snd,stochastic_muzero,world_models）
+1. [rl.torch] change: inplace=Trueを削除
+1. stats関係とmlflow関係を修正
+   - [base.system.psutil] update: nanではなく-1を返すように変更
+   - [runner.callbacks] update: stats関係の取得をリファクタリング
+   - [runner.callbacks.mlflow] new: metricにstats関係(cpu,gpu,memory等)の取得を追加
+   - [runner.callbacks.mlflow] new: metricにtrain_countを追加
+   - [runner.callbacks.mlflow] change: metric送信が案外時間がかかったので間隔1秒から1分に変更
+   - [runner.callbacks.mlflow] fix: htmlを削除したことでevalが実行されなくなった不具合修正
+
+**OtherUpdates**
+
+1. [rl.memories.episode_replay_buffer] add: sample_sequentialに取得するバッチを判断するshould_drop_batch_func引数を追加
+1. [utils.pygame_wrapper] add: draw_textに文字の輪郭を追加するoutline引数を追加
+
+**Bug Fixes**
+
+1. [base.rl.worker_run] fix: render_imageを使わない状態でbackupをするとエラーになる不具合修正
+
 
 # v1.3.2
 
 **MainUpdates**
 
-1. py3.8でpipが失敗したので最低versionを3.9に変更(lowはまだ3.8)
+1. py3.8でpipが失敗したので最低versionを3.9に変更(lowはまだ3.8、pip以外は動く)
 1. [runner.callbacks.mlflow] change: 学習中のhtmlの生成を止め、学習後に一括で生成できるmake_html_all_parametersを追加
 1. [base.rl.config] update: WorkerからParameterを更新するフラグを追加
    - new: use_update_parameter_from_workerを作成

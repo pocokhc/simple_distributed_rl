@@ -59,7 +59,7 @@ def test_train_only():
     state = runner.train_only(max_train_count=50_000)
     assert state.train_count == 50_000
 
-    rewards = runner.evaluate(max_episodes=100)
+    rewards = runner.evaluate(max_episodes=1000)
     reward = np.mean(rewards)
     assert reward > 0.5, f"reward: {reward}"
 

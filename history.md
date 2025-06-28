@@ -15,11 +15,11 @@
 // RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
 // TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除
 
+
 # v1.3.3
 
-・後々の拡張を考えて深層学習関係のアルゴリズムをファイルからフォルダに変更・
-
-backup/restorのto_cpu,をsyncに変更
+・後々の拡張を考えて深層学習関係のアルゴリズムをファイルからフォルダに変更
+・mlflow関係を修正
 
 **MainUpdates**
 
@@ -32,6 +32,7 @@ backup/restorのto_cpu,をsyncに変更
    - [runner.callbacks.mlflow] new: metricにtrain_countを追加
    - [runner.callbacks.mlflow] change: metric送信が案外時間がかかったので間隔1秒から1分に変更
    - [runner.callbacks.mlflow] fix: htmlを削除したことでevalが実行されなくなった不具合修正
+1. [base.rl.parameter] change: torch用のto_cpu/from_cpuを一般的な名前serializedに変更
 
 **OtherUpdates**
 

@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Monte Carlo tree search &mdash; SimpleDistributedRL 1.3.0 ドキュメント</title>
+  <title>Monte Carlo tree search &mdash; SimpleDistributedRL 1.3.2.1 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../../_static/jquery.js?v=5d32c60e"></script>
       <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=8633527d"></script>
+      <script src="../../_static/documentation_options.js?v=2891510e"></script>
       <script src="../../_static/doctools.js?v=9bcbadda"></script>
       <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../../_static/translations.js?v=4755f45a"></script>
@@ -80,6 +80,8 @@
 <li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.mcts.Config.expansion_threshold"><code class="docutils literal notranslate"><span class="pre">Config.expansion_threshold</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.mcts.Config.discount"><code class="docutils literal notranslate"><span class="pre">Config.discount</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.mcts.Config.uct_c"><code class="docutils literal notranslate"><span class="pre">Config.uct_c</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.mcts.Config.use_backup_restore"><code class="docutils literal notranslate"><span class="pre">Config.use_backup_restore()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.algorithms.mcts.Config.use_update_parameter_from_worker"><code class="docutils literal notranslate"><span class="pre">Config.use_update_parameter_from_worker()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -140,6 +142,20 @@
 <dt class="sig sig-object py" id="srl.algorithms.mcts.Config.uct_c">
 <span class="sig-name descname"><span class="pre">uct_c</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">np.float64(1.4142135623730951)</span></em><a class="headerlink" href="#srl.algorithms.mcts.Config.uct_c" title="Link to this definition"></a></dt>
 <dd><p>UCT C</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.algorithms.mcts.Config.use_backup_restore">
+<span class="sig-name descname"><span class="pre">use_backup_restore</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="headerlink" href="#srl.algorithms.mcts.Config.use_backup_restore" title="Link to this definition"></a></dt>
+<dd><p>envのbackup/restoreを使う場合はTrue, MCTSなどで使用</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.algorithms.mcts.Config.use_update_parameter_from_worker">
+<span class="sig-name descname"><span class="pre">use_update_parameter_from_worker</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="headerlink" href="#srl.algorithms.mcts.Config.use_update_parameter_from_worker" title="Link to this definition"></a></dt>
+<dd><p>WorkerからParameterの更新がある場合はTrue
+- Trueの場合、分散学習で parameter.update_from_worker_parameter が学習後に呼ばれます
+- MCTSやGo系で使用</p>
 </dd></dl>
 
 </dd></dl>

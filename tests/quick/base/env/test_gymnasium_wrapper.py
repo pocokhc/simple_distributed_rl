@@ -439,7 +439,7 @@ def test_wrapper():
             return True, False
 
     wrapper = MyWrapper()
-    env_config = srl.EnvConfig("CliffWalking-v0", gym_wrapper=wrapper)
+    env_config = srl.EnvConfig("FrozenLake-v1", gym_wrapper=wrapper)
     env = env_config.make()
     env.setup(render_mode="terminal")
 

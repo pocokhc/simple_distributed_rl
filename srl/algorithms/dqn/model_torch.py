@@ -61,12 +61,12 @@ class Parameter(CommonInterfaceParameter):
         self.q_target.eval()
         self.q_target.load_state_dict(self.q_online.state_dict())
 
-    def call_restore(self, data: Any, from_cpu: bool = False, **kwargs) -> None:
-        model_restore(self.q_online, data, from_cpu)
-        model_restore(self.q_target, data, from_cpu)
+    def call_restore(self, data: Any, from_serialized: bool = False, **kwargs) -> None:
+        model_restore(self.q_online, data, from_serialized)
+        model_restore(self.q_target, data, from_serialized)
 
-    def call_backup(self, to_cpu: bool = False, **kwargs) -> Any:
-        return model_backup(self.q_online, to_cpu)
+    def call_backup(self, serialized: bool = False, **kwargs) -> Any:
+        return model_backup(self.q_online, serialized)
 
     def summary(self, **kwargs):
         print(self.q_online)

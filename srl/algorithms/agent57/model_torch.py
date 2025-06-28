@@ -176,48 +176,23 @@ class Parameter(CommonInterfaceParameter):
         self.lifelong_train = _LifelongNetwork(self.config).to(self.device)
         self.lifelong_target.eval()
 
-    def call_restore(self, data: Any, from_cpu: bool = False, **kwargs) -> None:
-        if self.config.used_device_torch != "cpu" and from_cpu:
-            self.q_ext_online.to("cpu").load_state_dict(data[0])
-            self.q_ext_target.to("cpu").load_state_dict(data[0])
-            self.q_int_online.to("cpu").load_state_dict(data[1])
-            self.q_int_target.to("cpu").load_state_dict(data[1])
-            self.emb_network.to("cpu").load_state_dict(data[2])
-            self.lifelong_target.to("cpu").load_state_dict(data[3])
-            self.lifelong_train.to("cpu").load_state_dict(data[4])
-            self.q_ext_online.to(self.device)
-            self.q_ext_target.to(self.device)
-            self.q_int_online.to(self.device)
-            self.q_int_target.to(self.device)
-            self.emb_network.to(self.device)
-            self.lifelong_target.to(self.device)
-            self.lifelong_train.to(self.device)
-        else:
-            self.q_ext_online.load_state_dict(data[0])
-            self.q_ext_target.load_state_dict(data[0])
-            self.q_int_online.load_state_dict(data[1])
-            self.q_int_target.load_state_dict(data[1])
-            self.emb_network.load_state_dict(data[2])
-            self.lifelong_target.load_state_dict(data[3])
-            self.lifelong_train.load_state_dict(data[4])
+    def call_restore(self, data: Any, from_serialized: bool = False, **kwargs) -> None:
+        helper.model_restore(self.q_ext_online, data[0], from_serialized)
+        helper.model_restore(self.q_ext_target, data[0], from_serialized)
+        helper.model_restore(self.q_int_online, data[1], from_serialized)
+        helper.model_restore(self.q_int_target, data[1], from_serialized)
+        helper.model_restore(self.emb_network, data[2], from_serialized)
+        helper.model_restore(self.lifelong_target, data[3], from_serialized)
+        helper.model_restore(self.lifelong_train, data[4], from_serialized)
 
-    def call_backup(self, to_cpu: bool = False, **kwargs):
-        if self.config.used_device_torch != "cpu" and to_cpu:
-            d = [
-                copy.deepcopy(self.q_ext_online).to("cpu").state_dict(),
-                copy.deepcopy(self.q_int_online).to("cpu").state_dict(),
-                copy.deepcopy(self.emb_network).to("cpu").state_dict(),
-                copy.deepcopy(self.lifelong_target).to("cpu").state_dict(),
-                copy.deepcopy(self.lifelong_train).to("cpu").state_dict(),
-            ]
-        else:
-            d = [
-                self.q_ext_online.state_dict(),
-                self.q_int_online.state_dict(),
-                self.emb_network.state_dict(),
-                self.lifelong_target.state_dict(),
-                self.lifelong_train.state_dict(),
-            ]
+    def call_backup(self, serialized: bool = False, **kwargs):
+        d = [
+            helper.model_backup(self.q_ext_online, serialized),
+            helper.model_backup(self.q_int_online, serialized),
+            helper.model_backup(self.emb_network, serialized),
+            helper.model_backup(self.lifelong_target, serialized),
+            helper.model_backup(self.lifelong_train, serialized),
+        ]
         return d
 
     def summary(self, **kwargs):

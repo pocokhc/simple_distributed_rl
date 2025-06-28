@@ -302,10 +302,10 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
             os.environ["SRL_TF_GPU_INITIALIZE_DEVICES"] = "1"
         params_dat = self._parameter_dat
         if (params_dat is None) and (self.state.parameter is not None):
-            params_dat = self.state.parameter.backup(to_cpu=True)
+            params_dat = self.state.parameter.backup(serialized=True)
         memory_dat = self._memory_dat
         if (memory_dat is None) and (self.state.memory is not None):
-            memory_dat = self.state.memory.backup(to_cpu=True)
+            memory_dat = self.state.memory.backup(compress=True)
 
         if enable_mp_memory:
             from srl.base.run.play_mp_memory import MpConfig, train

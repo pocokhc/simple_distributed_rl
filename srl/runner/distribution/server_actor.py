@@ -179,7 +179,7 @@ def _parameter_communicate(
 
                 params = parameter_reader.parameter_read()
                 if params is not None:
-                    parameter.restore(params, from_cpu=True)
+                    parameter.restore(params, from_serialized=True)
                     share_data.sync_count += 1
 
             # --- q_recv_count
@@ -303,7 +303,7 @@ class _ActorInterruptNoThread(RunCallback):
 
             params = self.parameter_reader.parameter_read()
             if params is not None:
-                self.parameter.restore(params, from_cpu=True)
+                self.parameter.restore(params, from_serialized=True)
                 state.sync_actor += 1
 
         state.actor_send_q = state.memory.length()
@@ -332,7 +332,7 @@ def _run_actor(
     # --- parameter
     params = manager.get_parameter_reader().parameter_read()
     if params is not None:
-        parameter.restore(params, from_cpu=True)
+        parameter.restore(params, from_serialized=True)
 
     # --- thread
     if task_config.enable_actor_thread:

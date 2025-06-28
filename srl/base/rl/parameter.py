@@ -21,18 +21,18 @@ class RLParameter(ABC, Generic[TRLConfig]):
         pass  # NotImplemented
 
     @abstractmethod
-    def call_restore(self, data: Any, **kwargs) -> None:
+    def call_restore(self, data: Any, from_serialized: bool = False, **kwargs) -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    def call_backup(self, **kwargs) -> Any:
+    def call_backup(self, serialized: bool = False, **kwargs) -> Any:
         raise NotImplementedError()
 
-    def restore(self, data: Any, **kwargs) -> None:
-        self.call_restore(data, **kwargs)
+    def restore(self, data: Any, from_serialized: bool = False, **kwargs) -> None:
+        self.call_restore(data, from_serialized=from_serialized, **kwargs)
 
-    def backup(self, **kwargs) -> Any:
-        dat = self.call_backup(**kwargs)
+    def backup(self, serialized: bool = False, **kwargs) -> Any:
+        dat = self.call_backup(serialized=serialized, **kwargs)
         return None if dat == [] else dat
 
     def save(self, path: str, compress: bool = True, **kwargs) -> None:

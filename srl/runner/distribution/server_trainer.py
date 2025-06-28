@@ -88,7 +88,7 @@ def _parameter_communicate(
             time.sleep(trainer_parameter_send_interval)
 
             # --- sync parameter
-            params = parameter.backup(to_cpu=True)
+            params = parameter.backup(serialized=True)
             if params is not None:
                 parameter_writer.parameter_update(params)
                 share_data.sync_count += 1
@@ -175,7 +175,7 @@ class _TrainerInterruptNoThread(RunCallback):
             if time.time() - self.sync_parameter_t0 > self.trainer_parameter_send_interval:
                 self.sync_parameter_t0 = time.time()
 
-                params = state.parameter.backup(to_cpu=True)
+                params = state.parameter.backup(serialized=True)
                 if params is not None:
                     self.parameter_writer.parameter_update(params)
                     state.sync_trainer += 1
@@ -216,7 +216,7 @@ def _run_trainer(manager: ServerManager, task_config: TaskConfig, parameter: RLP
     callbacks = task_config.callbacks[:]
 
     # --- parameter
-    params = parameter.backup(to_cpu=True)
+    params = parameter.backup(serialized=True)
     if params is not None:
         parameter_writer.parameter_update(params)
 
@@ -273,7 +273,7 @@ def _run_trainer(manager: ServerManager, task_config: TaskConfig, parameter: RLP
         raise
     finally:
         # --- last params
-        params = parameter.backup(to_cpu=True)
+        params = parameter.backup(serialized=True)
         if params is not None:
             parameter_writer.parameter_update(params)
 

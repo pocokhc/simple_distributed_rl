@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RLConfig &mdash; SimpleDistributedRL 1.3.0 ドキュメント</title>
+  <title>RLConfig &mdash; SimpleDistributedRL 1.3.2.1 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=8633527d"></script>
+      <script src="../_static/documentation_options.js?v=2891510e"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -81,6 +81,14 @@
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.enable_sanitize"><code class="docutils literal notranslate"><span class="pre">RLConfig.enable_sanitize</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.enable_assertion"><code class="docutils literal notranslate"><span class="pre">RLConfig.enable_assertion</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.dtype"><code class="docutils literal notranslate"><span class="pre">RLConfig.dtype</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.get_processors"><code class="docutils literal notranslate"><span class="pre">RLConfig.get_processors()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.setup_from_env"><code class="docutils literal notranslate"><span class="pre">RLConfig.setup_from_env()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.setup_from_actor"><code class="docutils literal notranslate"><span class="pre">RLConfig.setup_from_actor()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.use_backup_restore"><code class="docutils literal notranslate"><span class="pre">RLConfig.use_backup_restore()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.use_render_image_state"><code class="docutils literal notranslate"><span class="pre">RLConfig.use_render_image_state()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.get_render_image_processors"><code class="docutils literal notranslate"><span class="pre">RLConfig.get_render_image_processors()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.override_env_render_mode"><code class="docutils literal notranslate"><span class="pre">RLConfig.override_env_render_mode()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.use_update_parameter_from_worker"><code class="docutils literal notranslate"><span class="pre">RLConfig.use_update_parameter_from_worker()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.make_memory"><code class="docutils literal notranslate"><span class="pre">RLConfig.make_memory()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.make_parameter"><code class="docutils literal notranslate"><span class="pre">RLConfig.make_parameter()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.rl.config.RLConfig.make_trainer"><code class="docutils literal notranslate"><span class="pre">RLConfig.make_trainer()</span></code></a></li>
@@ -268,6 +276,59 @@ enable_assertionが有効な場合は、enable_sanitizeは無効です。</p>
 <dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.dtype">
 <span class="sig-name descname"><span class="pre">dtype</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'float32'</span></em><a class="headerlink" href="#srl.base.rl.config.RLConfig.dtype" title="Link to this definition"></a></dt>
 <dd><p>dtype</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.get_processors">
+<span class="sig-name descname"><span class="pre">get_processors</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prev_observation_space</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">SpaceBase</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">RLProcessor</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#srl.base.rl.config.RLConfig.get_processors" title="Link to this definition"></a></dt>
+<dd><p>前処理を追加したい場合設定</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.setup_from_env">
+<span class="sig-name descname"><span class="pre">setup_from_env</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">env</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">EnvRun</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#srl.base.rl.config.RLConfig.setup_from_env" title="Link to this definition"></a></dt>
+<dd><p>env初期化後に呼び出されます。env関係の初期化がある場合は記載してください。</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.setup_from_actor">
+<span class="sig-name descname"><span class="pre">setup_from_actor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">actor_num</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">actor_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#srl.base.rl.config.RLConfig.setup_from_actor" title="Link to this definition"></a></dt>
+<dd><p>Actor関係の初期化がある場合は記載
+- 分散学習でactorが指定されたときに呼び出されます</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.use_backup_restore">
+<span class="sig-name descname"><span class="pre">use_backup_restore</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="headerlink" href="#srl.base.rl.config.RLConfig.use_backup_restore" title="Link to this definition"></a></dt>
+<dd><p>envのbackup/restoreを使う場合はTrue, MCTSなどで使用</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.use_render_image_state">
+<span class="sig-name descname"><span class="pre">use_render_image_state</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="headerlink" href="#srl.base.rl.config.RLConfig.use_render_image_state" title="Link to this definition"></a></dt>
+<dd><p>envの画像情報を使用
+- use_render_image_stateをTrueにするとworker.render_img_stateが有効になります
+- worker.render_img_state には env.render_rgb_array の画像が入ります</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.get_render_image_processors">
+<span class="sig-name descname"><span class="pre">get_render_image_processors</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prev_observation_space</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">SpaceBase</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">RLProcessor</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#srl.base.rl.config.RLConfig.get_render_image_processors" title="Link to this definition"></a></dt>
+<dd><p>render_img_stateに対する前処理&quot;</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.override_env_render_mode">
+<span class="sig-name descname"><span class="pre">override_env_render_mode</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">''</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'terminal'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'rgb_array'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'window'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'terminal_rgb_array'</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#srl.base.rl.config.RLConfig.override_env_render_mode" title="Link to this definition"></a></dt>
+<dd><p>envのrender_modeを上書き, humanのterminal入力等で使用</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="srl.base.rl.config.RLConfig.use_update_parameter_from_worker">
+<span class="sig-name descname"><span class="pre">use_update_parameter_from_worker</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="headerlink" href="#srl.base.rl.config.RLConfig.use_update_parameter_from_worker" title="Link to this definition"></a></dt>
+<dd><p>WorkerからParameterの更新がある場合はTrue
+- Trueの場合、分散学習で parameter.update_from_worker_parameter が学習後に呼ばれます
+- MCTSやGo系で使用</p>
 </dd></dl>
 
 <dl class="py method">

@@ -329,7 +329,7 @@ class TaskManager:
     # runner
     # ---------------------------------
     def write_parameter(self, parameter: RLParameter):
-        params = parameter.backup(to_cpu=True)
+        params = parameter.backup(serialized=True)
         if params is None:
             return
         self._connector.parameter_update(params)
@@ -338,7 +338,7 @@ class TaskManager:
         params = self._connector.parameter_read()
         if params is None:
             return False
-        parameter.restore(params, from_cpu=True)
+        parameter.restore(params, from_serialized=True)
         return True
 
     def create_runner(self, read_parameter: bool = True) -> Optional[Runner]:

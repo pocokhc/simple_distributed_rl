@@ -156,7 +156,7 @@ class _ActorInterrupt(RunCallback):
         train_count, params = pickle.loads(dat)
         if params is None:
             return self.end_signal.value
-        self.parameter.restore(params, from_cpu=True)
+        self.parameter.restore(params, from_serialized=True)
         state.train_count = train_count
         state.sync_actor += 1
         return self.end_signal.value
@@ -185,7 +185,7 @@ def _run_actor(
         if dat is not None:
             train_count, params = pickle.loads(dat)
             if params is not None:
-                parameter.restore(params, from_cpu=True)
+                parameter.restore(params, from_serialized=True)
 
         # --- memory
         memory = cast(
@@ -231,7 +231,7 @@ def _run_actor(
             # actor0のみ送信
             if actor_id == 0:
                 logger.info(f"[actor{actor_id}] send parameter data")
-                last_worker_param_queue.put(parameter.backup())
+                last_worker_param_queue.put(parameter.backup(serialized=True))
 
     except MemoryError:
         import gc
@@ -300,7 +300,7 @@ def _train_parameter_communicate(
     try:
         while not end_signal.value:
             time.sleep(trainer_parameter_send_interval)
-            params = parameter.backup(to_cpu=True)
+            params = parameter.backup(serialized=True)
             if params is not None:
                 remote_board.set(pickle.dumps((share_dict["train_count"], params)))
                 share_dict["sync_count"] += 1
@@ -375,7 +375,7 @@ def _run_trainer(cfg: MpConfig, remote_queue: queue.Queue, remote_qsize: sharedc
         if dat is not None:
             train_count, params = pickle.loads(dat)
             if params is not None:
-                parameter.restore(params, from_cpu=True)
+                parameter.restore(params, from_serialized=True)
 
         memory_th = threading.Thread(
             target=_train_memory_communicate,
@@ -590,11 +590,11 @@ def train(mp_config: MpConfig, parameter_dat: Optional[Any] = None, memory_dat: 
                     logger.info("actor0 parameter recved.")
                     # tf/torchがimportされる可能性あり
                     trainer_parameter = context.rl_config.make_parameter()
-                    trainer_parameter.restore(parameter_dat)
+                    trainer_parameter.restore(parameter_dat, from_serialized=True)
                     worker_parameter = context.rl_config.make_parameter()
-                    worker_parameter.restore(work_params_dat)
+                    worker_parameter.restore(work_params_dat, from_serialized=True)
                     trainer_parameter.update_from_worker_parameter(worker_parameter)
-                    parameter_dat = trainer_parameter.backup()
+                    parameter_dat = trainer_parameter.backup(serialized=False)
             except Exception:
                 logger.info(traceback.format_exc())
                 logger.error("Failed to receive parameter data.")

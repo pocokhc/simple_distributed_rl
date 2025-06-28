@@ -37,8 +37,8 @@ def model_soft_sync(target_model: nn.Module, source_model: nn.Module, tau: float
         target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
 
 
-def model_restore(model: nn.Module, dat, from_cpu: bool = False):
-    if from_cpu:
+def model_restore(model: nn.Module, dat, from_serialized: bool = False):
+    if from_serialized:
         try:
             used_device = next(model.parameters()).device
         except StopIteration:
@@ -53,9 +53,9 @@ def model_restore(model: nn.Module, dat, from_cpu: bool = False):
         model.load_state_dict(dat)
 
 
-def model_backup(model: nn.Module, to_cpu: bool = False):
+def model_backup(model: nn.Module, serialized: bool = False):
     # backupでdeviceを変えるとtrainerとの並列処理でバグの可能性あり
-    if to_cpu:
+    if serialized:
         try:
             used_device = next(model.parameters()).device
         except StopIteration:

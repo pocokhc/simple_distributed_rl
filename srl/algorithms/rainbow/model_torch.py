@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from srl.base.rl.trainer import RLTrainer
+from srl.rl.torch_.helper import model_backup, model_restore
 
 from .rainbow import CommonInterfaceParameter, Config, Memory
 from .rainbow_nomultisteps import calc_target_q
@@ -47,21 +48,12 @@ class Parameter(CommonInterfaceParameter):
         self.q_target.eval()
         self.q_target.load_state_dict(self.q_online.state_dict())
 
-    def call_restore(self, data: Any, from_cpu: bool = False, **kwargs) -> None:
-        if self.config.used_device_torch != "cpu" and from_cpu:
-            self.q_online.to("cpu").load_state_dict(data)
-            self.q_target.to("cpu").load_state_dict(data)
-            self.q_online.to(self.device)
-            self.q_target.to(self.device)
-        else:
-            self.q_online.load_state_dict(data)
-            self.q_target.load_state_dict(data)
+    def call_restore(self, data: Any, from_serialized: bool = False, **kwargs) -> None:
+        model_restore(self.q_online, data, from_serialized)
+        model_restore(self.q_target, data, from_serialized)
 
-    def call_backup(self, to_cpu: bool = False, **kwargs) -> Any:
-        if self.config.used_device_torch != "cpu" and to_cpu:
-            return copy.deepcopy(self.q_online).to("cpu").state_dict()
-        else:
-            return self.q_online.state_dict()
+    def call_backup(self, serialized: bool = False, **kwargs) -> Any:
+        return model_backup(self.q_online, serialized)
 
     def summary(self, **kwargs):
         print(self.q_online)

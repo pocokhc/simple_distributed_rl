@@ -580,9 +580,12 @@ class RunnerBase(Generic[TRLConfig]):
             experiment_name = self.env_config.name
 
         run_id = MLFlowCallback.get_run_id(experiment_name, self.rl_config.get_name(), run_idx)
+        if run_id is None:
+            raise ValueError(f"run id is not found. experiment: {experiment_name}, rl_name: {self.rl_config.get_name()}")
+        files = MLFlowCallback.get_parameter_files(run_id)
         MLFlowCallback.load_parameter(
             run_id,
-            MLFlowCallback.get_parameter_files(run_id)[parameter_idx],
+            files[parameter_idx],
             self.make_parameter(),
         )
 
@@ -592,6 +595,8 @@ class RunnerBase(Generic[TRLConfig]):
         if experiment_name == "":
             experiment_name = self.env_config.name
         run_id = MLFlowCallback.get_run_id(experiment_name, self.rl_config.get_name(), run_idx)
+        if run_id is None:
+            raise ValueError(f"run id is not found. experiment: {experiment_name}, rl_name: {self.rl_config.get_name()}")
         MLFlowCallback.make_html_all_parameters(run_id, self.env_config, self.rl_config, **render_kwargs)
 
     def disable_mlflow(self):

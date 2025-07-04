@@ -18,19 +18,19 @@ def make_base(config: Union[str, EnvConfig], env_run: Optional["EnvRun"] = None)
     if isinstance(config, str):
         config = EnvConfig(config)
 
-    env_name = config.name
+    env_id = config.id
 
-    if env_name not in _registry:
+    if env_id not in _registry:
         # --- srl内のenvはloadする
-        if env_name in ["Grid", "EasyGrid", "Grid-layer", "EasyGrid-layer"]:
+        if env_id in ["Grid", "EasyGrid", "Grid-layer", "EasyGrid-layer"]:
             import srl.envs.grid  # noqa F401
-        elif env_name == "IGrid":
+        elif env_id == "IGrid":
             import srl.envs.igrid  # noqa F401
-        elif env_name == "connectx":
+        elif env_id == "connectx":
             import srl.envs.connectx  # noqa F401
-        elif env_name in ["OneRoad", "OneRoad-hard"]:
+        elif env_id in ["OneRoad", "OneRoad-hard"]:
             import srl.envs.oneroad  # noqa F401
-        elif env_name in [
+        elif env_id in [
             "Othello",
             "Othello6x6",
             "Othello4x4",
@@ -39,22 +39,22 @@ def make_base(config: Union[str, EnvConfig], env_run: Optional["EnvRun"] = None)
             "Othello4x4-layer",
         ]:
             import srl.envs.othello  # noqa F401
-        elif env_name in ["OX", "OX-layer"]:
+        elif env_id in ["OX", "OX-layer"]:
             import srl.envs.ox  # noqa F401
-        elif env_name == "SampleEnv":
+        elif env_id == "SampleEnv":
             import srl.envs.sample_env  # noqa F401
-        elif env_name == "StoneTaking":
+        elif env_id == "StoneTaking":
             import srl.envs.stone_taking  # noqa F401
-        elif env_name == "Tiger":
+        elif env_id == "Tiger":
             import srl.envs.tiger  # noqa F401
 
     env = None
 
     # --- load register
-    if env_name in _registry:
-        env_cls = load_module(_registry[env_name]["entry_point"])
+    if env_id in _registry:
+        env_cls = load_module(_registry[env_id]["entry_point"])
 
-        _kwargs = _registry[env_name]["kwargs"].copy()
+        _kwargs = _registry[env_id]["kwargs"].copy()
         _kwargs.update(config.kwargs)
         env = env_cls(**_kwargs)
 
@@ -96,7 +96,21 @@ def make_base(config: Union[str, EnvConfig], env_run: Optional["EnvRun"] = None)
                 raise
 
     if env is None:
-        raise UndefinedError(f"'{env_name}' is not found.")
+        raise UndefinedError(f"'{env_id}' is not found.")
+
+    # --- name update
+    if config._name is None:
+        if config.display_name != "":
+            config._name = config.display_name
+        else:
+            name = env.get_display_name()
+            if name != "":
+                config._name = name
+            else:
+                config._name = config.id
+
+    if env_run is None:
+        return env
 
     logger.debug(f"make: {env.__class__}(id:{id(env_run)})")
     env.init_base(env_run)

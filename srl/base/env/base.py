@@ -50,6 +50,10 @@ class EnvBase(IRender, Generic[TActSpace, TActType, TObsSpace, TObsType], ABC):
         self.env_run = env_run
         return self
 
+    def get_display_name(self) -> str:
+        """表示名を変えたい場合に実装"""
+        return ""  #  NotImplemente
+
     @property
     @abstractmethod
     def action_space(self) -> TActSpace:

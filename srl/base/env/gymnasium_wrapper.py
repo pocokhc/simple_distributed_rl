@@ -279,13 +279,19 @@ class GymnasiumWrapper(EnvBase):
 
     def make_gymnasium_env(self, **kwargs) -> gymnasium.Env:
         if self.config.gym_make_func is None:
-            return gymnasium.make(self.config.name, **self.config.kwargs, **kwargs)
-        env = self.config.gym_make_func(self.config.name, **self.config.kwargs, **kwargs)
+            return gymnasium.make(self.config.id, **self.config.kwargs, **kwargs)
+        env = self.config.gym_make_func(self.config.id, **self.config.kwargs, **kwargs)
         return cast(gymnasium.Env, env)
 
     # --------------------------------
     # implement
     # --------------------------------
+    def get_display_name(self) -> str:
+        if hasattr(self.env.unwrapped, "get_display_name"):
+            return self.env.unwrapped.get_display_name()  # type: ignore
+        else:
+            return ""
+
     @property
     def action_space(self) -> SpaceBase:
         return self._action_space
@@ -309,9 +315,9 @@ class GymnasiumWrapper(EnvBase):
 
     @property
     def reward_baseline(self) -> dict:
-        if self.config.name == "Pendulum-v1":
+        if self.config.id == "Pendulum-v1":
             return {"episode": 10, "baseline": -500}
-        if self.config.name == "ALE/Pong-v5":
+        if self.config.id == "ALE/Pong-v5":
             return {"episode": 5, "baseline": 0}
         return {}
 

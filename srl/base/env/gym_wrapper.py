@@ -291,13 +291,18 @@ class GymWrapper(EnvBase):
 
     def make_gym_env(self, **kwargs) -> gym.Env:
         if self.config.gym_make_func is None:
-            return gym.make(self.config.name, **self.config.kwargs, **kwargs)
-        env = self.config.gym_make_func(self.config.name, **self.config.kwargs, **kwargs)
+            return gym.make(self.config.id, **self.config.kwargs, **kwargs)
+        env = self.config.gym_make_func(self.config.id, **self.config.kwargs, **kwargs)
         return cast(gym.Env, env)
 
     # --------------------------------
     # implement
     # --------------------------------
+    def get_display_name(self) -> str:
+        if hasattr(self.env.unwrapped, "get_display_name"):
+            return self.env.unwrapped.get_display_name()  # type: ignore
+        else:
+            return ""
 
     @property
     def action_space(self) -> SpaceBase:

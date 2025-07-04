@@ -427,6 +427,10 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     # property
     # ------------------------------------
     @property
+    def id(self) -> str:
+        return self.config.id
+
+    @property
     def name(self) -> str:
         return self.config.name
 

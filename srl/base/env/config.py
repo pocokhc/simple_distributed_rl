@@ -33,8 +33,8 @@ class EnvConfig:
 
     """
 
-    #: Specifies the environment name
-    name: str
+    #: Specifies the environment id
+    id: str
 
     #: 環境生成時に渡す引数を指定します。
     #: これは登録されているパラメータより優先されます。
@@ -82,6 +82,24 @@ class EnvConfig:
     #: action/observationの値を厳密にチェックし、おかしい場合は例外を出力します。
     #: enable_assertionが有効な場合は、enable_sanitizeは無効です。
     enable_assertion: bool = False
+    #: display name
+    display_name: str = ""
+
+    def __post_init__(self):
+        self._name: Optional[str] = None
+
+    @property
+    def name(self) -> str:
+        if self._name is None:
+            if self.display_name != "":
+                self._name = self.display_name
+            else:
+                from srl.base.env.registration import make_base
+
+                # 中で_nameが設定される
+                make_base(self, env_run=None)
+                assert self._name is not None
+        return self._name
 
     def make(self) -> "EnvRun":
         """環境を生成します。 make_env(env_config) と同じ動作です。"""

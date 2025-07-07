@@ -231,7 +231,7 @@ def _run_actor(
             # actor0のみ送信
             if actor_id == 0:
                 logger.info(f"[actor{actor_id}] send parameter data")
-                last_worker_param_queue.put(parameter.backup(serialized=True))
+                last_worker_param_queue.put(parameter.backup(serialized=True, to_worker=True))
 
     except MemoryError:
         import gc
@@ -592,7 +592,7 @@ def train(mp_config: MpConfig, parameter_dat: Optional[Any] = None, memory_dat: 
                     trainer_parameter = context.rl_config.make_parameter()
                     trainer_parameter.restore(parameter_dat, from_serialized=True)
                     worker_parameter = context.rl_config.make_parameter()
-                    worker_parameter.restore(work_params_dat, from_serialized=True)
+                    worker_parameter.restore(work_params_dat, from_serialized=True, from_worker=True)
                     trainer_parameter.update_from_worker_parameter(worker_parameter)
                     parameter_dat = trainer_parameter.backup(serialized=False)
             except Exception:

@@ -518,7 +518,7 @@ def _run_trainer(
         if dat is not None:
             train_count, params = pickle.loads(dat)
             if params is not None:
-                parameter.restore(params, fromo_serialized=True)
+                parameter.restore(params, from_serialized=True)
 
         memory = _TrainerRLMemoryInterceptor(
             qsize_mem_to_train_list,

@@ -61,15 +61,12 @@ def make_base(config: Union[str, EnvConfig], env_run: Optional["EnvRun"] = None)
     # --- load gym
     if env is None:
         _fgym = False
-        if config.use_gym:
-            if is_package_installed("gym"):
-                _fgym = True
-        else:
-            if not is_package_installed("gymnasium"):
-                if is_package_installed("gym"):
-                    _fgym = True
+        if config.use_gym and is_package_installed("gym"):
+            _fgym = True
+        elif not is_package_installed("gymnasium"):
+            _fgym = True
 
-        if _fgym:
+        if _fgym and is_package_installed("gym"):
             import gym.error
 
             try:
@@ -82,7 +79,7 @@ def make_base(config: Union[str, EnvConfig], env_run: Optional["EnvRun"] = None)
                 logger.warning(f"Gym failed to load. '{e}'")
             except Exception:
                 raise
-        else:
+        elif is_package_installed("gymnasium"):
             import gymnasium.error
 
             try:

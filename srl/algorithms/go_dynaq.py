@@ -181,14 +181,11 @@ class Parameter(RLParameter[Config]):
             q_tbl = self.q_ext
             reward_idx = 1
             target_policy = self.config.q_ext_target_policy
-            self.q_ext_min = math.inf
-            self.q_ext_max = -math.inf
         elif mode == "int":
             discount = self.config.q_int_discount
             q_tbl = self.q_int
             reward_idx = 3
             target_policy = self.config.q_int_target_policy
-            self.q_int_max = 0
         else:
             raise UndefinedError(mode)
 
@@ -239,12 +236,15 @@ class Parameter(RLParameter[Config]):
             logger.info(f"iteration timeout(delta={delta}, threshold={threshold}, count={count})")
 
         # update range
-        for state, act, next_states in all_states:
-            if mode == "ext":
-                # ifよりmin,maxを使う方が少し早い
+        if mode == "ext":
+            self.q_ext_min = float("inf")
+            self.q_ext_max = float("-inf")
+            for state, act, _ in all_states:
                 self.q_ext_min = min(self.q_ext_min, self.q_ext[state][act])
                 self.q_ext_max = max(self.q_ext_max, self.q_ext[state][act])
-            elif mode == "int":
+        elif mode == "int":
+            self.q_int_max = 0
+            for state, act, _ in all_states:
                 self.q_int_max = max(self.q_int_max, self.q_int[state][act])
 
     def calc_q(self, q_tbl: Dict[str, List[float]], state: str, prob: float) -> float:

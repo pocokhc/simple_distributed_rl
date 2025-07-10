@@ -1,5 +1,5 @@
 import copy
-from typing import List
+from typing import Iterable
 
 import torch
 import torch.nn as nn
@@ -37,6 +37,21 @@ def model_soft_sync(target_model: nn.Module, source_model: nn.Module, tau: float
         target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
 
 
+def model_params_soft_sync(target_params: Iterable[nn.Parameter], source_params: Iterable[nn.Parameter], tau: float):
+    """モデルのパラメータをsoft update（指数移動平均）で同期する"""
+    for src_param, tgt_param in zip(source_params, target_params):
+        tgt_param.data.copy_(tau * src_param.data + (1.0 - tau) * tgt_param.data)
+
+
+def reset_model_params(params: Iterable[nn.Parameter], rate: float, sigma: float = 2.0):
+    if sigma > 0:
+        for param in params:
+            param.data.copy_(rate * param.data + torch.randn_like(param) * sigma)
+    else:
+        for param in params:
+            param.data.copy_(rate * param.data)
+
+
 def model_restore(model: nn.Module, dat, from_serialized: bool = False):
     if from_serialized:
         try:
@@ -67,8 +82,3 @@ def model_backup(model: nn.Module, serialized: bool = False):
             return copy.deepcopy(model).to("cpu").state_dict()
     else:
         return model.state_dict()
-
-
-def reset_model_parameters(params: List[nn.Parameter], rate: float, sigma: float = 2.0):
-    for param in params:
-        param.data.copy_(rate * param.data + torch.randn_like(param) * sigma)

@@ -66,7 +66,8 @@ def make_base(config: Union[str, EnvConfig], env_run: Optional["EnvRun"] = None)
                 _fgym = True
         else:
             if not is_package_installed("gymnasium"):
-                _fgym = True
+                if is_package_installed("gym"):
+                    _fgym = True
 
         if _fgym:
             import gym.error

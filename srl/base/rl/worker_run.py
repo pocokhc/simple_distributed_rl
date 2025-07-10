@@ -97,30 +97,54 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     @property
     def prev_state(self) -> TObsType:
-        return self._prev_state
+        # on_stepの中はずらす
+        if self._on_step_in_progress:
+            return None  # type: ignore  # on_stepはNone
+        else:
+            return self._prev_state
 
     @property
     def state(self) -> TObsType:
-        return self._state
+        # on_stepの中はずらす
+        if self._on_step_in_progress:
+            return self._prev_state
+        else:
+            return self._state
 
     @property
     def next_state(self) -> TObsType:
-        return self._next_state  # type: ignore  # on_step以外はNone
+        # on_stepの中はずらす
+        if self._on_step_in_progress:
+            return self._state
+        else:
+            return None  # type: ignore  # on_step以外はNone
 
     def get_state_one_step(self, idx: int = -1) -> TObsType:
         return self._one_states[idx] if self._use_stacked_state else self._state
 
     @property
     def prev_render_image_state(self) -> np.ndarray:
-        return self._prev_render_image
+        # on_stepの中はずらす
+        if self._on_step_in_progress:
+            return None  # type: ignore  # on_stepはNone
+        else:
+            return self._prev_render_image
 
     @property
     def render_image_state(self) -> np.ndarray:
-        return self._render_image
+        # on_stepの中はずらす
+        if self._on_step_in_progress:
+            return self._prev_render_image
+        else:
+            return self._render_image
 
     @property
     def next_render_image_state(self) -> np.ndarray:
-        return self._next_render_image  # type: ignore  # on_step以外はNone
+        # on_stepの中はずらす
+        if self._on_step_in_progress:
+            return self._render_image
+        else:
+            return None  # type: ignore  # on_step以外はNone
 
     def get_render_image_state_one_step(self, idx: int = -1) -> np.ndarray:
         return self._one_render_images[idx] if self._use_stacked_render_image else self._render_image
@@ -161,15 +185,27 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     @property
     def prev_invalid_actions(self) -> List[TActType]:
-        return self._prev_invalid_actions
+        # on_stepの中はずらす
+        if self._on_step_in_progress:
+            return None  # type: ignore  # on_stepはNone
+        else:
+            return self._prev_invalid_actions
 
     @property
     def invalid_actions(self) -> List[TActType]:
-        return self._invalid_actions
+        # on_stepの中はずらす
+        if self._on_step_in_progress:
+            return self._prev_invalid_actions
+        else:
+            return self._invalid_actions
 
     @property
     def next_invalid_actions(self) -> List[TActType]:
-        return self._next_invalid_actions  # type: ignore  # on_step以外はNone
+        # on_stepの中はずらす
+        if self._on_step_in_progress:
+            return self._invalid_actions
+        else:
+            return None  # type: ignore  # on_step以外はNone
 
     @property
     def step_in_training(self) -> int:
@@ -209,7 +245,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._use_render_image = self._config.use_render_image_state()
         self._use_stacked_render_image = self._use_render_image and (self._config.render_image_window_length > 1)
 
-        self._tracking_size = 0  # 0: no tracking, -1: episode_tracking
+        self._tracking_size = -1
 
     def teardown(self):
         logger.debug("teardown")
@@ -231,22 +267,20 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._episode_seed = seed
         self._is_reset = False
         self._step_in_episode = 0
+        self._on_step_in_progress = False  # backup不要
 
         # --- state
         self._prev_state: TObsType = self._config.observation_space.get_default()
         self._state: TObsType = self._config.observation_space.get_default()
-        self._next_state: Optional[TObsType] = None
         self._one_states = [self._config.observation_space_one_step.get_default() for _ in range(self._config.window_length)]
 
         if self._use_render_image:
             self._prev_render_image: np.ndarray = self._config.obs_render_img_space.get_default()
             self._render_image: np.ndarray = self._config.obs_render_img_space.get_default()
-            self._next_render_image: Optional[np.ndarray] = None
             self._one_render_images = [self._config.obs_render_img_space_one_step.get_default() for _ in range(self._config.render_image_window_length)]
         else:
             self._prev_render_image: np.ndarray = np.zeros((1,))
             self._render_image: np.ndarray = np.zeros((1,))
-            self._next_render_image: Optional[np.ndarray] = None
             self._one_render_images = []
 
         # action, reward, done
@@ -256,7 +290,6 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._reward: float = 0.0
         self._prev_invalid_actions: List[TActType] = []
         self._invalid_actions: List[TActType] = []
-        self._next_invalid_actions: Optional[List[TActType]] = None
 
         # tracking
         self._tracking_data: List[Dict[str, Any]] = []
@@ -264,69 +297,52 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def _ready_policy(self):
         """policyの準備を実行。1週目は on_reset、2週目以降は on_step を実行。"""
         # encode -> set invalid -> on_step -> step_reward=0
+        logger.debug("ready_policy")
 
         # --- state
+        self._prev_state = self._state
         state = cast(TObsType, self._config.state_encode_one_step(self.env.state, self._env))
         if self._use_stacked_state:
             del self._one_states[0]
             self._one_states.append(state)
             state = self._config.observation_space_one_step.encode_stack(self._one_states)
+        self._state = state
 
         # --- render image
         if self._use_render_image:
+            self._prev_render_image = self._render_image
             render_image = self._config.render_image_state_encode_one_step(self._env)
             if self._use_stacked_render_image:
                 del self._one_render_images[0]
                 self._one_render_images.append(render_image)
                 render_image = self._config.obs_render_img_space_one_step.encode_stack(self._one_render_images)
+            self._render_image = render_image
 
         # --- invalid_actions
-        invalid_actions = [
+        self._prev_invalid_actions = self._invalid_actions
+        self._invalid_actions = [
             cast(TActType, self._config.action_encode(a))
             for a in self._env.get_invalid_actions(self._player_index)  #
         ]
 
         # --- reset/step
         if not self._is_reset:
-            # state
-            self._state = state
-            if self._use_render_image:
-                self._render_image = render_image
-
-            # invalid_actions
-            self._invalid_actions = invalid_actions
-
             logger.debug("on_reset")
+            self._is_reset = True  # backupのために前に代入、on_reset後は状態変化させない
             self._worker.on_reset(self)
-            self._is_reset = True
         else:
-            # update next
-            self._next_state = state
-            if self._use_render_image:
-                self._next_render_image = render_image
-            self._next_invalid_actions = invalid_actions
-
             # reward
             self._reward = self._step_reward
             self._step_reward = 0.0
 
             self._step_in_episode += 1
             self._step_in_training += 1
-            logger.debug("on_step")
-            self._worker.on_step(self)
 
-            # step後にupdate
-            self._prev_state = self._state
-            self._state = self._next_state
-            self._next_state = None
-            if self._use_render_image:
-                self._prev_render_image = self._render_image
-                assert self._next_render_image is not None
-                self._render_image = self._next_render_image
-                self._next_render_image = None
-            self._prev_invalid_actions = self._invalid_actions
-            self._invalid_actions = self._next_invalid_actions
-            self._next_invalid_actions = None
+            # backupのためにon_step後は状態変化させない
+            logger.debug("on_step")
+            self._on_step_in_progress = True
+            self._worker.on_step(self)
+            self._on_step_in_progress = False
 
     def policy(self) -> EnvActionType:
         self._ready_policy()
@@ -517,7 +533,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     # tracking
     # ------------------------------------
     def set_tracking_max_size(self, max_size: int = -1):
-        """-1 は無制限"""
+        """0以下は無制限"""
         if len(self._tracking_data) > max_size:
             for _ in range(max_size - len(self._tracking_data)):
                 del self._tracking_data[0]
@@ -530,6 +546,8 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         if (self._tracking_size > 0) and (len(self._tracking_data) == self._tracking_size):
             del self._tracking_data[0]
         self._tracking_data.append(data)
+        if len(self._tracking_data) > self._tracking_size:
+            logger.warning("Tracking data size exceeded: %d > %d", len(self._tracking_data), self._tracking_size)
 
     def get_tracking_data(self) -> List[Dict[str, Any]]:
         return self._tracking_data
@@ -593,11 +611,9 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._step_in_episode,
             self._config.observation_space.copy_value(self._prev_state),
             self._config.observation_space.copy_value(self._state),
-            self._config.observation_space.copy_value(self._next_state) if self._next_state is not None else None,
             [self._config.observation_space_one_step.copy_value(s) for s in self._one_states],
             self._config.obs_render_img_space.copy_value(self._prev_render_image) if self._use_render_image else None,
             self._config.obs_render_img_space.copy_value(self._render_image) if self._use_render_image else None,
-            self._config.obs_render_img_space.copy_value(self._next_render_image) if self._next_render_image is not None else None,
             [self._config.obs_render_img_space_one_step.copy_value(s) for s in self._one_render_images],
             self._config.action_space.copy_value(self._prev_action),
             self._config.action_space.copy_value(self._action),
@@ -605,7 +621,6 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._reward,
             self._prev_invalid_actions[:],
             self._invalid_actions[:],
-            self._next_invalid_actions[:] if self._next_invalid_actions is not None else None,
             # env
             self._env.backup(),
             # tracking
@@ -630,23 +645,20 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._step_in_episode = dat[9]
         self._prev_state = self._config.observation_space.copy_value(dat[10])
         self._state = self._config.observation_space.copy_value(dat[11])
-        self._next_state = self._config.observation_space.copy_value(dat[12]) if dat[12] is not None else None
-        self._one_states = [self._config.observation_space.copy_value(s) for s in dat[13]]
-        self._prev_render_image = self._config.obs_render_img_space.copy_value(dat[14]) if dat[14] is not None else np.zeros((1,))
-        self._render_image = self._config.obs_render_img_space.copy_value(dat[15]) if dat[15] is not None else np.zeros((1,))
-        self._next_render_image = self._config.obs_render_img_space.copy_value(dat[16]) if dat[16] is not None else None
-        self._one_render_images = [self._config.obs_render_img_space.copy_value(s) for s in dat[17]]
-        self._prev_action = self._config.action_space.copy_value(dat[18])
-        self._action = self._config.action_space.copy_value(dat[19])
-        self._step_reward = dat[20]
-        self._reward = dat[21]
-        self._prev_invalid_actions = dat[22][:]
-        self._invalid_actions = dat[23][:]
-        self._next_invalid_actions = dat[24][:] if dat[24] is not None else None
+        self._one_states = [self._config.observation_space.copy_value(s) for s in dat[12]]
+        self._prev_render_image = self._config.obs_render_img_space.copy_value(dat[13]) if dat[13] is not None else np.zeros((1,))
+        self._render_image = self._config.obs_render_img_space.copy_value(dat[14]) if dat[14] is not None else np.zeros((1,))
+        self._one_render_images = [self._config.obs_render_img_space.copy_value(s) for s in dat[15]]
+        self._prev_action = self._config.action_space.copy_value(dat[16])
+        self._action = self._config.action_space.copy_value(dat[17])
+        self._step_reward = dat[18]
+        self._reward = dat[19]
+        self._prev_invalid_actions = dat[20][:]
+        self._invalid_actions = dat[21][:]
         # env
-        self._env.restore(dat[25])
+        self._env.restore(dat[22])
         # tracking
-        self._tracking_data = [d.copy() for d in dat[26]]
+        self._tracking_data = [d.copy() for d in dat[23]]
 
         if self._render.rendering:
             self._render.cache_reset()

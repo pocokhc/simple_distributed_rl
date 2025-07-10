@@ -81,6 +81,7 @@ class DoneTypes(enum.Enum):
     NONE = enum.auto()
     TERMINATED = enum.auto()
     TRUNCATED = enum.auto()
+    ABORT = enum.auto()
 
     @staticmethod
     def from_val(done: Union[bool, str, "DoneTypes"]) -> "DoneTypes":

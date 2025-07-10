@@ -557,7 +557,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return self.env.unwrapped
 
     def abort_episode(self):
-        self._done = DoneTypes.TRUNCATED
+        self._done = DoneTypes.ABORT
         self.env.done_reason = "call abort_episode"
 
     # ------------------------------------

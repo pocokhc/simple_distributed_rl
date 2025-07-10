@@ -42,6 +42,9 @@ class RunContext:
     # play config
     shuffle_player: bool = True
     disable_trainer: bool = False
+    # train option
+    train_interval: int = 1
+    train_repeat: int = 1
     # play info
     distributed: bool = False
     training: bool = False

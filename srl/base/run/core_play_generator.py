@@ -184,9 +184,10 @@ def play_generator(
             state.total_step += 1
 
         # --- trainer
-        if state.trainer is not None:
+        if (state.trainer is not None) and (state.total_step % context.train_interval == 0):
             _prev_train = state.trainer.train_count
-            state.trainer.train()
+            for _ in range(context.train_repeat):
+                state.trainer.train()
             state.is_step_trained = state.trainer.train_count > _prev_train
             if state.is_step_trained:
                 state.train_count += state.trainer.train_count - _prev_train

@@ -67,6 +67,9 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         # --- play config
         players: PlayersType = [],
         shuffle_player: bool = True,
+        # --- train option
+        train_interval: int = 1,
+        train_repeat: int = 1,
         # --- progress
         enable_progress: bool = True,
         # --- other
@@ -81,6 +84,8 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
             max_train_count (int, optional): 終了するまでの学習回数. Defaults to -1.
             max_memory (int, optional): 終了するまでのメモリ数. Defaults to -1.
             shuffle_player (bool, optional): playersをシャッフルするかどうか. Defaults to True.
+            train_interval (int, optional): 学習間隔（step）. Defaults to 1.
+            train_repeat (int, optional): 1stepあたりの学習回数. Defaults to 1.
             enable_progress (bool, optional): 進捗を表示するか. Defaults to True.
             enable_eval (bool, optional): 評価用のシミュレーションを実行します. Defaults to False.
             callbacks (List[RunCallback], optional): callbacks. Defaults to [].
@@ -99,6 +104,9 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self.context.players = players
         self.context.shuffle_player = shuffle_player
         self.context.disable_trainer = False
+        # train option
+        self.context.train_interval = train_interval
+        self.context.train_repeat = train_repeat
         # play info
         self.context.distributed = False
         self.context.training = True

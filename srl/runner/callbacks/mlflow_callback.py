@@ -163,13 +163,15 @@ class MLFlowCallback(RunCallback, Evaluate):
         state = cast(RunStateActor, state)
         d = {}
         for i, r in enumerate(state.last_episode_rewards):
-            d[f"reward{i}"] = r
-        d["env/episode"] = state.episode_count
-        d["env/total_step"] = state.total_step
+            d[f"worker/reward{i}"] = r
+        d["worker/episode"] = state.episode_count
+        d["worker/total_step"] = state.total_step
         if state.trainer is not None:
             d2 = {"trainer/" + k: v for k, v in state.trainer.info.to_dict().items()}
             d2["trainer/train_count"] = state.trainer.train_count
             d.update(d2)
+        else:
+            d["worker/train_count"] = state.train_count
         d2 = {"worker/" + k: v for k, v in state.worker.info.to_dict().items()}
         d.update(d2)
         d.update(self._get_system_log(context, state))
@@ -217,14 +219,16 @@ class MLFlowCallback(RunCallback, Evaluate):
 
         return d
 
-    def _log_eval(self, context: RunContext, state):
+    def _log_eval(self, context: RunContext, state: RunState):
         if not self.enable_eval:
             return
 
         t0 = time.time()
         eval_rewards = self.run_eval_with_state(context, state)
         if eval_rewards is not None:
-            d = {f"eval_reward{i}": r for i, r in enumerate(eval_rewards)}
+            d = {f"eval/reward{i}": r for i, r in enumerate(eval_rewards)}
+            d["eval/train_count"] = state.train_count
+            d["eval/total_step"] = state.total_step
             mlflow.log_metrics(d, self._get_step(context, state), run_id=self.run_id)
 
         # check interval

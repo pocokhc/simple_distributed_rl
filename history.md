@@ -2,18 +2,40 @@
 1. keras3対応 → tfは@tf.functionが使えなくなるので遅くなる。torchはcpu()が必要になるっぽい、しばらく保留
 1. Async-SGD
 1. (distribution)オリジナルrl/env対応
+1. (distribution)学習後のworker側のparam共有
 1. MCP化
+  
+//// 中止(stopped)  
+// (tensorboard) SRL上でいいI/Fの作成方法が思い浮かばず保留、tensorboardを愚直にいれると遅い  
+// (SEED RL) 大量のActor向けなのでいったん見送り  
+// (MARL) マルコフ過程みたいなモデルがある？Actor同士の通信方法の定義が見当たらずに保留  
+// (jax) batch数(32)ぐらいの量だとnumpyの方が早かったので見送り  
+// (tf/torchの互換パラメータの作成)  
+// RLTrainerでinfoの計算コストは保留（metricsを別途導入案も保留）  
+// cached_propertyでちょっと高速化?→予想外のバグがでそうなので保留  
+// RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留  
+// TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除  
 
-//// 中止(stopped)
-// (tensorboard) SRL上でいいI/Fの作成方法が思い浮かばず保留、tensorboardを愚直にいれると遅い
-// (SEED RL) 大量のActor向けなのでいったん見送り
-// (MARL) マルコフ過程みたいなモデルがある？Actor同士の通信方法の定義が見当たらずに保留
-// (jax) batch数(32)ぐらいの量だとnumpyの方が早かったので見送り
-// (tf/torchの互換パラメータの作成)
-// RLTrainerでinfoの計算コストは保留（metricsを別途導入案も保留）
-// cached_propertyでちょっと高速化?→予想外のバグがでそうなので保留
-// RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留
-// TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除
+
+# v1.3.4
+
+**MainUpdates**
+
+1. [base.env] new: configのnameをidに変更し、別途表示だけに使うdisplay_nameを追加、またdisplay_nameをenv側から指定できるようにget_display_name関数を追加
+1. [base.run.mp] update: parameterでworkerからのデータか判断できるようにrestore/backupにfrom_worker/to_worker引数を追加
+1. [base.env.env_run] change: DoneTypesにABORTを追加し、abort_episode時のタイプをTRUNCATEDからABORTに変更
+1. [runner.train] add: 学習回数をコントロールするtrain_intervalとtrain_repeatを引数に追加
+1. [runner.callbacks.mlflow] update: metricsの構成を変更し、evalのタイミングとステップ回数、学習回数を同時に記録するように変更
+
+**OtherUpdates**
+
+1. [rl.torch.helper] add: model_params_soft_sync/reset_model_paramsを追加
+
+**Bug Fixes**
+
+1. [base.rl.worker_run] fix: on_stepでbackupしたものをon_reset時にrestoreすると1stepずれるバグ修正
+1. [base.run.play_mp_memory] fix: parameter.restoreの引数がfromoになっていた誤字を修正
+1. [runner.mlflow] fix: run_idが見つからない場合に例外を出すように変更
 
 
 # v1.3.3

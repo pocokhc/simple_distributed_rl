@@ -41,7 +41,7 @@ class RLParameter(ABC, Generic[TRLConfig]):
         dat = self.backup(**kwargs)
         save_file(path, dat, compress)
         file_size = os.path.getsize(path)
-        logger.info(f"parameter saved({file_size} bytes, {time.time() - t0:.1f}s): {os.path.basename(path)}")
+        logger.info(f"parameter saved({file_size} bytes(compress {compress}), {time.time() - t0:.1f}s): {os.path.basename(path)}")
 
     def load(self, path: str, **kwargs) -> None:
         logger.debug(f"parameter load: {path}")

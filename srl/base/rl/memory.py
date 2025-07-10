@@ -109,7 +109,7 @@ class RLMemory(ABC, Generic[TRLConfig]):
         dat = self.call_backup(**kwargs)
         save_file(path, dat, compress)
         file_size = os.path.getsize(path)
-        logger.info(f"memory saved (len: {self.length()}, {file_size} bytes, time: {time.time() - t0:.1f}s): {os.path.basename(path)}")
+        logger.info(f"memory saved (len: {self.length()}, {file_size} bytes(compress {compress}), time: {time.time() - t0:.1f}s): {os.path.basename(path)}")
 
     def load(self, path: str, **kwargs) -> None:
         logger.debug(f"memory load: {path}")

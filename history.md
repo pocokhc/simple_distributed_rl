@@ -36,7 +36,7 @@
 1. [base.rl.worker_run] fix: on_stepでbackupしたものをon_reset時にrestoreすると1stepずれるバグ修正
 1. [base.run.play_mp_memory] fix: parameter.restoreの引数がfromoになっていた誤字を修正
 1. [runner.mlflow] fix: run_idが見つからない場合に例外を出すように変更
-
+1. [base.env.registration] fix: gymがない場合に import gym しないように修正
 
 # v1.3.3
 

@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EnvConfig &mdash; SimpleDistributedRL 1.3.2.1 ドキュメント</title>
+  <title>EnvConfig &mdash; SimpleDistributedRL 1.3.4 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=2891510e"></script>
+      <script src="../_static/documentation_options.js?v=7a4248da"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -59,7 +59,7 @@
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">EnvConfig</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#srl.base.env.config.EnvConfig"><code class="docutils literal notranslate"><span class="pre">EnvConfig</span></code></a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.name"><code class="docutils literal notranslate"><span class="pre">EnvConfig.name</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.id"><code class="docutils literal notranslate"><span class="pre">EnvConfig.id</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.kwargs"><code class="docutils literal notranslate"><span class="pre">EnvConfig.kwargs</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.max_episode_steps"><code class="docutils literal notranslate"><span class="pre">EnvConfig.max_episode_steps</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.episode_timeout"><code class="docutils literal notranslate"><span class="pre">EnvConfig.episode_timeout</span></code></a></li>
@@ -75,6 +75,8 @@
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.processors"><code class="docutils literal notranslate"><span class="pre">EnvConfig.processors</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.enable_sanitize"><code class="docutils literal notranslate"><span class="pre">EnvConfig.enable_sanitize</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.enable_assertion"><code class="docutils literal notranslate"><span class="pre">EnvConfig.enable_assertion</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.display_name"><code class="docutils literal notranslate"><span class="pre">EnvConfig.display_name</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.name"><code class="docutils literal notranslate"><span class="pre">EnvConfig.name</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.make"><code class="docutils literal notranslate"><span class="pre">EnvConfig.make()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.to_dict"><code class="docutils literal notranslate"><span class="pre">EnvConfig.to_dict()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.copy"><code class="docutils literal notranslate"><span class="pre">EnvConfig.copy()</span></code></a></li>
@@ -133,7 +135,7 @@
 <span id="env-config"></span><h1>EnvConfig<a class="headerlink" href="#envconfig" title="Link to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.base.env.config.</span></span><span class="sig-name descname"><span class="pre">EnvConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">name:</span> <span class="pre">str,</span> <span class="pre">kwargs:</span> <span class="pre">~typing.Dict</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;,</span> <span class="pre">max_episode_steps:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">episode_timeout:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">frameskip:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0,</span> <span class="pre">random_noop_max:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0,</span> <span class="pre">gym_make_func:</span> <span class="pre">~typing.Callable[[...],</span> <span class="pre">gym.Env</span> <span class="pre">|</span> <span class="pre">gymnasium.Env]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">gym_wrapper:</span> <span class="pre">GymUserWrapper</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">use_gym:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">render_interval:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">render_scale:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.0,</span> <span class="pre">font_name:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'',</span> <span class="pre">font_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">18,</span> <span class="pre">processors:</span> <span class="pre">~typing.List[~srl.base.env.processor.EnvProcessor]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;,</span> <span class="pre">enable_sanitize:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">enable_assertion:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.base.env.config.EnvConfig" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.base.env.config.</span></span><span class="sig-name descname"><span class="pre">EnvConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">id:</span> <span class="pre">str,</span> <span class="pre">kwargs:</span> <span class="pre">~typing.Dict</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;,</span> <span class="pre">max_episode_steps:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">episode_timeout:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">frameskip:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0,</span> <span class="pre">random_noop_max:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0,</span> <span class="pre">gym_make_func:</span> <span class="pre">~typing.Callable[[...],</span> <span class="pre">gym.Env</span> <span class="pre">|</span> <span class="pre">gymnasium.Env]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">gym_wrapper:</span> <span class="pre">GymUserWrapper</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">use_gym:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">render_interval:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">render_scale:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.0,</span> <span class="pre">font_name:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'',</span> <span class="pre">font_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">18,</span> <span class="pre">processors:</span> <span class="pre">~typing.List[~srl.base.env.processor.EnvProcessor]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;,</span> <span class="pre">enable_sanitize:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">enable_assertion:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">display_name:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.base.env.config.EnvConfig" title="Link to this definition"></a></dt>
 <dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>EnvConfig は環境を定義します。</p>
 <p>環境は、基本は名前だけで呼び出せます。</p>
@@ -146,9 +148,9 @@
 </pre></div>
 </div>
 <dl class="py attribute">
-<dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.name">
-<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.name" title="Link to this definition"></a></dt>
-<dd><p>Specifies the environment name</p>
+<dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.id">
+<span class="sig-name descname"><span class="pre">id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.id" title="Link to this definition"></a></dt>
+<dd><p>Specifies the environment id</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -247,6 +249,17 @@
 <dd><p>action/observationの値を厳密にチェックし、おかしい場合は例外を出力します。
 enable_assertionが有効な場合は、enable_sanitizeは無効です。</p>
 </dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.display_name">
+<span class="sig-name descname"><span class="pre">display_name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">''</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.display_name" title="Link to this definition"></a></dt>
+<dd><p>display name</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.name">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.name" title="Link to this definition"></a></dt>
+<dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.make">

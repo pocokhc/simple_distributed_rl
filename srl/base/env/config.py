@@ -112,7 +112,8 @@ class EnvConfig:
         return dat
 
     def copy(self) -> "EnvConfig":
-        config = EnvConfig(self.name)
+        config = EnvConfig(self.id)
+        config._name = self._name
         for k, v in self.__dict__.items():
             if v is None:
                 continue

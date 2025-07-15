@@ -26,11 +26,15 @@ logger = logging.getLogger(__name__)
 
 
 class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
-    def __init__(self, config: EnvConfig) -> None:
+    def __init__(self, config: EnvConfig, env: Optional[EnvBase[TActSpace, TActType, TObsSpace, TObsType]] = None) -> None:
         # restore/backup用に状態は意識して管理
-        self.env = None  # type: ignore
+        self.env: EnvBase[TActSpace, TActType, TObsSpace, TObsType] = None  # type: ignore
         self.config = config
-        self.env: EnvBase[TActSpace, TActType, TObsSpace, TObsType] = make_base(self.config, self)
+        if env is not None:
+            self.env = env
+            self.env.set_env_run(self)
+        else:
+            self.remake()
 
         # --- processor
         self._processors = [c.copy() for c in self.config.processors]
@@ -87,6 +91,11 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._invalid_actions_list: List[List[TActType]] = [[] for _ in range(self.env.player_num)]
         self._t0 = time.time()
         self.env.info = Info()
+
+    def remake(self):
+        logger.debug("remake")
+        self.close()
+        self.env = make_base(self.config, self)
 
     def backup(self) -> Any:
         # - spaceは状態を持たない
@@ -155,19 +164,12 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self.close()
 
     def close(self) -> None:
-        if self.env is None:
-            return
-        try:
-            logger.debug("close")
-            self.env.close()
-        except Exception:
-            logger.error(traceback.format_exc())
-
-    def remake(self):
-        logger.debug("remake")
-
-        self.close()
-        self.env = make_base(self.config, self)
+        if self.env is not None:
+            try:
+                logger.debug("close")
+                self.env.close()
+            except Exception:
+                logger.error(traceback.format_exc())
 
     # ------------------------------------
     # run functions

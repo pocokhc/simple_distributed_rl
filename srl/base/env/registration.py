@@ -107,11 +107,9 @@ def make_base(config: Union[str, EnvConfig], env_run: Optional["EnvRun"] = None)
             else:
                 config._name = config.id
 
-    if env_run is None:
-        return env
-
-    logger.debug(f"make: {env.__class__}(id:{id(env_run)})")
-    env.init_base(env_run)
+    logger.debug(f"make: {env.__class__}(id:{id(env)})")
+    if env_run is not None:
+        env.set_env_run(env_run)
     return env
 
 

@@ -1,6 +1,7 @@
 import copy
 import logging
 import pprint
+import traceback
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
 
@@ -97,7 +98,12 @@ class EnvConfig:
                 from srl.base.env.registration import make_base
 
                 # 中で_nameが設定される
-                make_base(self, env_run=None)
+                env = make_base(self)
+                try:
+                    logger.debug("close")
+                    env.close()
+                except Exception:
+                    logger.error(traceback.format_exc())
                 assert self._name is not None
         return self._name
 

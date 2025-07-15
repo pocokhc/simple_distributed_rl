@@ -34,6 +34,7 @@ class RunnerBase(Generic[TRLConfig]):
     rl_config: Optional[TRLConfig] = None  # type: ignore , type
 
     context: Optional[RunContext] = None  # type: ignore , type
+    delay_make_env: bool = False
 
     # --- private(static class instance)
     __setup_process = False
@@ -64,6 +65,9 @@ class RunnerBase(Generic[TRLConfig]):
 
         self._is_setup_psutil: bool = False
         self._psutil_process: Optional["psutil.Process"] = None
+
+        if not self.delay_make_env:
+            self.make_env()
 
     @property
     def env(self) -> EnvRun:

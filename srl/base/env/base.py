@@ -17,13 +17,13 @@ logger = logging.getLogger(__name__)
 
 class EnvBase(IRender, Generic[TActSpace, TActType, TObsSpace, TObsType], ABC):
     def __init__(self) -> None:
-        self.init_base(env_run=None)
+        self.init_base()
 
     def __post_init__(self) -> None:
         # dataclass用
-        self.init_base(env_run=None)
+        self.init_base()
 
-    def init_base(self, env_run: Optional["EnvRun"]):
+    def init_base(self):
         """
         互換性のために別途初期化関数を定義
         registration内で手動で呼び出し
@@ -46,7 +46,9 @@ class EnvBase(IRender, Generic[TActSpace, TActType, TObsSpace, TObsType], ABC):
                 logger.warning(f"[env_base.init] 'info' type is not 'Info'. {self.info}({type(self.info)})")
         else:
             self.info: Info = Info()
+        return self
 
+    def set_env_run(self, env_run: Optional["EnvRun"]):
         self.env_run = env_run
         return self
 

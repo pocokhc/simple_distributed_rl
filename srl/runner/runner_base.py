@@ -587,6 +587,8 @@ class RunnerBase(Generic[TRLConfig]):
         if run_id is None:
             raise ValueError(f"run id is not found. experiment: {experiment_name}, rl_name: {self.rl_config.get_name()}")
         files = MLFlowCallback.get_parameter_files(run_id)
+        if len(files) == 0:
+            raise ValueError(f"parameter is not found. experiment: {experiment_name}, rl_name: {self.rl_config.get_name()}")
         MLFlowCallback.load_parameter(
             run_id,
             files[parameter_idx],

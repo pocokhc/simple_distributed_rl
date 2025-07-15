@@ -66,7 +66,7 @@ class RunContext:
     memory_limit: Optional[int] = -1
 
     # --- stats
-    enable_stats: bool = False
+    enable_stats: bool = True
 
     # --- random
     seed: Optional[int] = None

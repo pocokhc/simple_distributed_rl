@@ -61,7 +61,7 @@ class RePlayableGame(GameWindow):
     def __init__(
         self,
         context: RunContext,
-        parameter,
+        state: RunState,
         render_player: int = 0,
         print_state: bool = True,
         callbacks: List[RunCallback] = [],
@@ -69,7 +69,7 @@ class RePlayableGame(GameWindow):
     ) -> None:
         super().__init__(_is_test=_is_test)
         self.context = context
-        self.parameter = parameter
+        self.state = state
         self.print_state = print_state
 
         self.history = _GetRGBCallback(render_player)
@@ -91,9 +91,7 @@ class RePlayableGame(GameWindow):
             self.context.disable_trainer = True
             self.context.env_render_mode = "rgb_array"
             self.context.rl_render_mode = "terminal_rgb_array"
-            state = RunState()
-            state.parameter = self.parameter
-            core_play.play(self.context, state, callbacks=self.callbacks)
+            core_play.play(self.context, self.state, callbacks=self.callbacks)
 
             total_rewards = None
             if len(self.history.steps) > 0:

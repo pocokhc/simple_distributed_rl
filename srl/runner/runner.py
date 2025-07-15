@@ -1093,9 +1093,10 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         from srl.runner.game_windows.replay_window import RePlayableGame
 
         self.setup_process()
+        self.state.parameter = self.make_parameter()
         window = RePlayableGame(
             self.context,
-            self.make_parameter(),
+            self.state,
             render_player=render_player,
             print_state=print_state,
             callbacks=callbacks,

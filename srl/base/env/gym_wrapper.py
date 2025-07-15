@@ -226,6 +226,7 @@ class GymWrapper(EnvBase):
     is_print_log = True
 
     def __init__(self, config: EnvConfig):
+        super().__init__()
         self.config = config
         self.v0260_older = compare_less_version(gym.__version__, "0.26.0")  # type: ignore
         if False:

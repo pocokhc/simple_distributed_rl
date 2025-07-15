@@ -229,6 +229,7 @@ class GymnasiumWrapper(EnvBase):
     is_print_log = True
 
     def __init__(self, config: EnvConfig):
+        super().__init__()
         self.config = config
 
         os.environ["SDL_VIDEODRIVER"] = "dummy"

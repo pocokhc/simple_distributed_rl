@@ -72,10 +72,14 @@ def model_backup(model: nn.Module, serialized: bool = False):
     # backupでdeviceを変えるとtrainerとの並列処理でバグの可能性あり
     if serialized:
         try:
-            used_device = next(model.parameters()).device
-        except StopIteration:
-            # no params
-            return
+            example_tensor = next(iter(model.parameters()), None)
+            if example_tensor is None:
+                example_tensor = next(iter(model.buffers()), None)
+            if example_tensor is None:
+                return {}
+            used_device = example_tensor.device
+        except Exception as e:
+            raise RuntimeError(f"Failed to extract model device: {e}")
         if "cpu" in str(used_device):
             return model.state_dict()
         else:

@@ -17,6 +17,33 @@
 // TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除  
 
 
+# v1.3.5
+
+**MainUpdates**
+
+1. [algorithms] new: オリジナルアルゴリズムGoDQ_v1を追加
+1. [runner] change: コンストラクタでenvを生成するように変更し、delay_make_env引数を追加（envはまず作られて作成後の情報が結構使われるため）
+
+**OtherUpdates**
+
+1. [base.env] update: envの生成方法をリファクタリング（env_baseとenv_runの生成を直感的に整理）
+1. [runner.game_windows] update: stateをrunnerと共有し、envの生成回数を抑制
+1. [base.context] change: statsが重くなかったのでデフォルト値をTrueに変更
+1. [base.spaces.box] new: flatten_sizeプロパティを追加
+
+**Bug Fixes**
+
+1. [runner.callbacks.evaluate] fix: 念のためeval_runnerにはparameterをbackup/restoreで渡すように修正
+1. [base.run.play_mp] fix: 最後のactor側のparameterの同期をより安全に修正
+1. [runner.callbacks.mlflow] fix: ditributedのtrainerでevalが実行されていたのを止めるように修正
+1. [runner.callbacks.history_on_file] fix: system.txtがactorとtrainerで共有されて競合を起こすのでファイル名を修正
+1. [runner] fix: train_mpでrl_configのsetupがされずにplayに渡され1回余分にenvがmakeされていたのを修正
+1. [base.env.base] fix: initでself.env_run=Noneがなかったので追加
+1. [base.env.gym_wrapper] fix: initがなかったので追加
+1. [runner.mlfow] fix: load_parameter_from_mlflowでfilesが0の場合の例外処理を追加
+1. [rl.torch.helper] update: model_backupをより安全に処理するように修正
+
+
 # v1.3.4
 
 **MainUpdates**
@@ -37,6 +64,7 @@
 1. [base.run.play_mp_memory] fix: parameter.restoreの引数がfromoになっていた誤字を修正
 1. [runner.mlflow] fix: run_idが見つからない場合に例外を出すように変更
 1. [base.env.registration] fix: gymがない場合に import gym しないように修正
+
 
 # v1.3.3
 

@@ -188,6 +188,7 @@ def test_on_file_train_only(tmp_path, interval_mode):
     runner.rollout(max_memory=10)
 
     runner.set_history_on_file(tmp_path, interval_mode=interval_mode, enable_eval=True)
+    runner.disable_stats()
     if interval_mode == "step":
         runner.train_only(max_train_count=10)
     else:
@@ -228,6 +229,7 @@ def test_on_file_train_only_plot(tmp_path):
 @pytest.mark.parametrize("enable_mp_memory", [False, True])
 @pytest.mark.parametrize("interval_mode", ["step", "time"])
 def test_on_file_mp(tmp_path, interval_mode, enable_mp_memory):
+    print(tmp_path)
     runner = srl.Runner("OX", ql.Config())
 
     runner.set_history_on_file(tmp_path, interval_mode=interval_mode, enable_eval=True)
@@ -246,9 +248,12 @@ def test_on_file_mp(tmp_path, interval_mode, enable_mp_memory):
                 assert h["episode_time"] >= 0
                 assert h["episode"] >= 0
         elif h["name"] == "trainer":
+            assert h["time"] >= 0
             assert h["train"] >= 0
+        elif h["name"] == "system":
+            assert h["time"] >= 0
         else:
-            assert False
+            assert False, h
 
 
 @pytest.mark.parametrize("enable_mp_memory", [False, True])

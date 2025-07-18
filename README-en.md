@@ -168,6 +168,7 @@ Please refer to the following documents for creating original environments and a
 |SearchDynaQ   |Discrete   |Discrete|ModelBase|-         |-    |100%|original|
 |GoDynaQ       |Discrete   |Discrete|ModelBase|-         |-    |99%|original|
 |GoDQN         |Continuous |Discrete|ValueBase|✔        |-    |90%|original|
+|GoDQ_v1       |Continuous |Discrete|ValueBase|-        |✔    |100%|original|
 
 
 # 5. Online Distributed Learning

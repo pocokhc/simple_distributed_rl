@@ -46,6 +46,7 @@ class EnvBase(IRender, Generic[TActSpace, TActType, TObsSpace, TObsType], ABC):
                 logger.warning(f"[env_base.init] 'info' type is not 'Info'. {self.info}({type(self.info)})")
         else:
             self.info: Info = Info()
+        self.env_run = None
         return self
 
     def set_env_run(self, env_run: Optional["EnvRun"]):

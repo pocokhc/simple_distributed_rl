@@ -103,9 +103,10 @@ class MLFlowCallback(RunCallback, Evaluate):
             self._log_eval(context, state)
             self.t0_eval = time.time()  # last
 
-        if _time - self.t0_checkpoint > self.interval_checkpoint:
-            self._log_checkpoint(context, state)
-            self.t0_checkpoint = time.time()  # last
+        if not context.distributed:
+            if _time - self.t0_checkpoint > self.interval_checkpoint:
+                self._log_checkpoint(context, state)
+                self.t0_checkpoint = time.time()  # last
 
         return False
 
@@ -114,14 +115,15 @@ class MLFlowCallback(RunCallback, Evaluate):
             return
         self._log_actor(context, state)
         if not context.distributed:
-            self._log_eval(context, state)
+            self._log_eval(context, state)  # 最後はevalしない
             self._log_checkpoint(context, state)
 
     # ---------------------------------------------------------------
 
     def on_trainer_start(self, context: RunContext, state, **kwargs) -> None:
         self._log_trainer(context, state)
-        self._log_eval(context, state)
+        if not context.distributed:
+            self._log_eval(context, state)
         self._log_checkpoint(context, state)
         self.t0_episode = time.time()
         self.t0_eval = time.time()
@@ -129,7 +131,8 @@ class MLFlowCallback(RunCallback, Evaluate):
 
     def on_trainer_end(self, context: RunContext, state, **kwargs) -> None:
         self._log_trainer(context, state)
-        self._log_eval(context, state)
+        if not context.distributed:
+            self._log_eval(context, state)
         self._log_checkpoint(context, state)
 
     def on_train_after(self, context: RunContext, state, **kwargs) -> bool:

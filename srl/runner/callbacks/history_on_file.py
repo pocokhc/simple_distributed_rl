@@ -23,8 +23,9 @@ logger = logging.getLogger(__name__)
 """
 save_dir/
    ├ actorX.txt
+   ├ actorX_system.txt
    ├ trainer.txt
-   ├ system.txt
+   ├ trainer_system.txt
    ├ env_config.json
    ├ rl_config.json
    ├ context.json
@@ -178,12 +179,12 @@ class HistoryOnFile(RunCallback, Evaluate):
     # ---------------------------
     # system
     # ---------------------------
-    def _write_system(self, context: RunContext):
+    def _write_system(self, name: str, context: RunContext):
         if not self._write_system:
             return
         if not context.enable_stats:
             return
-        if not self._base.is_fp("system"):
+        if not self._base.is_fp(name):
             return
 
         d = {
@@ -210,14 +211,14 @@ class HistoryOnFile(RunCallback, Evaluate):
         except Exception:
             logger.debug(traceback.format_exc())
 
-        self._base.write_log("system", d)
+        self._base.write_log(name, d)
 
     # ---------------------------
     # actor
     # ---------------------------
     def on_episodes_begin(self, context: RunContext, state: RunStateActor, **kwargs):
-        self._base.open_fp("actor", f"actor{context.actor_id}.txt")
-        self._base.open_fp("system", "system.txt")
+        self._base.open_fp(f"actor{context.actor_id}", f"actor{context.actor_id}.txt")
+        self._base.open_fp(f"actor{context.actor_id}_system", f"actor{context.actor_id}_system.txt")
 
         # 分散の場合はactor_id=0のみevalをする
         if context.distributed:
@@ -236,7 +237,7 @@ class HistoryOnFile(RunCallback, Evaluate):
     def on_episodes_end(self, context: RunContext, state: RunStateActor, **kwargs):
         if not self._is_immediately_after_writing:
             self._write_actor_log(context, state)
-            self._write_system(context)
+            self._write_system(f"actor{context.actor_id}_system", context)
         self._base.close()
 
     def on_step_end(self, context: RunContext, state: RunStateActor, **kwargs):
@@ -244,21 +245,21 @@ class HistoryOnFile(RunCallback, Evaluate):
         if self.interval_mode == "time":
             if time.time() - self.interval0 > self.interval:
                 self._write_actor_log(context, state)
-                self._write_system(context)
+                self._write_system(f"actor{context.actor_id}_system", context)
                 self._is_immediately_after_writing = True
                 self.interval0 = time.time()  # last
         elif self.interval_mode == "step":
             self.interval0 += 1
             if self.interval0 >= self.interval:
                 self._write_actor_log(context, state)
-                self._write_system(context)
+                self._write_system(f"actor{context.actor_id}_system", context)
                 self._is_immediately_after_writing = True
                 self.interval0 = 0  # last
         else:
             raise UndefinedError(self.interval_mode)
 
     def _write_actor_log(self, context: RunContext, state: RunStateActor):
-        if not self._base.is_fp("actor"):
+        if not self._base.is_fp(f"actor{context.actor_id}"):
             return
 
         d = {}
@@ -295,14 +296,14 @@ class HistoryOnFile(RunCallback, Evaluate):
             for i, r in enumerate(eval_rewards):
                 d[f"eval_reward{i}"] = r
 
-        self._base.write_log("actor", d)
+        self._base.write_log(f"actor{context.actor_id}", d)
 
     # ---------------------------
     # trainer
     # ---------------------------
     def on_trainer_start(self, context: RunContext, state: RunStateTrainer, **kwargs):
         self._base.open_fp("trainer", "trainer.txt")
-        self._base.open_fp("system", "system.txt")
+        self._base.open_fp("trainer_system", "trainer_system.txt")
         self.t0 = time.time()
 
         self.t0_train = time.time()
@@ -324,7 +325,7 @@ class HistoryOnFile(RunCallback, Evaluate):
     def on_trainer_end(self, context: RunContext, state: RunStateTrainer, **kwargs):
         if not self._is_immediately_after_writing:
             self._write_trainer_log(context, state)
-            self._write_system(context)
+            self._write_system("trainer_system", context)
         self._base.close()
 
     def on_train_after(self, context: RunContext, state: RunStateTrainer, **kwargs) -> bool:
@@ -332,14 +333,14 @@ class HistoryOnFile(RunCallback, Evaluate):
         if self.interval_mode == "time":
             if time.time() - self.interval0 > self.interval:
                 self._write_trainer_log(context, state)
-                self._write_system(context)
+                self._write_system("trainer_system", context)
                 self._is_immediately_after_writing = True
                 self.interval0 = time.time()  # last
         elif self.interval_mode == "step":
             self.interval0 += 1
             if self.interval0 >= self.interval:
                 self._write_trainer_log(context, state)
-                self._write_system(context)
+                self._write_system("trainer_system", context)
                 self._is_immediately_after_writing = True
                 self.interval0 = 0
         else:

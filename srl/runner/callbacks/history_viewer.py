@@ -112,13 +112,13 @@ class HistoryViewer:
             lines = _load_log_file(os.path.join(save_dir, f"actor{i}.txt"))
             self.logs.extend(lines)
 
+            lines = _load_log_file(os.path.join(save_dir, f"actor{i}_system.txt"))
+            self.logs.extend(lines)
+
         lines = _load_log_file(os.path.join(save_dir, "trainer.txt"))
         self.logs.extend(lines)
 
-        lines = _load_log_file(os.path.join(save_dir, "system.txt"))
-        self.logs.extend(lines)
-
-        lines = _load_log_file(os.path.join(save_dir, "client.txt"))
+        lines = _load_log_file(os.path.join(save_dir, "trainer_system.txt"))
         self.logs.extend(lines)
 
         # sort

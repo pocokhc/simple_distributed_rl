@@ -89,4 +89,5 @@ def load_or_build_module(module_name: str, force_build: bool = False) -> ModuleT
 
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    sys.modules[module_name_cpp] = module
     return module

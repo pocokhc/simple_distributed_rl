@@ -63,6 +63,10 @@ class BoxSpace(SpaceBase[np.ndarray]):
     def high(self):
         return self._high
 
+    @property
+    def flatten_size(self) -> int:
+        return int(np.prod(self._shape))
+
     def rescale_from(self, x: np.ndarray, src_low: float, src_high: float) -> np.ndarray:
         assert src_low < src_high
         assert not self._is_inf

@@ -26,7 +26,7 @@ def main_dqn():
     rl_config = dqn.Config(
         lr=0.001,
         target_model_update_interval=1000,
-        memory=dqn.ReplayBufferConfig(
+        memory=dqn.PriorityReplayBufferConfig(
             capacity=10_000,
             warmup_size=1000,
             compress=False,

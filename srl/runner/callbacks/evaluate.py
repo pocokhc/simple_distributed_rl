@@ -1,12 +1,16 @@
 import logging
 import traceback
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from srl.base.context import RunContext, RunState
 from srl.base.define import PlayersType
 from srl.base.rl.parameter import RLParameter
+
+if TYPE_CHECKING:
+    from srl.runner.runner import Runner
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +53,7 @@ class Evaluate:
 
     def create_eval_runner_if_not_exists(self, context: RunContext, state: RunState):
         if "eval_runner" not in state.shared_vars:
-            runner = self.create_eval_runner(context)
-            runner.state.parameter = state.parameter
-            state.shared_vars["eval_runner"] = runner
+            state.shared_vars["eval_runner"] = self.create_eval_runner(context)
         return state.shared_vars["eval_runner"]
 
     def run_eval_with_state(self, context: RunContext, state: RunState):
@@ -59,17 +61,19 @@ class Evaluate:
             return None
         try:
             runner = self.create_eval_runner_if_not_exists(context, state)
+            assert state.parameter is not None
+            runner.parameter.restore(state.parameter.backup())
             runner.core_play()
             return np.mean(runner.state.episode_rewards_list, axis=0)
         except Exception:
             logger.error(traceback.format_exc())
         return None
 
-    def run_eval(self, runner, parameter: RLParameter):
+    def run_eval(self, runner: "Runner", parameter: RLParameter):
         if not self.enable_eval:
             return None
         try:
-            runner.state.parameter = parameter
+            runner.parameter.restore(parameter.backup())
             runner.core_play()
             return np.mean(runner.state.episode_rewards_list, axis=0)
         except Exception:

@@ -34,6 +34,11 @@ __g_loaded_force_build = False
 
 def load_or_build_module(module_name: str, force_build: bool = False) -> ModuleType:
     module_name_cpp = f"{module_name}_cpp"
+
+    # 既にloadされていたらskip
+    if module_name_cpp in sys.modules:
+        return sys.modules[module_name_cpp]
+
     module_path = _find_module_path(module_name_cpp)
     if (module_path is not None) and force_build:
         global __g_loaded_force_build

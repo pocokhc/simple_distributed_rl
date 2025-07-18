@@ -42,6 +42,7 @@
 1. [base.env.gym_wrapper] fix: initがなかったので追加
 1. [runner.mlfow] fix: load_parameter_from_mlflowでfilesが0の場合の例外処理を追加
 1. [rl.torch.helper] update: model_backupをより安全に処理するように修正
+1. [rl.memories.cpp] fix: 多重ロードをしないように修正
 
 
 # v1.3.4

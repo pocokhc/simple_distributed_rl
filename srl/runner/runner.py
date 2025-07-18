@@ -40,6 +40,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self._apply_history(callbacks)
         self.apply_mlflow(callbacks)
 
+        self.setup_process()
         play(
             self.context,
             self.state,
@@ -305,6 +306,9 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self._apply_history(callbacks)
         self.apply_mlflow(callbacks)
 
+        if not self.rl_config.is_setup():
+            self.rl_config.setup(self.make_env())
+
         # ---
         if self.rl_config.get_framework() == "tensorflow":
             os.environ["SRL_TF_GPU_INITIALIZE_DEVICES"] = "1"
@@ -523,6 +527,9 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         if enable_progress:
             self.apply_progress(callbacks_run, enable_eval=False)
 
+        if not self.rl_config.is_setup():
+            self.rl_config.setup(self.make_env())
+
         from srl.runner.distribution.task_manager import TaskConfig, TaskManager
 
         task_manager = TaskManager(redis_params, "client")
@@ -598,6 +605,9 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
 
         if enable_progress:
             self.apply_progress(callbacks, enable_eval=False)
+
+        if not self.rl_config.is_setup():
+            self.rl_config.setup(self.make_env())
 
         from srl.runner.distribution.task_manager import TaskConfig, TaskManager
 

@@ -8,6 +8,7 @@ from tests.algorithms_ import (
     base_dreamer_v3,
     base_go_dqn,
     base_go_explore,
+    base_godq_v1,
     base_muzero,
     base_planet,
     base_ppo,
@@ -38,4 +39,8 @@ class Test_dqn(_CommonOption, base_dqn.LongCase):
 
 
 class Test_rainbow(_CommonOption, base_rainbow.LongCase):
+    pass
+
+
+class Test_godq_v1(_CommonOption, base_godq_v1.LongCase):
     pass

@@ -38,7 +38,7 @@ def test_processor():
 
 
 def test_calc_action_values():
-    env = cast(grid.Grid, srl.make_env("Grid").unwrapped)
+    env = grid.Grid()
 
     V = env.calc_state_values()
     Q = env.calc_action_values()

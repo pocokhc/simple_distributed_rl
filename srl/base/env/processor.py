@@ -22,7 +22,7 @@ class EnvProcessor(ABC):
 
     # --- 実装されている場合に実行
     # def remap_reset(self, **kwargs) -> None:
-    #    return state
+    #    pass
 
     # def remap_action(self, action, prev_space: SpaceBase, new_space: SpaceBase, **kwargs):
     #    return action

@@ -12,6 +12,7 @@ from multiprocessing import sharedctypes
 from typing import Any, Callable, List, Optional, cast
 
 from srl.base.context import RunContext, RunState
+from srl.base.exception import SRLError
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.run import core_play, core_train_only
@@ -745,26 +746,29 @@ def train(mp_cfg: MpConfig, parameter_dat: Optional[Any] = None, memory_dat: Opt
                 if end_signal.value:
                     break
 
-            # --- parameter
+            # --- last parameter
             dat = remote_board.value
-            if dat is not None:
-                _, parameter_dat = pickle.loads(dat)
+            if dat is None:
+                raise SRLError("Failed to get post-training parameters.")
+            _, parameter_dat = pickle.loads(dat)
             try:
                 if context.rl_config.use_update_parameter_from_worker():
                     work_params_dat = last_worker_param_queue.get(timeout=60 * 30)
-                    logger.info("actor0 parameter recved.")
-                    # tf/torchがimportされる可能性あり
-                    trainer_parameter = context.rl_config.make_parameter()
-                    trainer_parameter.restore(parameter_dat, from_serialized=True)
-                    worker_parameter = context.rl_config.make_parameter()
-                    worker_parameter.restore(work_params_dat, from_serialized=True, from_worker=True)
-                    trainer_parameter.update_from_worker_parameter(worker_parameter)
-                    parameter_dat = trainer_parameter.backup(serialized=False)
+                    if work_params_dat is not None:
+                        logger.info("actor0 parameter recved.")
+                        # tf/torchがimportされる可能性あり
+                        trainer_parameter = context.rl_config.make_parameter()
+                        if parameter_dat is not None:
+                            trainer_parameter.restore(parameter_dat, from_serialized=True)
+                        worker_parameter = context.rl_config.make_parameter()
+                        worker_parameter.restore(work_params_dat, from_serialized=True, from_worker=True)
+                        trainer_parameter.update_from_worker_parameter(worker_parameter)
+                        parameter_dat = trainer_parameter.backup(serialized=False)
             except Exception:
                 logger.info(traceback.format_exc())
                 logger.error("Failed to receive parameter data.")
 
-            # --- memory
+            # --- last memory
             try:
                 if mp_cfg.return_memory_data:
                     logger.info("memory data wait...")

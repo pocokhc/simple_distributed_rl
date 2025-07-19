@@ -53,8 +53,6 @@ class Config(RLConfig):
     discount: float = -1  # -1 is auto. 0.999
     target_model_update_rate: float = 0.01
     init_target_q_zero: bool = True
-    q_penalty_rate: float = 0  # 0.01
-    reward_penalty: float = -0.01
 
     # --- model/train
     base_units: int = 512

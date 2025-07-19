@@ -116,8 +116,6 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             priority = abs(target_q - select_q)
         else:
             priority = None
-        if reward == 0:
-            reward = self.config.reward_penalty
         self.memory.add_q(
             [
                 worker.state,

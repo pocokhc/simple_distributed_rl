@@ -1,4 +1,5 @@
 import logging
+import math
 import random
 from typing import Any, List
 
@@ -104,6 +105,9 @@ class ContinuousSpace(SpaceBase[float]):
 
     def copy_value(self, v: float) -> float:
         return v
+
+    def equal_val(self, v1: float, v2: float, rel_tol=1e-9, abs_tol=1e-12) -> bool:
+        return math.isclose(v1, v2, rel_tol=rel_tol, abs_tol=abs_tol)
 
     def __eq__(self, o: "ContinuousSpace") -> bool:
         if not isinstance(o, ContinuousSpace):

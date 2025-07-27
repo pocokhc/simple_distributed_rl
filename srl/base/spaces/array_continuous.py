@@ -1,4 +1,5 @@
 import logging
+import math
 import random
 import time
 from typing import Any, List, Tuple, Union
@@ -131,6 +132,11 @@ class ArrayContinuousSpace(SpaceBase[List[float]]):
 
     def copy_value(self, v: List[float]) -> List[float]:
         return v[:]
+
+    def equal_val(self, v1: List[float], v2: List[float], rel_tol=1e-9, abs_tol=1e-12) -> bool:
+        if len(v1) != len(v2):
+            return False
+        return all(math.isclose(a, b, rel_tol=rel_tol, abs_tol=abs_tol) for a, b in zip(v1, v2))
 
     def __eq__(self, o: "ArrayContinuousSpace") -> bool:
         if not isinstance(o, ArrayContinuousSpace):

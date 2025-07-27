@@ -110,6 +110,9 @@ class TextSpace(SpaceBase[str]):
     def copy_value(self, v: str) -> str:
         return v
 
+    def equal_val(self, v1: str, v2: str) -> bool:
+        return v1 == v2
+
     def __eq__(self, o: "TextSpace") -> bool:
         if not isinstance(o, TextSpace):
             return False

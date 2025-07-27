@@ -195,6 +195,13 @@ class BoxSpace(SpaceBase[np.ndarray]):
     def copy_value(self, v: np.ndarray) -> np.ndarray:
         return v.copy()
 
+    def equal_val(self, v1: np.ndarray, v2: np.ndarray, rtol=1e-9, atol=1e-12) -> bool:
+        if v1.shape != v2.shape:
+            return False
+        if np.issubdtype(v1.dtype, np.floating) or np.issubdtype(v2.dtype, np.floating):
+            return np.allclose(v1, v2, rtol=rtol, atol=atol)
+        return np.array_equal(v1, v2)
+
     def __eq__(self, o: "BoxSpace") -> bool:
         if not isinstance(o, BoxSpace):
             return False

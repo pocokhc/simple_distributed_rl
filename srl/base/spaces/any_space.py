@@ -33,6 +33,9 @@ class AnySpace(SpaceBase[Any]):
     def copy_value(self, val: Any) -> Any:
         raise NotSupportedError()
 
+    def equal_val(self, v1: Any, v2: Any) -> bool:
+        return v1 == v2
+
     def __eq__(self, o: "AnySpace") -> bool:
         return isinstance(o, AnySpace)
 

@@ -87,13 +87,13 @@ class EnvConfig:
     display_name: str = ""
 
     def __post_init__(self):
-        self._name: Optional[str] = None
+        self.__name: Optional[str] = None
 
     @property
     def name(self) -> str:
-        if self._name is None:
+        if self.__name is None:
             if self.display_name != "":
-                self._name = self.display_name
+                self.__name = self.display_name
             else:
                 from srl.base.env.registration import make_base
 
@@ -104,8 +104,8 @@ class EnvConfig:
                     env.close()
                 except Exception:
                     logger.error(traceback.format_exc())
-                assert self._name is not None
-        return self._name
+                assert self.__name is not None
+        return self.__name
 
     def make(self) -> "EnvRun":
         """環境を生成します。 make_env(env_config) と同じ動作です。"""
@@ -119,7 +119,7 @@ class EnvConfig:
 
     def copy(self) -> "EnvConfig":
         config = EnvConfig(self.id)
-        config._name = self._name
+        config.__name = self.__name
         for k, v in self.__dict__.items():
             if v is None:
                 continue

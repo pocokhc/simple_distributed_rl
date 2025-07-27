@@ -571,7 +571,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         if self.enable_assertion:
             assert self.__rl_act_space.check_val(rl_act)
         elif self.enable_sanitize:
-            self.__action = self.__rl_act_space.sanitize(rl_act)
+            rl_act = self.__rl_act_space.sanitize(rl_act)
 
         return rl_act
 
@@ -581,7 +581,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         if self.enable_assertion:
             assert self.__rl_act_space.check_val(rl_action), f"{rl_action=}"
         elif self.enable_sanitize:
-            self._action = self.__rl_act_space.sanitize(rl_action)
+            rl_action = self.__rl_act_space.sanitize(rl_action)
 
         if self.enable_action_decode:
             env_act = self.__env_act_space.decode_from_space(rl_action, self.__rl_act_space)

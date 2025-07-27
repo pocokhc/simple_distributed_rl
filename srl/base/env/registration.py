@@ -1,12 +1,12 @@
 import logging
 from typing import TYPE_CHECKING, Dict, Optional, Union
 
-from srl.base.env.base import EnvBase
 from srl.base.env.config import EnvConfig
 from srl.base.exception import UndefinedError
 from srl.utils.common import is_package_installed, load_module
 
 if TYPE_CHECKING:
+    from srl.base.env.base import EnvBase
     from srl.base.env.env_run import EnvRun
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 _registry = {}
 
 
-def make_base(config: Union[str, EnvConfig], env_run: Optional["EnvRun"] = None) -> EnvBase:
+def make_base(config: Union[str, EnvConfig], env_run: Optional["EnvRun"] = None) -> "EnvBase":
     if isinstance(config, str):
         config = EnvConfig(config)
 
@@ -48,7 +48,7 @@ def make_base(config: Union[str, EnvConfig], env_run: Optional["EnvRun"] = None)
         elif env_id == "Tiger":
             import srl.envs.tiger  # noqa F401
 
-    env = None
+    env: Optional["EnvBase"] = None
 
     # --- load register
     if env_id in _registry:
@@ -97,15 +97,7 @@ def make_base(config: Union[str, EnvConfig], env_run: Optional["EnvRun"] = None)
         raise UndefinedError(f"'{env_id}' is not found.")
 
     # --- name update
-    if config._name is None:
-        if config.display_name != "":
-            config._name = config.display_name
-        else:
-            name = env.get_display_name()
-            if name != "":
-                config._name = name
-            else:
-                config._name = config.id
+    config.set_name(env)
 
     logger.debug(f"make: {env.__class__}(id:{id(env)})")
     if env_run is not None:

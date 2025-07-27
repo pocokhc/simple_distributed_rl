@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     import gym
     import gymnasium
 
+    from srl.base.env.base import EnvBase
     from srl.base.env.env_run import EnvRun
     from srl.base.env.gym_user_wrapper import GymUserWrapper
 
@@ -106,6 +107,18 @@ class EnvConfig:
                     logger.error(traceback.format_exc())
                 assert self.__name is not None
         return self.__name
+
+    def set_name(self, env: "EnvBase"):
+        if self.__name is not None:
+            return
+        if self.display_name != "":
+            self.__name = self.display_name
+        else:
+            name = env.get_display_name()
+            if name != "":
+                self.__name = name
+            else:
+                self.__name = self.id
 
     def make(self) -> "EnvRun":
         """環境を生成します。 make_env(env_config) と同じ動作です。"""

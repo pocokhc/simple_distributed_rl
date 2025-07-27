@@ -11,6 +11,9 @@ _*.*
 !__init__.py
 _*/
 
+# --- hydra
+outputs/
+
 # --- mlflow
 mlruns/
 mlruns.db

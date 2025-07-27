@@ -127,6 +127,14 @@ class MultiSpace(SpaceBase[list]):
     def copy_value(self, val: list) -> list:
         return [s.copy_value(v) for v, s in zip(val, self.spaces)]
 
+    def equal_val(self, v1: list, v2: list) -> bool:
+        if len(v1) != len(v2):
+            return False
+        for s, a, b in zip(self.spaces, v1, v2):
+            if not s.equal_val(a, b):
+                return False
+        return True
+
     def __eq__(self, o: "MultiSpace") -> bool:
         if not isinstance(o, MultiSpace):
             return False

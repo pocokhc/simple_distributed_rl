@@ -137,6 +137,9 @@ class ArrayDiscreteSpace(SpaceBase[List[int]]):
     def copy_value(self, v: List[int]) -> List[int]:
         return v[:]
 
+    def equal_val(self, v1: List[int], v2: List[int]) -> bool:
+        return v1 == v2
+
     def __eq__(self, o: "ArrayDiscreteSpace") -> bool:
         if not isinstance(o, ArrayDiscreteSpace):
             return False

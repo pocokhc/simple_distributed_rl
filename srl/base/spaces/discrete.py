@@ -92,6 +92,9 @@ class DiscreteSpace(SpaceBase[int]):
     def copy_value(self, v: int) -> int:
         return v
 
+    def equal_val(self, v1: int, v2: int) -> bool:
+        return v1 == v2
+
     def __eq__(self, o: "DiscreteSpace") -> bool:
         if not isinstance(o, DiscreteSpace):
             return False

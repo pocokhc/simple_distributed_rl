@@ -78,6 +78,10 @@ class SpaceBase(ABC, Generic[_T]):
         raise NotImplementedError()
 
     @abstractmethod
+    def equal_val(self, v1: _T, v2: _T) -> bool:
+        raise NotImplementedError()
+
+    @abstractmethod
     def __eq__(self, __o: "SpaceBase") -> bool:
         raise NotImplementedError()
 

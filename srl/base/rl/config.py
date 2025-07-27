@@ -97,24 +97,24 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     dtype: str = "float32"
 
     def __post_init__(self) -> None:
-        self._is_setup = False
+        self.__is_setup = False
 
         # The device used by the framework.
-        self._used_device_tf: str = "/CPU"
-        self._used_device_torch: str = "cpu"
+        self.__used_device_tf: str = "/CPU"
+        self.__used_device_torch: str = "cpu"
 
-        self._applied_processors: List[RLProcessor] = []
-        self._applied_render_img_processors: List[RLProcessor] = []
-        self._request_env_render: RenderModeType = ""
+        self.__applied_processors: List[RLProcessor] = []
+        self.__applied_render_img_processors: List[RLProcessor] = []
+        self.__request_env_render: RenderModeType = ""
 
-        self._changeable_parameter_names_base = [
+        self.__changeable_parameter_names_base = [
             "parameter_path",
             "memory_path",
             "enable_sanitize",
             "enable_assertion",
         ]
-        self._changeable_parameter_names: List[str] = []
-        self._check_parameter = True  # last
+        self.__changeable_parameter_names: List[str] = []
+        self.__check_parameter = True  # last
 
     def get_dtype(self, framework: Literal["np", "numpy", "torch", "tf", "tensorflow"]) -> Any:
         if framework in ["np", "numpy"]:
@@ -202,12 +202,12 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     # setup
     # ----------------------------
     def is_setup(self) -> bool:
-        return self._is_setup
+        return self.__is_setup
 
     def setup(self, env: EnvRun, enable_log: bool = True) -> None:
-        if self._is_setup:
+        if self.__is_setup:
             return
-        self._check_parameter = False
+        self.__check_parameter = False
         self.override_observation_type = RLBaseTypes.from_str(self.override_observation_type)
         self.override_action_type = RLBaseTypes.from_str(self.override_action_type)
 
@@ -251,11 +251,11 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             env.reset()
             rgb_array = env.render_rgb_array()
             if rgb_array is not None:
-                self._request_env_render = "rgb_array"
+                self.__request_env_render = "rgb_array"
             else:
                 rgb_array = env.render_terminal_text_to_image()
                 if rgb_array is not None:
-                    self._request_env_render = "terminal"
+                    self.__request_env_render = "terminal"
                 else:
                     raise NotSupportedError("Failed to get image.")
             env_obs_space = BoxSpace(rgb_array.shape, 0, 255, np.uint8, SpaceTypes.COLOR)
@@ -263,20 +263,20 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             raise UndefinedError(self.observation_mode)
 
         # --- apply processors
-        self._applied_processors = []
-        self._applied_render_img_processors = []
-        self._applied_remap_obs_processors: List[Tuple[Any, SpaceBase, SpaceBase]] = []
-        self._applied_remap_render_img_processors: List[Tuple[Any, SpaceBase, SpaceBase]] = []
+        self.__applied_processors = []
+        self.__applied_render_img_processors = []
+        self.__applied_remap_obs_processors: List[Tuple[Any, SpaceBase, SpaceBase]] = []
+        self.__applied_remap_render_img_processors: List[Tuple[Any, SpaceBase, SpaceBase]] = []
         if self.enable_state_encode:
             # applied_processors list
             p_list: List[RLProcessor] = []
             if self.enable_rl_processors:
                 p_list += self.get_processors(env_obs_space)  # algorithm processers
             p_list += self.processors  # user processors
-            self._applied_processors = [p.copy() for p in p_list]
+            self.__applied_processors = [p.copy() for p in p_list]
 
             # remap
-            for p in self._applied_processors:
+            for p in self.__applied_processors:
                 prev_space = env_obs_space
                 new_space = p.remap_observation_space(env_obs_space, env_run=env, rl_config=self)
                 if new_space is not None:
@@ -286,24 +286,24 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                         logger.info(f"   {prev_space}")
                         logger.info(f" ->{env_obs_space}")
                     if hasattr(p, "remap_observation"):
-                        self._applied_remap_obs_processors.append((p, prev_space, env_obs_space))
+                        self.__applied_remap_obs_processors.append((p, prev_space, env_obs_space))
 
         # one step はここで確定
-        self._env_obs_space_in_rl: SpaceBase = env_obs_space
+        self.__env_obs_space_in_rl: SpaceBase = env_obs_space
 
         # --- obs type & space
-        self._rl_obs_space_one_step, self._rl_obs_type = self._get_rl_space(
+        self.__rl_obs_space_one_step, self.__rl_obs_type = self._get_rl_space(
             required_type=self.get_base_observation_type(),
             override_type=self.override_observation_type,
-            env_space=self._env_obs_space_in_rl,
+            env_space=self.__env_obs_space_in_rl,
             division_num=self.observation_division_num,
         )
 
         # --- window_length
         if self.window_length > 1:
-            self._rl_obs_space = self._rl_obs_space_one_step.create_stack_space(self.window_length)
+            self.__rl_obs_space = self.__rl_obs_space_one_step.create_stack_space(self.window_length)
         else:
-            self._rl_obs_space = self._rl_obs_space_one_step
+            self.__rl_obs_space = self.__rl_obs_space_one_step
 
         # --- include render image
         if self.use_render_image_state():
@@ -311,51 +311,51 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             env.reset()
             rgb_array = env.render_rgb_array()
             if rgb_array is not None:
-                self._request_env_render = "rgb_array"
+                self.__request_env_render = "rgb_array"
             else:
                 rgb_array = env.render_terminal_text_to_image()
                 if rgb_array is not None:
-                    self._request_env_render = "terminal"
+                    self.__request_env_render = "terminal"
                 else:
                     raise NotSupportedError("Failed to get image.")
-            self._rl_obs_render_img_space_one_step: BoxSpace = BoxSpace(rgb_array.shape, 0, 255, np.uint8, SpaceTypes.COLOR)
+            self.__rl_obs_render_img_space_one_step: BoxSpace = BoxSpace(rgb_array.shape, 0, 255, np.uint8, SpaceTypes.COLOR)
 
             if self.enable_state_encode and self.enable_rl_processors:
                 # applied_processors list
-                self._applied_render_img_processors = [p.copy() for p in self.get_render_image_processors(self._rl_obs_render_img_space_one_step)]
+                self.__applied_render_img_processors = [p.copy() for p in self.get_render_image_processors(self.__rl_obs_render_img_space_one_step)]
 
                 # remap
-                for p in self._applied_render_img_processors:
-                    prev_space = self._rl_obs_render_img_space_one_step
+                for p in self.__applied_render_img_processors:
+                    prev_space = self.__rl_obs_render_img_space_one_step
                     new_space = p.remap_observation_space(prev_space, env_run=env, rl_config=self)
                     if new_space is not None:
-                        self._rl_obs_render_img_space_one_step = cast(BoxSpace, new_space)
-                        if enable_log and (prev_space != self._rl_obs_render_img_space_one_step):
+                        self.__rl_obs_render_img_space_one_step = cast(BoxSpace, new_space)
+                        if enable_log and (prev_space != self.__rl_obs_render_img_space_one_step):
                             logger.info(f"apply img obs processor: {repr(p)}")
                             logger.info(f"   {prev_space}")
-                            logger.info(f" ->{self._rl_obs_render_img_space_one_step}")
-                        if not isinstance(self._rl_obs_render_img_space_one_step, BoxSpace):
-                            logger.warning(f"render_image assumes BoxSpace. {self._rl_obs_render_img_space_one_step=}")
+                            logger.info(f" ->{self.__rl_obs_render_img_space_one_step}")
+                        if not isinstance(self.__rl_obs_render_img_space_one_step, BoxSpace):
+                            logger.warning(f"render_image assumes BoxSpace. {self.__rl_obs_render_img_space_one_step=}")
                         if hasattr(p, "remap_observation"):
-                            self._applied_remap_render_img_processors.append((p, prev_space, self._rl_obs_render_img_space_one_step))
+                            self.__applied_remap_render_img_processors.append((p, prev_space, self.__rl_obs_render_img_space_one_step))
 
             if self.render_image_window_length > 1:
-                self._rl_obs_render_img_space = self._rl_obs_render_img_space_one_step.create_stack_space(self.render_image_window_length)
+                self.__rl_obs_render_img_space = self.__rl_obs_render_img_space_one_step.create_stack_space(self.render_image_window_length)
             else:
-                self._rl_obs_render_img_space = self._rl_obs_render_img_space_one_step
+                self.__rl_obs_render_img_space = self.__rl_obs_render_img_space_one_step
 
         # -----------------------
         # action space, 2種類、特に前処理とかはないのでそのままenvと同じになる
         # 1. env space(original)
         # 2. rl action space
         # -----------------------
-        self._env_act_space = env.action_space.copy()
+        self.__env_act_space = env.action_space.copy()
 
         # --- act type & space
-        self._rl_act_space, self._rl_act_type = self._get_rl_space(
+        self.__rl_act_space, self.__rl_act_type = self._get_rl_space(
             required_type=self.get_base_action_type(),
             override_type=self.override_action_type,
-            env_space=self._env_act_space,
+            env_space=self.__env_act_space,
             division_num=self.action_division_num,
         )
 
@@ -363,9 +363,9 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
         # --- override_env_render_mode
         if self.override_env_render_mode() != "":
-            if self._request_env_render != "":
-                logger.warning(f"'request_env_render' has been overridden: {self._request_env_render} -> {self.override_env_render_mode()}")
-            self._request_env_render = self.override_env_render_mode()
+            if self.__request_env_render != "":
+                logger.warning(f"'request_env_render' has been overridden: {self.__request_env_render} -> {self.override_env_render_mode()}")
+            self.__request_env_render = self.override_env_render_mode()
 
         # --- validate
         self.validate_params()
@@ -378,31 +378,31 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         self.setup_from_env(env)
 
         # --- changeable parameters
-        self._changeable_parameter_names = self._changeable_parameter_names_base[:]
-        self._changeable_parameter_names.extend(self.get_changeable_parameters())
+        self.__changeable_parameter_names = self.__changeable_parameter_names_base[:]
+        self.__changeable_parameter_names.extend(self.get_changeable_parameters())
 
         # --- log
-        self._check_parameter = True
-        self._is_setup = True
+        self.__check_parameter = True
+        self.__is_setup = True
         if enable_log:
             logger.info(f"--- {env.config.name}, {self.get_name()}")
             logger.info(f"max_episode_steps      : {env.max_episode_steps}")
             logger.info(f"player_num             : {env.player_num}")
             logger.info(f"request_env_render_mode: {self.request_env_render}")
-            logger.info(f"action_space (RL requires '{self._rl_act_type}')")
+            logger.info(f"action_space (RL requires '{self.__rl_act_type}')")
             logger.info(f" original: {env.action_space}")
-            logger.info(f" env     : {self._env_act_space}")
-            logger.info(f" rl      : {self._rl_act_space}")
-            logger.info(f"observation_space (RL requires '{self._rl_obs_type}')")
+            logger.info(f" env     : {self.__env_act_space}")
+            logger.info(f" rl      : {self.__rl_act_space}")
+            logger.info(f"observation_space (RL requires '{self.__rl_obs_type}')")
             logger.info(f" original    : {env.observation_space}")
-            logger.info(f" env         : {self._env_obs_space_in_rl}")
+            logger.info(f" env         : {self.__env_obs_space_in_rl}")
             if self.window_length > 1:
-                logger.info(f" rl(one_step): {self._rl_obs_space_one_step}")
-            logger.info(f" rl          : {self._rl_obs_space}")
+                logger.info(f" rl(one_step): {self.__rl_obs_space_one_step}")
+            logger.info(f" rl          : {self.__rl_obs_space}")
             if self.use_render_image_state():
                 if self.render_image_window_length > 1:
-                    logger.info(f" render_img(one_step): {self._rl_obs_render_img_space_one_step}")
-                logger.info(f" render_img  : {self._rl_obs_render_img_space}")
+                    logger.info(f" render_img(one_step): {self.__rl_obs_render_img_space_one_step}")
+                logger.info(f" render_img  : {self.__rl_obs_render_img_space}")
 
     def _get_rl_space(self, required_type: RLBaseTypes, override_type: RLBaseTypes, env_space: SpaceBase, division_num: int):
         # 優先度
@@ -436,54 +436,54 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
     # --- setup property
     def get_applied_processors(self) -> List["RLProcessor"]:
-        return self._applied_processors
+        return self.__applied_processors
 
     def get_applied_render_image_processors(self) -> List["RLProcessor"]:
-        return self._applied_render_img_processors
+        return self.__applied_render_img_processors
 
     @property
     def request_env_render(self) -> RenderModeType:
-        return self._request_env_render
+        return self.__request_env_render
 
     @property
     def observation_type(self) -> RLBaseTypes:
-        return self._rl_obs_type
+        return self.__rl_obs_type
 
     @property
     def observation_space_one_step(self) -> TObsSpace:
         # window length==1の時のspaceを返す
-        return cast(TObsSpace, self._rl_obs_space_one_step)
+        return cast(TObsSpace, self.__rl_obs_space_one_step)
 
     @property
     def observation_space(self) -> TObsSpace:
-        return cast(TObsSpace, self._rl_obs_space)
+        return cast(TObsSpace, self.__rl_obs_space)
 
     @property
     def observation_space_of_env(self) -> SpaceBase:
-        return self._env_obs_space_in_rl
+        return self.__env_obs_space_in_rl
 
     @property
     def obs_render_img_space_one_step(self) -> BoxSpace:
-        return self._rl_obs_render_img_space_one_step
+        return self.__rl_obs_render_img_space_one_step
 
     @property
     def obs_render_img_space(self) -> BoxSpace:
-        return self._rl_obs_render_img_space
+        return self.__rl_obs_render_img_space
 
     @property
     def action_type(self) -> RLBaseTypes:
-        return self._rl_act_type
+        return self.__rl_act_type
 
     @property
     def action_space(self) -> TActSpace:
-        return cast(TActSpace, self._rl_act_space)
+        return cast(TActSpace, self.__rl_act_space)
 
     @property
     def action_space_of_env(self) -> SpaceBase:
-        return self._env_act_space
+        return self.__env_act_space
 
     def __setattr__(self, name: str, value):
-        if name in ["_is_setup"]:
+        if name in ["__is_setup"]:
             object.__setattr__(self, name, value)
             return
 
@@ -503,88 +503,88 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     # encode/decode
     # ----------------------------
     def state_encode_one_step(self, env_state: EnvObservationType, env: EnvRun) -> RLObservationType:
-        assert self._is_setup
+        assert self.__is_setup
 
         # --- observation_mode
         if self.observation_mode == "":
             pass
         elif self.observation_mode == "render_image":
-            if self._request_env_render == "rgb_array":
+            if self.__request_env_render == "rgb_array":
                 env_state = cast(EnvObservationType, env.render_rgb_array())
-            elif self._request_env_render == "terminal":
+            elif self.__request_env_render == "terminal":
                 env_state = cast(EnvObservationType, env.render_terminal_text_to_image())
             else:
-                raise NotSupportedError(self._request_env_render)
+                raise NotSupportedError(self.__request_env_render)
         else:
             raise UndefinedError(self.observation_mode)
 
         if self.enable_state_encode:
-            for p in self._applied_remap_obs_processors:
+            for p in self.__applied_remap_obs_processors:
                 env_state = p[0].remap_observation(env_state, p[1], p[2], env_run=env, rl_config=self)
 
-            rl_state: RLObservationType = self._env_obs_space_in_rl.encode_to_space(
+            rl_state: RLObservationType = self.__env_obs_space_in_rl.encode_to_space(
                 env_state,
-                self._rl_obs_space_one_step,
+                self.__rl_obs_space_one_step,
             )
         else:
             rl_state = cast(RLObservationType, env_state)
 
         if self.enable_assertion:
-            assert self._rl_obs_space_one_step.check_val(rl_state)
+            assert self.__rl_obs_space_one_step.check_val(rl_state)
         elif self.enable_sanitize:
-            rl_state = self._rl_obs_space_one_step.sanitize(rl_state)
+            rl_state = self.__rl_obs_space_one_step.sanitize(rl_state)
 
         return rl_state
 
     def render_image_state_encode_one_step(self, env: EnvRun) -> np.ndarray:
-        assert self._is_setup
+        assert self.__is_setup
 
-        if self._request_env_render == "rgb_array":
+        if self.__request_env_render == "rgb_array":
             img_state = env.render_rgb_array()
-        elif self._request_env_render == "terminal":
+        elif self.__request_env_render == "terminal":
             img_state = env.render_terminal_text_to_image()
         else:
-            raise NotSupportedError(self._request_env_render)
+            raise NotSupportedError(self.__request_env_render)
 
         if self.enable_state_encode:
-            for p in self._applied_remap_render_img_processors:
+            for p in self.__applied_remap_render_img_processors:
                 img_state = p[0].remap_observation(img_state, p[1], p[2], env_run=env, rl_config=self)
 
         if self.enable_assertion:
-            assert self._rl_obs_render_img_space_one_step.check_val(img_state)
+            assert self.__rl_obs_render_img_space_one_step.check_val(img_state)
         elif self.enable_sanitize:
-            img_state = self._rl_obs_render_img_space_one_step.sanitize(img_state)
+            img_state = self.__rl_obs_render_img_space_one_step.sanitize(img_state)
 
         return cast(np.ndarray, img_state)
 
     def action_encode(self, env_action: EnvActionType) -> RLActionType:
-        assert self._is_setup
+        assert self.__is_setup
 
         if self.enable_action_decode:
-            rl_act = self._env_act_space.encode_to_space(
+            rl_act = self.__env_act_space.encode_to_space(
                 env_action,
-                self._rl_act_space,
+                self.__rl_act_space,
             )
         else:
             rl_act = cast(RLActionType, env_action)
 
         if self.enable_assertion:
-            assert self._rl_act_space.check_val(rl_act)
+            assert self.__rl_act_space.check_val(rl_act)
         elif self.enable_sanitize:
-            self._action = self._rl_act_space.sanitize(rl_act)
+            self.__action = self.__rl_act_space.sanitize(rl_act)
 
         return rl_act
 
     def action_decode(self, rl_action: RLActionType) -> EnvActionType:
-        assert self._is_setup
+        assert self.__is_setup
 
         if self.enable_assertion:
-            assert self._rl_act_space.check_val(rl_action), f"{rl_action=}"
+            assert self.__rl_act_space.check_val(rl_action), f"{rl_action=}"
         elif self.enable_sanitize:
-            self._action = self._rl_act_space.sanitize(rl_action)
+            self._action = self.__rl_act_space.sanitize(rl_action)
 
         if self.enable_action_decode:
-            env_act = self._env_act_space.decode_from_space(rl_action, self._rl_act_space)
+            env_act = self.__env_act_space.decode_from_space(rl_action, self.__rl_act_space)
         else:
             env_act = cast(EnvActionType, rl_action)
 
@@ -644,11 +644,11 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
     @property
     def used_device_tf(self) -> str:
-        return self._used_device_tf
+        return self.__used_device_tf
 
     @property
     def used_device_torch(self) -> str:
-        return self._used_device_torch
+        return self.__used_device_torch
 
     def to_dict(self, skip_private: bool = True) -> dict:
         d = {}
@@ -661,10 +661,10 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
     def copy(self, reset_env_config: bool = False) -> Any:
         config = self.__class__()
-        config._check_parameter = False
+        config.__check_parameter = False
 
         for k, v in self.__dict__.items():
-            if k == "_check_parameter":
+            if k == "__check_parameter":
                 continue
             if isinstance(v, EnvRun):
                 continue
@@ -674,9 +674,9 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                 logger.warning(f"'{k}' copy fail.({e})")
 
         if reset_env_config:
-            config._is_setup = False
+            config.__is_setup = False
         else:
-            config._is_setup = self._is_setup
+            config.__is_setup = self.__is_setup
         return config
 
     def get_metadata(self) -> dict:
@@ -688,9 +688,9 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             "changeable_parameters": self.get_changeable_parameters(),
             "use_backup_restore": self.use_backup_restore(),
             "use_render_image_state": self.use_render_image_state(),
-            "setup": self._is_setup,
+            "setup": self.__is_setup,
         }
-        if self._is_setup:
+        if self.__is_setup:
             d["applied_processors"] = self.get_applied_processors()
             d["applied_render_image_processors"] = self.get_applied_render_image_processors()
             d["request_env_render"] = self.request_env_render
@@ -701,7 +701,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         print("--- Algorithm settings ---\n" + pprint.pformat(self.get_metadata()))
 
     def model_summary(self, expand_nested: bool = True, **kwargs):
-        assert self._is_setup
+        assert self.__is_setup
         parameter = self.make_parameter()
         parameter.summary(expand_nested=expand_nested, **kwargs)
         return parameter

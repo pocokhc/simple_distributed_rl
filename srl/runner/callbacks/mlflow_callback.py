@@ -146,9 +146,9 @@ class MLFlowCallback(RunCallback, Evaluate):
                 self._log_eval(context, state)
                 self.t0_eval = time.time()  # last
 
-            if _time - self.t0_checkpoint > self.interval_checkpoint:
-                self._log_checkpoint(context, state)
-                self.t0_checkpoint = time.time()  # last
+        if _time - self.t0_checkpoint > self.interval_checkpoint:
+            self._log_checkpoint(context, state)
+            self.t0_checkpoint = time.time()  # last
 
         return False
 

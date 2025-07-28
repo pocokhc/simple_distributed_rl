@@ -30,7 +30,7 @@ def reset_model_params(
         param.data.copy_(base + noise)
 
 
-def small_model_params(params: Iterable[nn.Parameter], rate: float):
+def shrink_model_params(params: Iterable[nn.Parameter], rate: float):
     for param in params:
         param.data.copy_(rate * param.data)
 
@@ -45,34 +45,31 @@ class TorchTrainer:
         self.np_dtype = self.config.get_dtype("np")
 
         # --- reset params
-        enc_params = list(self.net.q_online.encoder.parameters())
-        self.head_params = enc_params[:1]
-        self.middle_params = enc_params[1:]
-        self.middle_params += list(self.net.q_online.hidden_block.parameters())
-        self.out_params = list(self.net.q_online.duel_block.parameters())
-        self.target_params = list(self.net.q_target.parameters())
+        self.shrink_params = []
 
         # --- q
         self.models = [self.net.q_online]
         self.loss_q_func = nn.HuberLoss(reduction="none")
+        enc_params = list(self.net.q_online.encoder.parameters())
+        self.shrink_params += enc_params[1:]
 
         # --- rnd
         if self.config.discount <= 0:
             self.net.rnd_train.train()
-            self.opt_rnd = optim.RAdam(self.net.rnd_train.parameters(), lr=self.config.lr / 4)
+            self.opt_rnd = optim.Adam(self.net.rnd_train.parameters(), lr=self.config.lr)
 
         if self.config.feat_type == "SimSiam":
             self.models.append(self.net.projector)
-            self.middle_params += list(self.net.projector.parameters())
+            self.shrink_params += list(self.net.projector.parameters())
             self.loss_feat_func = nn.HuberLoss()
         elif self.config.feat_type == "SPR":
             self.models.append(self.net.spr)
-            self.middle_params += list(self.net.spr.parameters())
+            self.shrink_params += list(self.net.spr.parameters())
             self.loss_feat_func = nn.HuberLoss()
 
         if self.config.enable_archive:
             self.models.append(self.net.latent_encoder)
-            self.middle_params += list(self.net.latent_encoder.parameters())
+            self.shrink_params += list(self.net.latent_encoder.parameters())
             self.loss_lat_func = nn.HuberLoss()
 
         self.params = list(chain(*[m.parameters() for m in self.models]))
@@ -82,7 +79,6 @@ class TorchTrainer:
             self.opt = optim.RAdam(self.params, lr=self.config.lr)
         [m.train() for m in self.models]
 
-        self.reset_head = 0
         self.reset_shrink = 0
 
     def train(self):
@@ -92,14 +88,8 @@ class TorchTrainer:
                 break
 
             # --- reset
-            if (self.config.reset_interval_head > 0) and (self.trainer.train_count % self.config.reset_interval_head == 1):
-                reset_model_params(self.head_params, 0.8, 0.1, stddev=0.1)
-                small_model_params(self.target_params, 0.9)
-                self.reset_head += 1
-                self.trainer.info["reset_head"] = self.reset_head
             if (self.config.reset_interval_shrink > 0) and (self.trainer.train_count % self.config.reset_interval_shrink == 1):
-                small_model_params(self.middle_params, 0.99)
-                small_model_params(self.out_params, 0.99)
+                shrink_model_params(self.shrink_params, (1 - self.config.lr))
                 self.reset_shrink += 1
                 self.trainer.info["reset_shrink"] = self.reset_shrink
 
@@ -153,8 +143,14 @@ class TorchTrainer:
         n_q_online = n_q_online.detach().cpu().numpy()
         n_q_target = n_q_target.detach().cpu().numpy()
         n_act_idx = np.argmax(n_q_online, axis=1)
-        n_maxq = n_q_target[np.arange(self.config.batch_size), n_act_idx]
-        target_q_np = reward + not_terminated * discount * n_maxq
+        if self.config.target_policy >= 1.0:
+            n_q = n_q_target[np.arange(self.config.batch_size), n_act_idx]
+        else:
+            num_act = self.config.action_space.n
+            w = np.full((self.config.batch_size, num_act), (1 - self.config.target_policy) / (num_act - 1), dtype=self.np_dtype)
+            w[np.arange(self.config.batch_size), n_act_idx] = self.config.target_policy
+            n_q = np.sum(n_q_target * w, axis=1)
+        target_q_np = reward + not_terminated * discount * n_q
         target_q = torch.tensor(target_q_np, dtype=self.torch_dtype, device=device)
 
         # --- q

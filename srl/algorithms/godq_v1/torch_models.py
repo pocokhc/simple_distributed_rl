@@ -12,7 +12,7 @@ class QNetwork(nn.Module):
     def __init__(self, config: Config, units: int, action_num: int, device):
         super().__init__()
 
-        self.encoder = create_encoder_block(config, device)
+        self.encoder = create_encoder_block(config)
         self.hidden_block = nn.Sequential(
             nn.LazyLinear(units),
             nn.SiLU(),

@@ -85,12 +85,13 @@ class Archive:
 
         # --- 一定間隔で更新
         if self.update_archive_count > self.update_archive_interval:
-            self.recalc_archive()
+            self.recalc_archive_oz()
+            self.recalc_archive_cell()
             # 閾値調整
             if len(self.archive_cell) > self.config.archive_max_size:
                 for i in range(100):
                     self.novelty_threshold += self.config.archive_novelty_threshold
-                    self.recalc_archive()
+                    self.recalc_archive_cell()
                     if len(self.archive_cell) < self.config.archive_max_size * 0.5:
                         break
                 self.update_archive_interval = 0
@@ -101,7 +102,7 @@ class Archive:
                     if len(self.archive_cell) > 10:
                         break
                     self.novelty_threshold /= 1.5
-                    self.recalc_archive()
+                    self.recalc_archive_cell()
                     self.update_archive_interval = 0
 
             worker.info["archive_novel"] = self.novelty_threshold
@@ -110,19 +111,19 @@ class Archive:
         self.update_archive_count += 1
 
         # --- 初期状態 check
-        rl_worker.oe, rl_worker.q = self.net.pred_q(worker.state[np.newaxis, ...])
-        rl_worker.q = rl_worker.q[0]
-        rl_worker.oz = self.net.encode_latent(rl_worker.oe)
-        start_oz = rl_worker.oz
-        self.add_archive(rl_worker.oz, worker.state, worker.state, worker)
+        if rl_worker.oe is None:
+            rl_worker.oe, rl_worker.q = self.net.pred_q(worker.state[np.newaxis, ...])
+            rl_worker.q = rl_worker.q[0]
+        start_oz = self.net.encode_latent(rl_worker.oe)
+        self.add_archive(start_oz, worker.state, worker.state, worker)
 
         # --- restore check
         if random.random() < self.config.archive_rate:
             cell = self._select_cell(start_oz)
             if cell is not None:
                 cell.select += 1
-                # step0はそのまま進める
-                if cell.step > 0:
+                # step0で初期状態が同じならそのまま進める
+                if (cell.step > 0) or (not self.config.observation_space.equal_val(worker.state, cell.state)):
                     self.episode_step = cell.step
                     self.episode_reward = cell.reward
                     self.start_state = cell.start_state
@@ -143,9 +144,8 @@ class Archive:
         sorted_indices = np.argsort(dists)
 
         # ランクベースでサンプリング
-        self.rankbase_alpha = 1
-        alpha = self.rankbase_alpha
-        size = len(self.archive_oz)
+        alpha = self.config.archive_rankbase_alpha
+        size = len(sorted_indices)
         total = size * (2 + (size - 1) * alpha) / 2
         r = random.random() * total
         inverse_r = (alpha - 2 + np.sqrt((2 - alpha) ** 2 + 8 * alpha * r)) / (2 * alpha)
@@ -232,7 +232,7 @@ class Archive:
                 return True
         return False
 
-    def recalc_archive(self):
+    def recalc_archive_oz(self):
         # 特徴を最新に更新
         states = np.stack([c.state for c in self.archive_cell])
         oe = self.net.encode_obs(states)
@@ -240,6 +240,7 @@ class Archive:
         for i in range(len(self.archive_cell)):
             self.archive_oz[i] = oz[i]
 
+    def recalc_archive_cell(self):
         # 近い状態同士はまとめる
         del_list = []
         for i in range(len(self.archive_oz) - 1):

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 
 import numpy as np
 import pytest
@@ -7,6 +7,7 @@ import srl
 from srl.base.define import SpaceTypes
 from srl.base.rl.config import DummyRLConfig
 from srl.utils import common
+from tests.utils import assert_equal
 
 """
 Spaceのテストはtest_worker_run
@@ -61,6 +62,17 @@ def test_processor():
 
     assert len(rl_config.get_applied_processors()) == 1
     assert isinstance(rl_config.get_applied_processors()[0], ImageProcessor)
+
+
+def test_save_load(tmpdir):
+    config = TestConfig()
+    path = str(tmpdir / "config.dat")
+    config.save(path)
+    config2 = TestConfig.load(path)
+
+    for f in fields(config):
+        print(f.name)
+        assert_equal(getattr(config, f.name), getattr(config2, f.name))
 
 
 def test_copy():

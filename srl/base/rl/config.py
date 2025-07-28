@@ -716,6 +716,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
     def copy(self, reset_env_config: bool = False) -> Any:
         config = self.__class__()
+        old_check_parameter = self.__check_parameter
         config.__check_parameter = False
 
         for k, v in self.__dict__.items():
@@ -728,6 +729,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             except TypeError as e:
                 logger.warning(f"'{k}' copy fail.({e})")
 
+        config.__check_parameter = old_check_parameter
         if reset_env_config:
             config.__is_setup = False
         else:

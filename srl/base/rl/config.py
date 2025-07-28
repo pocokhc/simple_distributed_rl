@@ -650,14 +650,61 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     def used_device_torch(self) -> str:
         return self.__used_device_torch
 
-    def to_dict(self, skip_private: bool = True) -> dict:
-        d = {}
-        for k, v in self.__dict__.items():
-            if skip_private and k.startswith("_"):
-                continue
-            d[k] = v
-        dat: dict = convert_for_json(d)
-        return dat
+    def update_from_dict(self, config_dict: dict):
+        """辞書のキーに応じて属性を更新する"""
+        update_dataclass_from_dict(self, config_dict)
+        return self
+
+    def to_dict(self, include_base_config: bool = False, include_metadata: bool = False) -> dict:
+        if include_metadata:
+            d = {}
+            for k, v in self.__dict__.items():
+                if True and k.startswith("_"):
+                    continue
+                d[k] = v
+            dat: dict = convert_for_json(d)
+            return dat
+        else:
+            if include_base_config:
+                exclude_names = []
+            else:
+                cfg = DummyRLConfig()
+                exclude_names = [f.name for f in fields(cfg)]
+            return dataclass_to_dict(self, exclude_names)
+
+    def save(self, path: str, include_base_config: bool = False):
+        dat = self.to_dict(include_base_config)
+        ext = os.path.splitext(path)[1].lower()
+
+        if ext in {".yaml", ".yml"}:
+            import yaml
+
+            with open(path, "w", encoding="utf-8") as f:
+                yaml.safe_dump(dat, f, allow_unicode=True)
+        else:
+            if ext != ".json":
+                logger.warning(f"Unknown extension '{ext}', saving as JSON: {path}")
+
+            import json
+
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(dat, f, indent=2, ensure_ascii=False)
+        return self
+
+    @classmethod
+    def load(cls, path: str):
+        ext = os.path.splitext(path)[1].lower()
+        if ext in {".yaml", ".yml"}:
+            import yaml
+
+            with open(path, "r", encoding="utf-8") as f:
+                dat = yaml.safe_load(f)
+        else:
+            import json
+
+            with open(path, "r", encoding="utf-8") as f:
+                dat = json.load(f)
+        return cls().update_from_dict(dat)
 
     def copy(self, reset_env_config: bool = False) -> Any:
         config = self.__class__()

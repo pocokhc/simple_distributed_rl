@@ -17,6 +17,33 @@
 // TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除  
 
 
+
+# v1.3.6
+
+・Configファイルへのsave/loadをとりあえず実装（本格的な利用に関しては次のverで予定）
+
+**MainUpdates**
+
+1. Config関係のファイルへのsave/loadの実装
+   - [utils.serialize] new: update_dataclass_from_dict/dataclass_to_dictを作成
+   - [base.rl.config] new: save/loadとuodate_from_dictを実装
+   - [base.env.config] new: save/loadとuodate_from_dictを実装
+
+**OtherUpdates**
+
+1. [base.spaces] add: 値を判定できるequal_val関数を追加
+1. [base.rl/env.config] update: private変数を"_"から"__"に変更（リファクタリング）
+1. [algorithms] update: godq_v1を更新
+
+**Bug Fixes**
+
+1. [base.rl.config] fix: enable_sanitize時のactionの戻り値先がおかしいのを修正
+1. [base.rl.config] update: checl_parameterの判定をdataclassで定義されている変数のみに限定
+1. [base.rl.config] fix: copy時にcheck_parameterも引き継ぐように修正
+1. [runner.callbacks.mlflow] fix: distribute時にcheckpointが働かなかったので修正
+1. [base.spaces.muilt] fix: BoxUnTyped時にdtypeが上手く変換されていなかったので修正
+
+
 # v1.3.5
 
 **MainUpdates**

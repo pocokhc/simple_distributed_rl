@@ -1,8 +1,9 @@
 import logging
+import os
 import pickle
 import pprint
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from typing import TYPE_CHECKING, Any, Generic, List, Literal, Optional, Tuple, Type, TypeVar, Union, cast
 
 import numpy as np
@@ -21,7 +22,7 @@ from srl.base.env.env_run import EnvRun
 from srl.base.exception import NotSupportedError, UndefinedError
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.space import SpaceBase, TActSpace, TObsSpace
-from srl.utils.serialize import convert_for_json
+from srl.utils.serialize import convert_for_json, dataclass_to_dict, update_dataclass_from_dict
 
 if TYPE_CHECKING:
     from srl.base.rl.algorithms.extend_worker import ExtendWorker
@@ -45,9 +46,9 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     #: 例えばgymの自動判定で想定外のTypeになった場合、ここで上書きできます。
     override_env_observation_type: SpaceTypes = SpaceTypes.UNKNOWN
     #: observation_type を上書きします。
-    override_observation_type: Union[str, RLBaseTypes] = RLBaseTypes.NONE
+    override_observation_type: Union[RLBaseTypes, str] = RLBaseTypes.NONE
     #: action_type を上書きします。
-    override_action_type: Union[str, RLBaseTypes] = RLBaseTypes.NONE
+    override_action_type: Union[RLBaseTypes, str] = RLBaseTypes.NONE
 
     #: 連続値から離散値に変換する場合の分割数です。-1の場合round変換で丸めます。
     action_division_num: int = 10

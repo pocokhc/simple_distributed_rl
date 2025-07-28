@@ -743,6 +743,9 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             d["request_env_render"] = self.request_env_render
         return d
 
+    def __str__(self) -> str:
+        return pprint.pformat(self.to_dict())
+
     def summary(self):
         print("--- RLConfig ---\n" + pprint.pformat(self.to_dict()))
         print("--- Algorithm settings ---\n" + pprint.pformat(self.get_metadata()))

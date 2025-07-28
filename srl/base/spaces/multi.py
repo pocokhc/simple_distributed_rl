@@ -430,24 +430,39 @@ class MultiSpace(SpaceBase[list]):
         box_spaces = [s.create_encode_space_BoxUnTyped() for s in self.spaces]
         self._is_box_untyped_spaces_same_shape = len(set([tuple(s.shape) for s in box_spaces])) == 1
 
+        # stype: DISCRETE -> CONTINUOUS
+        # dtype: np.uint -> np.int64 -> np.float32
         if self._is_box_untyped_spaces_same_shape:
             shape = (len(box_spaces),) + box_spaces[0].shape
             low = np.asarray([s.low for s in box_spaces])
             high = np.asarray([s.high for s in box_spaces])
-            return BoxSpace(shape, low, high, np.float32)
+            dtype = np.uint
+            stype = SpaceTypes.DISCRETE
+            for s in box_spaces:
+                if s.stype == SpaceTypes.CONTINUOUS:
+                    stype = SpaceTypes.CONTINUOUS
+                if "float" in str(s.dtype):
+                    dtype = s.dtype
+                elif ("float" not in str(dtype)) and ("uint" not in str(s.dtype)) and ("int" in str(s.dtype)):
+                    dtype = s.dtype
+            return BoxSpace(shape, low, high, dtype, stype)
         else:
             self._box_untyped_space_list = [s.create_encode_space_NpArrayUnTyped() for s in self.spaces]
             size = sum([s.size for s in self._box_untyped_space_list])
             low = []
             high = []
+            dtype = np.uint
             stype = SpaceTypes.DISCRETE
             for s in self._box_untyped_space_list:
                 low += s.low.tolist()
                 high += s.high.tolist()
                 if s.stype == SpaceTypes.CONTINUOUS:
                     stype = SpaceTypes.CONTINUOUS
-            dtype = np.int64 if stype == SpaceTypes.DISCRETE else np.float32
-            return BoxSpace((size,), low, high, dtype)
+                if "float" in str(s.dtype):
+                    dtype = s.dtype
+                elif ("float" not in str(dtype)) and ("uint" not in str(s.dtype)) and ("int" in str(s.dtype)):
+                    dtype = s.dtype
+            return BoxSpace((size,), low, high, dtype, stype)
 
     def encode_to_space_BoxUnTyped(self, val: list) -> np.ndarray:
         if getattr(self, "_is_box_untyped_spaces_same_shape", True):

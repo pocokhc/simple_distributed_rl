@@ -65,7 +65,7 @@ class MLFlowCallback(RunCallback, Evaluate):
 
         d = {"env/" + k: v for k, v in context.env_config.to_dict().items()}
         mlflow.log_params(d)
-        d = {"rl/" + k: v for k, v in context.rl_config.to_dict().items()}
+        d = {"rl/" + k: v for k, v in context.rl_config.to_dict(include_base_config=True).items()}
         mlflow.log_params(d)
         d = context.to_dict(include_env_config=False, include_rl_config=False)
         mlflow.log_params({"context/" + k: v for k, v in d.items()})

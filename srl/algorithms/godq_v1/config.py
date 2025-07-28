@@ -15,13 +15,18 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Config(RLConfig):
+    # --- policy
+    test_epsilon: float = 0
+    epsilon: float = 0.01
+
     # --- archive
     enable_archive: bool = True
-    archive_rate: float = 0.9
+    archive_rate: float = 0.8
     search_max_step: int = 200
     archive_min_num: int = 5
     archive_max_size: int = 100
     archive_novelty_threshold: float = 0.1
+    archive_rankbase_alpha: float = 1.0
 
     # --- latent
     latent_size: int = 8
@@ -39,17 +44,13 @@ class Config(RLConfig):
     used_discrete_block: bool = True
 
     # --- SPR
-    replay_ratio: int = 4
-    reset_interval_head: int = 5001
-    reset_interval_shrink: int = 50001
+    replay_ratio: int = 2
+    reset_interval_shrink: int = 5000
     select_model: Literal["online", "target"] = "target"
-
-    # --- q policy
-    test_epsilon: float = 0
-    epsilon: float = 0.05
 
     # --- q train
     enable_reward_symlog_scalar: bool = True
+    target_policy: float = 0.99
     discount: float = -1  # -1 is auto. 0.999
     target_model_update_rate: float = 0.01
     init_target_q_zero: bool = True

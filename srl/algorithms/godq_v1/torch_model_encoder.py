@@ -76,11 +76,11 @@ def R2D3ImageEncoder(units: int, out_units: int, space):
 
 
 class DiscreteEncoder(nn.Module):
-    def __init__(self, units: int, out_units: int, space: BoxSpace, device):
+    def __init__(self, units: int, out_units: int, space: BoxSpace):
         super().__init__()
 
-        # lowをGPUに移動
-        self.register_buffer("low", torch.tensor(space.low, dtype=torch.long, device=device))
+        low = torch.tensor(space.low, dtype=torch.long)
+        self.register_buffer("low", low.unsqueeze(0))
 
         emb_size = int(np.max(space.high - space.low))
         self.layers = nn.ModuleList(
@@ -88,7 +88,7 @@ class DiscreteEncoder(nn.Module):
                 nn.Embedding(emb_size, units),
                 nn.Flatten(),
                 nn.LazyLinear(out_units),
-                nn.LayerNorm(units),
+                nn.LayerNorm(out_units),
                 nn.SiLU(),
             ]
         )
@@ -114,20 +114,32 @@ def ContEncoder(units: int, out_units: int):
 # --------------------------------------
 
 
-def create_encoder_block(config: Config, device):
+def create_encoder_block(config: Config):
     units = config.base_units
+    space = config.observation_space
 
-    if config.observation_space.is_image():
+    if space.is_image():
         out_units = min(config.base_units, 256)
         if config.encode_img_type == "DQN":
             units = 32
-            obs_block = DQNImageEncoder(units, out_units, config.observation_space)
+            obs_block = DQNImageEncoder(units, out_units, space)
         elif config.encode_img_type == "R2D3":
             units = 16
-            obs_block = R2D3ImageEncoder(units, out_units, config.observation_space)
-    elif config.used_discrete_block and config.observation_space.is_discrete():
+            obs_block = R2D3ImageEncoder(units, out_units, space)
+    elif config.used_discrete_block and space.is_discrete():
         out_units = min(config.base_units, 128)
-        obs_block = DiscreteEncoder(units, out_units, config.observation_space, device)
+
+        # embの出力units数を制限
+        max_units = 8192
+        emb_size = int(np.max(space.high - space.low)) * space.flatten_size
+        emb_units = max_units // emb_size  # max_units以下になるように計算
+        # 下限以下の場合はcontにする
+        if emb_units < 16:
+            out_units = min(config.base_units, 128)
+            obs_block = ContEncoder(units, out_units)
+        else:
+            emb_units = min(emb_units, units)  # 上限はunits数
+            obs_block = DiscreteEncoder(emb_units, out_units, space)
     else:
         out_units = min(config.base_units, 128)
         obs_block = ContEncoder(units, out_units)

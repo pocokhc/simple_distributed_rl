@@ -5,6 +5,7 @@ import random
 import numpy as np
 
 from srl.base.rl.algorithms.base_dqn import RLWorker
+from srl.base.rl.worker_run import WorkerRun
 
 from .config import Config
 from .memory import Memory
@@ -51,16 +52,13 @@ class Worker(RLWorker[Config, Parameter, Memory]):
 
     def on_reset(self, worker):
         self.oe = None
+        self.q = None
+        self.oz = None
 
         # --- arvhie(restoreの可能性あり)
         if self.training and self.config.enable_archive:
             self.parameter.archive.on_reset(worker, self)
             self.search_step = 0
-
-        # --- encode, q
-        if self.oe is None:
-            self.oe, self.q = self.parameter.net.pred_q(worker.state[np.newaxis, ...])
-            self.q = self.q[0]
 
     def policy(self, worker) -> int:
         # e-greedy
@@ -68,18 +66,19 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         if random.random() < epsilon:
             return self.sample_action()
 
-        q = self.q
+        if self.q is None:
+            self.oe, self.q = self.parameter.net.pred_q(worker.state[np.newaxis, ...])
+            self.q = self.q[0]
+        q = self.q.copy()
         q[worker.invalid_actions] = -np.inf
-        action = int(np.argmax(q))
-
-        return action
+        return int(np.argmax(q))
 
     def on_step(self, worker):
         # --- encode, q
         prev_q = self.q
-        self.oe, self.q = self.parameter.net.pred_q(worker.next_state[np.newaxis, ...])
-        self.q = self.q[0]
-        self.oz = None
+        self.oe = None
+        self.q = None
+        oz = None
 
         if not self.training:
             return
@@ -95,37 +94,56 @@ class Worker(RLWorker[Config, Parameter, Memory]):
 
         # --- archive
         if self.config.enable_archive:
-            if self.oz is None:
-                self.oz = self.parameter.net.encode_latent(self.oe)
-            if self.parameter.archive.on_step(self.oz, worker):
+            if self.oe is None:
+                self.oe, self.q = self.parameter.net.pred_q(worker.next_state[np.newaxis, ...])
+                self.q = self.q[0]
+            if oz is None:
+                oz = self.parameter.net.encode_latent(self.oe)
+            if self.parameter.archive.on_step(oz, worker):
                 # 新しいcellを見つけたらリセット
                 self.search_step = 0
 
         # --- add memory
         reward = worker.reward
         if self.config.enable_reward_symlog_scalar:
-            reward = symlog_scalar(reward)
-        if self.config.memory.requires_priority():
-            select_q = prev_q[worker.action]
-
-            # next q(簡易版としてqをそのまま使う)
-            target_q = reward
-            if not worker.terminated:
-                n_max_q = np.max(self.q)
-                target_q += self.config.discount * n_max_q
-            priority = abs(target_q - select_q)
-        else:
-            priority = None
+            reward = float(symlog_scalar(reward))
         self.memory.add_q(
             [
                 worker.state,
                 worker.action,
                 worker.next_state,
-                float(reward),
+                reward,
                 1 - int(worker.terminated),
             ],
-            priority=priority,
+            priority=self._calc_priority(worker, reward, prev_q),
         )
+
+    def _calc_priority(self, worker: WorkerRun, reward: float, prev_q):
+        if not self.config.memory.requires_priority():
+            return None
+
+        # next q(簡易版としてqがあればそのまま使う(targetではない))
+        # 分散の場合は計算
+        if self.distributed:
+            if prev_q is None:
+                _, prev_q = self.parameter.net.pred_q(worker.state[np.newaxis, ...])
+                prev_q = prev_q[0]
+            if not worker.terminated:
+                self.oe, self.q = self.parameter.net.pred_q(worker.next_state[np.newaxis, ...])
+                self.q = self.q[0]
+
+        if prev_q is None:
+            return None
+
+        select_q = prev_q[worker.action]
+        target_q = reward
+        if not worker.terminated:
+            if self.q is None:
+                return None
+            n_max_q = np.max(self.q)
+            target_q += self.config.discount * n_max_q
+        priority = abs(target_q - select_q)
+        return priority
 
     def render_terminal(self, worker, **kwargs):
         if self.config.enable_archive:

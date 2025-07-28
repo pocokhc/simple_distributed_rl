@@ -1,12 +1,13 @@
 import copy
 import logging
+import os
 import pprint
 import traceback
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
 
 from srl.base.env.processor import EnvProcessor
-from srl.utils.serialize import convert_for_json
+from srl.utils.serialize import dataclass_to_dict, update_dataclass_from_dict
 
 if TYPE_CHECKING:
     import gym
@@ -126,9 +127,47 @@ class EnvConfig:
 
         return make(self)
 
+    def update_from_dict(self, config_dict: dict):
+        """辞書のキーに応じて属性を更新する"""
+        update_dataclass_from_dict(self, config_dict)
+        return self
+
     def to_dict(self) -> dict:
-        dat: dict = convert_for_json(self.__dict__)
-        return dat
+        return dataclass_to_dict(self)
+
+    def save(self, path: str):
+        dat = self.to_dict()
+        ext = os.path.splitext(path)[1].lower()
+
+        if ext in {".yaml", ".yml"}:
+            import yaml
+
+            with open(path, "w", encoding="utf-8") as f:
+                yaml.safe_dump(dat, f, allow_unicode=True)
+        else:
+            if ext != ".json":
+                logger.warning(f"Unknown extension '{ext}', saving as JSON: {path}")
+
+            import json
+
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(dat, f, indent=2, ensure_ascii=False)
+
+    @classmethod
+    def load(cls, path: str):
+        ext = os.path.splitext(path)[1].lower()
+        if ext in {".yaml", ".yml"}:
+            import yaml
+
+            with open(path, "r", encoding="utf-8") as f:
+                dat = yaml.safe_load(f)
+        else:
+            import json
+
+            with open(path, "r", encoding="utf-8") as f:
+                dat = json.load(f)
+
+        return cls("").update_from_dict(dat)
 
     def copy(self) -> "EnvConfig":
         config = EnvConfig(self.id)

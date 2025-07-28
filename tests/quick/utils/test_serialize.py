@@ -1,27 +1,40 @@
 import enum
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pprint import pprint
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
 from srl.utils import serialize
+from tests.utils import assert_equal
 
 
 class DummyEnum(enum.Enum):
-    a = enum.auto
-    b = enum.auto
-    c = enum.auto
+    a = enum.auto()
+    b = enum.auto()
+    c = enum.auto()
 
 
 @dataclass
-class DummyDataClassClass:
+class DummyDataClass:
     val: float = 1.1
 
 
 class DummyClass:
     def __init__(self):
         self.a = 1
+
+
+class DummyClassDict:
+    def __init__(self, a=1.1):
+        self.a = a
+
+    def from_dict(self, dat: dict):
+        self.a = dat["a"]
+
+    def to_dict(self) -> dict:
+        return {"a": self.a}
 
 
 def dummy_func(a):
@@ -40,7 +53,7 @@ def test_convert_for_json():
         "tuple": (2.2, "cc"),
         "dict": {"a": 2, "b": "b", "c": [1, 2, 3]},
         "enum": DummyEnum.a,
-        "dataclass": DummyDataClassClass(),
+        "dataclass": DummyDataClass(),
         "np1": np.array((1, 2, 3)),
         "np2": np.zeros(()),
         "class": DummyClass(),
@@ -49,3 +62,170 @@ def test_convert_for_json():
     d2 = serialize.convert_for_json(d)
     pprint(d2)
     json.dumps(d2)
+
+
+@dataclass
+class DummyTestClass:
+    s_none: None = None
+    s_int: int = 0
+    o_int: Optional[int] = None
+    s_float: float = 0.0
+    o_float: Optional[float] = None
+    s_bool: bool = False
+    o_bool: Optional[bool] = None
+    s_str: str = ""
+    o_str: Optional[str] = None
+    s_bytes: bytes = b""
+    s_bytes2: bytes = b""
+    o_bytes: Optional[bytes] = None
+    s_list: list = field(default_factory=list)
+    s_list2: List[Union[int, str]] = field(default_factory=list)
+    o_list: Optional[list] = None
+    s_tuple: Tuple[float, str] = field(default_factory=tuple)
+    o_tuple: Optional[Tuple[float, str]] = None
+    s_dict: dict = field(default_factory=dict)
+    s_dict2: Dict[str, Union[int, str, List[int]]] = field(default_factory=dict)
+    o_dict: Optional[dict] = None
+    s_enum: DummyEnum = DummyEnum.a
+    s_enum2: DummyEnum = DummyEnum.a
+    o_enum: Optional[DummyEnum] = None
+    s_dataclass: DummyDataClass = field(default_factory=lambda: DummyDataClass())
+    s_dataclass2: DummyDataClass = field(default_factory=lambda: DummyDataClass())
+    o_dataclass: Optional[DummyDataClass] = None
+    s_np: np.ndarray = field(default_factory=lambda: np.zeros(1))
+    s_np2: np.ndarray = field(default_factory=lambda: np.zeros(1))
+    o_np: Optional[np.ndarray] = None
+    s_dict_class: DummyClassDict = field(default_factory=lambda: DummyClassDict())
+    o_dict_class: Optional[DummyClassDict] = None
+
+
+def test_dataclass(tmpdir):
+    d = {
+        "s_none": None,
+        "s_int": 3,
+        "o_int": 3,
+        "s_float": 1.2,
+        "o_float": 1.2,
+        "s_bool": True,
+        "o_bool": True,
+        "s_str": "AAA",
+        "o_str": "AAA",
+        "s_bytes": b"BBB",
+        "s_bytes2": "QkJC",
+        "o_bytes": b"BBB",
+        "s_list": [1, "a"],
+        "s_list2": [1, "a"],
+        "o_list": [1, "a"],
+        "s_tuple": (2.2, "cc"),
+        "o_tuple": (2.2, "cc"),
+        "s_dict": {"a": 2, "b": "b", "c": [1, 2, 3]},
+        "s_dict2": {"a": 2, "b": "b", "c": [1, 2, 3]},
+        "o_dict": {"a": 2, "b": "b", "c": [1, 2, 3]},
+        "s_enum": DummyEnum.b,
+        "s_enum2": "b",
+        "o_enum": DummyEnum.b,
+        "s_dataclass": DummyDataClass(2.2),
+        "s_dataclass2": {"val": 2.2},
+        "o_dataclass": {"val": 2.2},
+        "s_np": np.array((1, 2, 3)),
+        "s_np2": [1, 2, 3],
+        "o_np": np.array((1, 2, 3)),
+        "s_dict_class": DummyClassDict(2.2),
+        "o_dict_class": DummyClassDict(2.2),
+    }
+    pprint(d)
+    o = DummyTestClass()
+    serialize.update_dataclass_from_dict(o, d)
+    pprint(o)
+    assert_equal(o.s_none, None)
+    assert_equal(o.s_int, 3)
+    assert_equal(o.o_int, 3)
+    assert_equal(o.s_float, 1.2)
+    assert_equal(o.o_float, 1.2)
+    assert_equal(o.s_bool, True)
+    assert_equal(o.o_bool, True)
+    assert_equal(o.s_str, "AAA")
+    assert_equal(o.o_str, "AAA")
+    assert_equal(o.s_bytes, b"BBB")
+    assert_equal(o.s_bytes2, b"BBB")
+    assert_equal(o.o_bytes, b"BBB")
+    assert_equal(o.s_list, [1, "a"])
+    assert_equal(o.s_list2, [1, "a"])
+    assert_equal(o.o_list, [1, "a"])
+    assert_equal(o.s_tuple, (2.2, "cc"))
+    assert_equal(o.o_tuple, (2.2, "cc"))
+    assert_equal(o.s_dict, {"a": 2, "b": "b", "c": [1, 2, 3]})
+    assert_equal(o.s_dict2, {"a": 2, "b": "b", "c": [1, 2, 3]})
+    assert_equal(o.o_dict, {"a": 2, "b": "b", "c": [1, 2, 3]})
+    assert_equal(o.s_enum, DummyEnum.b)
+    assert_equal(o.s_enum2, DummyEnum.b)
+    assert_equal(o.o_enum, DummyEnum.b)
+    assert_equal(o.s_dataclass.val, 2.2)
+    assert_equal(o.s_dataclass2.val, 2.2)
+    assert o.o_dataclass is not None
+    assert_equal(o.o_dataclass.val, 2.2)
+    assert_equal(o.s_np, np.array((1, 2, 3)))
+    assert_equal(o.s_np2, np.array((1, 2, 3)))
+    assert_equal(o.o_np, np.array((1, 2, 3)))
+    assert_equal(o.s_dict_class.a, 2.2)
+    assert o.o_dict_class is not None
+    assert_equal(o.o_dict_class.a, 2.2)
+
+    d["s_bytes"] = "QkJC"
+    d["o_bytes"] = "QkJC"
+    d["s_enum"] = "b"
+    d["o_enum"] = "b"
+    d["s_dataclass"] = {"val": 2.2}
+    d["s_np"] = [1, 2, 3]
+    d["o_np"] = [1, 2, 3]
+    d["s_dict_class"] = {"a": 2.2}
+    d["o_dict_class"] = {"a": 2.2}
+    d2 = serialize.dataclass_to_dict(o)
+    for k, v in d2.items():
+        print(k, d[k])
+        assert_equal(d[k], v)
+
+    # --- ファイル経由でも変わらない事
+    path = tmpdir / "tmp.dat"
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(d2, f, ensure_ascii=False)
+
+    with path.open("r", encoding="utf-8") as f:
+        d3 = json.load(f)
+
+    o = DummyTestClass()
+    serialize.update_dataclass_from_dict(o, d3)
+    pprint(o)
+    assert_equal(o.s_none, None)
+    assert_equal(o.s_int, 3)
+    assert_equal(o.o_int, 3)
+    assert_equal(o.s_float, 1.2)
+    assert_equal(o.o_float, 1.2)
+    assert_equal(o.s_bool, True)
+    assert_equal(o.o_bool, True)
+    assert_equal(o.s_str, "AAA")
+    assert_equal(o.o_str, "AAA")
+    assert_equal(o.s_bytes, b"BBB")
+    assert_equal(o.s_bytes2, b"BBB")
+    assert_equal(o.o_bytes, b"BBB")
+    assert_equal(o.s_list, [1, "a"])
+    assert_equal(o.s_list2, [1, "a"])
+    assert_equal(o.o_list, [1, "a"])
+    assert_equal(o.s_tuple, (2.2, "cc"))
+    assert_equal(o.o_tuple, (2.2, "cc"))
+    assert_equal(o.s_dict, {"a": 2, "b": "b", "c": [1, 2, 3]})
+    assert_equal(o.s_dict2, {"a": 2, "b": "b", "c": [1, 2, 3]})
+    assert_equal(o.o_dict, {"a": 2, "b": "b", "c": [1, 2, 3]})
+    assert_equal(o.s_enum, DummyEnum.b)
+    assert_equal(o.s_enum2, DummyEnum.b)
+    assert_equal(o.o_enum, DummyEnum.b)
+    assert_equal(o.s_dataclass.val, 2.2)
+    assert_equal(o.s_dataclass2.val, 2.2)
+    assert o.o_dataclass is not None
+    assert_equal(o.o_dataclass.val, 2.2)
+    assert_equal(o.s_np, np.array((1, 2, 3)))
+    assert_equal(o.s_np2, np.array((1, 2, 3)))
+    assert_equal(o.o_np, np.array((1, 2, 3)))
+    assert_equal(o.s_dict_class.a, 2.2)
+    assert o.o_dict_class is not None
+    assert_equal(o.o_dict_class.a, 2.2)

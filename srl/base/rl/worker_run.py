@@ -5,7 +5,7 @@ from typing import Any, Dict, Generic, List, Literal, Optional, cast
 import numpy as np
 
 from srl.base.context import RunContext
-from srl.base.define import DoneTypes, EnvActionType, RenderModeType
+from srl.base.define import DoneTypes, EnvActionType, RenderModeType, RLActionType
 from srl.base.env.env_run import EnvRun
 from srl.base.exception import SRLError
 from srl.base.info import Info
@@ -356,7 +356,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         if self._render.rendering:
             self._render.cache_render(worker=self)
 
-        env_action = self._config.action_decode(self._action)
+        env_action = self._config.action_decode(cast(RLActionType, self._action))
         return env_action
 
     def on_step(self) -> None:
@@ -391,7 +391,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     # invalid, envとはずれるので直接使わない
     # ------------------------------------
     def get_invalid_actions_to_env(self) -> List[EnvActionType]:
-        return [self._config.action_decode(a) for a in self.invalid_actions]
+        return [self._config.action_decode(cast(RLActionType, a)) for a in self.invalid_actions]
 
     def get_valid_actions(self) -> List[TActType]:
         return self._config.action_space.get_valid_actions(self.invalid_actions)
@@ -478,7 +478,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         # [rl state]
         if self._config.render_rl_image:
             # 同じ場合は省略
-            if self.env.observation_space != self.config._rl_obs_space_one_step:
+            if self.env.observation_space != self.config.observation_space_one_step:
                 rl_state_img = self.render_rl_image()
                 if rl_state_img is not None:
                     import cv2
@@ -664,7 +664,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._render.cache_reset()
 
     def copy(self) -> "WorkerRun":
-        worker = WorkerRun(DummyRLWorker(self._config), self.env)
+        worker = WorkerRun(cast(RLWorkerGeneric, DummyRLWorker(self._config)), self.env)
         dat = self.backup()
         worker.restore(dat)
         return worker

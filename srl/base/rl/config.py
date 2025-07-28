@@ -488,14 +488,22 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             return
 
         # --- パラメータが決まった後の書き換え
-        if getattr(self, "_check_parameter", False) and (not name.startswith("_")):
-            if not hasattr(self, name):
-                logger.warning(f"An undefined variable was assigned. {name}={value}")
-            elif getattr(self, "_is_setup", False):
-                if name not in getattr(self, "_changeable_parameter_names", []):
-                    s = "A non-changeable parameter was rewritten. (This is after setup, so there may be inconsistencies in the settings.)"
-                    s += f" '{name}' : '{getattr(self, name)}' -> '{value}'"
-                    logger.info(s)
+        if getattr(self, "__check_parameter", False):
+            # dataclassのfiledsのみ
+            is_check = False
+            for f in fields(self):
+                if name in f.name:
+                    is_check = True
+                    break
+
+            if is_check:
+                if not hasattr(self, name):
+                    logger.warning(f"An undefined variable was assigned. {name}={value}")
+                elif getattr(self, "__is_setup", False):
+                    if name not in getattr(self, "__changeable_parameter_names", []):
+                        s = "A non-changeable parameter was rewritten. (This is after setup, so there may be inconsistencies in the settings.)"
+                        s += f" '{name}' : '{getattr(self, name)}' -> '{value}'"
+                        logger.info(s)
 
         object.__setattr__(self, name, value)
 

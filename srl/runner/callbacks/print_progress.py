@@ -48,8 +48,10 @@ class PrintProgress(RunCallback, Evaluate):
 
         self._debug_gpu_error = False
 
-    def _update_progress(self):
-        # 表示間隔を増やす、5s以下は5sに、それ以降は２倍
+    def _update_progress(self, reset_interval: bool = False):
+        if reset_interval:
+            self.progress_timeout = self.start_time
+        # 表示間隔を増やす、5s以下は5sに、それ以降はn倍
         if self.progress_timeout < 5:
             self.progress_timeout = 5
         else:
@@ -115,6 +117,7 @@ class PrintProgress(RunCallback, Evaluate):
 
         _time = time.time()
         self.progress_t0 = _time
+        self.prev_train_count = 0
         self.progress_history = []
 
         self.t0_print_time = _time
@@ -134,7 +137,9 @@ class PrintProgress(RunCallback, Evaluate):
             return
         if time.time() - self.progress_t0 > self.progress_timeout:
             self._print_actor(context, state)
-            self._update_progress()
+            reset_interval = (self.prev_train_count == 0) and (state.train_count > 0)  # 0->1になる瞬間だけリセット
+            self._update_progress(reset_interval)
+            self.prev_train_count = state.train_count
             self.progress_t0 = time.time()  # last
 
     def on_episode_end(self, context: RunContext, state: RunStateActor, **kwargs):

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, List, Optional
 
 import numpy as np
-from sklearn.decomposition import PCA
+from sklearn.decomposition import PCA  # pip install scikit-learn
 
 from srl.base.define import DoneTypes
 from srl.base.rl.worker_run import WorkerRun

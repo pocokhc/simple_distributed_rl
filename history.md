@@ -17,6 +17,62 @@
 // TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除  
 
 
+- processorをdataclass
+- renderのfpsなどの表示
+- dist分散
+streamlit or nicegui
+
+
+- 内部しゃむ
+- DQNの高速化、次targetを固定
+
+
+pip install pyyaml tomli tomli-w
+
+
+# v1.4.0
+
+**Parameter Updates**
+
+1. [base] update: hydra(OmegaConf)形式に対応するためにcontextを見直し
+   - [base.context.RunContext]
+      - env_config,rl_config,callbacksをRunContextに移動（ただし、メインでは管理しない、dict形式用）
+      - flow_modeをplay_modeにrename
+      - 実行中に定義される変数をinitに移動（actor_id,device関係）
+      - runnerにあったsetupをcontextに移動
+      - load/saveを実装
+   - [base.context.RunState]
+      - dataclassを継承
+      - env等のinstanceは陽に持たないようにし、実行時に入る変数扱いに変更
+   - [base.run.play]
+      - stateを引数から外し、env/worker/trainerのみに変更、parameterとmemoryはworker/trainerのを利用
+      - これによりplay内ではmakeによる生成は行わず、呼び出す側で制御することになります(runnerがこれを制御)
+      - tf用のロジックを変えて関数の階層を1つ減少(tf利用時は変わらず)
+   - [runner] この更新に合わせて修正
+   - [runner] yaml->dict形式->context->直接実行の仕組みを整え
+1. [utils.serialize] new: yamlやdict形式からdataclassに値を設定できる以下の関数を作成
+   - apply_dict_to_dataclass: dict形式で与えられた値をdataclassに適用する関数
+   - dataclass_to_dict: dataclassをdict形式に変換する関数
+   - save_dict/load_dict: dict形式をファイルに読み書きする関数
+   - get_modified_fields: dataclassでデフォルト値との差分を取得する関数（表示用）
+1. [base.rl/env.config] new: dict形式を読み込むload/save/apply_dict/to_dict関数を追加
+1. [base.rl/env.config] update: summaryの出力を調整
+1. [utils.common] update: load_moduleを"."でも読み込めるように変更
+
+
+**MainUpdates**
+
+
+**OtherUpdates**
+
+1. [base.env.gym_wrapper] update: EnvConfigに依存しないように変更
+
+
+**Bug Fixes**
+
+1. [base.rl.config] fix: registory時のsetup確認が機能していなかった不具合修正
+1. [base.run.play_mp] fix: 初期memoryある場合にがrestoreされていない不具合修正
+
 
 # v1.3.6
 
@@ -31,6 +87,7 @@
 
 **OtherUpdates**
 
+1. [runner.callbacks.print_progress] change: intervalをtrain_countが1以上になったら最初だけリセット
 1. [base.spaces] add: 値を判定できるequal_val関数を追加
 1. [base.rl/env.config] update: private変数を"_"から"__"に変更（リファクタリング）
 1. [algorithms] update: godq_v1を更新

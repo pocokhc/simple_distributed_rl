@@ -7,11 +7,11 @@ import queue
 import threading
 import time
 import traceback
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from multiprocessing import sharedctypes
 from typing import Any, Callable, List, Optional, cast
 
-from srl.base.context import RunContext, RunState
+from srl.base.context import RunContext
 from srl.base.exception import SRLError
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
@@ -37,7 +37,6 @@ if os.environ.get("SRL_TF_GPU_INITIALIZE_DEVICES", "") == "1":
 @dataclass
 class MpConfig:
     context: RunContext
-    callbacks: List[RunCallback] = field(default_factory=list)
 
     polling_interval: float = 1  # sec
     queue_capacity: int = 1000
@@ -201,8 +200,7 @@ def _run_actor(
             ),
         )
         # --- callback
-        callbacks = cfg.callbacks[:]
-        callbacks.append(
+        context.callbacks.append(
             _ActorInterrupt(
                 remote_board,
                 parameter,
@@ -220,13 +218,7 @@ def _run_actor(
         context.max_train_count = -1
         # context.timeout = -1
         workers, main_worker_idx = context.rl_config.make_workers(context.players, env, parameter, memory)
-        state = RunState()
-        state.env = env
-        state.parameter = parameter
-        state.memory = memory
-        state.worker = workers[main_worker_idx]
-        state.workers = workers
-        core_play.play(context, state, callbacks=callbacks)
+        core_play.play(context, env, workers[main_worker_idx], workers=workers)
 
         if context.rl_config.use_update_parameter_from_worker():
             # actor0のみ送信
@@ -353,7 +345,15 @@ class _TrainerInterrupt(RunCallback):
         return self.end_signal.value
 
 
-def _run_trainer(cfg: MpConfig, remote_queue: queue.Queue, remote_qsize: sharedctypes.Synchronized, remote_board: Any, end_signal: Any, memory_dat, last_mem_queue: mp.Queue):
+def _run_trainer(
+    cfg: MpConfig,
+    remote_queue: queue.Queue,
+    remote_qsize: sharedctypes.Synchronized,
+    remote_board: Any,
+    end_signal: Any,
+    memory_dat,
+    last_mem_queue: mp.Queue,
+):
     exception_queue = queue.Queue()
     try:
         logger.info("[trainer] start.")
@@ -370,6 +370,8 @@ def _run_trainer(cfg: MpConfig, remote_queue: queue.Queue, remote_qsize: sharedc
         }
 
         memory = context.rl_config.make_memory()
+        if memory_dat is not None:
+            memory.restore(memory_dat)
 
         parameter = context.rl_config.make_parameter()
         dat = remote_board.value
@@ -404,8 +406,7 @@ def _run_trainer(cfg: MpConfig, remote_queue: queue.Queue, remote_qsize: sharedc
         parameter_th.start()
 
         # --- callback
-        callbacks = cfg.callbacks[:]
-        callbacks.append(
+        context.callbacks.append(
             _TrainerInterrupt(
                 end_signal,
                 share_dict,
@@ -415,11 +416,8 @@ def _run_trainer(cfg: MpConfig, remote_queue: queue.Queue, remote_qsize: sharedc
         )
 
         # --- train
-        state = RunState()
-        state.parameter = parameter
-        state.memory = cast(RLMemory, memory)
-        state.trainer = context.rl_config.make_trainer(parameter, memory)
-        core_train_only.play_trainer_only(context, state, callbacks=callbacks)
+        trainer = context.rl_config.make_trainer(parameter, memory)
+        core_train_only.play_trainer_only(context, trainer)
 
         if not end_signal.value:
             end_signal.value = True
@@ -459,25 +457,21 @@ def _run_trainer(cfg: MpConfig, remote_queue: queue.Queue, remote_qsize: sharedc
 __is_set_start_method = False
 
 
-def train(mp_config: MpConfig, parameter_dat: Optional[Any] = None, memory_dat: Optional[Any] = None):
+def train(mp_cfg: MpConfig, parameter_dat: Optional[Any] = None, memory_dat: Optional[Any] = None):
     global __is_set_start_method
-    context = mp_config.context
-    context.check_stop_config()
+
+    # context
+    mp_cfg.context = mp_cfg.context.copy()
+    context = mp_cfg.context
+    context.setup_device(is_mp_main_process=True)
+    context.setup()
 
     # --- callbacks ---
-    callbacks = mp_config.callbacks
+    callbacks = context.callbacks
     [c.on_start(context=context) for c in callbacks]
     # ------------------
 
     try:
-        logger.debug(context.to_str_context())
-
-        # --- 実行前にrl_configのsetupを保証
-        context.setup_rl_config()
-
-        # --- deviceのセットアップ
-        context.setup_device(is_mp_main_process=True)
-
         # mp を notebook で実行する場合はrlの定義をpyファイルにする必要あり TODO: それ以外でも動かないような
         # if is_env_notebook() and "__main__" in str(remote_memory_class):
         #    raise RuntimeError("The definition of rl must be in the py file")
@@ -535,7 +529,7 @@ def train(mp_config: MpConfig, parameter_dat: Optional[Any] = None, memory_dat: 
             actors_ps_list: List[mp.Process] = []
             for actor_id in range(context.actor_num):
                 params = (
-                    mp_config,
+                    mp_cfg,
                     remote_queue,
                     remote_qsize,
                     remote_board,
@@ -550,7 +544,7 @@ def train(mp_config: MpConfig, parameter_dat: Optional[Any] = None, memory_dat: 
             trainer_ps = mp.Process(
                 target=_run_trainer,
                 args=(
-                    mp_config,
+                    mp_cfg,
                     remote_queue,
                     remote_qsize,
                     remote_board,
@@ -565,7 +559,7 @@ def train(mp_config: MpConfig, parameter_dat: Optional[Any] = None, memory_dat: 
             trainer_ps.start()
             [p.start() for p in actors_ps_list]
             while True:
-                time.sleep(mp_config.polling_interval)
+                time.sleep(mp_cfg.polling_interval)
 
                 if not trainer_ps.is_alive():
                     end_signal.value = True
@@ -605,10 +599,10 @@ def train(mp_config: MpConfig, parameter_dat: Optional[Any] = None, memory_dat: 
 
             # --- last memory
             try:
-                if mp_config.return_memory_data:
+                if mp_cfg.return_memory_data:
                     logger.info("memory data wait...")
                     t0 = time.time()
-                    memory_dat = last_mem_queue.get(timeout=mp_config.return_memory_timeout)
+                    memory_dat = last_mem_queue.get(timeout=mp_cfg.return_memory_timeout)
                     logger.info(f"memory data recived. {time.time() - t0:.3f}s")
             except Exception:
                 logger.info(traceback.format_exc())

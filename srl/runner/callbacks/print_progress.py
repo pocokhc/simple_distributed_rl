@@ -95,7 +95,7 @@ class PrintProgress(RunCallback, Evaluate):
             s += f", tf={context.used_device_tf}"
         elif context.framework == "torch":
             s += f", torch={context.used_device_torch}"
-        s += f", {context.flow_mode}"
+        s += f", {context.play_mode}"
         s += f", env: {context.env_config.name}"
         if context.max_episodes > 0:
             s += f", max episodes: {context.max_episodes}"
@@ -368,7 +368,7 @@ class PrintProgress(RunCallback, Evaluate):
             s += f", tf={context.used_device_tf}"
         elif context.framework == "torch":
             s += f", torch={context.used_device_torch}"
-        s += f", {context.flow_mode}"
+        s += f", {context.play_mode}"
         if context.timeout > 0:
             s += f", timeout: {to_str_time(context.timeout)}"
         if context.max_train_count > 0:

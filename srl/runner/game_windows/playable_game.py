@@ -1,12 +1,13 @@
 import logging
 import time
-from typing import Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import pygame
 
-from srl.base.context import RunContext, RunState
+from srl.base.context import RunContext
 from srl.base.define import EnvActionType, KeyBindType
 from srl.base.env.env_run import EnvRun
+from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
@@ -50,13 +51,13 @@ class _PlayableCallback(RunCallback):
 class PlayableGame(GameWindow):
     def __init__(
         self,
-        env: EnvRun,
         context: RunContext,
-        worker: Optional[WorkerRun] = None,
+        env: EnvRun,
+        worker: WorkerRun,
+        trainer: Optional[RLTrainer] = None,
         view_state: bool = True,
         action_division_num: int = 5,
         key_bind: Optional[KeyBindType] = None,
-        callbacks: List[RunCallback] = [],
         _is_test: bool = False,  # for test
     ) -> None:
         super().__init__(_is_test=_is_test)
@@ -68,12 +69,11 @@ class PlayableGame(GameWindow):
         self.playable_callback = _PlayableCallback(self.env, action_division_num)
 
         # --- play ---
+        context = context.copy()
+        context.callbacks.insert(0, self.playable_callback)
         context.env_render_mode = "rgb_array"
         context.rl_render_mode = "terminal_rgb_array"
-        state = RunState()
-        state.env = env
-        state.worker = worker
-        self.gen_play = play_generator(context, state, callbacks=[self.playable_callback] + callbacks)
+        self.gen_play = play_generator(context, env, worker, trainer)
         # 最初まで進める
         while True:
             gen_status, _, gen_state = next(self.gen_play)
@@ -320,7 +320,7 @@ class PlayableGame(GameWindow):
                 if action is None:
                     action = self._get_action_from_key_bind(self.get_pressed_keys())
                 if action is not None:
-                    self.playable_callback.action = action
+                    self.playable_callback.action = cast(Any, action)
                     self._step()
 
     def _on_loop_realtime_key(self, events):
@@ -337,7 +337,7 @@ class PlayableGame(GameWindow):
             action = self._get_action_from_key_bind(self.get_down_keys())
             if action is None:
                 action = self.noop
-            self.playable_callback.action = action
+            self.playable_callback.action = cast(Any, action)
 
         if self.is_pause:
             if self.frameadvance:

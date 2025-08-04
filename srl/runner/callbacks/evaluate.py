@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from srl.base.context import RunContext, RunState
+from srl.base.context import RunContext
 from srl.base.define import PlayersType
 from srl.base.rl.parameter import RLParameter
 
@@ -28,10 +28,10 @@ class Evaluate:
     def create_eval_runner(self, context: RunContext):
         from srl.runner.runner import Runner
 
-        context = context.copy()
+        context = context.copy(copy_callbacks=False)
         context.run_name = "eval"
         context.seed = None  # mainと競合するのでNone
-        context.flow_mode = "callback_evaluate"
+        context.play_mode = "callback_evaluate"
         # stop config
         context.max_episodes = self.eval_episode
         context.timeout = self.eval_timeout
@@ -51,20 +51,18 @@ class Evaluate:
         context.rl_render_mode = ""
         return Runner.create(context)
 
-    def create_eval_runner_if_not_exists(self, context: RunContext, state: RunState):
-        if "eval_runner" not in state.shared_vars:
-            state.shared_vars["eval_runner"] = self.create_eval_runner(context)
-        return state.shared_vars["eval_runner"]
-
-    def run_eval_with_state(self, context: RunContext, state: RunState):
+    def run_eval_with_state(self, context: RunContext, state):
         if not self.enable_eval:
             return None
         try:
-            runner = self.create_eval_runner_if_not_exists(context, state)
-            assert state.parameter is not None
+            if "eval_runner" not in state.shared_vars:
+                state.shared_vars["eval_runner"] = self.create_eval_runner(context)
+            runner = state.shared_vars["eval_runner"]
+
+            # eval
             runner.parameter.restore(state.parameter.backup())
-            runner.core_play()
-            return np.mean(runner.state.episode_rewards_list, axis=0)
+            state = runner.play_context()
+            return np.mean(state.episode_rewards_list, axis=0)
         except Exception:
             logger.error(traceback.format_exc())
         return None
@@ -74,8 +72,8 @@ class Evaluate:
             return None
         try:
             runner.parameter.restore(parameter.backup())
-            runner.core_play()
-            return np.mean(runner.state.episode_rewards_list, axis=0)
+            state = runner.play_context()
+            return np.mean(state.episode_rewards_list, axis=0)
         except Exception:
             logger.error(traceback.format_exc())
         return None

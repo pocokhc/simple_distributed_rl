@@ -1,5 +1,6 @@
 import logging
-from typing import List, Optional, Tuple, Type, Union, cast
+import os
+from typing import Any, List, Optional, Tuple, Type, Union, cast
 
 from srl.base.define import PlayersType
 from srl.base.env.env_run import EnvRun
@@ -7,7 +8,7 @@ from srl.base.rl.config import DummyRLConfig, RLConfig
 from srl.base.rl.memory import DummyRLMemory, RLMemory
 from srl.base.rl.parameter import DummyRLParameter, RLParameter
 from srl.base.rl.trainer import DummyRLTrainer, RLTrainer
-from srl.base.rl.worker import DummyRLWorker, RLWorker
+from srl.base.rl.worker import DummyRLWorker
 from srl.base.rl.worker_run import WorkerRun
 from srl.utils.common import load_module
 
@@ -113,13 +114,13 @@ def make_worker(
     _check_rl_config(rl_config, env)
 
     if name_or_config == "dummy":
-        worker: RLWorker = DummyRLWorker(rl_config, parameter, memory)
+        worker = DummyRLWorker(rl_config, parameter, memory)
     else:
         entry_point = _registry[_create_registry_key(rl_config)][3]
         if entry_point == "":
-            worker: RLWorker = DummyRLWorker(rl_config, parameter, memory)
+            worker = DummyRLWorker(rl_config, parameter, memory)
         else:
-            worker: RLWorker = load_module(entry_point)(rl_config, parameter, memory)
+            worker = load_module(entry_point)(rl_config, parameter, memory)
 
     # ExtendWorker
     if rl_config.extend_worker is not None:

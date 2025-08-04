@@ -1,7 +1,6 @@
 import pytest
 
 import srl
-import srl.runner
 
 
 def test_gym_retro():

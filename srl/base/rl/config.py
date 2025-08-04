@@ -1,5 +1,4 @@
 import logging
-import os
 import pickle
 import pprint
 from abc import ABC, abstractmethod
@@ -124,7 +123,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             import tensorflow as tf
 
             return getattr(tf, self.dtype.lower())
-        elif framework in ["torch"]:
+        elif framework == "torch":
             import torch
 
             return getattr(torch, self.dtype.lower())
@@ -484,7 +483,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         return self.__env_act_space
 
     def __setattr__(self, name: str, value):
-        if name in ["__is_setup"]:
+        if name == "__is_setup":
             object.__setattr__(self, name, value)
             return
 

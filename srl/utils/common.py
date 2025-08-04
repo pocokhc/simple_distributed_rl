@@ -3,7 +3,7 @@ import importlib.util
 import logging
 import os
 import sys
-from typing import Any, List, Optional, Union, cast
+from typing import Any, List, Optional, Type, Union, cast
 
 import numpy as np
 
@@ -152,14 +152,15 @@ def load_file(path: str) -> Any:
     return dat
 
 
-def load_module(entry_point: str):
-    if ":" not in entry_point:
-        raise ValueError(f"entry_point must include ':'({entry_point})")
+def load_module(entry_point: str, partition: str = ":") -> Type[Any]:
+    if "<locals>" in entry_point:
+        raise ValueError(f"Cannot import local definitions: {entry_point}")
+    module_path, _, attr_name = entry_point.rpartition(partition)
+    if not module_path or not attr_name:
+        raise ValueError(f"Invalid entry point format: {entry_point}")
 
-    mod_name, cls_name = entry_point.split(":")
-    module = importlib.import_module(mod_name)
-    cls = getattr(module, cls_name)
-    return cls
+    module = importlib.import_module(module_path)
+    return getattr(module, attr_name)
 
 
 def is_package_installed(name: str) -> bool:

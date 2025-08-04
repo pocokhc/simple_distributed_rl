@@ -7,11 +7,11 @@ import queue
 import threading
 import time
 import traceback
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from multiprocessing import sharedctypes
 from typing import Any, Callable, List, Optional, cast
 
-from srl.base.context import RunContext, RunState
+from srl.base.context import RunContext
 from srl.base.exception import SRLError
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
@@ -37,7 +37,6 @@ if os.environ.get("SRL_TF_GPU_INITIALIZE_DEVICES", "") == "1":
 @dataclass
 class MpConfig:
     context: RunContext
-    callbacks: List[RunCallback] = field(default_factory=list)
 
     polling_interval: float = 1  # sec
     queue_capacity: int = 1000
@@ -207,8 +206,7 @@ def _run_actor(
         )
 
         # --- callback
-        callbacks = cfg.callbacks[:]
-        callbacks.append(
+        context.callbacks.append(
             _ActorInterrupt(
                 remote_board,
                 parameter,
@@ -226,13 +224,7 @@ def _run_actor(
         context.max_train_count = -1
         # context.timeout = -1
         workers, main_worker_idx = context.rl_config.make_workers(context.players, env, parameter, memory)
-        state = RunState()
-        state.env = env
-        state.parameter = parameter
-        state.memory = memory
-        state.worker = workers[main_worker_idx]
-        state.workers = workers
-        core_play.play(context, state, callbacks=callbacks)
+        core_play.play(context, env, workers[main_worker_idx], workers=workers)
 
         if context.rl_config.use_update_parameter_from_worker():
             # actor0のみ送信
@@ -272,6 +264,7 @@ def _run_memory(
 ):
     try:
         logger.info("[memory] start.")
+        callbacks = cfg.context.callbacks
 
         memory = cfg.context.rl_config.make_memory()
         if memory_dat is not None:
@@ -294,8 +287,8 @@ def _run_memory(
             "train_to_mem": 0,
         }
 
-        _calls_on_memory: List[Any] = [c for c in cfg.callbacks if hasattr(c, "on_memory")]
-        [c.on_memory_start(cfg.context, info) for c in cfg.callbacks]
+        _calls_on_memory: List[Any] = [c for c in callbacks if hasattr(c, "on_memory")]
+        [c.on_memory_start(cfg.context, info) for c in callbacks]
 
         while not end_signal.value:
             # --- recv worker func
@@ -331,7 +324,7 @@ def _run_memory(
 
             [c.on_memory(cfg.context, info) for c in _calls_on_memory]
 
-        [c.on_memory_end(cfg.context, info) for c in cfg.callbacks]
+        [c.on_memory_end(cfg.context, info) for c in callbacks]
         if cfg.return_memory_data:
             logger.info("[memory] send memory data")
             last_mem_queue.put(memory.backup(compress=True))
@@ -546,8 +539,7 @@ def _run_trainer(
         parameter_th.start()
 
         # --- callback
-        callbacks = cfg.callbacks[:]
-        callbacks.append(
+        context.callbacks.append(
             _TrainerInterrupt(
                 memory,
                 queue_mem_to_train,
@@ -558,11 +550,7 @@ def _run_trainer(
         )
 
         # --- train
-        state = RunState()
-        state.parameter = parameter
-        state.memory = cast(RLMemory, memory)
-        state.trainer = trainer
-        core_train_only.play_trainer_only(context, state, callbacks=callbacks)
+        core_train_only.play_trainer_only(context, trainer)
 
         if not end_signal.value:
             end_signal.value = True
@@ -596,23 +584,19 @@ __is_set_start_method = False
 
 def train(mp_cfg: MpConfig, parameter_dat: Optional[Any] = None, memory_dat: Optional[Any] = None):
     global __is_set_start_method
+
+    # context
+    mp_cfg.context = mp_cfg.context.copy()
     context = mp_cfg.context
-    context.check_stop_config()
+    context.setup_device(is_mp_main_process=True)
+    context.setup()
 
     # --- callbacks ---
-    callbacks = mp_cfg.callbacks
+    callbacks = context.callbacks
     [c.on_start(context=context) for c in callbacks]
     # ------------------
 
     try:
-        logger.debug(context.to_str_context())
-
-        # --- 実行前にrl_configのsetupを保証
-        context.setup_rl_config()
-
-        # --- deviceのセットアップ
-        context.setup_device(is_mp_main_process=True)
-
         # mp を notebook で実行する場合はrlの定義をpyファイルにする必要あり TODO: それ以外でも動かないような
         # if is_env_notebook() and "__main__" in str(remote_memory_class):
         #    raise RuntimeError("The definition of rl must be in the py file")

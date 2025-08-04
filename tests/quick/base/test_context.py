@@ -3,9 +3,10 @@ from pprint import pprint
 
 import pytest
 
-from srl.algorithms import dqn
+from srl.algorithms import dqn, ql
 from srl.base.context import RunContext
 from srl.base.env.config import EnvConfig
+from tests.utils import assert_equal
 
 
 class NotJsonClass:
@@ -53,6 +54,30 @@ def test_to_dict(framework):
     json_dict = c.to_dict()
     pprint(json_dict)
     json.dumps(json_dict)
+
+
+def test_copy():
+    from srl.utils import common
+
+    common.logger_print("debug")
+
+    c = RunContext()
+    c.players = [
+        None,
+        "AAA",
+        ("aa", {"bb": "cc"}),
+        ql.Config(),
+        (ql.Config(), None),
+    ]
+    c2 = c.copy()
+
+    assert len(c2.players) == 5
+    assert_equal(c2.players[0], None)
+    assert_equal(c2.players[1], "AAA")
+    assert_equal(c2.players[2], c.players[2])
+    assert type(c2.players[3]) is type(c.players[3])
+    assert type(c2.players[4][0]) is type(c.players[4][0])
+    assert type(c2.players[4][1]) is type(c.players[4][1])
 
 
 # -----------------------------------

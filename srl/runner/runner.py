@@ -24,29 +24,54 @@ logger = logging.getLogger(__name__)
 class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
     @staticmethod
     def create(context: RunContext):
-        context = context.copy()
         return Runner(context.env_config, context.rl_config, context)
 
-    def core_play(
-        self,
-        enable_progress: bool = False,
-        callbacks: List[RunCallback] = [],
-    ):
+    def play_context(self):
         """設定されているcontextでそのままplayする"""
-        callbacks = callbacks[:]
-        if enable_progress:
-            self.apply_progress(callbacks, enable_eval=True)
-        self.apply_checkpoint(callbacks)
-        self._apply_history(callbacks)
-        self.apply_mlflow(callbacks)
 
-        self.setup_process()
-        play(
+        if self.context.play_mode == "train_mp":
+            self.set_context_train_mp()
+            self.train_mp(skip_set_context=True)
+            return
+        elif self.context.play_mode == "train_distribution":
+            self.set_context_train_distribution()
+            TODO
+        elif self.context.play_mode == "train_distribution_start":
+            self.set_context_train_distribution_start()
+            TODO
+
+        elif self.context.play_mode == "train":
+            self.set_context_train()
+        elif self.context.play_mode == "rollout":
+            self.set_context_rollout()
+        elif self.context.play_mode == "train_only":
+            self.set_context_train_only()
+        elif self.context.play_mode == "evaluate":
+            self.set_context_evaluate()
+        elif self.context.play_mode == "render_terminal":
+            self.set_context_render_terminal()
+        elif self.context.play_mode == "render_window":
+            self.set_context_render_window()
+        elif self.context.play_mode == "run_render":
+            self.set_context_run_render()
+            TODO
+        elif self.context.play_mode == "replay_window":
+            self.set_context_replay_window()
+            return self.replay_window()
+        elif self.context.play_mode == "play_terminal":
+            self.set_context_play_terminal()
+        elif self.context.play_mode == "play_window":
+            self.set_context_play_window()
+            return self.play_window()
+
+        self.state = play(
             self.context,
-            self.state,
-            self._parameter_dat,
-            self._memory_dat,
-            callbacks,
+            env=self.make_env(),
+            worker=self.make_worker(),
+            trainer=self.make_trainer() if self.context.training else None,
+            workers=None,
+            parameter_dat=self._parameter_dat,
+            memory_dat=self._memory_dat,
         )
         self._parameter_dat = None
         self._memory_dat = None
@@ -91,10 +116,9 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
             enable_eval (bool, optional): 評価用のシミュレーションを実行します. Defaults to False.
             callbacks (List[RunCallback], optional): callbacks. Defaults to [].
         """
-        callbacks = callbacks[:]
 
         # --- set context
-        self.context.flow_mode = "train"
+        self.context.play_mode = "train"
         # stop config
         self.context.max_episodes = max_episodes
         self.context.timeout = timeout
@@ -116,25 +140,51 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self.context.env_render_mode = ""
         self.context.rl_render_mode = ""
 
+        callbacks = callbacks[:]
         if enable_progress:
-            self.apply_progress(callbacks, enable_eval=True)
+            self.apply_progress(callbacks, apply_eval=True)
         self.apply_checkpoint(callbacks)
         self._apply_history(callbacks)
         self.apply_mlflow(callbacks)
 
-        self.setup_process()
-        play(
+        self.context.callbacks = callbacks
+        self.state = play(
             self.context,
-            self.state,
-            self._parameter_dat,
-            self._memory_dat,
-            callbacks,
+            env=self.make_env(),
+            worker=self.make_worker(),
+            trainer=self.make_trainer(),
+            workers=None,
+            parameter_dat=self._parameter_dat,
+            memory_dat=self._memory_dat,
         )
         self._parameter_dat = None
         self._memory_dat = None
 
         self._after_history()
         return cast(RunStateActor, self.state)
+
+    def set_context_train(self):
+        self.context.play_mode = "train"
+        # stop config
+        # self.context.max_episodes = max_episodes
+        # self.context.timeout = timeout
+        # self.context.max_steps = max_steps
+        # self.context.max_train_count = max_train_count
+        # self.context.max_memory = max_memory
+        # play config
+        # self.context.players = players
+        # self.context.shuffle_player = shuffle_player
+        self.context.disable_trainer = False
+        # train option
+        # self.context.train_interval = train_interval
+        # self.context.train_repeat = train_repeat
+        # play info
+        self.context.distributed = False
+        self.context.training = True
+        self.context.train_only = False
+        self.context.rollout = False
+        self.context.env_render_mode = ""
+        self.context.rl_render_mode = ""
 
     def rollout(
         self,
@@ -155,7 +205,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         callbacks = callbacks[:]
 
         # --- set context
-        self.context.flow_mode = "rollout"
+        self.context.play_mode = "rollout"
         # stop config
         self.context.max_episodes = max_episodes
         self.context.timeout = timeout
@@ -175,24 +225,49 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self.context.rl_render_mode = ""
 
         if enable_progress:
-            self.apply_progress(callbacks, enable_eval=False)
+            self.apply_progress(callbacks, apply_eval=False)
         self.apply_checkpoint(callbacks)
         self._apply_history(callbacks)
         self.apply_mlflow(callbacks)
 
-        self.setup_process()
-        play(
+        self.context.callbacks = callbacks
+        self.state = play(
             self.context,
-            self.state,
-            self._parameter_dat,
-            self._memory_dat,
-            callbacks,
+            env=self.make_env(),
+            worker=self.make_worker(),
+            trainer=None,
+            workers=None,
+            parameter_dat=self._parameter_dat,
+            memory_dat=self._memory_dat,
         )
         self._parameter_dat = None
         self._memory_dat = None
 
         self._after_history()
         return cast(RunStateActor, self.state)
+
+    def set_context_rollout(self):
+        self.context.play_mode = "rollout"
+        # stop config
+        # self.context.max_episodes = max_episodes
+        # self.context.timeout = timeout
+        # self.context.max_steps = max_steps
+        self.context.max_train_count = 0
+        # self.context.max_memory = max_memory
+        # play config
+        # self.context.players = players
+        # self.context.shuffle_player = shuffle_player
+        self.context.disable_trainer = True
+        # train option
+        # self.context.train_interval = train_interval
+        # self.context.train_repeat = train_repeat
+        # play info
+        self.context.distributed = False
+        self.context.training = True
+        self.context.train_only = False
+        self.context.rollout = True
+        self.context.env_render_mode = ""
+        self.context.rl_render_mode = ""
 
     def train_only(
         self,
@@ -208,7 +283,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         callbacks = callbacks[:]
 
         # --- context
-        self.context.flow_mode = "train_only"
+        self.context.play_mode = "train_only"
         # stop config
         self.context.max_episodes = 0
         self.context.timeout = timeout
@@ -227,26 +302,45 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self.context.rl_render_mode = ""
 
         if enable_progress:
-            self.apply_progress(callbacks, enable_eval=True)
+            self.apply_progress(callbacks, apply_eval=True)
         self.apply_checkpoint(callbacks)
         self._apply_history(callbacks)
         self.apply_mlflow(callbacks)
 
         from srl.base.run.core_train_only import RunStateTrainer, play_trainer_only
 
-        self.setup_process()
-        play_trainer_only(
+        self.context.callbacks = callbacks
+        self.state = play_trainer_only(
             self.context,
-            self.state,
-            self._parameter_dat,
-            self._memory_dat,
-            callbacks=callbacks,
+            trainer=self.make_trainer(),
+            parameter_dat=self._parameter_dat,
+            memory_dat=self._memory_dat,
         )
         self._parameter_dat = None
         self._memory_dat = None
 
         self._after_history()
         return cast(RunStateTrainer, self.state)
+
+    def set_context_train_only(self):
+        self.context.play_mode = "train_only"
+        # stop config
+        self.context.max_episodes = 0
+        # self.context.timeout = timeout
+        self.context.max_steps = 0
+        # self.context.max_train_count = 0
+        self.context.max_memory = 0
+        # play config
+        # self.context.players = players
+        self.context.shuffle_player = False
+        self.context.disable_trainer = False
+        # play info
+        self.context.distributed = False
+        self.context.training = True
+        self.context.train_only = True
+        self.context.rollout = False
+        self.context.env_render_mode = ""
+        self.context.rl_render_mode = ""
 
     def train_mp(
         self,
@@ -259,9 +353,12 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         enable_mp_memory: bool = True,
         train_to_mem_queue_capacity: int = 100,
         mem_to_train_queue_capacity: int = 5,
-        # memory
+        # return memory
         return_memory_data: bool = False,
         return_memory_timeout: int = 60 * 60 * 1,
+        # start data
+        initial_parameter_sharing: bool = False,
+        initial_memory_sharing: bool = False,
         # --- stop config
         timeout: float = -1,
         max_train_count: int = -1,
@@ -272,60 +369,65 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         enable_progress: bool = True,
         # --- other
         callbacks: List[RunCallback] = [],
+        skip_set_context: bool = False,
     ):
         """multiprocessingを使用した分散学習による学習を実施します。"""
-        callbacks = callbacks[:]
 
-        # --- mp config
-        self.context.actor_num = actor_num
-        self.context.actor_devices = actor_devices
+        if not skip_set_context:
+            # --- mp config
+            self.context.actor_num = actor_num
+            self.context.actor_devices = actor_devices
 
-        # --- set context
-        self.context.flow_mode = "train_mp"
-        # stop config
-        self.context.max_episodes = -1
-        self.context.timeout = timeout
-        self.context.max_steps = -1
-        self.context.max_train_count = max_train_count
-        self.context.max_memory = -1
-        # play config
-        self.context.players = players
-        self.context.shuffle_player = shuffle_player
-        self.context.disable_trainer = False
-        # play info
-        self.context.distributed = True
-        self.context.training = True
-        self.context.train_only = False
-        self.context.rollout = False
-        self.context.env_render_mode = ""
-        self.context.rl_render_mode = ""
+            # --- set context
+            self.context.play_mode = "train_mp"
+            # stop config
+            self.context.max_episodes = -1
+            self.context.timeout = timeout
+            self.context.max_steps = -1
+            self.context.max_train_count = max_train_count
+            self.context.max_memory = -1
+            # play config
+            self.context.players = players
+            self.context.shuffle_player = shuffle_player
+            self.context.disable_trainer = False
+            # play info
+            self.context.distributed = True
+            self.context.training = True
+            self.context.train_only = False
+            self.context.rollout = False
+            self.context.env_render_mode = ""
+            self.context.rl_render_mode = ""
 
-        if enable_progress:
-            self.apply_progress(callbacks, enable_eval=True)
-        self.apply_checkpoint(callbacks)
-        self._apply_history(callbacks)
-        self.apply_mlflow(callbacks)
+            callbacks = callbacks[:]
+            if enable_progress:
+                self.apply_progress(callbacks, apply_eval=True)
+            self.apply_checkpoint(callbacks)
+            self._apply_history(callbacks)
+            self.apply_mlflow(callbacks)
+            self.context.callbacks = callbacks
 
+        # mp前にsetupを保証する
         if not self.rl_config.is_setup():
             self.rl_config.setup(self.make_env())
 
         # ---
         if self.rl_config.get_framework() == "tensorflow":
             os.environ["SRL_TF_GPU_INITIALIZE_DEVICES"] = "1"
+
         params_dat = self._parameter_dat
-        if (params_dat is None) and (self.state.parameter is not None):
-            params_dat = self.state.parameter.backup(serialized=True)
+        if (params_dat is None) and initial_parameter_sharing:
+            params_dat = self.make_parameter().backup(serialized=True)
+
         memory_dat = self._memory_dat
-        if (memory_dat is None) and (self.state.memory is not None):
-            memory_dat = self.state.memory.backup(compress=True)
+        if (memory_dat is None) and initial_memory_sharing:
+            memory_dat = self.make_memory().backup(compress=True)
 
         if enable_mp_memory:
             from srl.base.run.play_mp_memory import MpConfig, train
 
-            params_dat, memory_dat = train(
+            self._parameter_dat, self._memory_dat = train(
                 MpConfig(
                     self.context,
-                    callbacks,
                     queue_capacity=queue_capacity,
                     trainer_parameter_send_interval=trainer_parameter_send_interval,
                     actor_parameter_sync_interval=actor_parameter_sync_interval,
@@ -337,16 +439,12 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
                 params_dat,
                 memory_dat,
             )
-            self._parameter_dat = params_dat
-            self._memory_dat = memory_dat
-
         else:
             from srl.base.run.play_mp import MpConfig, train
 
-            params_dat, memory_dat = train(
+            self._parameter_dat, self._memory_dat = train(
                 MpConfig(
                     self.context,
-                    callbacks,
                     queue_capacity=queue_capacity,
                     trainer_parameter_send_interval=trainer_parameter_send_interval,
                     actor_parameter_sync_interval=actor_parameter_sync_interval,
@@ -356,10 +454,28 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
                 params_dat,
                 memory_dat,
             )
-            self._parameter_dat = params_dat
-            self._memory_dat = memory_dat
 
         self._after_history()
+
+    def set_context_train_mp(self):
+        self.context.play_mode = "train_mp"
+        # stop config
+        self.context.max_episodes = -1
+        # self.context.timeout = timeout
+        self.context.max_steps = -1
+        # self.context.max_train_count = max_train_count
+        self.context.max_memory = -1
+        # play config
+        # self.context.players = players
+        # self.context.shuffle_player = shuffle_player
+        self.context.disable_trainer = False
+        # play info
+        self.context.distributed = True
+        self.context.training = True
+        self.context.train_only = False
+        self.context.rollout = False
+        self.context.env_render_mode = ""
+        self.context.rl_render_mode = ""
 
     # def train_mp_debug(
     #     self,
@@ -505,7 +621,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self.context.actor_num = actor_num
 
         # --- set context
-        self.context.flow_mode = "train_distribution"
+        self.context.play_mode = "train_distribution"
         # stop config
         self.context.max_episodes = -1
         self.context.timeout = timeout
@@ -525,7 +641,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self.context.rl_render_mode = ""
 
         if enable_progress:
-            self.apply_progress(callbacks_run, enable_eval=False)
+            self.apply_progress(callbacks_run, apply_eval=False)
 
         if not self.rl_config.is_setup():
             self.rl_config.setup(self.make_env())
@@ -560,6 +676,26 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
             task_manager.finished("runner")
             task_manager.read_parameter(self.make_parameter())
 
+    def set_context_train_distribution(self):
+        self.context.play_mode = "train_distribution"
+        # stop config
+        self.context.max_episodes = -1
+        # self.context.timeout = timeout
+        self.context.max_steps = -1
+        # self.context.max_train_count = max_train_count
+        self.context.max_memory = -1
+        # play config
+        # self.context.players = players
+        # self.context.shuffle_player = shuffle_player
+        self.context.disable_trainer = False
+        # play info
+        self.context.distributed = True
+        self.context.training = True
+        self.context.train_only = False
+        self.context.rollout = False
+        self.context.env_render_mode = ""
+        self.context.rl_render_mode = ""
+
     def train_distribution_start(
         self,
         redis_params: "RedisParameters",
@@ -586,7 +722,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self.context.actor_num = actor_num
 
         # --- set context
-        self.context.flow_mode = "train_distribution_start"
+        self.context.play_mode = "train_distribution_start"
         # stop config
         self.context.max_episodes = -1
         self.context.timeout = timeout
@@ -604,7 +740,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self.context.rl_render_mode = ""
 
         if enable_progress:
-            self.apply_progress(callbacks, enable_eval=False)
+            self.apply_progress(callbacks, apply_eval=False)
 
         if not self.rl_config.is_setup():
             self.rl_config.setup(self.make_env())
@@ -624,6 +760,24 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
             ),
             self.make_parameter(),
         )
+
+    def set_context_train_distribution_start(self):
+        self.context.play_mode = "train_distribution_start"
+        # stop config
+        self.context.max_episodes = -1
+        # self.context.timeout = timeout
+        self.context.max_steps = -1
+        # self.context.max_train_count = max_train_count
+        self.context.max_memory = -1
+        # play config
+        # self.context.players = players
+        # self.context.shuffle_player = shuffle_player
+        self.context.disable_trainer = False
+        # play info
+        self.context.distributed = True
+        self.context.training = True
+        self.context.env_render_mode = ""
+        self.context.rl_render_mode = ""
 
     # --------------------------------------------
     # play
@@ -658,7 +812,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         callbacks = callbacks[:]
 
         # --- set context
-        self.context.flow_mode = "evaluate"
+        self.context.play_mode = "evaluate"
         # stop config
         self.context.max_episodes = max_episodes
         self.context.timeout = timeout
@@ -678,15 +832,17 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         self.context.rl_render_mode = ""
 
         if enable_progress:
-            self.apply_progress(callbacks, enable_eval=False)
+            self.apply_progress(callbacks, apply_eval=False)
 
-        self.setup_process()
-        play(
+        self.context.callbacks = callbacks
+        self.state = play(
             self.context,
-            self.state,
-            self._parameter_dat,
-            self._memory_dat,
-            callbacks,
+            env=self.make_env(),
+            worker=self.make_worker(),
+            trainer=None,
+            workers=None,
+            parameter_dat=self._parameter_dat,
+            memory_dat=self._memory_dat,
         )
         self._parameter_dat = None
         self._memory_dat = None
@@ -696,6 +852,26 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
             return [r[0] for r in state.episode_rewards_list]
         else:
             return state.episode_rewards_list
+
+    def set_context_evaluate(self):
+        self.context.play_mode = "evaluate"
+        # stop config
+        # self.context.max_episodes = max_episodes
+        # self.context.timeout = timeout
+        # self.context.max_steps = max_steps
+        self.context.max_train_count = 0
+        self.context.max_memory = 0
+        # play config
+        # self.context.players = players
+        # self.context.shuffle_player = shuffle_player
+        self.context.disable_trainer = True
+        # play info
+        self.context.distributed = False
+        self.context.training = False
+        self.context.train_only = False
+        self.context.rollout = False
+        self.context.env_render_mode = ""
+        self.context.rl_render_mode = ""
 
     def render_terminal(
         self,
@@ -715,7 +891,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         callbacks = callbacks[:]
 
         # --- set context
-        self.context.flow_mode = "render_terminal"
+        self.context.play_mode = "render_terminal"
         # stop config
         self.context.max_episodes = 1
         self.context.timeout = timeout
@@ -751,13 +927,15 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         )
         # -----------------
 
-        self.setup_process()
-        play(
+        self.context.callbacks = callbacks
+        self.state = play(
             self.context,
-            self.state,
-            self._parameter_dat,
-            self._memory_dat,
-            callbacks,
+            env=self.make_env(),
+            worker=self.make_worker(),
+            trainer=self.make_trainer() if training_flag else None,
+            workers=None,
+            parameter_dat=self._parameter_dat,
+            memory_dat=self._memory_dat,
         )
         self._parameter_dat = None
         self._memory_dat = None
@@ -767,6 +945,27 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
 
         state = cast(RunStateActor, self.state)
         return state.episode_rewards_list[0]
+
+    def set_context_render_terminal(self):
+        self.context.play_mode = "render_terminal"
+        # stop config
+        self.context.max_episodes = 1
+        # self.context.timeout = timeout
+        # self.context.max_steps = max_steps
+        self.context.max_train_count = 0
+        self.context.max_memory = 0
+        # play config
+        # self.context.players = players
+        self.context.shuffle_player = False
+        self.context.disable_trainer = True
+        # play info
+        self.context.distributed = False
+        # self.context.training = training_flag
+        self.context.train_only = False
+        self.context.rollout = False
+        # render_modeはRendering側で設定
+        # self.context.env_render_mode = ""
+        # self.context.rl_render_mode = ""
 
     def render_window(
         self,
@@ -789,7 +988,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         callbacks = callbacks[:]
 
         # --- context
-        self.context.flow_mode = "render_window"
+        self.context.play_mode = "render_window"
         # stop config
         self.context.max_episodes = 1
         self.context.timeout = timeout
@@ -825,21 +1024,41 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         callbacks.append(rendering)
 
         if enable_progress:
-            self.apply_progress(callbacks, enable_eval=False)
+            self.apply_progress(callbacks, apply_eval=False)
 
-        self.setup_process()
-        play(
+        self.context.callbacks = callbacks
+        self.state = play(
             self.context,
-            self.state,
-            self._parameter_dat,
-            self._memory_dat,
-            callbacks,
+            env=self.make_env(),
+            worker=self.make_worker(),
+            trainer=self.make_trainer() if self.context.training else None,
+            workers=None,
+            parameter_dat=self._parameter_dat,
+            memory_dat=self._memory_dat,
         )
         self._parameter_dat = None
         self._memory_dat = None
 
         if training_flag:
             self.parameter.restore(params_dat)
+
+    def set_context_render_window(self):
+        self.context.play_mode = "render_window"
+        # stop config
+        self.context.max_episodes = 1
+        # self.context.timeout = timeout
+        # self.context.max_steps = max_steps
+        self.context.max_train_count = 0
+        self.context.max_memory = 0
+        # play config
+        # self.context.players = players
+        self.context.shuffle_player = False
+        self.context.disable_trainer = True
+        # play info
+        self.context.distributed = False
+        # self.context.training = training_flag
+        self.context.train_only = False
+        self.context.rollout = False
 
     def run_render(
         self,
@@ -866,7 +1085,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         callbacks = callbacks[:]
 
         # --- set context
-        self.context.flow_mode = "run_render"
+        self.context.play_mode = "run_render"
         # stop config
         self.context.max_episodes = 1
         self.context.timeout = timeout
@@ -906,15 +1125,17 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         # -----------------
 
         if enable_progress:
-            self.apply_progress(callbacks, enable_eval=False)
+            self.apply_progress(callbacks, apply_eval=False)
 
-        self.setup_process()
-        play(
+        self.context.callbacks = callbacks
+        self.state = play(
             self.context,
-            self.state,
-            self._parameter_dat,
-            self._memory_dat,
-            callbacks,
+            env=self.make_env(),
+            worker=self.make_worker(),
+            trainer=self.make_trainer() if self.context.training else None,
+            workers=None,
+            parameter_dat=self._parameter_dat,
+            memory_dat=self._memory_dat,
         )
         self._parameter_dat = None
         self._memory_dat = None
@@ -923,8 +1144,27 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
             self.parameter.restore(params_dat)
 
         if self.context.run_name != "eval":
-            logger.info(f"render step: {self.state.total_step}, reward: {self.state.episode_rewards_list}")
+            state = cast(RunStateActor, self.state)
+            logger.info(f"render step: {state.total_step}, reward: {state.episode_rewards_list}")
         return rendering
+
+    def set_context_run_render(self):
+        self.context.play_mode = "run_render"
+        # stop config
+        self.context.max_episodes = 1
+        # self.context.timeout = timeout
+        # self.context.max_steps = max_steps
+        self.context.max_train_count = 0
+        self.context.max_memory = 0
+        # play config
+        # self.context.players = players
+        self.context.shuffle_player = False
+        self.context.disable_trainer = True
+        # play info
+        self.context.distributed = False
+        # self.context.training = training_flag
+        self.context.train_only = False
+        self.context.rollout = False
 
     def animation_save_gif(
         self,
@@ -1074,7 +1314,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         callbacks = callbacks[:]
 
         # --- set context
-        self.context.flow_mode = "replay_window"
+        self.context.play_mode = "replay_window"
         # stop config
         self.context.max_episodes = 1
         self.context.timeout = timeout
@@ -1098,24 +1338,42 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
             params_dat = self.parameter.backup()
 
         if enable_progress:
-            self.apply_progress(callbacks, enable_eval=False)
+            self.apply_progress(callbacks, apply_eval=False)
 
         from srl.runner.game_windows.replay_window import RePlayableGame
 
-        self.setup_process()
-        self.state.parameter = self.make_parameter()
+        self.context.callbacks = callbacks
         window = RePlayableGame(
             self.context,
-            self.state,
+            env=self.make_env(),
+            worker=self.make_worker(),
+            trainer=self.make_trainer() if self.context.training else None,
             render_player=render_player,
             print_state=print_state,
-            callbacks=callbacks,
             _is_test=_is_test,
         )
         window.play()
 
         if training_flag:
             self.parameter.restore(params_dat)
+
+    def set_context_replay_window(self):
+        self.context.play_mode = "replay_window"
+        # stop config
+        self.context.max_episodes = 1
+        # self.context.timeout = timeout
+        # self.context.max_steps = max_steps
+        self.context.max_train_count = 0
+        self.context.max_memory = 0
+        # play config
+        # self.context.players = players
+        self.context.shuffle_player = False
+        self.context.disable_trainer = True
+        # play info
+        self.context.distributed = False
+        # self.context.training = training_flag
+        self.context.train_only = False
+        self.context.rollout = False
 
     def play_terminal(
         self,
@@ -1136,7 +1394,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         callbacks = callbacks[:]
 
         # --- set context
-        self.context.flow_mode = "play_terminal"
+        self.context.play_mode = "play_terminal"
         # stop config
         self.context.max_episodes = 1
         self.context.timeout = timeout
@@ -1177,13 +1435,15 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         callbacks.append(ManualPlayCallback(self.make_env(), action_division_num))
         # -----------------
 
-        self.setup_process()
-        play(
+        self.context.callbacks = callbacks
+        self.state = play(
             self.context,
-            self.state,
-            self._parameter_dat,
-            self._memory_dat,
-            callbacks,
+            env=self.make_env(),
+            worker=self.make_worker(),
+            trainer=None,
+            workers=None,
+            parameter_dat=self._parameter_dat,
+            memory_dat=self._memory_dat,
         )
         self._parameter_dat = None
         self._memory_dat = None
@@ -1192,6 +1452,24 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
             self.parameter.restore(params_dat)
 
         return self.state.episode_rewards_list[0]
+
+    def set_context_play_terminal(self):
+        self.context.play_mode = "play_terminal"
+        # stop config
+        self.context.max_episodes = 1
+        # self.context.timeout = timeout
+        # self.context.max_steps = max_steps
+        self.context.max_train_count = 0
+        self.context.max_memory = 0
+        # play config
+        # self.context.players = players
+        self.context.shuffle_player = False
+        self.context.disable_trainer = True
+        # play info
+        self.context.distributed = False
+        # self.context.training = enable_memory
+        self.context.train_only = False
+        # self.context.rollout = enable_memory
 
     def play_window(
         self,
@@ -1209,10 +1487,8 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         callbacks: List[RunCallback] = [],
         _is_test: bool = False,  # for test
     ):
-        callbacks2 = cast(List[RunCallback], [c for c in callbacks if issubclass(c.__class__, RunCallback)])
-
         # --- set context
-        self.context.flow_mode = "play_window"
+        self.context.play_mode = "play_window"
         # stop config
         self.context.max_episodes = -1
         self.context.timeout = timeout
@@ -1232,6 +1508,8 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         # self.context.env_render_mode = ""
         # self.context.rl_render_mode = ""
 
+        self.context.callbacks = callbacks[:]
+
         if training_flag:
             params_dat = self.parameter.backup()
 
@@ -1243,21 +1521,38 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
 
         from srl.runner.game_windows.playable_game import PlayableGame
 
-        self.setup_process()
         game = PlayableGame(
+            self.context,
             env=self.make_env(),
-            context=self.context,
             worker=self.make_worker(),
+            trainer=self.make_trainer() if self.context.training else None,
             view_state=view_state,
             action_division_num=action_division_num,
             key_bind=key_bind,
-            callbacks=callbacks2,
             _is_test=_is_test,
         )
         game.play()
 
         if training_flag:
             self.parameter.restore(params_dat)
+
+    def set_context_play_window(self):
+        self.context.play_mode = "play_window"
+        # stop config
+        self.context.max_episodes = -1
+        # self.context.timeout = timeout
+        # self.context.max_steps = max_steps
+        self.context.max_train_count = 0
+        self.context.max_memory = 0
+        # play config
+        # self.context.players = players
+        self.context.shuffle_player = False
+        self.context.disable_trainer = True
+        # play info
+        self.context.distributed = False
+        # self.context.training = enable_memory or training_flag
+        self.context.train_only = False
+        # self.context.rollout = enable_memory
 
     # --------------------------------------------
     # utils
@@ -1293,6 +1588,7 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         if summary_parameter:
             parameter = self.make_parameter()
             parameter.summary()
+        self.context.summary()
 
     def get_env_init_state(self, encode: bool = True) -> Union[EnvObservationType, RLObservationType]:
         env = self.make_env()

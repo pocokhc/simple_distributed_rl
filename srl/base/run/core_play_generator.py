@@ -3,8 +3,10 @@ import random
 import time
 from typing import Any, Generator, List, Optional, Tuple
 
-from srl.base.context import RunContext, RunState
-from srl.base.run.callback import RunCallback
+from srl.base.context import RunContext, RunStateActor
+from srl.base.env.env_run import EnvRun
+from srl.base.rl.trainer import RLTrainer
+from srl.base.rl.worker_run import WorkerRun
 from srl.utils import common
 
 logger = logging.getLogger(__name__)
@@ -12,53 +14,43 @@ logger = logging.getLogger(__name__)
 
 def play_generator(
     context: RunContext,
-    state: Optional[RunState] = None,  # type: ignore
+    env: EnvRun,
+    worker: WorkerRun,
+    trainer: Optional[RLTrainer] = None,
+    workers: Optional[List[WorkerRun]] = None,
     parameter_dat: Optional[Any] = None,
     memory_dat: Optional[Any] = None,
-    callbacks: List[RunCallback] = [],
-) -> Generator[Tuple[str, RunContext, RunState], None, None]:
+) -> Generator[Tuple[str, RunContext, RunStateActor], None, None]:
     # Generator[YieldType, SendType, ReturnType]
 
-    # context.check_stop_config()  # generatorはチェックしない
+    # --- context
+    context = context.copy()
+    context.setup(check_stop_config=False)  # generatorはチェックしない
+    callbacks = context.callbacks
 
-    if state is None:
-        state = RunState()
-    state.init()
+    # --- 0 check instance
+    state = RunStateActor()
+    state.env = env
+    state.worker = worker
+    state.parameter = worker.worker.parameter
+    state.memory = worker.worker.memory
 
-    # --- 0 create instance
-    if state.env is None:
-        if state.worker is None:
-            state.env = context.env_config.make()
-        else:
-            state.env = state.worker.env
-    if state.parameter is None:
-        if state.worker is None:
-            state.parameter = context.rl_config.make_parameter(state.env)
-        else:
-            state.parameter = state.worker.worker.parameter
+    if workers is None:
+        workers, main_worker_idx = context.rl_config.make_workers(context.players, env, state.parameter, state.memory, worker)
+    state.workers = workers
+
+    if context.disable_trainer:
+        trainer = None
+    elif context.training and (trainer is None):
+        trainer = context.rl_config.make_trainer(state.parameter, state.memory)
+    state.trainer = trainer
+
     if parameter_dat is not None:
         state.parameter.restore(parameter_dat)
-    if state.memory is None:
-        if state.worker is None:
-            state.memory = context.rl_config.make_memory(state.env)
-        else:
-            state.memory = state.worker.worker.memory
     if memory_dat is not None:
         state.memory.restore(memory_dat)
-    if (state.trainer is None) and context.training:
-        state.trainer = context.rl_config.make_trainer(state.parameter, state.memory, state.env)
-    if state.worker is None:
-        state.worker = context.rl_config.make_worker(state.env, state.parameter, state.memory)
-    # workersは作り直す
-    state.workers, main_worker_idx = context.rl_config.make_workers(context.players, state.env, state.parameter, state.memory, state.worker)
 
-    # check
-    if context.disable_trainer:
-        state.trainer = None
-    elif context.training:
-        assert state.trainer is not None
-    assert state.env.player_num == len(state.workers)
-    assert state.worker is not None
+    assert env.player_num == len(workers)
 
     # --- callbacks ---
     if not context.distributed:
@@ -67,7 +59,7 @@ def play_generator(
 
     # --- 1 setup_from_actor
     if context.distributed:
-        state.worker.config.setup_from_actor(context.actor_num, context.actor_id)
+        worker.config.setup_from_actor(context.actor_num, context.actor_id)
 
     # --- 2 random
     if context.seed is not None:
@@ -77,13 +69,13 @@ def play_generator(
         logger.info(f"set_seed: {context.seed}, 1st episode seed: {state.episode_seed}")
 
     # --- 3 setup
-    state.env.setup(context, "" if context.rl_config is None else context.rl_config.request_env_render)
-    [w.setup(context) for w in state.workers]
-    if state.trainer is not None:
-        state.trainer.setup(context)
+    env.setup(context, "" if context.rl_config is None else context.rl_config.request_env_render)
+    [w.setup(context) for w in workers]
+    if trainer is not None:
+        trainer.setup(context)
 
     # --- 4 init
-    state.worker_indices = [i for i in range(state.env.player_num)]
+    state.worker_indices = [i for i in range(env.player_num)]
 
     # --- 5 callbacks
     _calls_on_episode_begin: List[Any] = [c for c in callbacks if hasattr(c, "on_episode_begin")]
@@ -118,7 +110,7 @@ def play_generator(
             state.end_reason = "max_steps over."
             break
 
-        if state.trainer is not None:
+        if trainer is not None:
             if context.max_train_count > 0 and state.train_count >= context.max_train_count:
                 state.end_reason = "max_train_count over."
                 break
@@ -131,14 +123,14 @@ def play_generator(
         # ------------------------
         # episode end / init
         # ------------------------
-        if state.env.done:
+        if env.done:
             state.episode_count += 1
             if context.max_episodes > 0 and state.episode_count >= context.max_episodes:
                 state.end_reason = "episode_count over."
                 break  # end
 
             # env reset
-            state.env.reset(seed=state.episode_seed)
+            env.reset(seed=state.episode_seed)
 
             if state.episode_seed is not None:
                 state.episode_seed += 1
@@ -146,10 +138,10 @@ def play_generator(
             # shuffle
             if context.shuffle_player:
                 random.shuffle(state.worker_indices)
-            state.worker_idx = state.worker_indices[state.env.next_player]
+            state.worker_idx = state.worker_indices[env.next_player]
 
             # worker reset
-            [w.reset(state.worker_indices[i]) for i, w in enumerate(state.workers)]
+            [w.reset(state.worker_indices[i]) for i, w in enumerate(workers)]
 
             # callbacks
             yield ("on_episode_begin", context, state)
@@ -164,48 +156,48 @@ def play_generator(
         # --- action
         yield ("on_step_action_before", context, state)
         [c.on_step_action_before(context=context, state=state) for c in _calls_on_step_action_before]
-        state.action = state.workers[state.worker_idx].policy()
+        state.action = workers[state.worker_idx].policy()
         yield ("on_step_action_after", context, state)
         [c.on_step_action_after(context=context, state=state) for c in _calls_on_step_action_after]
 
         # workerがenvを終了させた場合に対応
-        if not state.env.done:
+        if not env.done:
             # env step
-            state.env.step(
+            env.step(
                 state.action,
-                state.workers[state.worker_idx].config.frameskip,
+                workers[state.worker_idx].config.frameskip,
                 __skip_func_arg,
             )
 
             # rl step
-            [w.on_step() for w in state.workers]
+            [w.on_step() for w in workers]
 
             # step update
             state.total_step += 1
 
         # --- trainer
-        if (state.trainer is not None) and (state.total_step % context.train_interval == 0):
-            _prev_train = state.trainer.train_count
+        if (trainer is not None) and (state.total_step % context.train_interval == 0):
+            _prev_train = trainer.train_count
             for _ in range(context.train_repeat):
-                state.trainer.train()
-            state.is_step_trained = state.trainer.train_count > _prev_train
+                trainer.train()
+            state.is_step_trained = trainer.train_count > _prev_train
             if state.is_step_trained:
-                state.train_count += state.trainer.train_count - _prev_train
+                state.train_count += trainer.train_count - _prev_train
 
         yield ("on_step_end", context, state)
         _stop_flags = [c.on_step_end(context=context, state=state) for c in _calls_on_step_end]
-        state.worker_idx = state.worker_indices[state.env.next_player]  # on_step_end の後
+        state.worker_idx = state.worker_indices[env.next_player]  # on_step_end の後
 
         # ------------------------
         # done
         # ------------------------
-        if state.env.done:
+        if env.done:
             # reward
-            worker_rewards = [state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)]
+            worker_rewards = [env.episode_rewards[state.worker_indices[i]] for i in range(env.player_num)]
             state.episode_rewards_list.append(worker_rewards)
 
-            state.last_episode_step = state.env.step_num
-            state.last_episode_time = state.env.elapsed_time
+            state.last_episode_step = env.step_num
+            state.last_episode_time = env.elapsed_time
             state.last_episode_rewards = worker_rewards
             yield ("on_episode_end", context, state)
             [c.on_episode_end(context=context, state=state) for c in _calls_on_episode_end]
@@ -218,19 +210,19 @@ def play_generator(
         logger.debug(f"[{context.run_name}] loop end({state.end_reason})")
 
     # --- 7 teardown
-    state.env.teardown()
-    [w.teardown() for w in state.workers]
-    if state.trainer is not None:
-        state.trainer.teardown()
+    env.teardown()
+    [w.teardown() for w in workers]
+    if trainer is not None:
+        trainer.teardown()
 
     # rewardは学習中は不要
     if not context.training:
         # 一度もepisodeを終了していない場合は例外で途中経過を保存
         if state.episode_count == 0:
-            worker_rewards = [state.env.episode_rewards[state.worker_indices[i]] for i in range(state.env.player_num)]
+            worker_rewards = [env.episode_rewards[state.worker_indices[i]] for i in range(env.player_num)]
             state.episode_rewards_list.append(worker_rewards)
-            state.last_episode_step = state.env.step_num
-            state.last_episode_time = state.env.elapsed_time
+            state.last_episode_step = env.step_num
+            state.last_episode_time = env.elapsed_time
             state.last_episode_rewards = worker_rewards
 
     # 8 callbacks

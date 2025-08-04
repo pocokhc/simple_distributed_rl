@@ -49,7 +49,7 @@ class MLFlowCallback(RunCallback, Evaluate):
                 self.run_name = context.rl_config.name
             if framework != "":
                 self.run_name += f":{framework}"
-            self.run_name += f"({context.flow_mode})"
+            self.run_name += f"({context.play_mode})"
             mlflow.start_run(run_name=self.run_name)
             self._auto_run = True
         active_run = mlflow.active_run()
@@ -60,15 +60,19 @@ class MLFlowCallback(RunCallback, Evaluate):
         mlflow.set_tag("Env", context.env_config.name)
         mlflow.set_tag("RL", context.rl_config.name)
         mlflow.set_tag("Framework", context.rl_config.get_framework())
-        mlflow.set_tag("Flow", context.flow_mode)
+        mlflow.set_tag("Play", context.play_mode)
         mlflow.set_tags(self.tags)
 
-        d = {"env/" + k: v for k, v in context.env_config.to_dict().items()}
+        d = {"env/" + k: v for k, v in context.env_config.to_dict(to_print=True).items()}
+        d.update({"rl/" + k: v for k, v in context.rl_config.to_dict(to_print=True).items()})
+        d.update({"rl_base/" + k: v for k, v in context.rl_config.to_dict(to_print=True, include_rl_config=False, include_base_config=True).items()})
+        con_dict = context.to_dict(to_print=True)
+        d.update({"context/" + k: v for k, v in con_dict.items() if k != "callbacks"})
+        for i, c in enumerate(context.callbacks):
+            if isinstance(c, MLFlowCallback):
+                continue
+            d[f"context/callbacks_{i}"] = str(c)
         mlflow.log_params(d)
-        d = {"rl/" + k: v for k, v in context.rl_config.to_dict(include_base_config=True).items()}
-        mlflow.log_params(d)
-        d = context.to_dict(include_env_config=False, include_rl_config=False)
-        mlflow.log_params({"context/" + k: v for k, v in d.items()})
 
         # if context.distributed:
         #    # メインプロセス以外でtkinterを使うと落ちるので使わない

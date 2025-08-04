@@ -1,78 +1,53 @@
 import logging
 import time
-from dataclasses import dataclass
-from typing import Any, List, Optional, cast
+from typing import Any, List, Optional
 
-from srl.base.context import RunContext, RunState
-from srl.base.rl.memory import RLMemory
-from srl.base.rl.parameter import RLParameter
+from srl.base.context import RunContext, RunStateTrainer
 from srl.base.rl.trainer import RLTrainer
-from srl.base.run.callback import RunCallback
 from srl.utils import common
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class RunStateTrainer(RunState):
-    env: None
-    worker: None
-    workers: None
-    trainer: RLTrainer
-    memory: RLMemory
-    parameter: RLParameter
-
-
 def play_trainer_only(
     context: RunContext,
-    state: Optional[RunState] = None,
+    trainer: RLTrainer,
     parameter_dat: Optional[Any] = None,
     memory_dat: Optional[Any] = None,
-    callbacks: List[RunCallback] = [],
+    state: Optional[RunStateTrainer] = None,  # 継続用
+    _check_tf: bool = True,
 ):
-    # check context
-    logger.debug(context.to_str_context())
+    if _check_tf and context.enable_tf_device and (context.framework == "tensorflow") and common.is_enable_tf_device_name(context.used_device_tf):
+        import tensorflow as tf
+
+        logger.info(f"tf.device({context.used_device_tf})")
+        with tf.device(context.used_device_tf):  # type: ignore
+            return play_trainer_only(
+                context,
+                trainer,
+                parameter_dat,
+                memory_dat,
+                state,
+                _check_tf=False,
+            )
+
+    # --- context
+    context = context.copy()
     assert context.training
-    context.check_stop_config()
+    context.setup()
+    callbacks = context.callbacks
 
+    # --- 0 check instance
     if state is None:
-        state = RunState()
-    state.init()
+        state = RunStateTrainer()
+    state.trainer = trainer
+    state.parameter = trainer.parameter
+    state.memory = trainer.memory
 
-    if context.enable_tf_device and context.framework == "tensorflow":
-        if common.is_enable_tf_device_name(context.used_device_tf):
-            import tensorflow as tf
-
-            logger.info(f"tf.device({context.used_device_tf})")
-            with tf.device(context.used_device_tf):  # type: ignore
-                return _play_trainer_only(context, cast(RunStateTrainer, state), parameter_dat, memory_dat, callbacks)
-    return _play_trainer_only(context, cast(RunStateTrainer, state), parameter_dat, memory_dat, callbacks)
-
-
-def _play_trainer_only(
-    context: RunContext,
-    state: RunStateTrainer,
-    parameter_dat: Optional[Any],
-    memory_dat: Optional[Any],
-    callbacks: List[RunCallback],
-):
-    # --- 0 create instance
-    if state.parameter is None:
-        if state.trainer is None:
-            state.parameter = context.rl_config.make_parameter(state.env)
-        else:
-            state.parameter = state.trainer.parameter
     if parameter_dat is not None:
         state.parameter.restore(parameter_dat)
-    if state.memory is None:
-        if state.trainer is None:
-            state.memory = context.rl_config.make_memory(state.env)
-        else:
-            state.memory = state.trainer.memory
     if memory_dat is not None:
         state.memory.restore(memory_dat)
-    if state.trainer is None:
-        state.trainer = context.rl_config.make_trainer(state.parameter, state.memory, state.env)
 
     # --- callbacks ---
     if not context.distributed:
@@ -80,7 +55,7 @@ def _play_trainer_only(
     # -----------------
 
     # --- 1 setup
-    state.trainer.setup(context)
+    trainer.setup(context)
 
     # 2 callbacks
     _calls_on_train_before: List[Any] = [c for c in callbacks if hasattr(c, "on_train_before")]
@@ -105,12 +80,12 @@ def _play_trainer_only(
             [c.on_train_before(context=context, state=state) for c in _calls_on_train_before]
 
             # --- train
-            _prev_train = state.trainer.train_count
-            state.trainer.train()
-            state.is_step_trained = state.trainer.train_count > _prev_train
+            _prev_train = trainer.train_count
+            trainer.train()
+            state.is_step_trained = trainer.train_count > _prev_train
             if state.is_step_trained:
                 # 増えた分だけ加算
-                state.train_count += state.trainer.train_count - _prev_train
+                state.train_count += trainer.train_count - _prev_train
 
             # callbacks
             _stop_flags = [c.on_train_after(context=context, state=state) for c in _calls_on_train_after]
@@ -121,7 +96,7 @@ def _play_trainer_only(
         logger.debug(f"loop end({state.end_reason})")
 
         # 4 teardown
-        state.trainer.teardown()
+        trainer.teardown()
 
         # 5 callbacks
         [c.on_trainer_end(context=context, state=state) for c in callbacks]

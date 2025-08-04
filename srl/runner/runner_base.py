@@ -36,11 +36,7 @@ class RunnerBase(Generic[TRLConfig]):
     context: Optional[RunContext] = None  # type: ignore , type
     delay_make_env: bool = False
 
-    # --- private(static class instance)
-    __setup_process = False
-
     def __post_init__(self):
-        # --- config
         if isinstance(self.name_or_env_config, str):
             self.env_config: EnvConfig = EnvConfig(self.name_or_env_config)
         else:
@@ -50,12 +46,21 @@ class RunnerBase(Generic[TRLConfig]):
         if self.context is None:
             self.context: RunContext = RunContext(self.env_config, self.rl_config)
 
+        self._env: Optional[EnvRun] = None
+        self._worker: Optional[WorkerRun] = None
+        self._workers: Optional[List["WorkerRun"]] = None
+        self._parameter: Optional[RLParameter] = None
+        self._memory: Optional[RLMemory] = None
+        self._trainer: Optional[RLTrainer] = None
+
         self._parameter_dat: Optional[Any] = None
         self._memory_dat: Optional[Any] = None
-        self.state: RunState = RunState()
+        self.state: Optional[RunState] = None
 
         self._history_on_file_kwargs: Optional[dict] = None
         self._history_on_memory_kwargs: Optional[dict] = None
+        self._callback_history_on_memory = None
+        self._callback_history_on_file = None
         self._checkpoint_kwargs: Optional[dict] = None
         self.history_viewer: Optional["HistoryViewer"] = None
         self._mlflow_kwargs: Optional[dict] = None
@@ -151,68 +156,69 @@ class RunnerBase(Generic[TRLConfig]):
     # make functions
     # ------------------------------
     def make_env(self) -> EnvRun:
-        if self.state.env is None:
-            self.state.env = make_env(self.env_config)
-        return self.state.env
+        if self._env is None:
+            self._env = make_env(self.env_config)
+            self.rl_config.setup(self._env)
+        return self._env
 
     def make_parameter(self) -> RLParameter:
-        self.setup_process()
-        if self.state.parameter is None:
-            self.state.parameter = make_parameter(self.rl_config)
+        self.context.setup_process()
+        if self._parameter is None:
+            self._parameter = make_parameter(self.rl_config)
         if self._parameter_dat is not None:
-            self.state.parameter.restore(self._parameter_dat)
+            self._parameter.restore(self._parameter_dat)
             self._parameter_dat = None
-        return self.state.parameter
+        return self._parameter
 
     def make_memory(self) -> RLMemory:
-        self.setup_process()
-        if self.state.memory is None:
-            self.state.memory = make_memory(self.rl_config)
+        self.context.setup_process()
+        if self._memory is None:
+            self._memory = make_memory(self.rl_config)
         if self._memory_dat is not None:
-            self.state.memory.restore(self._memory_dat)
+            self._memory.restore(self._memory_dat)
             self._memory_dat = None
-        return self.state.memory
+        return self._memory
 
     def make_trainer(
         self,
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
     ) -> RLTrainer:
-        self.setup_process()
-        if self.state.trainer is None:
+        self.context.setup_process()
+        if self._trainer is None:
             if parameter is None:
                 parameter = self.make_parameter()
             if memory is None:
                 memory = self.make_memory()
-            self.state.trainer = make_trainer(self.rl_config, parameter, memory)
-        return self.state.trainer
+            self._trainer = make_trainer(self.rl_config, parameter, memory)
+        return self._trainer
 
     def make_worker(
         self,
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
     ) -> WorkerRun:
-        self.setup_process()
-        if self.state.worker is None:
+        self.context.setup_process()
+        if self._worker is None:
             if parameter is None:
                 parameter = self.make_parameter()
             if memory is None:
                 memory = self.make_memory()
-            self.state.worker = make_worker(self.rl_config, self.make_env(), parameter, memory)
-        return self.state.worker
+            self._worker = make_worker(self.rl_config, self.make_env(), parameter, memory)
+        return self._worker
 
     def make_workers(
         self,
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
     ):
-        self.setup_process()
-        if self.state.workers is None:
+        self.context.setup_process()
+        if self._workers is None:
             if parameter is None:
                 parameter = self.make_parameter()
             if memory is None:
                 memory = self.make_memory()
-            self.state.workers, main_worker_idx = make_workers(
+            self._workers, main_worker_idx = make_workers(
                 self.context.players,
                 self.make_env(),
                 self.rl_config,
@@ -220,19 +226,7 @@ class RunnerBase(Generic[TRLConfig]):
                 memory,
                 self.make_worker(parameter, memory),
             )
-        return self.state.workers
-
-    # ------------------------------
-    # process
-    # ------------------------------
-    def setup_process(self):
-        if not self.rl_config.is_setup():
-            self.rl_config.setup(self.make_env())
-        if RunnerBase.__setup_process:
-            return
-        self.context.set_memory_limit()
-        self.context.setup_device()
-        RunnerBase.__setup_process = True
+        return self._workers
 
     # ------------------------------
     # device
@@ -256,10 +250,6 @@ class RunnerBase(Generic[TRLConfig]):
             tf_device_enable (bool, optional): tensorflowにて、 'with tf.device()' を使用する. Defaults to True.
             tf_enable_memory_growth (bool, optional): tensorflowにて、'set_memory_growth(True)' を実行する. Defaults to True.
         """
-        if RunnerBase.__setup_process:
-            logger.warning("Device cannot be changed after initialization.")
-            return
-
         self.context.device = device
         self.context.set_CUDA_VISIBLE_DEVICES_if_CPU = set_CUDA_VISIBLE_DEVICES_if_CPU
         self.context.tf_device_enable = tf_device_enable
@@ -320,10 +310,10 @@ class RunnerBase(Generic[TRLConfig]):
             eval_players=eval_players,
         )
 
-    def apply_progress(self, callbacks: list, enable_eval: bool):
+    def apply_progress(self, callbacks: list, apply_eval: bool):
         from srl.runner.callbacks.print_progress import PrintProgress
 
-        if enable_eval:
+        if apply_eval:
             callbacks.append(PrintProgress(**self._progress_kwargs))
         else:
             _kwargs = self._progress_kwargs.copy()

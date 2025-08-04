@@ -72,7 +72,7 @@ def make_base(config: Union[str, EnvConfig], env_run: Optional["EnvRun"] = None)
             try:
                 from srl.base.env.gym_wrapper import GymWrapper
 
-                env = GymWrapper(config)
+                env = GymWrapper(config.id, config.kwargs, config.gym_make_func, config.gym_wrapper)
             except gym.error.NameNotFound as e:
                 logger.warning(f"Gym failed to load. '{e}'")
             except gym.error.NamespaceNotFound as e:
@@ -85,7 +85,7 @@ def make_base(config: Union[str, EnvConfig], env_run: Optional["EnvRun"] = None)
             try:
                 from srl.base.env.gymnasium_wrapper import GymnasiumWrapper
 
-                env = GymnasiumWrapper(config)
+                env = GymnasiumWrapper(config.id, config.kwargs, config.gym_make_func, config.gym_wrapper)
             except gymnasium.error.NameNotFound as e:
                 logger.warning(f"Gymnasium failed to load. '{e}'")
             except gymnasium.error.NamespaceNotFound as e:

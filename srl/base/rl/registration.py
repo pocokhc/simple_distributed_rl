@@ -21,7 +21,7 @@ def _check_rl_config(rl_config: RLConfig, env: Optional[EnvRun]) -> None:
     if not isinstance(rl_config, DummyRLConfig):
         assert key in _registry, f"{key} is not registered."
     if env is None:
-        assert rl_config.is_setup, "Run 'rl_config.reset(env)' first"
+        assert rl_config.is_setup(), "Run 'rl_config.reset(env)' first"
     else:
         rl_config.setup(env)
 

@@ -2,9 +2,10 @@ import enum
 import json
 from dataclasses import dataclass, field
 from pprint import pprint
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
+import pytest
 
 from srl.utils import serialize
 from tests.utils import assert_equal
@@ -41,7 +42,7 @@ def dummy_func(a):
     return a
 
 
-def test_convert_for_json():
+def test_dataclass_to_print():
     d = {
         "none": None,
         "int": 1,
@@ -59,7 +60,7 @@ def test_convert_for_json():
         "class": DummyClass(),
         "func": dummy_func,
     }
-    d2 = serialize.convert_for_json(d)
+    d2 = serialize.dataclass_to_dict(d, to_print=True)
     pprint(d2)
     json.dumps(d2)
 
@@ -99,7 +100,8 @@ class DummyTestClass:
     o_dict_class: Optional[DummyClassDict] = None
 
 
-def test_dataclass(tmpdir):
+@pytest.mark.parametrize("strict", [False, True])
+def test_dataclass(tmpdir, strict):
     d = {
         "s_none": None,
         "s_int": 3,
@@ -135,7 +137,7 @@ def test_dataclass(tmpdir):
     }
     pprint(d)
     o = DummyTestClass()
-    serialize.update_dataclass_from_dict(o, d)
+    serialize.apply_dict_to_dataclass(o, d, strict)
     pprint(o)
     assert_equal(o.s_none, None)
     assert_equal(o.s_int, 3)
@@ -175,26 +177,24 @@ def test_dataclass(tmpdir):
     d["o_bytes"] = "QkJC"
     d["s_enum"] = "b"
     d["o_enum"] = "b"
-    d["s_dataclass"] = {"val": 2.2}
+    d["s_dataclass"] = {"_target_": "utils.test_serialize.DummyDataClass", "val": 2.2}
+    d["s_dataclass2"] = {"_target_": "utils.test_serialize.DummyDataClass", "val": 2.2}
+    d["o_dataclass"] = {"_target_": "utils.test_serialize.DummyDataClass", "val": 2.2}
     d["s_np"] = [1, 2, 3]
     d["o_np"] = [1, 2, 3]
-    d["s_dict_class"] = {"a": 2.2}
-    d["o_dict_class"] = {"a": 2.2}
+    d["s_dict_class"] = {"_target_": "utils.test_serialize.DummyClassDict", "a": 2.2}
+    d["o_dict_class"] = {"_target_": "utils.test_serialize.DummyClassDict", "a": 2.2}
     d2 = serialize.dataclass_to_dict(o)
     for k, v in d2.items():
+        if k in {"_target_", "_args_"}:
+            continue
         print(k, d[k])
         assert_equal(d[k], v)
 
     # --- ファイル経由でも変わらない事
     path = tmpdir / "tmp.dat"
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(d2, f, ensure_ascii=False)
-
-    with path.open("r", encoding="utf-8") as f:
-        d3 = json.load(f)
-
-    o = DummyTestClass()
-    serialize.update_dataclass_from_dict(o, d3)
+    serialize.save_dict(serialize.dataclass_to_dict(o), path)
+    o = serialize.apply_dict_to_dataclass(None, serialize.load_dict(str(path)), strict)
     pprint(o)
     assert_equal(o.s_none, None)
     assert_equal(o.s_int, 3)
@@ -229,3 +229,69 @@ def test_dataclass(tmpdir):
     assert_equal(o.s_dict_class.a, 2.2)
     assert o.o_dict_class is not None
     assert_equal(o.o_dict_class.a, 2.2)
+
+
+class Dummy2:
+    def __init__(self, param1=0, param2=0, b=0) -> None:
+        self.param1 = param1
+        self.param2 = param2
+        self.b = b
+
+
+class Dummy1:
+    def __init__(self, param1, param2) -> None:
+        self.param1 = param1
+        self.param2 = param2
+
+
+def test_dataclass_instance1():
+    cfg = {
+        "_target_": __name__ + ".Dummy1",
+        "_args_": [
+            {
+                "_target_": __name__ + ".Dummy2",
+                "_args_": ["a", "a"],
+            },
+            {
+                "_target_": __name__ + ".Dummy2",
+                "_args_": ["b", "b"],
+                "b": 1,
+            },
+        ],
+    }
+    o: Dummy1 = serialize.apply_dict_to_dataclass(None, cfg)
+    assert isinstance(o, Dummy1)
+    assert isinstance(o.param1, Dummy2)
+    assert o.param1.param1 == "a"
+    assert o.param1.param2 == "a"
+    assert isinstance(o.param2, Dummy2)
+    assert o.param2.param1 == "b"
+    assert o.param2.param2 == "b"
+    assert o.param2.b == 1
+
+
+def test_dataclass_instance2():
+    cfg = {
+        "_target_": __name__ + ".Dummy1",
+        "param1": {
+            "_target_": __name__ + ".Dummy2",
+            "param1": "a",
+            "param2": "a",
+        },
+        "param2": {
+            "_target_": __name__ + ".Dummy2",
+            "_args_": ["b", "b"],
+            "b": 1,
+        },
+    }
+    o = Dummy1(Dummy2("", "", 5), None)
+    o: Dummy1 = serialize.apply_dict_to_dataclass(o, cfg)
+    assert isinstance(o, Dummy1)
+    assert isinstance(o.param1, Dummy2)
+    assert o.param1.param1 == "a"
+    assert o.param1.param2 == "a"
+    assert o.param1.b == 5
+    assert isinstance(o.param2, Dummy2)
+    assert o.param2.param1 == "b"
+    assert o.param2.param2 == "b"
+    assert o.param2.b == 1

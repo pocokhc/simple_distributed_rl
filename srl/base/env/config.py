@@ -1,13 +1,11 @@
-import copy
 import logging
-import os
 import pprint
 import traceback
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
 
 from srl.base.env.processor import EnvProcessor
-from srl.utils.serialize import dataclass_to_dict, update_dataclass_from_dict
+from srl.utils.serialize import apply_dict_to_dataclass, dataclass_to_dict, get_modified_fields, load_dict, save_dict
 
 if TYPE_CHECKING:
     import gym
@@ -23,25 +21,27 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class EnvConfig:
-    """EnvConfig は環境を定義します。
+    """環境の定義
 
-    環境は、基本は名前だけで呼び出せます。
+    環境は名前だけ又はEnvConfigで定義します。
+    EnvConfigからは細かい設定を追加できます。
 
-    >>> env = srl.make_env("Grid")
+    >>> env_config = "Grid"
+    >>> env_config = srl.EnvConfig("Grid", {"move_reward": -0.1})
 
-    しかし、ユーザが環境のパラメータを変えたい場合、このクラスでパラメータを変更します。
+    生成は以下のどちらでもできます。
 
-    >>> env_config = srl.EnvConfig("Grid")
+    >>> env = srl.make_env(env_config)
     >>> env = env_config.make()
 
     """
 
     #: Specifies the environment id
-    id: str
+    id: str = ""
 
     #: 環境生成時に渡す引数を指定します。
     #: これは登録されているパラメータより優先されます。
-    kwargs: Dict = field(default_factory=dict)
+    kwargs: dict = field(default_factory=dict)
 
     # --- episode option
     #: 1エピソードの最大ステップ数(0以下で無効)
@@ -127,59 +127,32 @@ class EnvConfig:
 
         return make(self)
 
-    def update_from_dict(self, config_dict: dict):
-        """辞書のキーに応じて属性を更新する"""
-        update_dataclass_from_dict(self, config_dict)
-        return self
-
-    def to_dict(self) -> dict:
-        return dataclass_to_dict(self)
+    @classmethod
+    def load(cls, path_or_cfg_dict: Union[dict, Any, str]) -> "EnvConfig":
+        return apply_dict_to_dataclass(cls(""), load_dict(path_or_cfg_dict))
 
     def save(self, path: str):
-        dat = self.to_dict()
-        ext = os.path.splitext(path)[1].lower()
+        save_dict(dataclass_to_dict(self), path)
+        return self
 
-        if ext in {".yaml", ".yml"}:
-            import yaml
+    def apply_dict(self, cfg_dict: Union[dict, Any]) -> "EnvConfig":
+        return apply_dict_to_dataclass(self, cfg_dict)
 
-            with open(path, "w", encoding="utf-8") as f:
-                yaml.safe_dump(dat, f, allow_unicode=True)
-        else:
-            if ext != ".json":
-                logger.warning(f"Unknown extension '{ext}', saving as JSON: {path}")
-
-            import json
-
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(dat, f, indent=2, ensure_ascii=False)
-
-    @classmethod
-    def load(cls, path: str):
-        ext = os.path.splitext(path)[1].lower()
-        if ext in {".yaml", ".yml"}:
-            import yaml
-
-            with open(path, "r", encoding="utf-8") as f:
-                dat = yaml.safe_load(f)
-        else:
-            import json
-
-            with open(path, "r", encoding="utf-8") as f:
-                dat = json.load(f)
-
-        return cls("").update_from_dict(dat)
+    def to_dict(self, to_print: bool = False) -> dict:
+        return dataclass_to_dict(self, to_print=to_print)
 
     def copy(self) -> "EnvConfig":
-        config = EnvConfig(self.id)
+        config = EnvConfig.load(dataclass_to_dict(self))
         config.__name = self.__name
-        for k, v in self.__dict__.items():
-            if v is None:
-                continue
-            if type(v) in [int, float, bool, str]:
-                setattr(config, k, v)
-            elif type(v) in [list, dict]:
-                setattr(config, k, copy.deepcopy(v))
         return config
 
-    def summary(self):
-        print("--- EnvConfig ---\n" + pprint.pformat(self.to_dict()))
+    def summary(self, show_changed_only: bool = False):
+        if show_changed_only:
+            d = get_modified_fields(self)
+        else:
+            d = dataclass_to_dict(self, to_print=True)
+        print("--- EnvConfig ---\n" + pprint.pformat(d))
+
+
+def load_env(path_or_cfg_dict: Union[dict, Any, str]) -> EnvConfig:
+    return EnvConfig.load(path_or_cfg_dict)

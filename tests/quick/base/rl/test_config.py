@@ -1,4 +1,5 @@
 from dataclasses import dataclass, fields
+from pprint import pprint
 
 import numpy as np
 import pytest
@@ -17,7 +18,7 @@ Space後の値や数値は各spaceのテスト
 
 @dataclass
 class TestConfig(DummyRLConfig):
-    pass
+    a: int = 10
 
 
 def test_dtype():
@@ -43,7 +44,7 @@ def test_dtype():
 
 
 def test_processor():
-    pytest.importorskip("pygamte")
+    pytest.importorskip("pygame")
     pytest.importorskip("PIL")
     from srl.algorithms import ql
     from srl.rl.processors.image_processor import ImageProcessor
@@ -64,15 +65,14 @@ def test_processor():
     assert isinstance(rl_config.get_applied_processors()[0], ImageProcessor)
 
 
-def test_save_load(tmpdir):
+@pytest.mark.parametrize("include_rl_config", [False, True])
+@pytest.mark.parametrize("include_base_config", [False, True])
+@pytest.mark.parametrize("include_metadata", [False, True])
+def test_to_dict(include_rl_config, include_base_config, include_metadata):
     config = TestConfig()
-    path = str(tmpdir / "config.dat")
-    config.save(path)
-    config2 = TestConfig.load(path)
-
-    for f in fields(config):
-        print(f.name)
-        assert_equal(getattr(config, f.name), getattr(config2, f.name))
+    d = config.to_dict(include_rl_config, include_base_config, include_metadata)
+    pprint(d)
+    a = 0
 
 
 def test_copy():
@@ -91,8 +91,25 @@ def test_copy():
     assert config2.window_length == 2
 
 
+@pytest.mark.parametrize("file", ["json", "yaml"])
+def test_save_load(tmpdir, file):
+    if file == "json":
+        path = str(tmpdir / "config.json")
+    elif file == "yaml":
+        pytest.importorskip("yaml")
+        path = str(tmpdir / "config.yaml")
+
+    config = TestConfig()
+    config.save(path)
+    config2 = TestConfig.load(path)
+
+    for f in fields(config):
+        print(f.name)
+        assert_equal(getattr(config, f.name), getattr(config2, f.name))
+
+
 def test_summary():
-    pytest.importorskip("pygamte")
+    pytest.importorskip("pygame")
     pytest.importorskip("PIL")
 
     config = TestConfig(window_length=4, observation_mode="render_image")

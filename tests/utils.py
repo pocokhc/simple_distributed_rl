@@ -1,3 +1,4 @@
+import inspect
 from typing import Any
 
 import numpy as np
@@ -9,7 +10,7 @@ def assert_equal(actual: Any, expected: Any) -> None:
     if expected is None:
         assert actual is None
 
-    if isinstance(expected, float):
+    if isinstance(expected, (int, bool, str, float)):
         assert actual == pytest.approx(expected)
     elif isinstance(expected, (list, tuple)):
         assert type(actual) == type(expected), f"type mismatch: {type(actual)} != {type(expected)}"
@@ -33,5 +34,12 @@ def assert_equal(actual: Any, expected: Any) -> None:
             assert np.allclose(actual, expected), f"array values mismatch: {actual} != {expected}"
         else:
             assert np.array_equal(actual, expected), f"array values mismatch: {actual} != {expected}"
+    elif callable(expected):  # objectの前
+        assert actual is expected, f"value mismatch: {actual} != {expected}"
+    elif inspect.isclass(type(expected)) and type(expected).__module__ != "builtins":
+        if "__eq__" in type(expected).__dict__:
+            assert actual == expected, f"value mismatch: {actual} != {expected}"
+        else:
+            assert type(actual) == type(expected), f"type mismatch: {type(actual)} != {type(expected)}"
     else:
         assert actual == expected, f"value mismatch: {actual} != {expected}"

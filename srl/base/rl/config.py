@@ -22,7 +22,7 @@ from srl.base.env.env_run import EnvRun
 from srl.base.exception import NotSupportedError, UndefinedError
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.space import SpaceBase, TActSpace, TObsSpace
-from srl.utils.serialize import convert_for_json, dataclass_to_dict, update_dataclass_from_dict
+from srl.utils.serialize import apply_dict_to_dataclass, dataclass_to_dict, get_modified_fields, load_dict, save_dict
 
 if TYPE_CHECKING:
     from srl.base.rl.algorithms.extend_worker import ExtendWorker
@@ -659,61 +659,51 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     def used_device_torch(self) -> str:
         return self.__used_device_torch
 
-    def update_from_dict(self, config_dict: dict):
-        """辞書のキーに応じて属性を更新する"""
-        update_dataclass_from_dict(self, config_dict)
+    def set_used_device(self, used_device_tf: str, used_device_torch: str):
+        self.__used_device_tf = used_device_tf
+        self.__used_device_torch = used_device_torch
+
+    @classmethod
+    def load(cls, path_or_cfg_dict: Union[dict, Any, str]) -> "RLConfig":
+        return apply_dict_to_dataclass(cls(), load_dict(path_or_cfg_dict))
+
+    def save(
+        self,
+        path: str,
+        include_rl_config: bool = True,
+        include_base_config: bool = False,
+        include_metadata: bool = False,
+    ):
+        save_dict(self.to_dict(include_rl_config, include_base_config, include_metadata), path)
         return self
 
-    def to_dict(self, include_base_config: bool = False, include_metadata: bool = False) -> dict:
-        if include_metadata:
-            d = {}
-            for k, v in self.__dict__.items():
-                if True and k.startswith("_"):
-                    continue
-                d[k] = v
-            dat: dict = convert_for_json(d)
-            return dat
-        else:
+    def apply_dict(self, cfg_dict: Union[dict, Any]) -> "RLConfig":
+        return apply_dict_to_dataclass(self, cfg_dict)
+
+    def to_dict(
+        self,
+        include_rl_config: bool = True,
+        include_base_config: bool = False,
+        include_metadata: bool = False,
+        to_print: bool = False,
+    ) -> dict:
+        if include_rl_config:
             if include_base_config:
                 exclude_names = []
             else:
-                cfg = DummyRLConfig()
-                exclude_names = [f.name for f in fields(cfg)]
-            return dataclass_to_dict(self, exclude_names)
-
-    def save(self, path: str, include_base_config: bool = False):
-        dat = self.to_dict(include_base_config)
-        ext = os.path.splitext(path)[1].lower()
-
-        if ext in {".yaml", ".yml"}:
-            import yaml
-
-            with open(path, "w", encoding="utf-8") as f:
-                yaml.safe_dump(dat, f, allow_unicode=True)
+                exclude_names = [f.name for f in fields(DummyRLConfig())]
         else:
-            if ext != ".json":
-                logger.warning(f"Unknown extension '{ext}', saving as JSON: {path}")
+            if include_base_config:
+                rl_base_names = [f.name for f in fields(self)]
+                base_names = [f.name for f in fields(DummyRLConfig())]
+                exclude_names = [n for n in rl_base_names if n not in base_names]
+            else:
+                exclude_names = [f.name for f in fields(self)]
 
-            import json
-
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(dat, f, indent=2, ensure_ascii=False)
-        return self
-
-    @classmethod
-    def load(cls, path: str):
-        ext = os.path.splitext(path)[1].lower()
-        if ext in {".yaml", ".yml"}:
-            import yaml
-
-            with open(path, "r", encoding="utf-8") as f:
-                dat = yaml.safe_load(f)
-        else:
-            import json
-
-            with open(path, "r", encoding="utf-8") as f:
-                dat = json.load(f)
-        return cls().update_from_dict(dat)
+        d = dataclass_to_dict(self, exclude_names, to_print=to_print)
+        if include_metadata:
+            d.update(self.get_metadata())
+        return d
 
     def copy(self, reset_env_config: bool = False) -> Any:
         config = self.__class__()
@@ -755,11 +745,17 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         return d
 
     def __str__(self) -> str:
-        return pprint.pformat(self.to_dict())
+        return pprint.pformat(self.to_dict(to_print=True))
 
-    def summary(self):
-        print("--- RLConfig ---\n" + pprint.pformat(self.to_dict()))
-        print("--- Algorithm settings ---\n" + pprint.pformat(self.get_metadata()))
+    def summary(self, show_changed_only: bool = False):
+        if show_changed_only:
+            print("--- RL Config ---\n" + pprint.pformat(get_modified_fields(self)))
+            # print("--- RL Base Config ---\n" + pprint.pformat(self.to_dict(include_rl_config=False, include_base_config=True, to_print=True)))
+            # print("--- RL metadata ---\n" + pprint.pformat(self.get_metadata()))
+        else:
+            print("--- RL Config ---\n" + pprint.pformat(self.to_dict(to_print=True)))
+            print("--- RL Base Config ---\n" + pprint.pformat(self.to_dict(include_rl_config=False, include_base_config=True, to_print=True)))
+            print("--- RL metadata ---\n" + pprint.pformat(self.get_metadata()))
 
     def model_summary(self, expand_nested: bool = True, **kwargs):
         assert self.__is_setup

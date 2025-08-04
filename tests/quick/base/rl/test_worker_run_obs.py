@@ -66,7 +66,7 @@ def _test_obs_episode(
     rl_config.observation_mode = rl_obs_mode
     rl_config.observation_division_num = rl_obs_div_num
 
-    use_render_image_state = is_package_installed("pygamte")
+    use_render_image_state = is_package_installed("pygame")
     rl_config._use_render_image_state = use_render_image_state
     rl_config.render_image_window_length = render_image_window_length
 

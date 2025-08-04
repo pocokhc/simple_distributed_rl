@@ -1,7 +1,7 @@
 import logging
 import os
 import pickle
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple, Union, cast
 
 import gymnasium
 import numpy as np
@@ -11,7 +11,7 @@ from gymnasium.spaces import flatten, flatten_space
 from srl.base import spaces as srl_spaces
 from srl.base.define import EnvActionType, KeyBindType, RenderModeType, SpaceTypes
 from srl.base.env.base import EnvBase
-from srl.base.env.config import EnvConfig
+from srl.base.env.gym_user_wrapper import GymUserWrapper
 from srl.base.spaces.space import SpaceBase
 
 if TYPE_CHECKING:
@@ -228,9 +228,18 @@ def space_decode_to_srl_from_gym(gym_space: gym_spaces.Space, srl_space: SpaceBa
 class GymnasiumWrapper(EnvBase):
     is_print_log = True
 
-    def __init__(self, config: EnvConfig):
+    def __init__(
+        self,
+        id: str,
+        kwargs: dict = {},
+        gym_make_func: Optional[Callable[..., gymnasium.Env]] = None,
+        gym_wrapper: Optional[GymUserWrapper] = None,
+    ):
         super().__init__()
-        self.config = config
+        self.id = id
+        self.kwargs = kwargs
+        self.gym_make_func = gym_make_func
+        self.gym_wrapper = gym_wrapper
 
         os.environ["SDL_VIDEODRIVER"] = "dummy"
         if GymnasiumWrapper.is_print_log:
@@ -256,9 +265,9 @@ class GymnasiumWrapper(EnvBase):
         obs_space = None
         self.use_wrapper_act = False
         self.use_wrapper_obs = False
-        if config.gym_wrapper is not None:
-            act_space = config.gym_wrapper.remap_action_space(self.env)
-            obs_space = config.gym_wrapper.remap_observation_space(self.env)
+        if gym_wrapper is not None:
+            act_space = gym_wrapper.remap_action_space(self.env)
+            obs_space = gym_wrapper.remap_observation_space(self.env)
             self.use_wrapper_act = act_space is not None
             self.use_wrapper_obs = obs_space is not None
 
@@ -279,9 +288,9 @@ class GymnasiumWrapper(EnvBase):
         GymnasiumWrapper.is_print_log = False
 
     def make_gymnasium_env(self, **kwargs) -> gymnasium.Env:
-        if self.config.gym_make_func is None:
-            return gymnasium.make(self.config.id, **self.config.kwargs, **kwargs)
-        env = self.config.gym_make_func(self.config.id, **self.config.kwargs, **kwargs)
+        if self.gym_make_func is None:
+            return gymnasium.make(self.id, **self.kwargs, **kwargs)
+        env = self.gym_make_func(self.id, **self.kwargs, **kwargs)
         return cast(gymnasium.Env, env)
 
     # --------------------------------
@@ -316,9 +325,9 @@ class GymnasiumWrapper(EnvBase):
 
     @property
     def reward_baseline(self) -> dict:
-        if self.config.id == "Pendulum-v1":
+        if self.id == "Pendulum-v1":
             return {"episode": 10, "baseline": -500}
-        if self.config.id == "ALE/Pong-v5":
+        if self.id == "ALE/Pong-v5":
             return {"episode": 5, "baseline": 0}
         return {}
 
@@ -331,8 +340,8 @@ class GymnasiumWrapper(EnvBase):
             self.env.observation_space.seed(seed)
 
         if self.use_wrapper_obs:
-            assert self.config.gym_wrapper is not None
-            state = self.config.gym_wrapper.remap_observation(state, self.env)
+            assert self.gym_wrapper is not None
+            state = self.gym_wrapper.remap_observation(state, self.env)
         else:
             state = space_encode_from_gym_to_srl(self.env.observation_space, state)
 
@@ -342,8 +351,8 @@ class GymnasiumWrapper(EnvBase):
 
     def step(self, action: EnvActionType) -> Tuple[Any, List[float], bool, bool]:
         if self.use_wrapper_act:
-            assert self.config.gym_wrapper is not None
-            action = self.config.gym_wrapper.remap_action(action, self.env)
+            assert self.gym_wrapper is not None
+            action = self.gym_wrapper.remap_action(action, self.env)
         else:
             action = space_decode_to_srl_from_gym(self.env.action_space, self.action_space, action)
 
@@ -351,14 +360,14 @@ class GymnasiumWrapper(EnvBase):
         state, reward, terminated, truncated, info = self.env.step(action)
 
         if self.use_wrapper_obs:
-            assert self.config.gym_wrapper is not None
-            state = self.config.gym_wrapper.remap_observation(state, self.env)
+            assert self.gym_wrapper is not None
+            state = self.gym_wrapper.remap_observation(state, self.env)
         else:
             state = space_encode_from_gym_to_srl(self.env.observation_space, state)
 
-        if self.config.gym_wrapper is not None:
-            reward = self.config.gym_wrapper.remap_reward(cast(float, reward), self.env)
-            terminated, truncated = self.config.gym_wrapper.remap_done(terminated, truncated, self.env)
+        if self.gym_wrapper is not None:
+            reward = self.gym_wrapper.remap_reward(cast(float, reward), self.env)
+            terminated, truncated = self.gym_wrapper.remap_done(terminated, truncated, self.env)
 
         state = self.observation_space.sanitize(state)
         self.info.set_dict(info)

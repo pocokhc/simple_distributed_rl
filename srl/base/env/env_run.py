@@ -72,6 +72,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             render_interval = self.config.render_interval
         else:
             render_interval = self.env.render_interval
+        render_interval *= self.config.frameskip + 1
         self._render = Render(self.env, render_interval)
         self._reset_vals()
         self.context: RunContext = RunContext(self.config)

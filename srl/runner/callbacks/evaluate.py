@@ -28,28 +28,18 @@ class Evaluate:
     def create_eval_runner(self, context: RunContext):
         from srl.runner.runner import Runner
 
-        context = context.copy(copy_callbacks=False)
+        context = context.copy(include_callbacks=False)
         context.run_name = "eval"
         context.seed = None  # mainと競合するのでNone
-        context.play_mode = "callback_evaluate"
-        # stop config
         context.max_episodes = self.eval_episode
         context.timeout = self.eval_timeout
         context.max_steps = self.eval_max_steps
-        context.max_train_count = 0
-        context.max_memory = 0
-        # play config
         context.players = self.eval_players
         context.shuffle_player = self.eval_shuffle_player
-        context.disable_trainer = True
-        # play info
-        context.distributed = False
-        context.training = False
-        context.train_only = False
-        context.rollout = False
-        context.env_render_mode = ""
-        context.rl_render_mode = ""
-        return Runner.create(context)
+
+        runner = Runner(context=context)
+        runner.update_context_evaluate(enable_progress=False)
+        return runner
 
     def run_eval_with_state(self, context: RunContext, state):
         if not self.enable_eval:
@@ -57,11 +47,11 @@ class Evaluate:
         try:
             if "eval_runner" not in state.shared_vars:
                 state.shared_vars["eval_runner"] = self.create_eval_runner(context)
-            runner = state.shared_vars["eval_runner"]
+            runner: "Runner" = state.shared_vars["eval_runner"]
 
             # eval
             runner.parameter.restore(state.parameter.backup())
-            state = runner.play_context()
+            state = runner.play_direct()
             return np.mean(state.episode_rewards_list, axis=0)
         except Exception:
             logger.error(traceback.format_exc())
@@ -72,7 +62,7 @@ class Evaluate:
             return None
         try:
             runner.parameter.restore(parameter.backup())
-            state = runner.play_context()
+            state = runner.play_direct()
             return np.mean(state.episode_rewards_list, axis=0)
         except Exception:
             logger.error(traceback.format_exc())

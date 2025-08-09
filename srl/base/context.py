@@ -35,8 +35,6 @@ class RunContext:
     rl_config: "RLConfig" = None  # type: ignore
     callbacks: List[RunCallback] = field(default_factory=list)
 
-    players: PlayersType = field(default_factory=list)
-
     # --- runtime context
     run_name: Literal["main", "trainer", "actor", "eval"] = "main"
     play_mode: str = ""
@@ -47,6 +45,7 @@ class RunContext:
     max_train_count: int = 0
     max_memory: int = 0
     # play config
+    players: PlayersType = field(default_factory=list)
     shuffle_player: bool = True
     disable_trainer: bool = False
     # train option
@@ -245,13 +244,13 @@ class RunContext:
     def to_dict(self, to_print: bool = False) -> dict:
         return dataclass_to_dict(self, ["env_config", "rl_config"], to_print=to_print)
 
-    def copy(self, copy_callbacks: bool = True) -> "RunContext":
+    def copy(self, include_callbacks: bool = True) -> "RunContext":
         c = RunContext.load(dataclass_to_dict(self, ["players", "env_config", "rl_config", "callbacks"]))
         c.players = pickle.loads(pickle.dumps(self.players))
         c.env_config = self.env_config
         c.rl_config = self.rl_config
-        if copy_callbacks:
-            c.callbacks = self.callbacks
+        if include_callbacks:
+            c.callbacks = self.callbacks[:]
         return c
 
     def get_name(self) -> str:

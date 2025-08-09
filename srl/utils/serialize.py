@@ -205,6 +205,8 @@ def _apply_dict_to_dataclass_sub(type_: type, key: str, src_data: Any, data: Uni
             if src_data is None:
                 kwargs = {}
                 for f in fields(attr):
+                    if not f.init:
+                        continue
                     if f.name in data:
                         d = data[f.name]
                     else:

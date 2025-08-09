@@ -586,7 +586,6 @@ def train(mp_cfg: MpConfig, parameter_dat: Optional[Any] = None, memory_dat: Opt
     global __is_set_start_method
 
     # context
-    mp_cfg.context = mp_cfg.context.copy()
     context = mp_cfg.context
     context.setup_device(is_mp_main_process=True)
     context.setup()

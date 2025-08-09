@@ -22,7 +22,6 @@ def play_generator(
     # Generator[YieldType, SendType, ReturnType]
 
     # --- context
-    context = context.copy()
     context.setup(check_stop_config=False)  # generatorはチェックしない
     callbacks = context.callbacks
 

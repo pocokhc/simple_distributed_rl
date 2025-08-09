@@ -38,7 +38,6 @@ def play(
             )
 
     # --- context
-    context = context.copy()
     context.setup()
     callbacks = context.callbacks
 

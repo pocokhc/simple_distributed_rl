@@ -660,7 +660,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
     @classmethod
     def load(cls, path_or_cfg_dict: Union[dict, Any, str]) -> "RLConfig":
-        return apply_dict_to_dataclass(cls(), load_dict(path_or_cfg_dict))
+        return apply_dict_to_dataclass(None, load_dict(path_or_cfg_dict))
 
     def save(
         self,

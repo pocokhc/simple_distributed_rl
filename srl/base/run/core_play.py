@@ -220,15 +220,13 @@ def play(
         if trainer is not None:
             trainer.teardown()
 
-        # rewardは学習中は不要
-        if not context.training:
-            # 一度もepisodeを終了していない場合は例外で途中経過を保存
-            if state.episode_count == 0:
-                worker_rewards = [env.episode_rewards[state.worker_indices[i]] for i in range(env.player_num)]
-                state.episode_rewards_list.append(worker_rewards)
-                state.last_episode_step = env.step_num
-                state.last_episode_time = env.elapsed_time
-                state.last_episode_rewards = worker_rewards
+        # 一度もepisodeを終了していない場合は例外で途中経過を保存
+        if state.episode_count == 0:
+            worker_rewards = [env.episode_rewards[state.worker_indices[i]] for i in range(env.player_num)]
+            state.episode_rewards_list.append(worker_rewards)
+            state.last_episode_step = env.step_num
+            state.last_episode_time = env.elapsed_time
+            state.last_episode_rewards = worker_rewards
 
         # 8 callbacks
         [c.on_episodes_end(context=context, state=state) for c in callbacks]

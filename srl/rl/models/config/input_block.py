@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Tuple, cast
+from typing import List, Optional, Tuple, cast
 
 import numpy as np
 
@@ -40,6 +40,8 @@ class InputValueBlockConfig:
         return self
 
     # ----------------------------------------------------------------
+    def get_processors(self) -> List[RLProcessor]:
+        return self.processors
 
     def create_tf_block(self, rnn: bool = False, **kwargs):
         from tensorflow.keras import layers
@@ -98,7 +100,7 @@ class InputValueBlockConfig:
 class InputImageBlockConfig:
     name: str = ""
     kwargs: dict = field(default_factory=dict)
-    processors: List[RLProcessor] = field(default_factory=list)
+    processors: Optional[List[RLProcessor]] = None
 
     def __post_init__(self):
         self.set_dqn_block()
@@ -111,7 +113,7 @@ class InputImageBlockConfig:
             activation (str): activation function. Defaults to "relu".
         """
         self.name = "DQN"
-        self.processors = [ImageProcessor(SpaceTypes.GRAY_3ch, (84, 84), normalize_type="0to1")]
+        self.processors = None
         self.kwargs = {
             "filters": filters,
             "activation": activation,
@@ -126,7 +128,7 @@ class InputImageBlockConfig:
             activation (str, optional): activation function. Defaults to "relu".
         """
         self.name = "R2D3"
-        self.processors = [ImageProcessor(SpaceTypes.COLOR, (96, 72), normalize_type="0to1")]
+        self.processors = None
         self.kwargs = {
             "filters": filters,
             "activation": activation,
@@ -171,7 +173,7 @@ class InputImageBlockConfig:
             use_layer_normalization (str, optional): use_layer_normalization. Defaults to True.
         """
         self.name = "MuzeroAtari"
-        self.processors = [ImageProcessor(SpaceTypes.COLOR, (96, 96), normalize_type="0to1")]
+        self.processors = None
         self.kwargs = {
             "filters": filters,
             "activation": activation,
@@ -189,6 +191,19 @@ class InputImageBlockConfig:
         return self
 
     # ----------------------------------------------------------------
+
+    def get_processors(self) -> List[RLProcessor]:
+        if self.processors is not None:
+            return self.processors
+
+        if self.name == "DQN":
+            return [ImageProcessor(SpaceTypes.GRAY_3ch, (84, 84), normalize_type="0to1")]
+        elif self.name == "R2D3":
+            return [ImageProcessor(SpaceTypes.COLOR, (96, 72), normalize_type="0to1")]
+        elif self.name == "MuzeroAtari":
+            return [ImageProcessor(SpaceTypes.COLOR, (96, 96), normalize_type="0to1")]
+        else:
+            raise UndefinedError(self)
 
     def create_tf_block(self, in_space: BoxSpace, out_flatten: bool = True, rnn: bool = False, **kwargs):
         from tensorflow.keras import layers
@@ -258,9 +273,9 @@ class InputBlockConfig:
 
     def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
         if prev_observation_space.is_value():
-            return self.value.processors
+            return self.value.get_processors()
         elif prev_observation_space.is_image():
-            return self.image.processors
+            return self.image.get_processors()
         return []
 
     def create_tf_block(self, cfg: RLConfig, out_flatten: bool = True, rnn: bool = False, **kwargs):

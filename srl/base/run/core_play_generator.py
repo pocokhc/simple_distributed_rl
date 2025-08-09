@@ -18,8 +18,6 @@ def play_generator(
     worker: WorkerRun,
     trainer: Optional[RLTrainer] = None,
     workers: Optional[List[WorkerRun]] = None,
-    parameter_dat: Optional[Any] = None,
-    memory_dat: Optional[Any] = None,
 ) -> Generator[Tuple[str, RunContext, RunStateActor], None, None]:
     # Generator[YieldType, SendType, ReturnType]
 
@@ -44,11 +42,6 @@ def play_generator(
     elif context.training and (trainer is None):
         trainer = context.rl_config.make_trainer(state.parameter, state.memory)
     state.trainer = trainer
-
-    if parameter_dat is not None:
-        state.parameter.restore(parameter_dat)
-    if memory_dat is not None:
-        state.memory.restore(memory_dat)
 
     assert env.player_num == len(workers)
 

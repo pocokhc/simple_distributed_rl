@@ -5,9 +5,8 @@ from srl.base.rl.algorithms.base_ppo import RLConfig
 from srl.base.rl.processor import RLProcessor
 from srl.base.spaces.space import SpaceBase
 from srl.rl.memories.replay_buffer import ReplayBufferConfig
-from srl.rl.models.config.input_image_block import InputImageBlockConfig
-from srl.rl.models.config.input_value_block import InputValueBlockConfig
-from srl.rl.models.config.mlp_block import MLPBlockConfig
+from srl.rl.models.config.hidden_block import HiddenBlockConfig
+from srl.rl.models.config.input_block import InputBlockConfig
 from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 
 """
@@ -30,14 +29,12 @@ SAC
 
 @dataclass
 class Config(RLConfig):
-    #: <:ref:`InputValueBlockConfig`>
-    input_value_block: InputValueBlockConfig = field(default_factory=lambda: InputValueBlockConfig())
-    #: <:ref:`InputImageBlockConfig`>
-    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig())
-    #: <:ref:`MLPBlockConfig`> policy layer
-    policy_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig().set((64, 64, 64)))
-    #: <:ref:`MLPBlockConfig`>
-    q_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig().set((128, 128, 128)))
+    #: <:ref:`InputBlockConfig`>
+    input_block: InputBlockConfig = field(default_factory=lambda: InputBlockConfig())
+    #: <:ref:`HiddenBlockConfig`> policy layer
+    policy_hidden_block: HiddenBlockConfig = field(init=False, default_factory=lambda: HiddenBlockConfig().set((64, 64, 64)))
+    #: <:ref:`HiddenBlockConfig`>
+    q_hidden_block: HiddenBlockConfig = field(init=False, default_factory=lambda: HiddenBlockConfig().set((128, 128, 128)))
 
     #: Batch size
     batch_size: int = 32
@@ -83,6 +80,4 @@ class Config(RLConfig):
         return "tensorflow"
 
     def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
-        if prev_observation_space.is_image():
-            return self.input_image_block.get_processors()
-        return []
+        return self.input_block.get_processors(prev_observation_space)

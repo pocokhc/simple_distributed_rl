@@ -19,11 +19,11 @@ def calc_target_q(self: CommonInterfaceParameter, batches, np_dtype):
     next_invalid_actions = [e for b in batches for e in b[5]]
     next_invalid_actions_idx = [i for i, b in enumerate(batches) for e in b[5]]
 
-    n_q_target = self.pred_batch_target_q(n_states)
+    n_q_target = self.pred_target_q(n_states)
 
     # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
     if self.config.enable_double_dqn:
-        n_q = self.pred_batch_q(n_states)
+        n_q = self.pred_q(n_states)
         n_q[next_invalid_actions_idx, next_invalid_actions] = np.min(n_q)
         n_act_idx = np.argmax(n_q, axis=1)
         maxq = n_q_target[np.arange(batch_size), n_act_idx]
@@ -51,7 +51,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
 
     def policy(self, worker) -> int:
         if self.config.enable_noisy_dense:
-            self.q = self.parameter.pred_single_q(worker.state)
+            self.q = self.parameter.pred_q(worker.state[np.newaxis, ...])[0]
             self.q[worker.invalid_actions] = -np.inf
             return int(np.argmax(self.q))
 
@@ -64,7 +64,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
             action = self.sample_action()
             self.q = None
         else:
-            self.q = self.parameter.pred_single_q(worker.state)
+            self.q = self.parameter.pred_q(worker.state[np.newaxis, ...])[0]
             self.q[worker.invalid_actions] = -np.inf
 
             # 最大値を選ぶ（複数はほぼないとして無視）
@@ -113,7 +113,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
             priority = None
         else:
             if self.q is None:
-                self.q = self.parameter.pred_single_q(worker.state)
+                self.q = self.parameter.pred_q(worker.state[np.newaxis, ...])[0]
             select_q = self.q[worker.action]
             target_q, _, _ = calc_target_q(self.parameter, [batch], np_dtype=self.np_dtype)
             priority = abs(target_q[0] - select_q)
@@ -122,7 +122,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
 
     def render_terminal(self, worker, **kwargs) -> None:
         if self.q is None:
-            q = self.parameter.pred_single_q(worker.state)
+            q = self.parameter.pred_q(worker.state[np.newaxis, ...])[0]
         else:
             q = self.q
         maxa = np.argmax(q)

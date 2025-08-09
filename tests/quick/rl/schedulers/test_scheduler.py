@@ -8,7 +8,7 @@ from srl.rl.schedulers.scheduler import SchedulerConfig
 
 def test_constant():
     sch = SchedulerConfig()
-    sch.set_constant(0.2)
+    sch.set(0.2)
     val = sch.create()
 
     for i in range(10):
@@ -114,5 +114,5 @@ def test_multi_plot():
     sch.add_cosine(0.7, 200)
     sch.add_cosine_with_hard_restarts(0.7, 500, 5)
     sch.add_polynomial(1.0, 200)
-    sch.add_constant(0.2)
+    sch.add(0.2)
     sch.plot(_no_plot=True)

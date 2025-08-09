@@ -93,9 +93,9 @@ class Config(RLConfig):
     policy_tau_scheduler: SchedulerConfig = field(
         default_factory=lambda: (
             SchedulerConfig(default_scheduler=True)  #
-            .add_constant(1.0, 50_000)
-            .add_constant(0.5, 25_000)
-            .add_constant(0.25)
+            .add(1.0, 50_000)
+            .add(0.5, 25_000)
+            .add(0.25)
         )
     )
     # td_steps: int = 5  # MC法でエピソード最後まで展開しているので未使用

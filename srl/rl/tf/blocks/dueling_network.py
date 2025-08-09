@@ -1,10 +1,8 @@
+from typing import Literal
+
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.exception import UndefinedError
-from srl.rl.models.config.dueling_network import DuelingNetworkConfig
-from srl.rl.tf.blocks.mlp_block import MLPBlock
-from srl.rl.tf.layers.noisy_dense import NoisyDense
 from srl.rl.tf.model import KerasModelAddedSummary
 from srl.utils.common import compare_less_version
 
@@ -16,47 +14,12 @@ if not v216_older:
 kl = keras.layers
 
 
-def create_block_from_config(
-    config: DuelingNetworkConfig,
-    out_size: int,
-    rnn: bool = False,
-    enable_noisy_dense: bool = False,
-):
-    if config.name == "MLP":
-        block = MLPBlock(enable_noisy_dense=enable_noisy_dense, **config.kwargs)
-        block.add_layer(kl.Dense(out_size, kernel_initializer="truncated_normal"))
-        return block
-
-    if config.name == "DuelingNetwork":
-        layer_sizes = config.kwargs["layer_sizes"]
-        dueling_units = layer_sizes[-1]
-        layer_sizes = layer_sizes[:-1]
-
-        block = MLPBlock(layer_sizes, enable_noisy_dense=enable_noisy_dense, **config.kwargs["mlp_kwargs"])
-        block.add_layer(
-            DuelingNetworkBlock(
-                dueling_units,
-                out_size,
-                enable_noisy_dense=enable_noisy_dense,
-                **config.kwargs["dueling_kwargs"],
-            )
-        )
-        return block
-
-    if config.name == "custom":
-        from srl.utils.common import load_module
-
-        return load_module(config.kwargs["entry_point"])(out_size, rnn=rnn, **config.kwargs["kwargs"])
-
-    raise UndefinedError(config.name)
-
-
 class DuelingNetworkBlock(KerasModelAddedSummary):
     def __init__(
         self,
         hidden_units: int,
         out_layer_units: int,
-        dueling_type: str = "average",
+        dueling_type: Literal["", "average", "max"] = "average",
         activation: str = "relu",
         enable_noisy_dense: bool = False,
         **kwargs,
@@ -65,6 +28,8 @@ class DuelingNetworkBlock(KerasModelAddedSummary):
         self.dueling_type = dueling_type
 
         if enable_noisy_dense:
+            from srl.rl.tf.layers.noisy_dense import NoisyDense
+
             _Dense = NoisyDense
         else:
             _Dense = kl.Dense

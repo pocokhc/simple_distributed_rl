@@ -25,10 +25,7 @@ class QNetwork(KerasModelAddedSummary):
             self.input_int_reward = False
 
         # --- input
-        if config.observation_space.is_image():
-            self.in_block = config.input_image_block.create_tf_block(config.observation_space, rnn=True)
-        else:
-            self.in_block = config.input_value_block.create_tf_block(config.observation_space, rnn=True)
+        self.in_block = config.input_block.create_tf_block(config, rnn=True)
         self.concat_layer = kl.Concatenate(axis=-1)
 
         # --- lstm
@@ -45,7 +42,7 @@ class QNetwork(KerasModelAddedSummary):
         np_dtype = config.get_dtype("np")
         self(
             [
-                self.in_block.create_dummy_data(np_dtype, timesteps=config.sequence_length),
+                config.input_block.create_tf_dummy_data(config, timesteps=config.sequence_length),
                 np.zeros((1, config.sequence_length, 1), np_dtype),
                 np.zeros((1, config.sequence_length, 1), np_dtype),
                 np.zeros((1, config.sequence_length, config.action_space.n), np_dtype),
@@ -99,12 +96,7 @@ class EmbeddingNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
-        if config.observation_space.is_value():
-            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
-        elif config.observation_space.is_image():
-            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
-        else:
-            raise ValueError(config.observation_space)
+        self.in_block = config.input_block.create_tf_block(config)
         self.emb_block = config.episodic_emb_block.create_tf_block()
 
         self.concat_layer = kl.Concatenate(axis=-1)
@@ -116,7 +108,7 @@ class EmbeddingNetwork(KerasModelAddedSummary):
         np_dtype = config.get_dtype("np")
         self(
             [
-                self.in_block.create_dummy_data(np_dtype),
+                config.input_block.create_tf_dummy_data(config),
                 np.zeros((1,) + config.observation_space.shape, np_dtype),
             ]
         )
@@ -154,13 +146,7 @@ class LifelongNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
-        if config.observation_space.is_value():
-            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
-        elif config.observation_space.is_image():
-            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
-        else:
-            raise ValueError(config.observation_space)
-
+        self.in_block = config.input_block.create_tf_block(config)
         self.hidden_block = config.lifelong_hidden_block.create_tf_block()
         self.hidden_normalize = kl.LayerNormalization()
 

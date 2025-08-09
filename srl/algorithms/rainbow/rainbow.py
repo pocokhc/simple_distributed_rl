@@ -14,8 +14,7 @@ from srl.rl.functions import create_epsilon_list, inverse_rescaling, rescaling
 from srl.rl.memories.priority_replay_buffer import PriorityReplayBufferConfig, RLPriorityReplayBuffer
 from srl.rl.models.config.dueling_network import DuelingNetworkConfig
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
-from srl.rl.models.config.input_image_block import InputImageBlockConfig
-from srl.rl.models.config.input_value_block import InputValueBlockConfig
+from srl.rl.models.config.input_block import InputBlockConfig
 from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -77,17 +76,15 @@ class Config(RLConfig, RLConfigComponentFramework):
     #: ε-greedy parameter for Train
     epsilon: float = 0.1
     #: <:ref:`SchedulerConfig`>
-    epsilon_scheduler: SchedulerConfig = field(default_factory=lambda: SchedulerConfig())
+    epsilon_scheduler: SchedulerConfig = field(init=False, default_factory=lambda: SchedulerConfig())
     #: Learning rate
     lr: float = 0.001
     #: <:ref:`LRSchedulerConfig`>
-    lr_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
+    lr_scheduler: LRSchedulerConfig = field(init=False, default_factory=lambda: LRSchedulerConfig())
 
-    #: <:ref:`InputValueBlockConfig`>
-    input_value_block: InputValueBlockConfig = field(default_factory=lambda: InputValueBlockConfig())
-    #: <:ref:`InputImageBlockConfig`>
-    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig())
-    #: <:ref:`DuelingNetworkConfig`> hidden layer
+    #: <:ref:`InputBlockConfig`>
+    input_block: InputBlockConfig = field(init=False, default_factory=lambda: InputBlockConfig())
+    #: <:ref:`DuelingNetworkConfig`> hidden+out layer
     hidden_block: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
 
     #: Discount rate
@@ -121,7 +118,7 @@ class Config(RLConfig, RLConfigComponentFramework):
         self.epsilon_scheduler.set_linear(1.0, 0.1, 1_000_000)
 
         # model
-        self.input_image_block.set_dqn_block()
+        self.input_block.image.set_dqn_block()
         self.hidden_block.set_dueling_network((512,), dueling_type="average")
         self.enable_double_dqn = True
 
@@ -157,9 +154,7 @@ class Config(RLConfig, RLConfigComponentFramework):
             return "Rainbow"
 
     def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
-        if prev_observation_space.is_image():
-            return self.input_image_block.get_processors()
-        return []
+        return self.input_block.get_processors(prev_observation_space)
 
     def get_framework(self) -> str:
         return RLConfigComponentFramework.get_framework(self)
@@ -180,15 +175,11 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
         self.multi_discounts = np.array([self.config.discount**n for n in range(self.config.multisteps)], dtype=self.np_dtype)
 
     @abstractmethod
-    def pred_single_q(self, state) -> np.ndarray:
+    def pred_q(self, state) -> np.ndarray:
         raise NotImplementedError()
 
     @abstractmethod
-    def pred_batch_q(self, state) -> np.ndarray:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def pred_batch_target_q(self, state) -> np.ndarray:
+    def pred_target_q(self, state) -> np.ndarray:
         raise NotImplementedError()
 
     def calc_target_q(self, batches):
@@ -230,8 +221,8 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
         online_state = np.reshape(online_state, (batch_size * online_shape1,) + online_state.shape[2:])
         target_state = np.reshape(target_state, (batch_size * self.config.multisteps,) + target_state.shape[2:])
 
-        q_online = self.pred_batch_q(online_state)
-        q_target = self.pred_batch_target_q(target_state)
+        q_online = self.pred_q(online_state)
+        q_target = self.pred_target_q(target_state)
 
         # (batch * multistep, shape) -> (batch, multistep, shape)
         q_online = np.reshape(q_online, (batch_size, online_shape1) + q_online.shape[1:])
@@ -312,7 +303,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
         invalid_actions = worker.invalid_actions
 
         if self.config.enable_noisy_dense:
-            self.q = self.parameter.pred_single_q(state)
+            self.q = self.parameter.pred_q(state[np.newaxis, ...])[0]
             self.q[invalid_actions] = -np.inf
             # self.prob = 1.0  #[1]
             return int(np.argmax(self.q))
@@ -328,7 +319,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
             self.q = None
             # self.prob = epsilon / valid_action_num  #[1]
         else:
-            self.q = self.parameter.pred_single_q(state)
+            self.q = self.parameter.pred_q(state[np.newaxis, ...])[0]
             self.q[invalid_actions] = -np.inf
 
             # 最大値を選ぶ（複数はほぼないとして無視）
@@ -401,7 +392,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
             priority = None
         else:
             if self.q is None:
-                self.q = self.parameter.pred_single_q(worker.state)
+                self.q = self.parameter.pred_q(worker.state[np.newaxis, ...])[0]
             select_q = self.q[worker.action]
             target_q, _, _ = self.parameter.calc_target_q([batch])
             priority = abs(target_q[0] - select_q)
@@ -410,7 +401,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
 
     def render_terminal(self, worker, **kwargs) -> None:
         if self.q is None:
-            q = self.parameter.pred_single_q(worker.state)
+            q = self.parameter.pred_q(worker.state[np.newaxis, ...])[0]
         else:
             q = self.q
         maxa = np.argmax(q)

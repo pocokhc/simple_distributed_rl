@@ -1,4 +1,3 @@
-import copy
 from typing import Any
 
 import numpy as np
@@ -17,13 +16,7 @@ class QNetwork(nn.Module):
     def __init__(self, config: Config):
         super().__init__()
 
-        if config.observation_space.is_value():
-            self.in_block = config.input_value_block.create_torch_block(config.observation_space.shape)
-        elif config.observation_space.is_image():
-            self.in_block = config.input_image_block.create_torch_block(config.observation_space)
-        else:
-            raise ValueError(config.observation_space)
-
+        self.in_block = config.input_block.create_torch_block(config)
         self.hidden_block = config.hidden_block.create_torch_block(
             self.in_block.out_size,
             config.action_space.n,
@@ -59,24 +52,17 @@ class Parameter(CommonInterfaceParameter):
         print(self.q_online)
 
     # ----------------------------------------------
-    def pred_single_q(self, state) -> np.ndarray:
+    def pred_q(self, state: np.ndarray) -> np.ndarray:
         with torch.no_grad():
-            state = self.q_online.in_block.to_torch_one_batch(state, self.device, self.torch_dtype)
-            q = self.q_online(state)
-            q = q.detach().cpu().numpy()
-        return q[0]
-
-    def pred_batch_q(self, state) -> np.ndarray:
-        with torch.no_grad():
-            state = self.q_online.in_block.to_torch_batches(state, self.device, self.torch_dtype)
-            q = self.q_online(state)
+            state2 = torch.tensor(np.asarray(state, dtype=self.np_dtype), device=self.device)
+            q = self.q_online(state2)
             q = q.detach().cpu().numpy()
         return q
 
-    def pred_batch_target_q(self, state) -> np.ndarray:
+    def pred_target_q(self, state) -> np.ndarray:
         with torch.no_grad():
-            state = self.q_target.in_block.to_torch_batches(state, self.device, self.torch_dtype)
-            q = self.q_target(state)
+            state2 = torch.tensor(np.asarray(state, dtype=self.np_dtype), device=self.device)
+            q = self.q_target(state2)
             q = q.detach().cpu().numpy()
         return q
 

@@ -5,7 +5,7 @@ from srl.base.rl.algorithms.base_dqn import RLConfig
 from srl.base.rl.processor import RLProcessor
 from srl.base.spaces.space import SpaceBase
 from srl.rl.memories.priority_replay_buffer import PriorityReplayBufferConfig
-from srl.rl.models.config.input_image_block import InputImageBlockConfig
+from srl.rl.models.config.input_block import InputImageBlockConfig
 from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -21,7 +21,7 @@ class Config(RLConfig):
     discount: float = 0.999
 
     #: <:ref:`InputImageBlockConfig`>
-    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig().set_alphazero_block())
+    input_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig().set_alphazero_block())
     #: Learning rate
     lr: float = 0.001
     #: <:ref:`LRSchedulerConfig`>
@@ -50,9 +50,9 @@ class Config(RLConfig):
     policy_tau_scheduler: SchedulerConfig = field(
         default_factory=lambda: (
             SchedulerConfig(default_scheduler=True)  #
-            .add_constant(1.0, 50_000)
-            .add_constant(0.5, 25_000)
-            .add_constant(0.25)
+            .add(1.0, 50_000)
+            .add(0.5, 25_000)
+            .add(0.25)
         )
     )
 
@@ -84,7 +84,7 @@ class Config(RLConfig):
     def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
         if not prev_observation_space.is_image():
             raise ValueError(f"The input supports only image format. {prev_observation_space}")
-        return self.input_image_block.get_processors()
+        return self.input_block.processors
 
     def get_framework(self) -> str:
         return "tensorflow"

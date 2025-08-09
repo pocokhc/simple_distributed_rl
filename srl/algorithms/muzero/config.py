@@ -5,7 +5,7 @@ from srl.base.rl.algorithms.base_dqn import RLConfig
 from srl.base.rl.processor import RLProcessor
 from srl.base.spaces.space import SpaceBase
 from srl.rl.memories.priority_replay_buffer import PriorityReplayBufferConfig
-from srl.rl.models.config.input_image_block import InputImageBlockConfig
+from srl.rl.models.config.input_block import InputImageBlockConfig
 from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -52,9 +52,9 @@ class Config(RLConfig):
     policy_tau_scheduler: SchedulerConfig = field(
         default_factory=lambda: (
             SchedulerConfig(default_scheduler=True)  #
-            .add_constant(1.0, 50_000)
-            .add_constant(0.5, 25_000)
-            .add_constant(0.25)
+            .add(1.0, 50_000)
+            .add(0.5, 25_000)
+            .add(0.25)
         )
     )
     # td_steps: int = 5  # MC法でエピソード最後まで展開しているので未使用
@@ -97,9 +97,9 @@ class Config(RLConfig):
         # self.td_steps = 10
         self.unroll_steps = 5
         self.policy_tau_scheduler.clear()
-        self.policy_tau_scheduler.add_constant(1.0, 500_000)
-        self.policy_tau_scheduler.add_constant(0.5, 250_000)
-        self.policy_tau_scheduler.add_constant(0.25)
+        self.policy_tau_scheduler.add(1.0, 500_000)
+        self.policy_tau_scheduler.add(0.5, 250_000)
+        self.policy_tau_scheduler.add(0.25)
         self.input_image_block.set_muzero_atari_block(filters=128)
         self.dynamics_blocks = 15
         self.weight_decay = 0.0001
@@ -120,9 +120,9 @@ class Config(RLConfig):
         # self.td_steps = 10
         self.unroll_steps = 10
         self.policy_tau_scheduler.clear()
-        self.policy_tau_scheduler.add_constant(1.0, 500_000)
-        self.policy_tau_scheduler.add_constant(0.5, 250_000)
-        self.policy_tau_scheduler.add_constant(0.25)
+        self.policy_tau_scheduler.add(1.0, 500_000)
+        self.policy_tau_scheduler.add(0.5, 250_000)
+        self.policy_tau_scheduler.add(0.25)
         self.input_image_block.set_alphazero_block()
         self.dynamics_blocks = 15
         self.weight_decay = 0.0001
@@ -130,9 +130,9 @@ class Config(RLConfig):
         return self
 
     def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
-        if not prev_observation_space.is_image():
-            raise ValueError(f"The input supports only image format. {prev_observation_space}")
-        return self.input_image_block.get_processors()
+        if prev_observation_space.is_image():
+            return self.input_image_block.processors
+        raise ValueError(f"The input supports only image format. {prev_observation_space}")
 
     def get_name(self) -> str:
         return "MuZero"

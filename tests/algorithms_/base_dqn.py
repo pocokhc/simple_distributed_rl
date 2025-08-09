@@ -18,7 +18,8 @@ class QuickCase(CommonQuickCase):
         rl_config.target_model_update_interval = 1
         rl_config.enable_double_dqn = True
         rl_config.enable_rescale = True
-        rl_config.input_image_block.set_dqn_block(filters=2)
+        rl_config.input_block.image.set_dqn_block(filters=2)
+        rl_config.input_block.value.set((1,))
         rl_config.hidden_block.set((2,))
 
         return rl_config, {}

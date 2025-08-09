@@ -7,8 +7,7 @@ from srl.base.spaces.space import SpaceBase
 from srl.rl.functions import create_epsilon_list
 from srl.rl.memories.priority_replay_buffer import PriorityReplayBufferConfig
 from srl.rl.models.config.dueling_network import DuelingNetworkConfig
-from srl.rl.models.config.input_image_block import InputImageBlockConfig
-from srl.rl.models.config.input_value_block import InputValueBlockConfig
+from srl.rl.models.config.input_block import InputBlockConfig
 from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 
 """
@@ -54,12 +53,10 @@ class Config(RLConfig):
     #: <:ref:`PriorityReplayBufferConfig`>
     memory: PriorityReplayBufferConfig = field(default_factory=lambda: PriorityReplayBufferConfig())
 
-    #: <:ref:`InputValueBlockConfig`>
-    input_value_block: InputValueBlockConfig = field(default_factory=lambda: InputValueBlockConfig())
-    #: <:ref:`InputImageBlockConfig`>
-    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig())
+    #: <:ref:`InputBlockConfig`>
+    input_block: InputBlockConfig = field(default_factory=lambda: InputBlockConfig())
     lstm_units: int = 512
-    hidden_block: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig().set_dueling_network())
+    hidden_block: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig().set_dueling_network((512,)))
 
     # lstm
     burnin: int = 5
@@ -91,8 +88,7 @@ class Config(RLConfig):
     def set_atari_config(self):
         # model
         self.lstm_units = 512
-        self.input_value_block.set(())
-        self.input_image_block.set_dqn_block()
+        self.input_block.image.set_dqn_block()
         self.hidden_block.set_dueling_network((512,))
 
         # lstm
@@ -119,9 +115,7 @@ class Config(RLConfig):
         return "R2D2"
 
     def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
-        if prev_observation_space.is_image():
-            return self.input_image_block.get_processors()
-        return []
+        return self.input_block.get_processors(prev_observation_space)
 
     def get_framework(self) -> str:
         return "tensorflow"

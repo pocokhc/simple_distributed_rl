@@ -1,13 +1,13 @@
 import numpy as np
 import pytest
 
-from srl.rl.models.config.mlp_block import MLPBlockConfig
+from srl.rl.models.config.hidden_block import HiddenBlockConfig
 
 
 def test_torch_mlp():
     pytest.importorskip("torch")
 
-    config = MLPBlockConfig()
+    config = HiddenBlockConfig()
     config.set((64, 32))
 
     # ---

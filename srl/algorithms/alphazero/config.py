@@ -5,8 +5,8 @@ from srl.base.rl.algorithms.base_dqn import RLConfig
 from srl.base.rl.processor import RLProcessor
 from srl.base.spaces.space import SpaceBase
 from srl.rl.memories.replay_buffer import ReplayBufferConfig
-from srl.rl.models.config.input_image_block import InputImageBlockConfig
-from srl.rl.models.config.mlp_block import MLPBlockConfig
+from srl.rl.models.config.hidden_block import HiddenBlockConfig
+from srl.rl.models.config.input_block import InputImageBlockConfig
 from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 
 """
@@ -50,11 +50,11 @@ class Config(RLConfig):
     c_init: float = 1.25
 
     #: <:ref:`InputImageBlockConfig`>
-    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig().set_alphazero_block(3, 64))
-    #: <:ref:`MLPBlockConfig`> value block
-    value_block: MLPBlockConfig = field(default_factory=lambda: MLPBlockConfig().set((64,)))
-    #: <:ref:`MLPBlockConfig`> policy block
-    policy_block: MLPBlockConfig = field(default_factory=lambda: MLPBlockConfig().set(()))
+    input_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig().set_alphazero_block(3, 64))
+    #: <:ref:`HiddenBlockConfig`> value block
+    value_block: HiddenBlockConfig = field(default_factory=lambda: HiddenBlockConfig().set((64,)))
+    #: <:ref:`HiddenBlockConfig`> policy block
+    policy_block: HiddenBlockConfig = field(default_factory=lambda: HiddenBlockConfig().set(()))
 
     #: "rate" or "linear"
     value_type: Literal["rate", "linear"] = "linear"
@@ -72,7 +72,7 @@ class Config(RLConfig):
             [300_000, 500_000],
             [0.02, 0.002, 0.0002],
         )
-        self.input_image_block.set_alphazero_block(19, 256)
+        self.input_block.set_alphazero_block(19, 256)
         self.value_block.set((256,))
         self.policy_block.set(())
 
@@ -90,7 +90,7 @@ class Config(RLConfig):
     def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
         if not prev_observation_space.is_image():
             raise ValueError(f"The input supports only image format. {prev_observation_space}")
-        return self.input_image_block.get_processors()
+        return self.input_block.processors
 
     def get_framework(self) -> str:
         return "tensorflow"

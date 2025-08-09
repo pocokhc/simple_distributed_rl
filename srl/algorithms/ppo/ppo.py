@@ -37,11 +37,7 @@ class ActorCriticNetwork(KerasModelAddedSummary):
         kernel_initializer = "orthogonal"
 
         # --- input
-        if config.observation_space.is_image():
-            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
-        else:
-            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
-
+        self.in_block = config.input_block.create_tf_block(config)
         # --- hidden block
         self.hidden_block = config.hidden_block.create_tf_block()
 
@@ -64,7 +60,7 @@ class ActorCriticNetwork(KerasModelAddedSummary):
             raise UndefinedError(self.config.action_space)
 
         # build
-        self(self.in_block.create_dummy_data(config.get_dtype("np")))
+        self(config.input_block.create_tf_dummy_data(config))
 
     def call(self, x, training=False):
         x = self.in_block(x, training=training)

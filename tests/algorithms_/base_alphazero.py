@@ -18,7 +18,7 @@ class QuickCase(CommonQuickCase):
         rl_config.sampling_steps = 2
         rl_config.memory.warmup_size = 2
         rl_config.batch_size = 2
-        rl_config.input_image_block.set_alphazero_block(1, 2)
+        rl_config.input_block.set_alphazero_block(1, 2)
         rl_config.value_block.set((2, 2))
 
         return rl_config, dict(use_layer_processor=True)
@@ -43,7 +43,7 @@ class LongCase(CommonLongCase):
             [100, 1100],
             [0.02, 0.002, 0.0002],
         )
-        rl_config.input_image_block.set_alphazero_block(1, 32)
+        rl_config.input_block.set_alphazero_block(1, 32)
         rl_config.value_block.set((32,))
         return rl_config
 
@@ -86,7 +86,7 @@ class LongCase(CommonLongCase):
             [1000, 6000],
             [0.001, 0.0005, 0.0002],
         )
-        rl_config.input_image_block.set_alphazero_block(9, 32)
+        rl_config.input_block.set_alphazero_block(9, 32)
         rl_config.value_block.set((16, 16))
         rl_config.policy_block.set((32,))
 

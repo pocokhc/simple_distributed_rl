@@ -24,13 +24,7 @@ class QNetwork(KerasModelAddedSummary):
         if not config.enable_intrinsic_reward:
             self.input_int_reward = False
 
-        if config.observation_space.is_value():
-            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
-        elif config.observation_space.is_image():
-            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
-        else:
-            raise ValueError(config.observation_space)
-
+        self.in_block = config.input_block.create_tf_block(config)
         self.concat_layer = kl.Concatenate(axis=-1)
         self.hidden_block = config.hidden_block.create_tf_block(config.action_space.n)
 
@@ -81,13 +75,7 @@ class EmbeddingNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
-        if config.observation_space.is_value():
-            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
-        elif config.observation_space.is_image():
-            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
-        else:
-            raise ValueError(config.observation_space)
-
+        self.in_block = config.input_block.create_tf_block(config)
         self.emb_block = config.episodic_emb_block.create_tf_block()
 
         self.concat_layer = kl.Concatenate(axis=-1)
@@ -136,13 +124,7 @@ class LifelongNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
-        if config.observation_space.is_value():
-            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
-        elif config.observation_space.is_image():
-            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
-        else:
-            raise ValueError(config.observation_space)
-
+        self.in_block = config.input_block.create_tf_block(config)
         self.hidden_block = config.lifelong_hidden_block.create_tf_block()
         self.hidden_normalize = kl.LayerNormalization()
 

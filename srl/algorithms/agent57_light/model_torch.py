@@ -1,4 +1,3 @@
-import copy
 import logging
 from typing import Any
 
@@ -25,12 +24,7 @@ class QNetwork(nn.Module):
         if not config.enable_intrinsic_reward:
             self.input_int_reward = False
 
-        if config.observation_space.is_value():
-            self.in_block = config.input_value_block.create_torch_block(config.observation_space.shape)
-        elif config.observation_space.is_image():
-            self.in_block = config.input_image_block.create_torch_block(config.observation_space)
-        else:
-            raise ValueError(config.observation_space)
+        self.in_block = config.input_block.create_torch_block(config)
 
         # --- UVFA
         in_size = self.in_block.out_size
@@ -77,13 +71,7 @@ class _EmbeddingNetwork(nn.Module):
     def __init__(self, config: Config):
         super().__init__()
 
-        if config.observation_space.is_value():
-            self.in_block = config.input_value_block.create_torch_block(config.observation_space.shape)
-        elif config.observation_space.is_image():
-            self.in_block = config.input_image_block.create_torch_block(config.observation_space)
-        else:
-            raise ValueError(config.observation_space)
-
+        self.in_block = config.input_block.create_torch_block(config)
         self.emb_block = config.episodic_emb_block.create_torch_block(self.in_block.out_size)
 
         # --- out
@@ -118,13 +106,7 @@ class _LifelongNetwork(nn.Module):
     def __init__(self, config: Config):
         super().__init__()
 
-        if config.observation_space.is_value():
-            self.in_block = config.input_value_block.create_torch_block(config.observation_space.shape)
-        elif config.observation_space.is_image():
-            self.in_block = config.input_image_block.create_torch_block(config.observation_space)
-        else:
-            raise ValueError(config.observation_space)
-
+        self.in_block = config.input_block.create_torch_block(config)
         self.hidden_block = config.lifelong_hidden_block.create_torch_block(self.in_block.out_size)
         self.hidden_normalize = nn.LayerNorm(self.hidden_block.out_size)
 

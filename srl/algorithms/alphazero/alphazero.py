@@ -41,7 +41,7 @@ class Network(KerasModelAddedSummary):
         super().__init__()
         self.value_type = config.value_type
 
-        self.in_block = config.input_image_block.create_tf_block(
+        self.in_block = config.input_block.create_tf_block(
             config.observation_space,
             out_flatten=False,
         )

@@ -10,8 +10,7 @@ from srl.base.rl.processor import RLProcessor
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.space import SpaceBase
 from srl.rl.models.config.dueling_network import DuelingNetworkConfig
-from srl.rl.models.config.input_image_block import InputImageBlockConfig
-from srl.rl.models.config.input_value_block import InputValueBlockConfig
+from srl.rl.models.config.input_block import InputBlockConfig
 
 
 class DownSamplingProcessor(RLProcessor):
@@ -72,10 +71,8 @@ class Config(RLConfig):
     discount: float = 0.99
     #: Synchronization interval to Target network
     target_model_update_interval: int = 2000
-    #: <:ref:`InputValueBlockConfig`>
-    input_value_block: InputValueBlockConfig = field(default_factory=lambda: InputValueBlockConfig())
-    #: <:ref:`InputImageBlockConfig`>
-    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig())
+    #: <:ref:`InputBlockConfig`>
+    input_block: InputBlockConfig = field(default_factory=lambda: InputBlockConfig())
     #: <:ref:`DuelingNetworkConfig`> hidden layer
     hidden_block: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
 
@@ -83,9 +80,7 @@ class Config(RLConfig):
         return "Go-Explore"
 
     def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
-        if prev_observation_space.is_image():
-            return self.input_image_block.get_processors()
-        return []
+        return self.input_block.get_processors(prev_observation_space)
 
     def get_framework(self) -> str:
         return "tensorflow"

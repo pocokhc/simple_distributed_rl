@@ -15,9 +15,8 @@ from srl.rl import functions as funcs
 from srl.rl.memories.priority_replay_buffer import PriorityReplayBufferConfig, RLPriorityReplayBuffer
 from srl.rl.models.config.dueling_network import DuelingNetworkConfig
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
-from srl.rl.models.config.input_image_block import InputImageBlockConfig
-from srl.rl.models.config.input_value_block import InputValueBlockConfig
-from srl.rl.models.config.mlp_block import MLPBlockConfig
+from srl.rl.models.config.hidden_block import HiddenBlockConfig
+from srl.rl.models.config.input_block import InputBlockConfig
 from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 
 logger = logging.getLogger(__name__)
@@ -86,12 +85,10 @@ class Config(RLConfig, RLConfigComponentFramework):
     #: enable rescaling
     enable_rescale: bool = False
 
-    #: <:ref:`InputValueBlockConfig`>
-    input_value_block: InputValueBlockConfig = field(default_factory=lambda: InputValueBlockConfig())
-    #: <:ref:`InputImageBlockConfig`>
-    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig())
+    #: <:ref:`InputBlockConfig`>
+    input_block: InputBlockConfig = field(default_factory=lambda: InputBlockConfig())
     #: <:ref:`DuelingNetworkConfig`> hidden layer
-    hidden_block: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig().set_dueling_network())
+    hidden_block: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig().set_dueling_network((512,)))
 
     #: ucb(160,0.5 or 3600,0.01)
     actor_num: int = 32
@@ -119,10 +116,10 @@ class Config(RLConfig, RLConfigComponentFramework):
     episodic_memory_capacity: int = 30000
     #: [episodic] 疑似カウント定数(c)
     episodic_pseudo_counts: float = 0.1
-    #: <:ref:`MLPBlockConfig`> [episodic] emb block
-    episodic_emb_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig().set((32,)))
-    #: <:ref:`MLPBlockConfig`> [episodic] out block
-    episodic_out_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig().set((128,)))
+    #: <:ref:`HiddenBlockConfig`> [episodic] emb block
+    episodic_emb_block: HiddenBlockConfig = field(init=False, default_factory=lambda: HiddenBlockConfig().set((32,)))
+    #: <:ref:`HiddenBlockConfig`> [episodic] out block
+    episodic_out_block: HiddenBlockConfig = field(init=False, default_factory=lambda: HiddenBlockConfig().set((128,)))
 
     #: Lifelong Learning rate
     lifelong_lr: float = 0.0005
@@ -130,8 +127,8 @@ class Config(RLConfig, RLConfigComponentFramework):
     lifelong_lr_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig())
     #: [lifelong] L
     lifelong_max: float = 5.0
-    #: <:ref:`MLPBlockConfig`> [lifelong] hidden block
-    lifelong_hidden_block: MLPBlockConfig = field(init=False, default_factory=lambda: MLPBlockConfig().set((128,)))
+    #: <:ref:`HiddenBlockConfig`> [lifelong] hidden block
+    lifelong_hidden_block: HiddenBlockConfig = field(init=False, default_factory=lambda: HiddenBlockConfig().set((128,)))
 
     #: [UVFA] input ext reward
     input_ext_reward: bool = True
@@ -149,9 +146,7 @@ class Config(RLConfig, RLConfigComponentFramework):
         return "Agent57_light"
 
     def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
-        if prev_observation_space.is_image():
-            return self.input_image_block.get_processors()
-        return []
+        return self.input_block.get_processors(prev_observation_space)
 
     def get_framework(self) -> str:
         return RLConfigComponentFramework.get_framework(self)

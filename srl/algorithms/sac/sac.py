@@ -30,11 +30,7 @@ class PolicyNetwork(KerasModelAddedSummary):
         super().__init__()
         self.config = config
 
-        if config.observation_space.is_image():
-            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
-        else:
-            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
-
+        self.in_block = config.input_block.create_tf_block(config)
         self.hidden_block = config.policy_hidden_block.create_tf_block()
 
         # out
@@ -52,7 +48,7 @@ class PolicyNetwork(KerasModelAddedSummary):
             raise UndefinedError(self.config.action_space)
 
         # build
-        self(self.in_block.create_dummy_data(config.get_dtype("np")))
+        self(config.input_block.create_tf_dummy_data(config))
 
     def call(self, x, training=False) -> Any:
         x = self.in_block(x, training=training)
@@ -85,11 +81,7 @@ class QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
-        if config.observation_space.is_image():
-            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
-        else:
-            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
-
+        self.in_block = config.input_block.create_tf_block(config)
         self.q_block = config.q_hidden_block.create_tf_block()
         self.q_out_layer = kl.Dense(1)
 
@@ -100,7 +92,7 @@ class QNetwork(KerasModelAddedSummary):
             act_shape = (config.action_space.size,)
         self(
             [
-                self.in_block.create_dummy_data(config.get_dtype("np")),
+                config.input_block.create_tf_dummy_data(config),
                 np.zeros((1,) + act_shape),
             ]
         )
@@ -167,6 +159,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         self.q2_optimizer = keras.optimizers.Adam(learning_rate=self.config.lr_q_scheduler.apply_tf_scheduler(self.config.lr_q))
         self.policy_optimizer = keras.optimizers.Adam(learning_rate=self.config.lr_policy_scheduler.apply_tf_scheduler(self.config.lr_policy))
         self.alpha_optimizer = None
+        self.parameter.load_log_alpha = False
 
         # エントロピーαの目標値、-1*アクション数が良いらしい
         if isinstance(self.config.action_space, DiscreteSpace):

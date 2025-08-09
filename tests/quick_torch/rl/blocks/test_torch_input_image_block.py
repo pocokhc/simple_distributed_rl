@@ -2,9 +2,9 @@ import numpy as np
 import pytest
 
 from srl.base.define import SpaceTypes
+from srl.base.exception import UndefinedError
 from srl.base.spaces.box import BoxSpace
-from srl.base.spaces.space import SpaceBase
-from srl.rl.models.config.input_image_block import InputImageBlockConfig
+from srl.rl.models.config.input_block import InputImageBlockConfig
 
 
 @pytest.mark.parametrize("rnn", [False, True])
@@ -23,7 +23,7 @@ from srl.rl.models.config.input_image_block import InputImageBlockConfig
         [BoxSpace((64, 64, 9), stype=SpaceTypes.IMAGE), False, (64, 9, 9)],
     ],
 )
-def test_create_block_out_value(in_space: SpaceBase, out_flatten, out_shape, rnn):
+def test_create_block_out_value(in_space: BoxSpace, out_flatten, out_shape, rnn):
     pytest.importorskip("torch")
     import torch
 
@@ -37,7 +37,7 @@ def test_create_block_out_value(in_space: SpaceBase, out_flatten, out_shape, rnn
 
     if not in_space.is_image():
         # image以外は例外
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             block = config.create_torch_block(in_space=in_space, out_flatten=out_flatten, reshape_for_rnn=rnn)
         return
 
@@ -54,7 +54,7 @@ def test_create_block_out_value(in_space: SpaceBase, out_flatten, out_shape, rnn
         x = [in_space.sample() for _ in range(timesteps)]
     else:
         x = in_space.sample()
-    x = block.to_torch_one_batch(x, "cpu", torch.float32)
+    x = torch.tensor(np.asarray(x)[np.newaxis, ...], dtype=torch.float32)
     y = block(x)
     if rnn:
         if out_flatten:
@@ -81,7 +81,7 @@ def test_create_block_out_value(in_space: SpaceBase, out_flatten, out_shape, rnn
         x = [[in_space.sample() for _ in range(timesteps)] for _ in range(batch_size)]
     else:
         x = [in_space.sample() for _ in range(batch_size)]
-    x = block.to_torch_batches(x, "cpu", torch.float32)
+    x = torch.tensor(np.asarray(x), dtype=torch.float32)
     y = block(x)
     if rnn:
         if out_flatten:

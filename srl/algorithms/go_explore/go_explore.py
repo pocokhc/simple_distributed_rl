@@ -55,13 +55,7 @@ class QNetwork(KerasModelAddedSummary):
 
         self.space = config.observation_space
 
-        if config.observation_space.is_value():
-            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
-        elif config.observation_space.is_image():
-            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
-        else:
-            raise ValueError(config.observation_space)
-
+        self.in_block = config.input_block.create_tf_block(config)
         self.hidden_block = config.hidden_block.create_tf_block(config.action_space.n)
 
         # build

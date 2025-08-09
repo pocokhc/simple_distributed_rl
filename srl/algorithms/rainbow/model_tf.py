@@ -17,17 +17,14 @@ class QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
-        if config.observation_space.is_value():
-            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
-        elif config.observation_space.is_image():
-            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
-        else:
-            raise ValueError(config.observation_space)
-
-        self.hidden_block = config.hidden_block.create_tf_block(config.action_space.n)
+        self.in_block = config.input_block.create_tf_block(config)
+        self.hidden_block = config.hidden_block.create_tf_block(
+            config.action_space.n,
+            enable_noisy_dense=config.enable_noisy_dense,
+        )
 
         # build
-        self(self.in_block.create_dummy_data(config.get_dtype("np")))
+        self(config.input_block.create_tf_dummy_data(config))
 
         self.loss_func = keras.losses.Huber()
 
@@ -51,7 +48,7 @@ class Parameter(CommonInterfaceParameter):
         self.q_online = QNetwork(self.config, name="Q_online")
         self.q_target = QNetwork(self.config, name="Q_target")
         self.q_target.set_weights(self.q_online.get_weights())
-        self.tf_dtype = self.config.get_dtype("tf")
+        self.np_dtype = self.config.get_dtype("np")
 
     def call_restore(self, data: Any, **kwargs) -> None:
         self.q_online.set_weights(data)
@@ -64,14 +61,13 @@ class Parameter(CommonInterfaceParameter):
         self.q_online.summary(**kwargs)
 
     # ----------------------------------------------
-    def pred_single_q(self, state) -> np.ndarray:
-        return self.q_online(self.q_online.in_block.to_tf_one_batch(state, self.tf_dtype)).numpy()[0]
+    def pred_q(self, state: np.ndarray) -> np.ndarray:
+        state = tf.convert_to_tensor(np.asarray(state, dtype=self.np_dtype))
+        return self.q_online(state).numpy()
 
-    def pred_batch_q(self, state) -> np.ndarray:
-        return self.q_online(self.q_online.in_block.to_tf_batches(state, self.tf_dtype)).numpy()
-
-    def pred_batch_target_q(self, state) -> np.ndarray:
-        return self.q_target(self.q_online.in_block.to_tf_batches(state, self.tf_dtype)).numpy()
+    def pred_target_q(self, state: np.ndarray) -> np.ndarray:
+        state = tf.convert_to_tensor(np.asarray(state, dtype=self.np_dtype))
+        return self.q_target(state).numpy()
 
 
 class Trainer(RLTrainer[Config, Parameter, Memory]):

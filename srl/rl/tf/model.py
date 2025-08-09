@@ -42,3 +42,14 @@ class KerasModelAddedSummary(keras.Model):
             super().summary(expand_nested=expand_nested, **kwargs)
         else:
             model.summary(expand_nested=expand_nested, **kwargs)
+
+
+class SequentialModel(KerasModelAddedSummary):
+    def __init__(self, layers: list, **kwargs):
+        super().__init__(**kwargs)
+        self.h_layers = layers
+
+    def call(self, x, training=False):
+        for h in self.h_layers:
+            x = h(x, training=training)
+        return x

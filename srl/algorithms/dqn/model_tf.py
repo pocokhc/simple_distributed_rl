@@ -5,8 +5,6 @@ import tensorflow as tf
 from tensorflow import keras
 
 from srl.base.rl.trainer import RLTrainer
-from srl.base.spaces.multi import MultiSpace
-from srl.rl.tf.blocks.input_multi_block import InputMultiBlockConcat
 from srl.rl.tf.model import KerasModelAddedSummary
 
 from .dqn import CommonInterfaceParameter, Config, Memory
@@ -21,27 +19,12 @@ class QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
-        if config.observation_space.is_value():
-            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
-        elif config.observation_space.is_image():
-            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
-        elif config.observation_space.is_multi():
-            space = config.observation_space
-            assert isinstance(space, MultiSpace)
-            self.in_block = InputMultiBlockConcat(
-                space,
-                config.input_value_block,
-                config.input_image_block,
-                reshape_for_rnn=[False] * len(space.spaces),
-            )
-        else:
-            raise ValueError(config.observation_space)
-
+        self.in_block = config.input_block.create_tf_block(config)
         self.hidden_block = config.hidden_block.create_tf_block()
         self.out_layer = kl.Dense(config.action_space.n, kernel_initializer="truncated_normal")
 
         # build
-        self(self.in_block.create_dummy_data(config.get_dtype("np")))
+        self(config.input_block.create_tf_dummy_data(config))
 
         self.loss_func = keras.losses.Huber()
 
@@ -69,7 +52,7 @@ class Parameter(CommonInterfaceParameter):
         self.q_online = QNetwork(self.config, name="Q_online")
         self.q_target = QNetwork(self.config, name="Q_target")
         self.q_target.set_weights(self.q_online.get_weights())
-        self.tf_dtype = self.config.get_dtype("tf")
+        self.np_dtype = self.config.get_dtype("np")
 
     def call_restore(self, data: Any, **kwargs) -> None:
         self.q_online.set_weights(data)
@@ -82,14 +65,13 @@ class Parameter(CommonInterfaceParameter):
         self.q_online.summary(**kwargs)
 
     # -------------------------------------
-    def pred_single_q(self, state) -> np.ndarray:
-        return self.q_online(self.q_online.in_block.to_tf_one_batch(state, self.tf_dtype)).numpy()[0]
+    def pred_q(self, state: np.ndarray) -> np.ndarray:
+        state = tf.convert_to_tensor(np.asarray(state, dtype=self.np_dtype))
+        return self.q_online(state).numpy()
 
-    def pred_batch_q(self, state) -> np.ndarray:
-        return self.q_online(self.q_online.in_block.to_tf_batches(state, self.tf_dtype)).numpy()
-
-    def pred_batch_target_q(self, state) -> np.ndarray:
-        return self.q_target(self.q_target.in_block.to_tf_batches(state, self.tf_dtype)).numpy()
+    def pred_target_q(self, state: np.ndarray) -> np.ndarray:
+        state = tf.convert_to_tensor(np.asarray(state, dtype=self.np_dtype))
+        return self.q_target(state).numpy()
 
 
 # ------------------------------------------------------
@@ -99,8 +81,6 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
     def on_setup(self):
         lr = self.config.lr_scheduler.apply_tf_scheduler(self.config.lr)
         self.optimizer = keras.optimizers.Adam(learning_rate=lr)
-
-        self.tf_dtype = self.config.get_dtype("tf")
         self.np_dtype = self.config.get_dtype("np")
         self.sync_count = 0
 
@@ -119,7 +99,8 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             next_invalid_actions,
         ) = zip(*batches)
 
-        state = self.parameter.q_online.in_block.to_tf_batches(state, self.tf_dtype)
+        state = tf.convert_to_tensor(np.asarray(state, dtype=self.np_dtype))
+        n_state = np.asarray(n_state, dtype=self.np_dtype)
         onehot_action = np.asarray(onehot_action, dtype=self.np_dtype)
         reward = np.array(reward, dtype=self.np_dtype)
         undone = np.array(undone)

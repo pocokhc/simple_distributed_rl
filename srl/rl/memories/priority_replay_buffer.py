@@ -26,8 +26,8 @@ class PriorityReplayBufferConfig:
     #: memory(zlib)の圧縮レベル
     compress_level: int = -1
 
-    name: str = field(init=False, default="ReplayBuffer")
-    kwargs: dict = field(init=False, default_factory=dict)
+    name: str = field(default="ReplayBuffer")
+    kwargs: dict = field(default_factory=dict)
 
     # --- demo memory
     #: demo memoryを使うかどうか

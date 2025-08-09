@@ -27,17 +27,11 @@ class QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config, **kwargs):
         super().__init__(**kwargs)
 
-        if config.observation_space.is_value():
-            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
-        elif config.observation_space.is_image():
-            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
-        else:
-            raise ValueError(config.observation_space)
-
+        self.in_block = config.input_block.create_tf_block(config)
         self.hidden_block = config.hidden_block.create_tf_block(config.action_space.n)
 
         # build
-        self(self.in_block.create_dummy_data(config.get_dtype("np")))
+        self(config.input_block.create_tf_dummy_data(config))
         self.loss_func = keras.losses.Huber()
 
     def call(self, x, training=False):

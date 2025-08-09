@@ -12,9 +12,8 @@ from srl.base.spaces.space import SpaceBase
 from srl.rl import functions as funcs
 from srl.rl.memories.priority_replay_buffer import PriorityReplayBufferConfig, RLPriorityReplayBuffer
 from srl.rl.models.config.framework_config import RLConfigComponentFramework
-from srl.rl.models.config.input_image_block import InputImageBlockConfig
-from srl.rl.models.config.input_value_block import InputValueBlockConfig
-from srl.rl.models.config.mlp_block import MLPBlockConfig
+from srl.rl.models.config.hidden_block import HiddenBlockConfig
+from srl.rl.models.config.input_block import InputBlockConfig
 from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -82,19 +81,17 @@ class Config(RLConfig, RLConfigComponentFramework):
     #: enable rescaling
     enable_rescale: bool = False
 
-    #: <:ref:`InputValueBlockConfig`>
-    input_value_block: InputValueBlockConfig = field(default_factory=lambda: InputValueBlockConfig())
-    #: <:ref:`InputImageBlockConfig`>
-    input_image_block: InputImageBlockConfig = field(default_factory=lambda: InputImageBlockConfig())
-    #: <:ref:`MLPBlockConfig`> hidden layer
-    hidden_block: MLPBlockConfig = field(default_factory=lambda: MLPBlockConfig())
+    #: <:ref:`InputBlockConfig`>
+    input_block: InputBlockConfig = field(default_factory=lambda: InputBlockConfig())
+    #: <:ref:`HiddenBlockConfig`> hidden layer
+    hidden_block: HiddenBlockConfig = field(default_factory=lambda: HiddenBlockConfig())
 
     def set_atari_config(self):
         """Set the Atari parameters written in the paper."""
         self.batch_size = 32
         self.memory.capacity = 1_000_000
         self.memory.warmup_size = 50_000
-        self.input_image_block.set_dqn_block()
+        self.input_block.image.set_dqn_block()
         self.hidden_block.set((512,))
         self.target_model_update_interval = 10000
         self.discount = 0.99
@@ -108,9 +105,7 @@ class Config(RLConfig, RLConfigComponentFramework):
         return "DQN"
 
     def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
-        if prev_observation_space.is_image():
-            return self.input_image_block.get_processors()
-        return []
+        return self.input_block.get_processors(prev_observation_space)
 
     def get_framework(self) -> str:
         return RLConfigComponentFramework.get_framework(self)
@@ -139,15 +134,11 @@ class Memory(RLPriorityReplayBuffer):
 # ------------------------------------------------------
 class CommonInterfaceParameter(RLParameter[Config], ABC):
     @abstractmethod
-    def pred_single_q(self, state) -> np.ndarray:
+    def pred_q(self, state) -> np.ndarray:
         raise NotImplementedError()
 
     @abstractmethod
-    def pred_batch_q(self, state) -> np.ndarray:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def pred_batch_target_q(self, state) -> np.ndarray:
+    def pred_target_q(self, state) -> np.ndarray:
         raise NotImplementedError()
 
     def calc_target_q(
@@ -161,12 +152,11 @@ class CommonInterfaceParameter(RLParameter[Config], ABC):
         # ここの計算はtfで計算するよりnpで計算したほうが早い
 
         n_inv_act_idx1, n_inv_act_idx2 = funcs.create_fancy_index_for_invalid_actions(next_invalid_actions)
-
-        n_q_target = self.pred_batch_target_q(n_state)
+        n_q_target = self.pred_target_q(n_state)
 
         # DoubleDQN: indexはonlineQから選び、値はtargetQを選ぶ
         if self.config.enable_double_dqn:
-            n_q = self.pred_batch_q(n_state)
+            n_q = self.pred_q(n_state)
             n_q[n_inv_act_idx1, n_inv_act_idx2] = np.min(n_q)
             n_act_idx = np.argmax(n_q, axis=1)
             maxq = n_q_target[np.arange(batch_size), n_act_idx]
@@ -211,7 +201,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
             # epsilonより低いならランダム
             action = random.choice([a for a in range(self.config.action_space.n) if a not in invalid_actions])
         else:
-            q = self.parameter.pred_single_q(worker.state)
+            q = self.parameter.pred_q(worker.state[np.newaxis, ...])[0]
             q[invalid_actions] = -np.inf
 
             # 最大値を選ぶ（複数はほぼないので無視）
@@ -257,7 +247,7 @@ class Worker(RLWorker[Config, CommonInterfaceParameter, Memory]):
 
     def render_terminal(self, worker, **kwargs):
         # policy -> render -> env.step -> on_step
-        q = self.parameter.pred_single_q(worker.state)
+        q = self.parameter.pred_q(worker.state[np.newaxis, ...])[0]
         maxa = np.argmax(q)
         if self.config.enable_rescale:
             q = funcs.inverse_rescaling(q)

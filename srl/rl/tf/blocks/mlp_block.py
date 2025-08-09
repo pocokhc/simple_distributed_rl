@@ -2,24 +2,10 @@ from typing import Tuple
 
 from tensorflow import keras
 
-from srl.base.exception import UndefinedError
-from srl.rl.models.config.mlp_block import MLPBlockConfig
 from srl.rl.tf.layers.noisy_dense import NoisyDense
 from srl.rl.tf.model import KerasModelAddedSummary
 
 kl = keras.layers
-
-
-def create_block_from_config(config: MLPBlockConfig):
-    if config.name == "MLP":
-        return MLPBlock(**config.kwargs)
-
-    if config.name == "custom":
-        from srl.utils.common import load_module
-
-        return load_module(config.kwargs["entry_point"])(**config.kwargs["kwargs"])
-
-    raise UndefinedError(config.name)
 
 
 class MLPBlock(KerasModelAddedSummary):

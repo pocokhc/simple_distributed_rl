@@ -2,9 +2,9 @@ import numpy as np
 import pytest
 
 from srl.base.define import SpaceTypes
+from srl.base.exception import UndefinedError
 from srl.base.spaces.box import BoxSpace
-from srl.base.spaces.space import SpaceBase
-from srl.rl.models.config.input_image_block import InputImageBlockConfig
+from srl.rl.models.config.input_block import InputImageBlockConfig
 
 
 @pytest.mark.parametrize("rnn", [False, True])
@@ -18,9 +18,8 @@ from srl.rl.models.config.input_image_block import InputImageBlockConfig
         [BoxSpace((64, 64, 9), stype=SpaceTypes.IMAGE), 4096],
     ],
 )
-def test_create_block_out_value(in_space: SpaceBase, out_size, rnn):
+def test_create_block_flatten(in_space: BoxSpace, out_size, rnn):
     pytest.importorskip("tensorflow")
-    import tensorflow as tf
 
     batch_size = 3
     timesteps = 7
@@ -29,38 +28,26 @@ def test_create_block_out_value(in_space: SpaceBase, out_size, rnn):
 
     if not in_space.is_image():
         # image以外は例外
-        with pytest.raises(AssertionError):
-            block = config.create_tf_block(in_space=in_space, rnn=rnn)
+        with pytest.raises(UndefinedError):
+            block = config.create_tf_block(in_space=in_space, out_flatten=True, rnn=rnn)
         return
 
-    block = config.create_tf_block(in_space=in_space, rnn=rnn)
+    block = config.create_tf_block(in_space=in_space, out_flatten=True, rnn=rnn)
     print(block)
 
     # --- shape
-    in_data = block.create_dummy_data(np.float32, batch_size=batch_size, timesteps=timesteps)
-    in_shape = in_data.shape
     if rnn:
-        assert in_shape == (batch_size, timesteps) + in_space.shape
+        in_shape = (batch_size, timesteps) + in_space.shape
     else:
-        assert in_shape == (batch_size,) + in_space.shape
-
-    # --- single data
-    x = in_space.sample()
-    x = block.to_tf_one_batch(x, tf.float32)
-    y = block(x)
-    assert y is not None
-    print(y.shape)
-    if rnn:
-        assert y.numpy().shape == (1, 1, out_size)
-    else:
-        assert y.numpy().shape == (1, out_size)
+        in_shape = (batch_size,) + in_space.shape
 
     # --- batch data
     if rnn:
         x = [[in_space.sample() for _ in range(timesteps)] for _ in range(batch_size)]
     else:
         x = [in_space.sample() for _ in range(batch_size)]
-    x = block.to_tf_batches(x, tf.float32)
+    x = np.asarray(x, dtype=np.float32)
+    assert x.shape == in_shape
     y = block(x)
     assert y is not None
     print(y.shape)
@@ -87,6 +74,7 @@ def test_create_block_out_image(in_space, out_shape, rnn):
     seq_size = 5
 
     config = InputImageBlockConfig()
+    # no flatten
     block = config.create_tf_block(in_space=in_space, out_flatten=False, rnn=rnn)
     print(block)
 

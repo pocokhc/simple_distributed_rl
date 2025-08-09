@@ -41,7 +41,7 @@ class RepresentationNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
-        self.in_block = config.input_image_block.create_tf_block(
+        self.in_block = config.input_block.create_tf_block(
             config.observation_space,
             out_flatten=False,
         )
@@ -339,7 +339,7 @@ class VQVAE(KerasModelAddedSummary):
         self.c_size = config.codebook_size
         self.codebook = np.identity(self.c_size, dtype=np.float32)[np.newaxis, ...]
 
-        self.in_block = config.input_image_block.create_tf_block(
+        self.in_block = config.input_block.create_tf_block(
             config.observation_space,
             out_flatten=False,
         )

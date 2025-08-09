@@ -23,13 +23,7 @@ class ActorNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
-        if config.observation_space.is_value():
-            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
-        elif config.observation_space.is_image():
-            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
-        else:
-            raise ValueError(config.observation_space)
-
+        self.in_block = config.input_block.create_tf_block(config)
         self.hidden_block = config.policy_block.create_tf_block()
         self.out_layer = kl.Dense(config.action_space.size, activation="tanh")
 
@@ -56,12 +50,7 @@ class CriticNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
-        if config.observation_space.is_value():
-            self.in_block = config.input_value_block.create_tf_block(config.observation_space)
-        elif config.observation_space.is_image():
-            self.in_block = config.input_image_block.create_tf_block(config.observation_space)
-        else:
-            raise ValueError(config.observation_space)
+        self.in_block = config.input_block.create_tf_block(config)
 
         # q1
         self.q1_block = config.q_block.create_tf_block()

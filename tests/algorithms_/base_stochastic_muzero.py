@@ -18,7 +18,7 @@ class QuickCase(CommonQuickCase):
             dynamics_blocks=1,
         )
         rl_config.memory.warmup_size = 2
-        rl_config.input_image_block.set_alphazero_block(1, 4)
+        rl_config.input_block.set_alphazero_block(1, 4)
 
         return rl_config, dict(use_layer_processor=True)
 
@@ -48,7 +48,7 @@ class LongCase(CommonLongCase):
         rl_config.memory.warmup_size = 100
         rl_config.lr = 0.01
         rl_config.memory.set_proportional()
-        rl_config.input_image_block.set_alphazero_block(1, 16)
+        rl_config.input_block.set_alphazero_block(1, 16)
         return rl_config
 
     def test_Grid(self):

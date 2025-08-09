@@ -28,10 +28,7 @@ class QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
 
-        if config.observation_space.is_image():
-            self.in_block = config.input_image_block.create_tf_block(config.observation_space, rnn=True)
-        else:
-            self.in_block = config.input_value_block.create_tf_block(config.observation_space, rnn=True)
+        self.in_block = config.input_block.create_tf_block(config, rnn=True)
 
         # --- lstm
         self.lstm_layer = kl.LSTM(
@@ -44,7 +41,7 @@ class QNetwork(KerasModelAddedSummary):
         self.hidden_block = config.hidden_block.create_tf_block(config.action_space.n, rnn=True)
 
         # build
-        self(self.in_block.create_dummy_data(config.get_dtype("np"), timesteps=config.sequence_length))
+        self(config.input_block.create_tf_dummy_data(config, timesteps=config.sequence_length))
 
     @tf.function()
     def call(self, x, hidden_states=None, training=False):

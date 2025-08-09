@@ -1,11 +1,13 @@
 import logging
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import List, Optional
 
 from srl.rl.schedulers.schedulers.base import Scheduler
 
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class SchedulerConfig:
     """
     数値のハイパーパラメータに対してスケジュールによる変更を提供します。
@@ -31,13 +33,13 @@ class SchedulerConfig:
 
     """
 
-    def __init__(self, default_scheduler: bool = False):
-        self._schedulers: list = []
-        self._default_scheduler = default_scheduler
+    # list[{name: str, phase_steps: int, other params}]
+    schedulers: List[dict] = field(default_factory=list)
+    default_scheduler: bool = False
 
     def clear(self):
         """配列を空にします"""
-        self._schedulers = []
+        self.schedulers = []
         return self
 
     # --- constant
@@ -49,21 +51,10 @@ class SchedulerConfig:
         Args:
             rate (float): val
         """
-        return self.set_constant(rate)
-
-    def set_constant(self, rate: float):
-        """固定値を使用
-
-        y = rate
-
-        Args:
-            rate (float): val
-        """
         self.clear()
-        self.add_constant(rate, 0)
-        return self
+        return self.add(rate, 0)
 
-    def add_constant(self, rate: float, phase_steps: int = 0):
+    def add(self, rate: float, phase_steps: int = 0):
         """固定値を追加
 
         y = rate
@@ -72,7 +63,13 @@ class SchedulerConfig:
             rate (float): val
             phase_steps (int): 継続するstep数
         """
-        self._schedulers.append((phase_steps, "constant", dict(rate=rate)))
+        self.schedulers.append(
+            {
+                "name": "constant",
+                "phase_stepsd": phase_steps,
+                "rate": rate,
+            }
+        )
         return self
 
     # --- linear
@@ -100,15 +97,12 @@ class SchedulerConfig:
             end_rate (float): 終了時のrate
             phase_steps (int): 継続するstep数
         """
-        self._schedulers.append(
-            (
-                phase_steps,
-                "linear",
-                dict(
-                    start_rate=start_rate,
-                    end_rate=end_rate,
-                    phase_steps=phase_steps,
-                ),
+        self.schedulers.append(
+            dict(
+                name="linear",
+                start_rate=start_rate,
+                end_rate=end_rate,
+                phase_steps=phase_steps,
             )
         )
         return self
@@ -132,14 +126,11 @@ class SchedulerConfig:
             start_rate (float): 開始時のrate
             phase_steps (int): 継続するstep数
         """
-        self._schedulers.append(
-            (
-                phase_steps,
-                "cosine",
-                dict(
-                    start_rate=start_rate,
-                    phase_steps=phase_steps,
-                ),
+        self.schedulers.append(
+            dict(
+                name="cosine",
+                start_rate=start_rate,
+                phase_steps=phase_steps,
             )
         )
         return self
@@ -165,15 +156,12 @@ class SchedulerConfig:
             phase_steps (int): 継続するstep数
             num_cycles (int): 繰り返す回数
         """
-        self._schedulers.append(
-            (
-                phase_steps,
-                "cosine_with_hard_restarts",
-                dict(
-                    start_rate=start_rate,
-                    phase_steps=phase_steps,
-                    num_cycles=num_cycles,
-                ),
+        self.schedulers.append(
+            dict(
+                name="cosine_with_hard_restarts",
+                start_rate=start_rate,
+                phase_steps=phase_steps,
+                num_cycles=num_cycles,
             )
         )
         return self
@@ -203,74 +191,78 @@ class SchedulerConfig:
             start_rate (float): 開始時のrate
             power (float, optional): 強さ、1で線形と同じ. Defaults to 2.
         """
-        self._schedulers.append(
-            (
-                phase_steps,
-                "polynomial",
-                dict(
-                    start_rate=start_rate,
-                    phase_steps=phase_steps,
-                    power=power,
-                ),
+        self.schedulers.append(
+            dict(
+                name="polynomial",
+                start_rate=start_rate,
+                phase_steps=phase_steps,
+                power=power,
             )
         )
         return self
 
     # --- custom
-    def set_custom(self, entry_point: str, kwargs: dict, phase_steps: int):
+    def set_custom(self, entry_point: str, kwargs: dict, phase_steps: int = 0):
         self.clear()
         self.add_custom(entry_point, kwargs, phase_steps)
         return self
 
-    def add_custom(self, entry_point: str, kwargs: dict, phase_steps: int):
-        self._schedulers.append((phase_steps, "custom", dict(entry_point=entry_point, kwargs=kwargs)))
+    def add_custom(self, entry_point: str, kwargs: dict, phase_steps: int = 0):
+        self.schedulers.append(
+            dict(
+                name="custom",
+                phase_steps=phase_steps,
+                entry_point=entry_point,
+                kwargs=kwargs,
+            ),
+        )
         return self
 
     # ------------------------------------------------------
 
     def create(self, val: Optional[float] = None) -> Scheduler:
-        if self._default_scheduler:
+        if self.default_scheduler:
             # スケジューラーがデフォルトの場合、valが設定されていたらそちらを優先する
             if val is not None:
-                self.set_constant(val)
+                self.set(val)
 
-        if (val is not None) and (len(self._schedulers) == 0):
-            self.set_constant(val)
-        assert len(self._schedulers) > 0, "Set at least one Scheduler."
+        if (val is not None) and (len(self.schedulers) == 0):
+            self.set(val)
+        assert len(self.schedulers) > 0, "Set at least one Scheduler."
 
-        if len(self._schedulers) == 1:
-            c = self._schedulers[0]
-            return self._create_scheduler(c[1], c[2])
+        if len(self.schedulers) == 1:
+            return self._create_scheduler(self.schedulers[0])
         else:
-            return ListScheduler(self)
+            return ListScheduler(self.schedulers)
 
     @staticmethod
-    def _create_scheduler(name: str, kwargs) -> Scheduler:
+    def _create_scheduler(params: dict) -> Scheduler:
+        name = params["name"]
         if name == "constant":
             from srl.rl.schedulers.schedulers.constant import Constant
 
-            return Constant(**kwargs)
+            return Constant.from_kwargs(**params)
         elif name == "linear":
             from srl.rl.schedulers.schedulers.linear import Linear
 
-            return Linear(**kwargs)
+            return Linear.from_kwargs(**params)
 
         elif name == "cosine":
             from srl.rl.schedulers.schedulers.cosine import Cosine
 
-            return Cosine(**kwargs)
+            return Cosine.from_kwargs(**params)
         elif name == "cosine_with_hard_restarts":
             from srl.rl.schedulers.schedulers.cosine import CosineWithHardRestarts
 
-            return CosineWithHardRestarts(**kwargs)
+            return CosineWithHardRestarts.from_kwargs(**params)
         elif name == "polynomial":
             from srl.rl.schedulers.schedulers.polynomial import Polynomial
 
-            return Polynomial(**kwargs)
+            return Polynomial.from_kwargs(**params)
         elif name == "custom":
             from srl.utils.common import load_module
 
-            c = load_module(kwargs["entry_point"])(**kwargs["kwargs"])
+            c = load_module(params["entry_point"]).from_kwargs(**params)
             return c
         else:
             raise ValueError(name)
@@ -288,8 +280,8 @@ class SchedulerConfig:
         sch = self.create()
 
         max_steps = 0
-        for phase_steps, name, kwargs in self._schedulers:
-            max_steps += phase_steps
+        for params in self.schedulers:
+            max_steps += params.get("phase_steps", 0)
         line_step = max_steps
         if max_steps < 50:
             max_steps = 50
@@ -307,18 +299,15 @@ class SchedulerConfig:
             plt.show()
         plt.close()
 
-    def to_dict(self) -> dict:
-        return {"schedulers": self._schedulers}
-
 
 class ListScheduler(Scheduler):
-    def __init__(self, config: SchedulerConfig):
+    def __init__(self, schedulers: List[dict]):
         self.schedulers_idx = {}
         step = 0
-        for phase_steps, name, kwargs in config._schedulers:
-            sch = config._create_scheduler(name, kwargs)
+        for params in schedulers:
+            sch = SchedulerConfig._create_scheduler(params)
             self.schedulers_idx[step] = sch
-            step += phase_steps
+            step += params.get("phase_steps", 0)
 
         self.current_step = 0
         self.current_sch: Scheduler = self.schedulers_idx[0]

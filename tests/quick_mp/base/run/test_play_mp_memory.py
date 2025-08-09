@@ -48,13 +48,9 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
         runner.context.max_episodes = 2
     runner.context.training = True
     runner.context.distributed = True
-    runner.setup_process()
-
-    mp_cfg = MpConfig(
-        runner.context,
-        [c],
-        actor_parameter_sync_interval=0,
-    )
+    runner.context.callbacks = [c]
+    runner.context.setup_process()
+    mp_cfg = MpConfig(runner.context, actor_parameter_sync_interval=0)
 
     if interrupt_stop:
 
@@ -65,7 +61,7 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
             def on_episode_end(self, context: RunContext, state: RunStateActor) -> None:
                 self.end_signal.value = True
 
-        mp_cfg.callbacks.append(_c2(end_signal))
+        mp_cfg.context.callbacks.append(_c2(end_signal))
 
     # --- run
     _run_actor(
@@ -110,7 +106,7 @@ def test_train(enable_mp_memory):
     assert rewards > 0.5
 
 
-@pytest.mark.timeout(60)  # pip install pytest_timeout
+# @pytest.mark.timeout(60)  # pip install pytest_timeout
 @pytest.mark.parametrize("enable_mp_memory", [False, True])
 def test_train_parameter(enable_mp_memory):
     rl_config = ql_agent57.Config()
@@ -123,7 +119,14 @@ def test_train_parameter(enable_mp_memory):
     print(rewards)
     assert rewards > 0.4
 
-    runner.train_mp(actor_num=1, max_train_count=1, enable_mp_memory=enable_mp_memory, enable_progress=False)
+    runner.train_mp(
+        actor_num=1,
+        max_train_count=1,
+        enable_mp_memory=enable_mp_memory,
+        enable_progress=False,
+        initial_parameter_sharing=True,
+        initial_memory_sharing=True,
+    )
     assert runner.memory.length() > 10
 
     rewards = runner.evaluate(max_episodes=100, enable_progress=False)

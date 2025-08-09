@@ -28,7 +28,6 @@ def play_trainer_only(
             )
 
     # --- context
-    context = context.copy()
     assert context.training
     context.setup()
     callbacks = context.callbacks

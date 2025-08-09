@@ -39,12 +39,8 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
         runner.context.max_episodes = 2
     runner.context.training = True
     runner.context.distributed = True
-
-    mp_cfg = MpConfig(
-        runner.context,
-        [c],
-        actor_parameter_sync_interval=0,
-    )
+    runner.context.callbacks = [c]
+    mp_cfg = MpConfig(runner.context, actor_parameter_sync_interval=0)
 
     if interrupt_stop:
 
@@ -55,7 +51,7 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
             def on_episode_end(self, context: RunContext, state: RunStateActor) -> None:
                 self.end_signal.value = True
 
-        mp_cfg.callbacks.append(_c2(end_signal))
+        mp_cfg.context.callbacks.append(_c2(end_signal))
 
     # --- run
     _run_actor(
@@ -96,11 +92,8 @@ def test_trainer(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
     runner.context.timeout = 10
     runner.context.training = True
     runner.context.distributed = True
-    mp_cfg = MpConfig(
-        runner.context,
-        [c],
-        trainer_parameter_send_interval=0,
-    )
+    runner.context.callbacks = [c]
+    mp_cfg = MpConfig(runner.context, trainer_parameter_send_interval=0)
 
     if interrupt_stop:
 
@@ -113,7 +106,7 @@ def test_trainer(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
                 if state.trainer.get_train_count() > 10:
                     self.train_end_signal.value = True
 
-        mp_cfg.callbacks.append(_c2(end_signal))
+        mp_cfg.context.callbacks.append(_c2(end_signal))
 
     # --- add queue
     serialize_func = runner.make_memory().get_worker_funcs()["add"][1]

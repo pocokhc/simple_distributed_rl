@@ -81,6 +81,10 @@ def setup_device(
     return used_device_tf, used_device_torch
 
 
+def get_used_device():
+    return __framework, __used_device_tf, __used_device_torch
+
+
 def _setup_tensorflow(
     device: str,
     is_mp_main_process: Optional[bool],

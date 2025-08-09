@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, List, Literal, Optional, Union, cast
 
 from srl.base.define import PlayersType, RenderModeType
 from srl.base.run.callback import RunCallback
-from srl.base.system.device import setup_device
+from srl.base.system.device import get_used_device, setup_device
 from srl.base.system.memory import set_memory_limit
 from srl.utils.common import is_package_installed
 from srl.utils.serialize import apply_dict_to_dataclass, dataclass_to_dict, get_modified_fields, load_dict, save_dict
@@ -86,7 +86,8 @@ class RunContext:
     tf_enable_memory_growth: bool = True
 
     # --- private(static class instance)
-    __setup_process = False
+    __setup_memory_limit = False
+    __setup_device = False
 
     def __post_init__(self):
         # --- mp
@@ -131,18 +132,28 @@ class RunContext:
         self.setup_process()
 
     def setup_process(self):
-        if not RunContext.__setup_process:
-            logger.info("setup process")
-
-            # --- memory limit
+        # --- memory limit
+        if not RunContext.__setup_memory_limit:
             set_memory_limit(self.memory_limit)
+            RunContext.__setup_memory_limit = True
 
-            # --- device
-            self.setup_device()
+        # --- device
+        self.setup_device()
 
-            RunContext.__setup_process = True
+    @classmethod
+    def is_setup(cls) -> bool:
+        return cls.__setup_device
 
     def setup_device(self, is_mp_main_process: Optional[bool] = None):
+        if RunContext.__setup_device:
+            framework, used_device_tf, used_device_torch = get_used_device()
+            self.framework = framework
+            self.used_device_tf = used_device_tf
+            self.used_device_torch = used_device_torch
+            self.rl_config._RLConfig__used_device_tf = used_device_tf
+            self.rl_config._RLConfig__used_device_torch = used_device_torch
+            return
+
         if self.rl_config is None:
             logger.warning("skip set device (RLConfig is None)")
             return
@@ -163,7 +174,9 @@ class RunContext:
         )
         self.used_device_tf = used_device_tf
         self.used_device_torch = used_device_torch
-        self.rl_config.set_used_device(used_device_tf, used_device_torch)
+        self.rl_config._RLConfig__used_device_tf = used_device_tf
+        self.rl_config._RLConfig__used_device_torch = used_device_torch
+        RunContext.__setup_device = True
 
     def get_device(self) -> str:
         if self.run_name == "main" or self.run_name == "trainer":

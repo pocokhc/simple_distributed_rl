@@ -658,10 +658,6 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     def used_device_torch(self) -> str:
         return self.__used_device_torch
 
-    def set_used_device(self, used_device_tf: str, used_device_torch: str):
-        self.__used_device_tf = used_device_tf
-        self.__used_device_torch = used_device_torch
-
     @classmethod
     def load(cls, path_or_cfg_dict: Union[dict, Any, str]) -> "RLConfig":
         return apply_dict_to_dataclass(cls(), load_dict(path_or_cfg_dict))

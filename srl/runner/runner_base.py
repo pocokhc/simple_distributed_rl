@@ -191,6 +191,12 @@ class RunnerBase(Generic[TRLConfig]):
             if memory is None:
                 memory = self.make_memory()
             self._trainer = make_trainer(self.rl_config, parameter, memory)
+        if (self._parameter_dat is not None) and (self._parameter is not None):
+            self._parameter.restore(self._parameter_dat)
+            self._parameter_dat = None
+        if (self._memory_dat is not None) and (self._memory is not None):
+            self._memory.restore(self._memory_dat)
+            self._memory_dat = None
         return self._trainer
 
     def make_worker(
@@ -205,6 +211,12 @@ class RunnerBase(Generic[TRLConfig]):
             if memory is None:
                 memory = self.make_memory()
             self._worker = make_worker(self.rl_config, self.make_env(), parameter, memory)
+        if (self._parameter_dat is not None) and (self._parameter is not None):
+            self._parameter.restore(self._parameter_dat)
+            self._parameter_dat = None
+        if (self._memory_dat is not None) and (self._memory is not None):
+            self._memory.restore(self._memory_dat)
+            self._memory_dat = None
         return self._worker
 
     def make_workers(

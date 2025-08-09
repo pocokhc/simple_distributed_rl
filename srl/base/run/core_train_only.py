@@ -12,8 +12,6 @@ logger = logging.getLogger(__name__)
 def play_trainer_only(
     context: RunContext,
     trainer: RLTrainer,
-    parameter_dat: Optional[Any] = None,
-    memory_dat: Optional[Any] = None,
     state: Optional[RunStateTrainer] = None,  # 継続用
     _check_tf: bool = True,
 ):
@@ -25,8 +23,6 @@ def play_trainer_only(
             return play_trainer_only(
                 context,
                 trainer,
-                parameter_dat,
-                memory_dat,
                 state,
                 _check_tf=False,
             )
@@ -43,11 +39,6 @@ def play_trainer_only(
     state.trainer = trainer
     state.parameter = trainer.parameter
     state.memory = trainer.memory
-
-    if parameter_dat is not None:
-        state.parameter.restore(parameter_dat)
-    if memory_dat is not None:
-        state.memory.restore(memory_dat)
 
     # --- callbacks ---
     if not context.distributed:

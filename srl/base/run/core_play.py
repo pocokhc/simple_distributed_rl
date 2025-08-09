@@ -18,8 +18,6 @@ def play(
     worker: WorkerRun,
     trainer: Optional[RLTrainer] = None,
     workers: Optional[List[WorkerRun]] = None,
-    parameter_dat: Optional[Any] = None,
-    memory_dat: Optional[Any] = None,
     state: Optional[RunStateActor] = None,  # 継続用
     _check_tf: bool = True,
 ):
@@ -35,8 +33,6 @@ def play(
                 worker,
                 trainer,
                 workers,
-                parameter_dat,
-                memory_dat,
                 state,
                 _check_tf=False,
             )
@@ -63,11 +59,6 @@ def play(
     elif context.training and (trainer is None):
         trainer = context.rl_config.make_trainer(state.parameter, state.memory)
     state.trainer = trainer
-
-    if parameter_dat is not None:
-        state.parameter.restore(parameter_dat)
-    if memory_dat is not None:
-        state.memory.restore(memory_dat)
 
     assert env.player_num == len(workers)
 

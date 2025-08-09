@@ -55,7 +55,7 @@ def test_priority_memory(memory_type: str, use_priority: bool, check_dup: bool):
 
     # --- 複数回やって比率をだす
     counter = []
-    for i in range(10000):
+    for i in range(20000):
         (batches, weights, update_args) = memory.sample(5, step=1)
         assert len(batches) == 5
         assert len(weights) == 5

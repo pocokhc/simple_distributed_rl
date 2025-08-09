@@ -29,7 +29,7 @@ class RunnerBase(Generic[TRLConfig]):
     """実行環境を提供"""
 
     #: EnvConfigを指定（文字列のみのIDでも可能）
-    name_or_env_config: Union[str, EnvConfig]
+    name_or_env_config: Optional[Union[str, EnvConfig]] = None
     #: RLConfigを指定, Noneの場合、dummyアルゴリズムが使われます
     rl_config: Optional[TRLConfig] = None  # type: ignore , type
 
@@ -37,14 +37,26 @@ class RunnerBase(Generic[TRLConfig]):
     delay_make_env: bool = False
 
     def __post_init__(self):
-        if isinstance(self.name_or_env_config, str):
+        if (self.name_or_env_config is None) and (self.context is None):
+            raise ValueError("Specify one of the following: 'name_or_env_config', 'context'")
+
+        if self.name_or_env_config is None:
+            assert self.context.env_config is not None
+            self.env_config: EnvConfig = self.context.env_config
+        elif isinstance(self.name_or_env_config, str):
             self.env_config: EnvConfig = EnvConfig(self.name_or_env_config)
         else:
             self.env_config: EnvConfig = self.name_or_env_config
         if self.rl_config is None:
-            self.rl_config: TRLConfig = cast(TRLConfig, DummyRLConfig())
+            if self.context is not None:
+                self.rl_config = self.context.rl_config  # type: ignore
+            if self.rl_config is None:
+                self.rl_config: TRLConfig = cast(TRLConfig, DummyRLConfig())
+
         if self.context is None:
-            self.context: RunContext = RunContext(self.env_config, self.rl_config)
+            self.context: RunContext = RunContext()
+        self.context.env_config = self.env_config
+        self.context.rl_config = self.rl_config
 
         self._env: Optional[EnvRun] = None
         self._worker: Optional[WorkerRun] = None
@@ -262,6 +274,9 @@ class RunnerBase(Generic[TRLConfig]):
             tf_device_enable (bool, optional): tensorflowにて、 'with tf.device()' を使用する. Defaults to True.
             tf_enable_memory_growth (bool, optional): tensorflowにて、'set_memory_growth(True)' を実行する. Defaults to True.
         """
+        if self.context.is_setup():
+            logger.warning("Device cannot be changed after initialization.")
+            return
         self.context.device = device
         self.context.set_CUDA_VISIBLE_DEVICES_if_CPU = set_CUDA_VISIBLE_DEVICES_if_CPU
         self.context.tf_device_enable = tf_device_enable

@@ -1,10 +1,11 @@
 # TODO list
-1. keras3対応 → tfは@tf.functionが使えなくなるので遅くなる。torchはcpu()が必要になるっぽい、しばらく保留
 1. Async-SGD
 1. (distribution)オリジナルrl/env対応
 1. (distribution)学習後のworker側のparam共有
 1. MCP化
-  
+1. renderのfpsなどの表示
+1. streamlit or nicegui?
+
 //// 中止(stopped)  
 // (tensorboard) SRL上でいいI/Fの作成方法が思い浮かばず保留、tensorboardを愚直にいれると遅い  
 // (SEED RL) 大量のActor向けなのでいったん見送り  
@@ -15,19 +16,16 @@
 // cached_propertyでちょっと高速化?→予想外のバグがでそうなので保留  
 // RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留  
 // TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除  
+// tomlはNone型が定義できないので対象外
+// keras3対応 → tfは@tf.functionが使えなくなるので遅くなる。torchはcpu()が必要になるっぽい、しばらく保留
 
 
-- processorをdataclass
-- renderのfpsなどの表示
+
 - dist分散
-streamlit or nicegui
-
-
 - 内部しゃむ
 - DQNの高速化、次targetを固定
 
 
-pip install pyyaml tomli tomli-w
 
 
 # v1.4.0
@@ -57,21 +55,23 @@ pip install pyyaml tomli tomli-w
    - get_modified_fields: dataclassでデフォルト値との差分を取得する関数（表示用）
 1. [base.rl/env.config] new: dict形式を読み込むload/save/apply_dict/to_dict関数を追加
 1. [base.rl/env.config] update: summaryの出力を調整
+1. [algorithms] change: RLConfigの指定内容を見直し
+   - 特にinput_blockの仕様を変更し、algorithm側のコードも変更
 1. [utils.common] update: load_moduleを"."でも読み込めるように変更
-
-
-**MainUpdates**
-
+1. [processors] update: dataclassを継承する事をデフォルトに変更
 
 **OtherUpdates**
 
 1. [base.env.gym_wrapper] update: EnvConfigに依存しないように変更
-
+1. [base.env.env_run] fix: render_intervalがframeskip時も加味するように修正
+1. [base.run.core_play] change: 1episode未満時の結果の保存をtraining時もするように変更
 
 **Bug Fixes**
 
+1. [base.context] fix: setup_device2回目以降で設定が引き継がれない不具合修正
 1. [base.rl.config] fix: registory時のsetup確認が機能していなかった不具合修正
 1. [base.run.play_mp] fix: 初期memoryある場合にがrestoreされていない不具合修正
+1. [env.processors] fix: atari_processorでCOLOR以外の画像にするとエラーになる不具合修正
 
 
 # v1.3.6

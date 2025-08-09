@@ -666,7 +666,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         self,
         path: str,
         include_rl_config: bool = True,
-        include_base_config: bool = False,
+        include_base_config: bool = True,
         include_metadata: bool = False,
     ):
         save_dict(self.to_dict(include_rl_config, include_base_config, include_metadata), path)
@@ -700,7 +700,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             d.update(self.get_metadata())
         return d
 
-    def copy(self, reset_env_config: bool = False) -> Any:
+    def copy(self, reset_env_config: bool = False) -> "RLConfig":
         config = self.__class__()
         old_check_parameter = self.__check_parameter
         config.__check_parameter = False
@@ -757,6 +757,10 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         parameter = self.make_parameter()
         parameter.summary(expand_nested=expand_nested, **kwargs)
         return parameter
+
+
+def load_rl(path_or_cfg_dict: Union[dict, Any, str]) -> RLConfig:
+    return RLConfig.load(path_or_cfg_dict)
 
 
 @dataclass

@@ -20,9 +20,10 @@ def test_train(tmpdir):
     runner = srl.Runner("Grid", rl_config)
 
     runner.set_mlflow("test_Grid", interval_checkpoint=1)
-    runner.train(timeout=3)
+    runner.train(max_train_count=100_000)
 
     rewards = runner.evaluate(max_episodes=100)
+    print(rewards)
     assert np.mean(rewards) > 0.6
 
     # --- reset
@@ -33,6 +34,9 @@ def test_train(tmpdir):
     assert np.mean(rewards) < 0.5
 
     runner.load_parameter_from_mlflow("test_Grid")
+    rewards = runner.evaluate(max_episodes=100)
+    print(rewards)
+    assert np.mean(rewards) > 0.6
     runner.save_parameter(os.path.join(tmpdir, "_tmp.dat"))
 
     # --- reset
@@ -43,10 +47,11 @@ def test_train(tmpdir):
 
     runner.load_parameter(os.path.join(tmpdir, "_tmp.dat"))
     rewards = runner.evaluate(max_episodes=100)
+    print(rewards)
     assert np.mean(rewards) > 0.6
 
     # --- html
-    # TODO
+    runner.make_html_all_parameters_in_mlflow("test_Grid")
 
 
 def test_method(tmpdir):

@@ -328,7 +328,7 @@ class MLFlowCallback(RunCallback, Evaluate):
         for file in files:
             logger.info(f"{run_id}: {file=}")
             cls.load_parameter(run_id, file, runner.make_parameter())
-            render = runner.run_render(enable_progress=False, **render_kwargs)
+            render = runner._run_render(enable_progress=False, **render_kwargs)
             html = render.to_jshtml()
             rewards = runner.state.last_episode_rewards
             fn = file[: -len("model.dat")] + f"{rewards}.html"

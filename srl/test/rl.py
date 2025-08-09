@@ -34,7 +34,10 @@ def test_rl(
     rl_config.enable_assertion = True
 
     for env_config in env_list:
-        test_rl_config = rl_config.copy(reset_env_config=True)
+        # save/load test
+        cfg_path = str(tmp_dir_path / "a.yaml")
+        rl_config.save(cfg_path)
+        test_rl_config = RLConfig.load(cfg_path)
 
         # envをlayerモードに変更する
         if use_layer_processor:

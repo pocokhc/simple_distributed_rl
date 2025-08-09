@@ -1,11 +1,10 @@
-import os
-
 import pytest
 
 import srl
 from srl.algorithms import dqn, ql
 from srl.base.system import device as device_module
 from srl.base.system.device import setup_device
+from srl.utils.common import is_available_gpu_tf, is_available_gpu_torch
 
 
 # -----------------------------------
@@ -46,31 +45,22 @@ def _setup_device(
         runner.train(max_train_count=2)
 
 
-@pytest.mark.parametrize("device", ["AUTO", "CPU", "GPU", "CPU:0", "GPU:0"])
-def test_setup_device_no_framework(device):
-    _setup_device(
-        framework="",
-        device=device,
-        true_tf="/CPU",
-        true_torch="cpu",
-    )
-
-
 # -----------------------------------
 # tensorflow
 # -----------------------------------
 @pytest.mark.parametrize(
     "device, true_tf, true_torch",
     [
-        ["AUTO", "/CPU", "cpu"],
+        ["AUTO", "/GPU", "cpu"],
         ["CPU", "/CPU", "cpu"],
         ["CPU:1", "/CPU:1", "cpu:1"],
-        ["GPU", "/CPU", "cpu"],
-        ["GPU:1", "/CPU", "cpu"],
+        ["GPU", "/GPU", "cpu"],
+        ["GPU:1", "/GPU:1", "cpu"],
     ],
 )
-def test_setup_device_tf_cpu(device, true_tf, true_torch):
-    os.environ["CUDA_VISIBLE_DEVICES"] = "-2"  # change CPU
+def test_setup_device_tf_gpu(device, true_tf, true_torch):
+    if not is_available_gpu_tf():
+        pytest.skip()
     _setup_device(
         framework="tensorflow",
         device=device,
@@ -85,15 +75,16 @@ def test_setup_device_tf_cpu(device, true_tf, true_torch):
 @pytest.mark.parametrize(
     "device, true_tf, true_torch",
     [
-        ["AUTO", "/CPU", "cpu"],
+        ["AUTO", "/CPU", "cuda"],
         ["CPU", "/CPU", "cpu"],
         ["CPU:1", "/CPU:1", "cpu:1"],
-        ["GPU", "/CPU", "cpu"],
-        ["GPU:1", "/CPU", "cpu"],
+        ["GPU", "/CPU", "cuda"],
+        ["GPU:1", "/CPU", "cuda:1"],
     ],
 )
-def test_setup_device_torch_cpu(device, true_tf, true_torch):
-    os.environ["CUDA_VISIBLE_DEVICES"] = "-2"  # change CPU
+def test_setup_device_torch_gpu(device, true_tf, true_torch):
+    if not is_available_gpu_torch():
+        pytest.skip()
     _setup_device(
         framework="torch",
         device=device,

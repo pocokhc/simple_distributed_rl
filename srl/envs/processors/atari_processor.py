@@ -1,4 +1,5 @@
-from typing import List
+from dataclasses import dataclass
+from typing import List, Optional, Tuple
 
 import ale_py  # include atari gym # noqa: F401
 import numpy as np
@@ -11,26 +12,27 @@ from srl.base.spaces.space import SpaceBase
 from srl.rl.functions import image_processor
 
 
+@dataclass
 class AtariProcessor(EnvProcessor):
-    def __init__(
-        self,
-        terminal_on_life_loss: bool = False,
-        resize=(84, 84),
-        grayscale: bool = True,
-        binarize: bool = True,
-    ):
-        self.terminal_on_life_loss = terminal_on_life_loss
-        self.resize = resize
-        self.space_type = SpaceTypes.GRAY_2ch if grayscale else SpaceTypes.COLOR
-        self.binarize = binarize
+    terminal_on_life_loss: bool = False
+    resize: Optional[Tuple[int, int]] = None
+    grayscale: bool = True
+    binarize: bool = False
+
+    def __post_init__(self):
+        self.space_type = SpaceTypes.GRAY_2ch if self.grayscale else SpaceTypes.COLOR
 
     def remap_observation_space(self, prev_space: SpaceBase, **kwargs) -> SpaceBase:
+        if self.resize is None:
+            return prev_space
         return BoxSpace(self.resize, 0, 255, np.uint8, stype=self.space_type)
 
     def remap_observation(self, state, prev_space: SpaceBase, new_space: SpaceBase, **kwargs):
+        if self.resize is None:
+            return state
         state = image_processor(
             state,
-            SpaceTypes.COLOR,
+            prev_space.stype,
             self.space_type,
             resize=self.resize,
         )
@@ -50,9 +52,9 @@ class AtariProcessor(EnvProcessor):
         return rewards, terminated, truncated
 
 
+@dataclass
 class AtariPongProcessor(EnvProcessor):
-    def __init__(self, resize=(64, 64)):
-        self.resize = resize
+    resize: Tuple[int, int] = (64, 64)
 
     def remap_observation_space(self, prev_space: SpaceBase, **kwargs) -> SpaceBase:
         return BoxSpace(self.resize, 0, 255, np.uint8, stype=SpaceTypes.GRAY_2ch)
@@ -60,7 +62,7 @@ class AtariPongProcessor(EnvProcessor):
     def remap_observation(self, state, prev_space: SpaceBase, new_space: SpaceBase, **kwargs):
         state = image_processor(
             state,
-            SpaceTypes.COLOR,
+            prev_space.stype,
             SpaceTypes.GRAY_2ch,
             trimming=(35, 10, 195, 150),  # (0, 0, 210, 160)
             resize=self.resize,
@@ -87,9 +89,9 @@ class AtariPongProcessor(EnvProcessor):
         self.point = dat
 
 
+@dataclass
 class AtariBreakoutProcessor(EnvProcessor):
-    def __init__(self, terminal_on_life_loss: bool = True):
-        self.terminal_on_life_loss = terminal_on_life_loss
+    terminal_on_life_loss: bool = True
 
     def remap_observation_space(self, prev_space: SpaceBase, **kwargs) -> SpaceBase:
         return BoxSpace((84, 84), 0, 255, np.uint8, stype=SpaceTypes.GRAY_2ch)
@@ -97,7 +99,7 @@ class AtariBreakoutProcessor(EnvProcessor):
     def remap_observation(self, state, prev_space: SpaceBase, new_space: SpaceBase, **kwargs):
         state = image_processor(
             state,
-            SpaceTypes.COLOR,
+            prev_space.stype,
             SpaceTypes.GRAY_2ch,
             trimming=(31, 7, 195, 153),  # (0, 0, 210, 160)
             resize=(84, 84),
@@ -117,9 +119,9 @@ class AtariBreakoutProcessor(EnvProcessor):
         return rewards, terminated, truncated
 
 
+@dataclass
 class AtariFreewayProcessor(EnvProcessor):
-    def __init__(self, resize=(64, 64)):
-        self.resize = resize
+    resize: Tuple[int, int] = (64, 64)
 
     def remap_observation_space(self, prev_space: SpaceBase, **kwargs) -> SpaceBase:
         return BoxSpace(self.resize, 0, 255, np.uint8, stype=SpaceTypes.GRAY_2ch)
@@ -127,7 +129,7 @@ class AtariFreewayProcessor(EnvProcessor):
     def remap_observation(self, state, prev_space: SpaceBase, new_space: SpaceBase, **kwargs):
         state = image_processor(
             state,
-            SpaceTypes.COLOR,
+            prev_space.stype,
             SpaceTypes.GRAY_2ch,
             trimming=(30, 0, 210 - 20, 160),  # (0, 0, 210, 160)
             resize=self.resize,

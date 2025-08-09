@@ -1,6 +1,7 @@
 import logging
 import pickle
 from abc import ABC
+from dataclasses import dataclass
 from typing import Optional
 
 from srl.base.spaces.space import SpaceBase
@@ -8,8 +9,9 @@ from srl.base.spaces.space import SpaceBase
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class RLProcessor(ABC):
-    """
+    """継承先も必ずdataclassで実装してください
     reward   : float->float の変換で以上のことが今のところなく、worker側の処理で十分なので実装なしに
     done     : env側の影響もあるため実装が困難
     statefull: 今のところ必要ないので実装なしに(ある場合はsetup/on_reset/backup/restoreが必要)

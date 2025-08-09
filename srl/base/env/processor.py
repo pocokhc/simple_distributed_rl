@@ -1,6 +1,7 @@
 import logging
 import pickle
 from abc import ABC
+from dataclasses import dataclass
 from typing import Any, Optional
 
 from srl.base.spaces.space import SpaceBase
@@ -8,7 +9,10 @@ from srl.base.spaces.space import SpaceBase
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class EnvProcessor(ABC):
+    """継承先も必ずdataclassで実装してください"""
+
     def remap_action_space(self, prev_space: SpaceBase, **kwargs) -> Optional[SpaceBase]:
         """新しいSpaceを返す。適用しない場合はNoneを返す"""
         return None

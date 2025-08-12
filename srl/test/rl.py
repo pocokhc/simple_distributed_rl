@@ -5,7 +5,7 @@ from typing import List, Literal, Union
 import srl
 from srl.base.env.config import EnvConfig
 from srl.base.rl.config import DummyRLConfig, RLConfig
-from srl.utils.common import is_available_pygame_video_device, is_packages_installed
+from srl.utils.common import is_available_pygame_video_device, is_package_installed, is_packages_installed
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +35,12 @@ def test_rl(
 
     for env_config in env_list:
         # save/load test
-        cfg_path = str(tmp_dir_path / "a.yaml")
-        rl_config.save(cfg_path)
-        test_rl_config = RLConfig.load(cfg_path)
+        if is_package_installed("yaml"):
+            cfg_path = str(tmp_dir_path / "a.yaml")
+            rl_config.save(cfg_path)
+            test_rl_config = RLConfig.load(cfg_path)
+        else:
+            test_rl_config = rl_config.copy()
 
         # envをlayerモードに変更する
         if use_layer_processor:

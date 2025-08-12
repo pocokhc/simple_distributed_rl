@@ -174,7 +174,7 @@ class RunnerBase(Generic[TRLConfig]):
         return self._env
 
     def make_parameter(self) -> RLParameter:
-        self.context.setup_process()
+        self.context.setup_device()
         if self._parameter is None:
             self._parameter = make_parameter(self.rl_config)
         if self._parameter_dat is not None:
@@ -183,7 +183,7 @@ class RunnerBase(Generic[TRLConfig]):
         return self._parameter
 
     def make_memory(self) -> RLMemory:
-        self.context.setup_process()
+        self.context.setup_device()
         if self._memory is None:
             self._memory = make_memory(self.rl_config)
         if self._memory_dat is not None:
@@ -196,7 +196,7 @@ class RunnerBase(Generic[TRLConfig]):
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
     ) -> RLTrainer:
-        self.context.setup_process()
+        self.context.setup_device()
         if self._trainer is None:
             if parameter is None:
                 parameter = self.make_parameter()
@@ -216,7 +216,7 @@ class RunnerBase(Generic[TRLConfig]):
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
     ) -> WorkerRun:
-        self.context.setup_process()
+        self.context.setup_device()
         if self._worker is None:
             if parameter is None:
                 parameter = self.make_parameter()
@@ -236,7 +236,7 @@ class RunnerBase(Generic[TRLConfig]):
         parameter: Optional[RLParameter] = None,
         memory: Optional[RLMemory] = None,
     ):
-        self.context.setup_process()
+        self.context.setup_device()
         if self._workers is None:
             if parameter is None:
                 parameter = self.make_parameter()

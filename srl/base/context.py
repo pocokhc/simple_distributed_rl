@@ -97,7 +97,7 @@ class RunContext:
         self.used_device_tf: str = "/CPU"
         self.used_device_torch: str = "cpu"
 
-    def setup(self, check_stop_config: bool = True):
+    def check_context_parameter(self, check_stop_config: bool = True):
         assert self.env_config is not None
         assert self.rl_config is not None
         assert self.callbacks is not None
@@ -127,17 +127,11 @@ class RunContext:
         # --- setup rl config check
         assert self.rl_config.is_setup()
 
-        # --- setup process
-        self.setup_process()
-
-    def setup_process(self):
-        # --- memory limit
-        if not RunContext.__setup_memory_limit:
-            set_memory_limit(self.memory_limit)
-            RunContext.__setup_memory_limit = True
-
-        # --- device
-        self.setup_device()
+    def setup_memory_limit(self):
+        if RunContext.__setup_memory_limit:
+            return
+        set_memory_limit(self.memory_limit)
+        RunContext.__setup_memory_limit = True
 
     @classmethod
     def is_setup(cls) -> bool:

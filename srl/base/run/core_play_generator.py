@@ -22,7 +22,9 @@ def play_generator(
     # Generator[YieldType, SendType, ReturnType]
 
     # --- context
-    context.setup(check_stop_config=False)  # generatorはチェックしない
+    context.check_context_parameter(check_stop_config=False)  # generatorはチェックしない
+    context.setup_memory_limit()
+    context.setup_device()
     callbacks = context.callbacks
 
     # --- 0 check instance

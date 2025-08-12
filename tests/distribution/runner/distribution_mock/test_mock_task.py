@@ -5,7 +5,13 @@ import srl
 from srl.algorithms import ql
 from srl.base.context import RunContext
 from srl.base.rl.parameter import DummyRLParameter
-from srl.runner.distribution.task_manager import TaskConfig
+from srl.runner.distribution.connector_configs import (
+    GCPParameters,
+    MQTTParameters,
+    RabbitMQParameters,
+    RedisParameters,
+)
+from srl.runner.distribution.server_manager import TaskConfig, TaskManager
 from tests.distribution.runner.distribution_external.memory_test_functions import memory_connector_test
 from tests.distribution.runner.distribution_mock.server_mock import (
     create_gcp_mock,
@@ -13,17 +19,6 @@ from tests.distribution.runner.distribution_mock.server_mock import (
     create_pika_mock,
     create_redis_mock,
 )
-
-try:
-    from srl.runner.distribution.connectors.parameters import (
-        GCPParameters,
-        MQTTParameters,
-        RabbitMQParameters,
-        RedisParameters,
-    )
-    from srl.runner.distribution.task_manager import TaskManager
-except ModuleNotFoundError:
-    pass
 
 
 def test_memory_redis(mocker: pytest_mock.MockerFixture):
@@ -56,9 +51,9 @@ def test_parameter(mocker: pytest_mock.MockerFixture):
     create_redis_mock(mocker)
 
     params = RedisParameters(host="test")
-    connector = params.create_connector()
+    connector = params.create()
 
-    connector.parameter_update("a")
+    connector.parameter_write("a")
     assert connector.parameter_read() == "a"
 
 
@@ -77,7 +72,7 @@ def test_no_task(mocker: pytest_mock.MockerFixture):
     assert t.get_actor(1, "a") == ""
     t.set_actor(1, "a", "a")
     assert t.get_actor(1, "a") == "a"
-    t.add_log("a")
+    t.log("a")
 
 
 def test_task(mocker: pytest_mock.MockerFixture):
@@ -88,9 +83,10 @@ def test_task(mocker: pytest_mock.MockerFixture):
     env_config = srl.EnvConfig("Grid")
     rl_config = ql.Config()
     rl_config.setup(env_config.make())
-    task_config = TaskConfig(RunContext(env_config, rl_config), [])
+    task_config = TaskConfig(RunContext(env_config, rl_config))
     task_config.context.actor_num = 2
     task_config.context.max_train_count = 10
+    task_config.context.distributed = True
     client.create_task(task_config, DummyRLParameter())
     assert client.get_status() == "ACTIVE"
     assert client.get_actor_num() == 2
@@ -103,47 +99,43 @@ def test_task(mocker: pytest_mock.MockerFixture):
     trainer = TaskManager(RedisParameters(host="test"), "trainer")
     from srl.runner.distribution.server_trainer import _task_assign as trainer_task_assign
 
-    assert trainer_task_assign(trainer)
+    assert trainer_task_assign(trainer, 999)
     assert trainer.get_config() is not None
-    assert client.get_trainer("id") == trainer.params.uid
+    assert client.get_trainer("id") == trainer.uid
 
-    assert not trainer_task_assign(trainer)
+    assert not trainer_task_assign(trainer, 999)
 
     # --- assign actor1
     actor1 = TaskManager(RedisParameters(host="test"), "actor")
     from srl.runner.distribution.server_actor import _task_assign as actor_task_assign
 
     # queueのセットアップ前はアサインしない
-    run_params = actor_task_assign(actor1)
-    assert run_params is None
+    is_assign, _ = actor_task_assign(actor1, 999)
+    assert not is_assign
 
     # queueをセットアップ
     assert not trainer.is_setup_memory()
     trainer.setup_memory(RedisParameters(host="test").create_memory_receiver(), is_purge=True)
     assert trainer.is_setup_memory()
 
-    task_config, env, parameter, actor_id = actor_task_assign(actor1)
+    is_assign, actor_id = actor_task_assign(actor1, 999)
+    assert is_assign
     assert actor_id == 0
     assert actor1.get_config() is not None
-    assert client.get_actor(actor_id, "id") == actor1.params.uid
-
-    task_config, env, parameter, actor_id = actor_task_assign(actor1)
-    assert actor_id == 0
+    assert client.get_actor(actor_id, "id") == actor1.uid
 
     # assign actor2
     actor2 = TaskManager(RedisParameters(host="test"), "actor")
-    task_config, env, parameter, actor_id = actor_task_assign(actor2)
+    is_assign, actor_id = actor_task_assign(actor2, 999)
+    assert is_assign
     assert actor_id == 1
     assert actor2.get_config() is not None
-    assert client.get_actor(actor_id, "id") == actor2.params.uid
-
-    task_config, env, parameter, actor_id = actor_task_assign(actor2)
-    assert actor_id == 1
+    assert client.get_actor(actor_id, "id") == actor2.uid
 
     # assign actor3
     actor3 = TaskManager(RedisParameters(host="test"), "actor")
-    runner = actor_task_assign(actor3)
-    assert runner is None
+    is_assign, _ = actor_task_assign(actor3, 999)
+    assert not is_assign
 
     # finish
     assert not client.is_finished()

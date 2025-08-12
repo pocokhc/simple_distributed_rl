@@ -5,8 +5,7 @@ from typing import Any, Optional
 
 import paho.mqtt.client as mqtt
 
-from srl.runner.distribution.connectors.parameters import MQTTParameters
-from srl.runner.distribution.interface import IMemoryReceiver, IMemorySender, IServerConnector
+from srl.runner.distribution.connector_configs import IMemoryReceiver, IMemorySender, IParameterServer, IServerConnector, MQTTParameters, RedisParameters
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +85,7 @@ class MQTTReceiver(_MQTTConnector, IMemoryReceiver):
 
 
 class MQTTSender(_MQTTConnector, IMemorySender):
-    def memory_add(self, dat: Any) -> None:
+    def memory_send(self, dat: Any) -> None:
         try:
             if self.client is None:
                 self.connect()

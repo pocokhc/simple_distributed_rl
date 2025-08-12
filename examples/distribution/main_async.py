@@ -2,7 +2,8 @@ import os
 
 import srl
 from srl.algorithms import ql
-from srl.runner.distribution import RedisParameters, TaskManager
+from srl.runner.distribution import RedisParameters
+from srl.runner.distribution.server_manager import TaskManager
 from srl.utils import common
 
 redis_params = RedisParameters(host="localhost")

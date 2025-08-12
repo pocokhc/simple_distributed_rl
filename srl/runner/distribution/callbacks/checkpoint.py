@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from srl.runner.callbacks.evaluate import Evaluate
 from srl.runner.distribution.callback import DistributionCallback
-from srl.runner.distribution.task_manager import TaskManager
+from srl.runner.distribution.server_manager import TaskManager
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class Checkpoint(DistributionCallback, Evaluate):
     save_dir: str = "checkpoints"
     interval: int = 60 * 20  # s
 
-    def on_start(self, task_manager: TaskManager):
+    def on_start(self, task_manager: TaskManager, **kwargs):
         if not os.path.isdir(self.save_dir):
             os.makedirs(self.save_dir, exist_ok=True)
             logger.info(f"makedirs: {self.save_dir}")
@@ -24,12 +24,12 @@ class Checkpoint(DistributionCallback, Evaluate):
         self.interval_t0 = time.time()
         self._save_parameter(task_manager, is_last=False)
 
-    def on_polling(self, task_manager: TaskManager):
+    def on_polling(self, task_manager: TaskManager, **kwargs):
         if time.time() - self.interval_t0 > self.interval:
             self._save_parameter(task_manager, is_last=False)
             self.interval_t0 = time.time()
 
-    def on_end(self, task_manager: TaskManager):
+    def on_end(self, task_manager: TaskManager, **kwargs):
         self._save_parameter(task_manager, is_last=True)
 
     def _save_parameter(self, task_manager: TaskManager, is_last: bool):

@@ -1,13 +1,11 @@
 import time
 
 import pytest
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from srl.runner.distribution.interface import IMemoryServerParameters
+from srl.runner.distribution.connector_configs import IMemoryServerParameters
 
 
-def memory_connector_test(params: "IMemoryServerParameters"):
+def memory_connector_test(params: IMemoryServerParameters):
     receiver = params.create_memory_receiver()
     sender = params.create_memory_sender()
 
@@ -22,7 +20,7 @@ def memory_connector_test(params: "IMemoryServerParameters"):
     if n != -1:
         assert n == 0
 
-    sender.memory_add({"a": 1})
+    sender.memory_send({"a": 1})
     time.sleep(0.1)
     n = sender.memory_size()
     if n != -1:
@@ -34,7 +32,7 @@ def memory_connector_test(params: "IMemoryServerParameters"):
     assert d["a"] == 1
     assert receiver.memory_recv() is None
 
-    sender.memory_add({"a": 1})
+    sender.memory_send({"a": 1})
     time.sleep(0.1)
     n = sender.memory_size()
     if n != -1:
@@ -45,7 +43,7 @@ def memory_connector_test(params: "IMemoryServerParameters"):
         assert n == 0
 
 
-def memory_connector_error_test(params: "IMemoryServerParameters"):
+def memory_connector_error_test(params: IMemoryServerParameters):
     receiver = params.create_memory_receiver()
     sender = params.create_memory_sender()
 
@@ -58,7 +56,7 @@ def memory_connector_error_test(params: "IMemoryServerParameters"):
     assert sender.memory_size() == -1
 
     with pytest.raises(Exception):
-        sender.memory_add({"a": 1})
+        sender.memory_send({"a": 1})
 
     with pytest.raises(Exception):
         receiver.memory_recv()

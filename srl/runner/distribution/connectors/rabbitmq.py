@@ -7,8 +7,7 @@ from typing import Any, Optional, cast
 import pika
 import pika.exceptions
 
-from srl.runner.distribution.connectors.parameters import RabbitMQParameters
-from srl.runner.distribution.interface import IMemoryReceiver, IMemorySender, IServerConnector
+from srl.runner.distribution.connector_configs import IMemoryReceiver, IMemorySender, IParameterServer, IServerConnector, RabbitMQParameters, RedisParameters
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +142,7 @@ class RabbitMQReceiver(_RabbitMQConnector, IMemoryReceiver):
 
 
 class RabbitMQSender(_RabbitMQConnector, IMemorySender):
-    def memory_add(self, dat: Any) -> None:
+    def memory_send(self, dat: Any) -> None:
         try:
             if self.channel is None:
                 self.connect()

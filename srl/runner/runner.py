@@ -16,7 +16,7 @@ from srl.runner.runner_base import RunnerBase
 
 if TYPE_CHECKING:
     from srl.runner.distribution.callback import DistributionCallback
-    from srl.runner.distribution.connectors.redis_ import RedisParameters
+    from srl.runner.distribution.connector_configs import RedisParameters
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +36,15 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
             self.train_mp(used_context=context)
             return
         elif self.context.play_mode == "train_distribution":
-            self.set_context_train_distribution()
-            TODO
+            raise NotSupportedError(context.play_mode)
+            self.update_context_train_distribution(context, enable_progress)
+            self.train_distribution(used_context=context)
+            return
         elif self.context.play_mode == "train_distribution_start":
-            self.set_context_train_distribution_start()
-            TODO
+            raise NotSupportedError(context.play_mode)
+            self.update_context_train_distribution(context, enable_progress)
+            self.train_distribution_start(used_context=context)
+            return
         elif self.context.play_mode == "replay_window":
             raise NotSupportedError(context.play_mode)
         elif self.context.play_mode == "play_window":
@@ -548,8 +552,8 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         queue_capacity: int = 1000,
         trainer_parameter_send_interval: int = 1,
         actor_parameter_sync_interval: int = 1,
-        enable_trainer_thread: bool = True,
-        enable_actor_thread: bool = True,
+        actor_devices: Union[str, List[str]] = "AUTO",
+        initial_parameter_sharing: bool = True,
         # --- stop config
         timeout: float = -1,
         max_train_count: int = -1,
@@ -561,60 +565,55 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         progress_interval: int = 60 * 1,
         # --- other
         callbacks: List[Union[RunCallback, "DistributionCallback"]] = [],
+        used_context: Optional[RunContext] = None,
     ):
+        if used_context is None:
+            c = self.context.copy()
+            c.actor_num = actor_num
+            c.actor_devices = actor_devices
+            c.timeout = timeout
+            c.max_train_count = max_train_count
+            c.players = players
+            c.shuffle_player = shuffle_player
+            self.update_context_train_distribution(c, enable_progress)
+        else:
+            c = used_context
+
+        # mp前にsetupを保証する
+        if not self.rl_config.is_setup():
+            self.rl_config.setup(self.make_env())
+
+        # --- parameter
+        params_dat = self._parameter_dat
+        if (params_dat is None) and initial_parameter_sharing:
+            params_dat = self.make_parameter().backup(serialized=True)
+
+        # --- distrubution callback
         from srl.runner.distribution.callback import DistributionCallback
 
         callbacks_dist: List[DistributionCallback] = []
         callbacks_run: List[RunCallback] = []
-        for c in callbacks:
-            if issubclass(c.__class__, DistributionCallback):
+        for _c in callbacks:
+            if issubclass(_c.__class__, DistributionCallback):
                 callbacks_dist.append(cast(DistributionCallback, c))
             else:
                 callbacks_run.append(cast(RunCallback, c))
+        if len(callbacks_run) > 0:
+            logger.warning(f"It must be possible to read it with pickle at the distribution destination. {callbacks}")
+        c.callbacks += callbacks_run
 
-        # --- mp config
-        self.context.actor_num = actor_num
-
-        # --- set context
-        self.context.play_mode = "train_distribution"
-        # stop config
-        self.context.max_episodes = -1
-        self.context.timeout = timeout
-        self.context.max_steps = -1
-        self.context.max_train_count = max_train_count
-        self.context.max_memory = -1
-        # play config
-        self.context.players = players
-        self.context.shuffle_player = shuffle_player
-        self.context.disable_trainer = False
-        # play info
-        self.context.distributed = True
-        self.context.training = True
-        self.context.train_only = False
-        self.context.rollout = False
-        self.context.env_render_mode = ""
-        self.context.rl_render_mode = ""
-
-        if enable_progress:
-            self.apply_progress(callbacks_run, apply_eval=False)
-
-        if not self.rl_config.is_setup():
-            self.rl_config.setup(self.make_env())
-
-        from srl.runner.distribution.task_manager import TaskConfig, TaskManager
+        # --- create task
+        from srl.runner.distribution.server_manager import TaskConfig, TaskManager
 
         task_manager = TaskManager(redis_params, "client")
         task_manager.create_task(
             TaskConfig(
-                self.context,
-                callbacks_run,
+                c,
                 queue_capacity=queue_capacity,
                 trainer_parameter_send_interval=trainer_parameter_send_interval,
                 actor_parameter_sync_interval=actor_parameter_sync_interval,
-                enable_trainer_thread=enable_trainer_thread,
-                enable_actor_thread=enable_actor_thread,
             ),
-            self.make_parameter(),
+            params_dat,
         )
 
         try:
@@ -631,25 +630,34 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
             task_manager.finished("runner")
             task_manager.read_parameter(self.make_parameter())
 
-    def set_context_train_distribution(self):
-        self.context.play_mode = "train_distribution"
-        # stop config
-        self.context.max_episodes = -1
-        # self.context.timeout = timeout
-        self.context.max_steps = -1
-        # self.context.max_train_count = max_train_count
-        self.context.max_memory = -1
-        # play config
-        # self.context.players = players
-        # self.context.shuffle_player = shuffle_player
-        self.context.disable_trainer = False
-        # play info
-        self.context.distributed = True
-        self.context.training = True
-        self.context.train_only = False
-        self.context.rollout = False
-        self.context.env_render_mode = ""
-        self.context.rl_render_mode = ""
+    def update_context_train_distribution(self, context: Optional[RunContext] = None, enable_progress: bool = False):
+        c = self.context if context is None else context
+        # --- mp config
+        # c.actor_num = actor_num
+        # c.actor_devices = actor_devices
+        c.play_mode = "train_distribution"
+        # --- stop config
+        c.max_episodes = 0
+        # c.timeout = timeout
+        c.max_steps = 0
+        # c.max_train_count = max_train_count
+        c.max_memory = 0
+        # --- play config
+        # c.players = players
+        # c.shuffle_player = shuffle_player
+        c.disable_trainer = False
+        # --- play info
+        c.distributed = True
+        c.training = True
+        c.train_only = False
+        c.rollout = False
+        # --- render
+        c.env_render_mode = ""
+        c.rl_render_mode = ""
+
+        if enable_progress:
+            self.apply_progress(c.callbacks, apply_eval=False)
+        return c
 
     def train_distribution_start(
         self,
@@ -659,8 +667,8 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         queue_capacity: int = 1000,
         trainer_parameter_send_interval: int = 1,
         actor_parameter_sync_interval: int = 1,
-        enable_trainer_thread: bool = True,
-        enable_actor_thread: bool = True,
+        actor_devices: Union[str, List[str]] = "AUTO",
+        initial_parameter_sharing: bool = True,
         # --- stop config
         timeout: float = -1,
         max_train_count: int = -1,
@@ -670,69 +678,45 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         # --- other
         enable_progress: bool = True,
         callbacks: List[RunCallback] = [],
+        used_context: Optional[RunContext] = None,
     ):
-        callbacks = callbacks[:]
+        if used_context is None:
+            c = self.context.copy()
+            c.actor_num = actor_num
+            c.actor_devices = actor_devices
+            c.timeout = timeout
+            c.max_train_count = max_train_count
+            c.players = players
+            c.shuffle_player = shuffle_player
+            self.update_context_train_distribution(c, enable_progress)
+        else:
+            c = used_context
+        if len(callbacks) > 0:
+            logger.warning(f"It must be possible to read it with pickle at the distribution destination. {callbacks}")
+        c.callbacks += callbacks[:]
 
-        # --- mp config
-        self.context.actor_num = actor_num
-
-        # --- set context
-        self.context.play_mode = "train_distribution_start"
-        # stop config
-        self.context.max_episodes = -1
-        self.context.timeout = timeout
-        self.context.max_steps = -1
-        self.context.max_train_count = max_train_count
-        self.context.max_memory = -1
-        # play config
-        self.context.players = players
-        self.context.shuffle_player = shuffle_player
-        self.context.disable_trainer = False
-        # play info
-        self.context.distributed = True
-        self.context.training = True
-        self.context.env_render_mode = ""
-        self.context.rl_render_mode = ""
-
-        if enable_progress:
-            self.apply_progress(callbacks, apply_eval=False)
-
+        # mp前にsetupを保証する
         if not self.rl_config.is_setup():
             self.rl_config.setup(self.make_env())
 
-        from srl.runner.distribution.task_manager import TaskConfig, TaskManager
+        # --- parameter
+        params_dat = self._parameter_dat
+        if (params_dat is None) and initial_parameter_sharing:
+            params_dat = self.make_parameter().backup(serialized=True)
+
+        # --- create task
+        from srl.runner.distribution.server_manager import TaskConfig, TaskManager
 
         task_manager = TaskManager(redis_params, "client")
         task_manager.create_task(
             TaskConfig(
-                self.context,
-                callbacks,
+                c,
                 queue_capacity=queue_capacity,
                 trainer_parameter_send_interval=trainer_parameter_send_interval,
                 actor_parameter_sync_interval=actor_parameter_sync_interval,
-                enable_trainer_thread=enable_trainer_thread,
-                enable_actor_thread=enable_actor_thread,
             ),
-            self.make_parameter(),
+            params_dat,
         )
-
-    def set_context_train_distribution_start(self):
-        self.context.play_mode = "train_distribution_start"
-        # stop config
-        self.context.max_episodes = -1
-        # self.context.timeout = timeout
-        self.context.max_steps = -1
-        # self.context.max_train_count = max_train_count
-        self.context.max_memory = -1
-        # play config
-        # self.context.players = players
-        # self.context.shuffle_player = shuffle_player
-        self.context.disable_trainer = False
-        # play info
-        self.context.distributed = True
-        self.context.training = True
-        self.context.env_render_mode = ""
-        self.context.rl_render_mode = ""
 
     # --------------------------------------------
     # play

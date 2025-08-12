@@ -7,7 +7,7 @@ import numpy as np
 
 from srl.runner.callbacks.evaluate import Evaluate
 from srl.runner.distribution.callback import DistributionCallback
-from srl.runner.distribution.task_manager import TaskConfig, TaskManager
+from srl.runner.distribution.server_manager import TaskConfig, TaskManager
 from srl.utils.util_str import to_str_reward, to_str_time
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ class PrintProgress(DistributionCallback, Evaluate):
 
     # -----------------------------------------------------
 
-    def on_start(self, task_manager: TaskManager):
+    def on_start(self, task_manager: TaskManager, **kwargs):
         _time = time.time()
         self.progress_t0 = 0
         self.elapsed_t0 = _time
@@ -55,10 +55,10 @@ class PrintProgress(DistributionCallback, Evaluate):
         self.t0_trainer_recv_q = 0
         self.t0_actor = {}
 
-    def on_end(self, task_manager: TaskManager):
+    def on_end(self, task_manager: TaskManager, **kwargs):
         self._print(task_manager)
 
-    def on_polling(self, task_manager: TaskManager):
+    def on_polling(self, task_manager: TaskManager, **kwargs):
         if self._check_print_progress():
             self._print(task_manager)
 

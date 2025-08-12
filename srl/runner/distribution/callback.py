@@ -2,7 +2,7 @@ from abc import ABC
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from srl.runner.distribution.task_manager import TaskManager
+    from srl.runner.distribution.server_manager import TaskManager
 
 
 class DistributionCallback(ABC):

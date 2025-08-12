@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from srl.runner.callbacks.evaluate import Evaluate
 from srl.runner.callbacks.history_on_file import HistoryOnFileBase
 from srl.runner.distribution.callback import DistributionCallback
-from srl.runner.distribution.task_manager import TaskManager
+from srl.runner.distribution.server_manager import TaskManager
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class HistoryOnFile(DistributionCallback, Evaluate):
         self._base = HistoryOnFileBase(self.save_dir, self.add_history)
         self._eval_runner = None
 
-    def on_start(self, task_manager: TaskManager):
+    def on_start(self, task_manager: TaskManager, **kwargs):
         self.task_config = task_manager.get_config()
         if self.task_config is not None:
             self._base.setup(self.task_config.context)
@@ -29,13 +29,13 @@ class HistoryOnFile(DistributionCallback, Evaluate):
         self._base.open_fp("client", "client.txt")
         self.interval_t0 = time.time()
 
-    def on_polling(self, task_manager: TaskManager):
+    def on_polling(self, task_manager: TaskManager, **kwargs):
         _time = time.time()
         if _time - self.interval_t0 > self.interval:
             self.interval_t0 = _time
             self._write_log(task_manager, is_last=False)
 
-    def on_end(self, task_manager: TaskManager):
+    def on_end(self, task_manager: TaskManager, **kwargs):
         self._write_log(task_manager, is_last=True)
         self._base.close()
 

@@ -233,7 +233,7 @@ class Worker(RLWorker):
         self.memory.add(batch)
 
     def render_terminal(self, worker, **kwargs) -> None:
-        state = worker.state.reshape(1, -1)
+        state = worker.state[np.newaxis, ...]
         action = self.parameter.actor_online(state)
         q1, q2 = self.parameter.critic_online([state, action])
         q1 = q1.numpy()[0][0]

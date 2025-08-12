@@ -157,8 +157,8 @@ class _ActorInterrupt(RunCallback):
         if params is None:
             return self.end_signal.value
         self.parameter.restore(params, from_serialized=True)
-        state.train_count = train_count
         state.sync_actor += 1
+        state.train_count = train_count
         return self.end_signal.value
 
 
@@ -188,17 +188,15 @@ def _run_actor(
                 parameter.restore(params, from_serialized=True)
 
         # --- memory
-        memory = cast(
-            RLMemory,
-            _ActorRLMemoryInterceptor(
-                remote_queue,
-                remote_qsize,
-                end_signal,
-                actor_id,
-                context.rl_config.make_memory(env=env),
-                cfg,
-            ),
+        memory = _ActorRLMemoryInterceptor(
+            remote_queue,
+            remote_qsize,
+            end_signal,
+            actor_id,
+            context.rl_config.make_memory(env=env),
+            cfg,
         )
+
         # --- callback
         context.callbacks.append(
             _ActorInterrupt(
@@ -212,12 +210,12 @@ def _run_actor(
         # --- play
         context.training = True
         context.disable_trainer = True
-        # context.max_episodes = -1
-        context.max_memory = -1
-        # context.max_steps = -1
-        context.max_train_count = -1
-        # context.timeout = -1
-        workers, main_worker_idx = context.rl_config.make_workers(context.players, env, parameter, memory)
+        # context.max_episodes = 0
+        context.max_memory = 0
+        # context.max_steps = 0
+        context.max_train_count = 0
+        # context.timeout = 0
+        workers, main_worker_idx = context.rl_config.make_workers(context.players, env, parameter, cast(RLMemory, memory))
         core_play.play(context, env, workers[main_worker_idx], workers=workers)
 
         if context.rl_config.use_update_parameter_from_worker():
@@ -270,15 +268,14 @@ def _train_memory_communicate(
         gc.collect()
 
         logger.info(traceback.format_exc())
-        end_signal.value = True
         exception_queue.put(1)
         logger.error("[trainer, memory thread] end_signal=True (MemoryError)")
     except Exception:
         logger.info(traceback.format_exc())
-        end_signal.value = True
         exception_queue.put(1)
         logger.error("[trainer, memory thread] end_signal=True (error)")
     finally:
+        end_signal.value = True
         logger.info("[trainer, memory thread] end")
 
 
@@ -303,15 +300,14 @@ def _train_parameter_communicate(
         gc.collect()
 
         logger.error(traceback.format_exc())
-        end_signal.value = True
         exception_queue.put(2)
         logger.info("[trainer, parameter thread] end_signal=True (MemoryError)")
     except Exception:
         logger.error(traceback.format_exc())
-        end_signal.value = True
         exception_queue.put(2)
         logger.info("[trainer, parameter thread] end_signal=True (error)")
     finally:
+        end_signal.value = True
         logger.info("[trainer, parameter thread] end")
 
 
@@ -339,9 +335,10 @@ class _TrainerInterrupt(RunCallback):
         if time.time() - self.t0_health > 5:
             self.t0_health = time.time()
             if not self.memory_th.is_alive():
-                return True
+                self.end_signal.value = True
             if not self.parameter_th.is_alive():
-                return True
+                self.end_signal.value = True
+            self.t0_health = time.time()
         return self.end_signal.value
 
 
@@ -355,20 +352,23 @@ def _run_trainer(
     last_mem_queue: mp.Queue,
 ):
     exception_queue = queue.Queue()
-    try:
-        logger.info("[trainer] start.")
-        context = cfg.context
-        context.run_name = "trainer"
-        context.setup_device(is_mp_main_process=False)
-        context.training = True
-        context.distributed = True
-        context.train_only = False
-        share_dict = {
-            "sync_count": 0,
-            "q_recv": 0,
-            "train_count": 0,
-        }
 
+    logger.info("[trainer] start.")
+    context = cfg.context
+    context.run_name = "trainer"
+    context.setup_device(is_mp_main_process=False)
+    context.training = True
+    context.distributed = True
+    context.train_only = False
+    share_dict = {
+        "sync_count": 0,
+        "q_recv": 0,
+        "train_count": 0,
+    }
+
+    memory_th = None
+    parameter_th = None
+    try:
         memory = context.rl_config.make_memory()
         if memory_dat is not None:
             memory.restore(memory_dat)
@@ -419,15 +419,6 @@ def _run_trainer(
         trainer = context.rl_config.make_trainer(parameter, memory)
         core_train_only.play_trainer_only(context, trainer)
 
-        if not end_signal.value:
-            end_signal.value = True
-            logger.info("[trainer] end_signal=True (trainer end)")
-
-        # thread end
-        memory_th.join(timeout=10)
-        last_mem_queue.put(memory.backup(compress=True))
-        parameter_th.join(timeout=10)
-
     except MemoryError:
         import gc
 
@@ -441,6 +432,19 @@ def _run_trainer(
             logger.info("[trainer] end_signal=True (trainer mp end)")
         else:
             logger.info("[trainer] end")
+
+        # --- last params
+        params = parameter.backup(serialized=True)
+        if params is not None:
+            remote_board.set(pickle.dumps((trainer.get_train_count(), params)))
+
+        # --- thread
+        if memory_th is not None:
+            memory_th.join(timeout=10)
+        last_mem_queue.put(memory.backup(compress=True))
+
+        if parameter_th is not None:
+            parameter_th.join(timeout=10)
 
         # 異常終了していたら例外を出す
         if not exception_queue.empty():

@@ -193,16 +193,13 @@ def _run_actor(
                 parameter.restore(params, from_serialized=True)
 
         # --- memory
-        memory = cast(
-            RLMemory,
-            _ActorRLMemoryInterceptor(
-                queue_act_to_mem,
-                qsize_act_to_mem,
-                end_signal,
-                actor_id,
-                context.rl_config.make_memory(env=env),
-                cfg,
-            ),
+        memory = _ActorRLMemoryInterceptor(
+            queue_act_to_mem,
+            qsize_act_to_mem,
+            end_signal,
+            actor_id,
+            context.rl_config.make_memory(env=env),
+            cfg,
         )
 
         # --- callback
@@ -218,12 +215,12 @@ def _run_actor(
         # --- play
         context.training = True
         context.disable_trainer = True
-        # context.max_episodes = -1
-        context.max_memory = -1
-        # context.max_steps = -1
-        context.max_train_count = -1
-        # context.timeout = -1
-        workers, main_worker_idx = context.rl_config.make_workers(context.players, env, parameter, memory)
+        # context.max_episodes = 0
+        context.max_memory = 0
+        # context.max_steps = 0
+        context.max_train_count = 0
+        # context.timeout = 0
+        workers, main_worker_idx = context.rl_config.make_workers(context.players, env, parameter, cast(RLMemory, memory))
         core_play.play(context, env, workers[main_worker_idx], workers=workers)
 
         if context.rl_config.use_update_parameter_from_worker():
@@ -347,6 +344,13 @@ def _run_memory(
 # --------------------
 # trainer
 # --------------------
+class _ShareData:
+    def __init__(self):
+        self.sync_count = 0
+        self.train_count = 0
+        self.q_recv = 0
+
+
 class _TrainerRLMemoryInterceptor:
     def __init__(
         self,
@@ -416,7 +420,7 @@ def _train_parameter_communicate(
     parameter: RLParameter,
     remote_board: Any,
     end_signal: ctypes.c_bool,
-    share_dict: dict,
+    share_data: _ShareData,
     trainer_parameter_send_interval: int,
     exception_queue: queue.Queue,
 ):
@@ -424,8 +428,8 @@ def _train_parameter_communicate(
         while not end_signal.value:
             params = parameter.backup(serialized=True)
             if params is not None:
-                remote_board.set(pickle.dumps((share_dict["train_count"], params)))
-                share_dict["sync_count"] += 1
+                remote_board.set(pickle.dumps((share_data.train_count, params)))
+                share_data.sync_count += 1
             time.sleep(trainer_parameter_send_interval)
     except MemoryError:
         import gc
@@ -451,32 +455,31 @@ class _TrainerInterrupt(RunCallback):
         memory: _TrainerRLMemoryInterceptor,
         queue_mem_to_train: mp.Queue,
         end_signal: ctypes.c_bool,
-        share_dict: dict,
+        share_data: _ShareData,
         parameter_th: threading.Thread,
     ) -> None:
         self.memory = memory
         self.queue_mem_to_train = queue_mem_to_train
         self.end_signal = end_signal
-        self.share_dict = share_dict
+        self.share_data = share_data
         self.parameter_th = parameter_th
         self.t0_health = time.time()
 
     def on_train_after(self, context: RunContext, state: RunStateTrainer, **kwargs) -> bool:
-        self.share_dict["train_count"] = state.trainer.train_count
-        state.sync_trainer = self.share_dict["sync_count"]
-        state.trainer_recv_q = self.share_dict["q_recv"]
+        self.share_data.train_count = state.trainer.train_count
+        state.sync_trainer = self.share_data.sync_count
+        state.trainer_recv_q = self.share_data.q_recv
 
         # --- mem -> trainer
         if not self.queue_mem_to_train.empty():
             raw = self.queue_mem_to_train.get(timeout=5)
             self.memory.add(*pickle.loads(raw))
-            self.share_dict["q_recv"] += 1
+            self.share_data.q_recv += 1
 
         if time.time() - self.t0_health > 5:
-            self.t0_health = time.time()
             if not self.parameter_th.is_alive():
-                return True
-
+                self.end_signal.value = True
+            self.t0_health = time.time()
         return self.end_signal.value
 
 
@@ -493,6 +496,7 @@ def _run_trainer(
     # faulthandler.enable()
 
     exception_queue = queue.Queue()
+    parameter_th = None
     try:
         logger.info("[trainer] start.")
         context = cfg.context
@@ -501,11 +505,7 @@ def _run_trainer(
         context.training = True
         context.distributed = True
         context.train_only = False
-        share_dict = {
-            "sync_count": 0,
-            "q_recv": 0,
-            "train_count": 0,
-        }
+        share_data = _ShareData()
 
         parameter = context.rl_config.make_parameter()
         dat = remote_board.value
@@ -531,7 +531,7 @@ def _run_trainer(
                 parameter,
                 remote_board,
                 end_signal,
-                share_dict,
+                share_data,
                 cfg.trainer_parameter_send_interval,
                 exception_queue,
             ),
@@ -544,20 +544,13 @@ def _run_trainer(
                 memory,
                 queue_mem_to_train,
                 end_signal,
-                share_dict,
+                share_data,
                 parameter_th,
             )
         )
 
         # --- train
         core_train_only.play_trainer_only(context, trainer)
-
-        if not end_signal.value:
-            end_signal.value = True
-            logger.info("[trainer] end_signal=True (trainer end)")
-
-        # thread end
-        parameter_th.join(timeout=10)
 
     except MemoryError:
         import gc
@@ -572,6 +565,16 @@ def _run_trainer(
             logger.info("[trainer] end_signal=True (trainer mp end)")
         else:
             logger.info("[trainer] end")
+
+        # --- last params
+        params = parameter.backup(serialized=True)
+        if params is not None:
+            remote_board.set(pickle.dumps((trainer.get_train_count(), params)))
+
+        # --- thread
+        if parameter_th is not None:
+            parameter_th.join(timeout=10)
+
         if not exception_queue.empty():
             raise RuntimeError("An exception occurred in the parameter thread.")
 

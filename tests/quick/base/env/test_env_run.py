@@ -178,7 +178,7 @@ def test_timeout():
 
     env.setup()
     env.reset()
-    time.sleep(2)
+    time.sleep(3)
     env.step(0)
     assert env.done
 

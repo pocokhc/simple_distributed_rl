@@ -28,6 +28,8 @@ class RedisMock:
         # どうやら文字列もバイナリになる
         if isinstance(value, str):
             value = value.encode()
+        elif not isinstance(value, bytes):
+            value = str(value).encode()
         RedisMock.tbl[key] = value
         return True
 

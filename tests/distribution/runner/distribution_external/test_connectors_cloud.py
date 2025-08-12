@@ -3,13 +3,9 @@ import os
 
 import pytest
 
+from srl.runner.distribution.connector_configs import GCPParameters, RabbitMQParameters, RedisParameters
+from srl.utils import common
 from tests.distribution.runner.distribution_external.memory_test_functions import memory_connector_test
-
-try:
-    from srl.runner.distribution.connectors.parameters import GCPParameters, RabbitMQParameters, RedisParameters
-    from srl.utils import common
-except ModuleNotFoundError as e:
-    print(e)
 
 
 def _load_key():

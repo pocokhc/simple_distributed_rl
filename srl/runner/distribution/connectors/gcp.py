@@ -5,8 +5,7 @@ from typing import Any, Optional, cast
 
 from google.cloud import pubsub_v1
 
-from srl.runner.distribution.connectors.parameters import GCPParameters
-from srl.runner.distribution.interface import IMemoryReceiver, IMemorySender
+from srl.runner.distribution.connector_configs import GCPParameters, IMemoryReceiver, IMemorySender
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +27,7 @@ class GCPPubSubReceiver(IMemoryReceiver):
             return True
         try:
             self.subscriber = pubsub_v1.SubscriberClient()
-            self.subscription_path = self.subscriber.subscription_path(
-                self.parameter.project_id, self.parameter.subscription_name
-            )
+            self.subscription_path = self.subscriber.subscription_path(self.parameter.project_id, self.parameter.subscription_name)
 
             # try:
             #     self.subscriber.create_subscription(name=self.subscription_path, topic=self.topic_path)
@@ -70,9 +67,7 @@ class GCPPubSubReceiver(IMemoryReceiver):
             if self.subscriber is None:
                 self._connect_subscriber()
                 assert self.subscriber is not None
-            response = self.subscriber.pull(
-                subscription=self.subscription_path, max_messages=1, return_immediately=True
-            )
+            response = self.subscriber.pull(subscription=self.subscription_path, max_messages=1, return_immediately=True)
             if len(response.received_messages) == 0:
                 return None
             mess = response.received_messages[0]
@@ -89,9 +84,7 @@ class GCPPubSubReceiver(IMemoryReceiver):
                 self._connect_subscriber()
                 assert self.subscriber is not None
             for _ in range(100):
-                response = self.subscriber.pull(
-                    subscription=self.subscription_path, max_messages=100, return_immediately=True
-                )
+                response = self.subscriber.pull(subscription=self.subscription_path, max_messages=100, return_immediately=True)
                 received_messages = response.received_messages
                 if not received_messages:
                     break
@@ -155,7 +148,7 @@ class GCPPubSubSender(IMemorySender):
             logger.error(e)
         return False
 
-    def memory_add(self, dat: Any) -> None:
+    def memory_send(self, dat: Any) -> None:
         try:
             if self.publisher is None:
                 self._connect_publisher()

@@ -29,7 +29,9 @@ def play_trainer_only(
 
     # --- context
     assert context.training
-    context.setup()
+    context.check_context_parameter()
+    context.setup_memory_limit()
+    context.setup_device()
     callbacks = context.callbacks
 
     # --- 0 check instance

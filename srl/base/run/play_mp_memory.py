@@ -587,8 +587,9 @@ def train(mp_cfg: MpConfig, parameter_dat: Optional[Any] = None, memory_dat: Opt
 
     # context
     context = mp_cfg.context
+    context.check_context_parameter()
+    context.setup_memory_limit()
     context.setup_device(is_mp_main_process=True)
-    context.setup()
 
     # --- callbacks ---
     callbacks = context.callbacks

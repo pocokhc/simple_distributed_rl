@@ -37,8 +37,10 @@ def play(
                 _check_tf=False,
             )
 
-    # --- context
-    context.setup()
+    # --- init context
+    context.check_context_parameter()
+    context.setup_memory_limit()
+    context.setup_device()
     callbacks = context.callbacks
 
     # --- 0 check instance

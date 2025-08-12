@@ -49,7 +49,7 @@ def test_actor(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
     runner.context.training = True
     runner.context.distributed = True
     runner.context.callbacks = [c]
-    runner.context.setup_process()
+    runner.context.setup_device()
     mp_cfg = MpConfig(runner.context, actor_parameter_sync_interval=0)
 
     if interrupt_stop:

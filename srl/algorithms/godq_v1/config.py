@@ -17,11 +17,11 @@ logger = logging.getLogger(__name__)
 class Config(RLConfig):
     # --- policy
     test_epsilon: float = 0
-    epsilon: float = 0.01
+    epsilon: float = 0.05
 
     # --- archive
     enable_archive: bool = True
-    archive_rate: float = 0.8
+    archive_rate: float = 0.5
     search_max_step: int = 200
     archive_min_num: int = 5
     archive_max_size: int = 100
@@ -52,6 +52,7 @@ class Config(RLConfig):
     enable_reward_symlog_scalar: bool = True
     target_policy: float = 0.99
     discount: float = -1  # -1 is auto. 0.999
+    discount_k: float = 1.5
     target_model_update_rate: float = 0.01
     init_target_q_zero: bool = True
 

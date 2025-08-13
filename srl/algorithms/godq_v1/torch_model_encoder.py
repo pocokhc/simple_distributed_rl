@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 from srl.base.spaces.box import BoxSpace
-from srl.rl.torch_.blocks.input_image_block import InputImageReshapeBlock
+from srl.rl.torch_.blocks.input_image_reshape_block import InputImageReshapeBlock
 
 from .config import Config
 

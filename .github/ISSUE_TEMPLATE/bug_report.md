@@ -1,38 +1,40 @@
 ---
-name: Bug report
-about: Create a report to help us improve
-title: ''
-labels: ''
+name: Bug Report / バグ報告
+about: Report a bug or unexpected behavior / バグや予期しない挙動を報告する
+title: '[BUG]'
+labels: 'bug'
 assignees: ''
 
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+## Bug Description / バグの説明
+<!-- Clearly and concisely describe the bug / バグの内容を明確かつ簡潔に記載してください -->
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+## Steps to Reproduce / 再現手順
+<!-- Provide reproduction code or steps to reproduce the bug / バグを再現するための再現コードや手順を記載してください -->
+1. Execute the following / 以下を実行:
+``` python
+...
+```
+2. The following error occurs / 以下のエラーが発生する:
+```
+Error code, etc. / エラーコード等
+```
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+## Expected Behavior / 期待される動作
+<!-- Clearly and concisely describe what you expected to happen / 本来期待していた動作を明確かつ簡潔に記載してください -->
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+## Screenshots / スクリーンショット
+<!-- If applicable, add screenshots to help explain the problem / 問題の説明に役立つスクリーンショットがあれば追加してください -->
 
-**Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
+## Desktop Environment / デスクトップ環境
+- OS (runtime environment) / OS（動作環境）: [e.g., Windows 11, macOS Ventura, WSL on Windows, JupyterLab on Windows]
+- Version / バージョン: [e.g., 22] (optional / なくても可)
 
-**Smartphone (please complete the following information):**
- - Device: [e.g. iPhone6]
- - OS: [e.g. iOS8.1]
- - Browser [e.g. stock browser, safari]
- - Version [e.g. 22]
+## SRL Version / SRLのバージョン
+<!-- Specify the version of SRL / SRLのバージョンを記載してください -->
 
-**Additional context**
-Add any other context about the problem here.
+## Additional Information / 追加情報
+<!-- Add any other context about the problem here / 問題に関連するその他の情報を記載してください -->
+  
+※日本語の方が対応しやすいですが、英語表記でも大丈夫です。

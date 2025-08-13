@@ -7,13 +7,22 @@ RLConfigComponentFramework
    :show-inheritance:
 
 
+.. _InputBlockConfig:
+
+InputBlock
+=======================
+
+.. autoclass:: srl.rl.models.config.input_block.InputBlockConfig
+   :members:
+   :show-inheritance:
+
 
 .. _InputValueBlockConfig:
 
 InputValueBlock
 =======================
 
-.. autoclass:: srl.rl.models.config.input_value_block.InputValueBlockConfig
+.. autoclass:: srl.rl.models.config.input_block.InputValueBlockConfig
    :members:
    :show-inheritance:
 
@@ -23,17 +32,17 @@ InputValueBlock
 InputImageBlock
 =======================
 
-.. autoclass:: srl.rl.models.config.input_image_block.InputImageBlockConfig
+.. autoclass:: srl.rl.models.config.input_block.InputImageBlockConfig
    :members:
    :show-inheritance:
 
 
-.. _MLPBlockConfig:
+.. _HiddenBlockConfig:
 
-MLPBlock
+HiddenBlock
 ===============
 
-.. autoclass:: srl.rl.models.config.mlp_block.MLPBlockConfig
+.. autoclass:: srl.rl.models.config.hidden_block.HiddenBlockConfig
    :members:
    :show-inheritance:
 

@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Welcome to SimpleDistributedRL&#39;s documentation! &mdash; SimpleDistributedRL 1.3.4 ドキュメント</title>
+  <title>Welcome to SimpleDistributedRL&#39;s documentation! &mdash; SimpleDistributedRL 1.3.6.2 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=7a4248da"></script>
+      <script src="_static/documentation_options.js?v=034df441"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="_static/translations.js?v=4755f45a"></script>
@@ -46,6 +46,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="pages/install.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/howtouse.html">How To Use</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/yaml_training.html">Yaml Training</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/distributed.html">Distributed Learning (Online)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Custom</span></p>
@@ -58,9 +59,21 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="pages/env_config.html">EnvConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/rl_config.html">RLConfig</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_tree.html">RLConfig Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/run_context.html">Context</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/runner.html">Runner(Base)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/runner.html#id1">Runner</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Algorithm Config</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_memory.html">Memory</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_model.html">RLConfigComponentFramework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_model.html#inputblock">InputBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_model.html#inputvalueblock">InputValueBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_model.html#inputimageblock">InputImageBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_model.html#hiddenblock">HiddenBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_model.html#duelingnetwork">DuelingNetwork</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_scheduler.html">Scheduler</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_scheduler.html#lrschaduler">LRSchaduler</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
 <ul>
@@ -121,6 +134,12 @@
 <li class="toctree-l2"><a class="reference internal" href="pages/howtouse.html#runner-functions">4. Runner functions</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="pages/yaml_training.html">Yaml Training</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/yaml_training.html#yaml-format">1. Yaml format</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/yaml_training.html#run">2. Run</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/yaml_training.html#hydra">3. hydra</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="pages/distributed.html">Distributed Learning (Online)</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="pages/distributed.html#id1">0. 必要なライブラリのインストール</a></li>
 <li class="toctree-l2"><a class="reference internal" href="pages/distributed.html#redis">1. Redisサーバの起動</a></li>
@@ -171,15 +190,8 @@
 <li class="toctree-l2"><a class="reference internal" href="pages/rl_config.html#srl.base.rl.config.RLConfig"><code class="docutils literal notranslate"><span class="pre">RLConfig</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_tree.html">RLConfig Parameters</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_memory.html">Memory</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html">RLConfigComponentFramework</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html#inputvalueblock">InputValueBlock</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html#inputimageblock">InputImageBlock</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html#mlpblock">MLPBlock</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html#duelingnetwork">DuelingNetwork</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_scheduler.html">Scheduler</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_scheduler.html#lrschaduler">LRSchaduler</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/run_context.html">Context</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/run_context.html#srl.base.context.RunContext"><code class="docutils literal notranslate"><span class="pre">RunContext</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="pages/runner.html">Runner(Base)</a><ul>
@@ -188,6 +200,49 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="pages/runner.html#id1">Runner</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="pages/runner.html#srl.runner.runner.Runner"><code class="docutils literal notranslate"><span class="pre">Runner</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Algorithm Config</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_memory.html">Memory</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_memory.html#singleusebuffer">SingleUseBuffer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_memory.html#replaybuffer">ReplayBuffer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_memory.html#priorityreplaybuffer">PriorityReplayBuffer</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_model.html">RLConfigComponentFramework</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html#srl.rl.models.config.framework_config.RLConfigComponentFramework"><code class="docutils literal notranslate"><span class="pre">RLConfigComponentFramework</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_model.html#inputblock">InputBlock</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html#srl.rl.models.config.input_block.InputBlockConfig"><code class="docutils literal notranslate"><span class="pre">InputBlockConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_model.html#inputvalueblock">InputValueBlock</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html#srl.rl.models.config.input_block.InputValueBlockConfig"><code class="docutils literal notranslate"><span class="pre">InputValueBlockConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_model.html#inputimageblock">InputImageBlock</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html#srl.rl.models.config.input_block.InputImageBlockConfig"><code class="docutils literal notranslate"><span class="pre">InputImageBlockConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_model.html#hiddenblock">HiddenBlock</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html#srl.rl.models.config.hidden_block.HiddenBlockConfig"><code class="docutils literal notranslate"><span class="pre">HiddenBlockConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_model.html#duelingnetwork">DuelingNetwork</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_model.html#srl.rl.models.config.dueling_network.DuelingNetworkConfig"><code class="docutils literal notranslate"><span class="pre">DuelingNetworkConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_scheduler.html">Scheduler</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig"><code class="docutils literal notranslate"><span class="pre">SchedulerConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pages/rl_config_scheduler.html#lrschaduler">LRSchaduler</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pages/rl_config_scheduler.html#srl.rl.schedulers.lr_scheduler.LRSchedulerConfig"><code class="docutils literal notranslate"><span class="pre">LRSchedulerConfig</span></code></a></li>
 </ul>
 </li>
 </ul>

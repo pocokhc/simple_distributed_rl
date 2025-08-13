@@ -26,7 +26,7 @@ def create_runner():
     rl_config.lr_scheduler.set_step(10_000, 0.001)
     rl_config.memory.capacity = 100_000
     rl_config.memory.warmup_size = 100
-    rl_config.input_image_block.set_alphazero_block(1, 16)
+    rl_config.input_block.set_alphazero_block(1, 16)
 
     env_config = srl.EnvConfig("Grid-layer")
     return srl.Runner(env_config, rl_config)

@@ -4,7 +4,7 @@
 How To Use
 ===============
 
-大きく以下となります。
+以下の3手順となります。
 
 1. 環境を設定（EnvConfig）
 2. アルゴリズムを設定（RLConfig）
@@ -104,7 +104,6 @@ Commonly run Example
 
 .. image:: ../../Grid.gif
 
-引数や他のRunnerの機能に関しては :ref:`runner` を見てください。
 
 
 4. Runner functions
@@ -224,3 +223,5 @@ Manual play Window
 
 .. literalinclude:: ../../examples/sample_play_atari.py
 
+
+引数や他のRunnerの機能に関しては :ref:`runner` を見てください。

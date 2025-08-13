@@ -84,8 +84,10 @@ def evaluate():
 
 
 def plot_vae():
+    from srl.algorithms.world_models.world_models import Parameter
+
     runner, rl_config = _create_runner()
-    parameter = cast(world_models.Parameter, runner.make_parameter())
+    parameter = cast(Parameter, runner.make_parameter())
 
     imgs, _ = parameter.vae.sample(25)
     fig, ax = plt.subplots(nrows=5, ncols=5)

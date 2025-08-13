@@ -258,8 +258,8 @@ class RunnerBase(Generic[TRLConfig]):
     def set_device(
         self,
         device: str = "AUTO",
+        enable_tf_device: bool = True,
         set_CUDA_VISIBLE_DEVICES_if_CPU: bool = True,
-        tf_device_enable: bool = True,
         tf_enable_memory_growth: bool = True,
     ):
         """set device.
@@ -270,16 +270,16 @@ class RunnerBase(Generic[TRLConfig]):
 
         Args:
             device (str, optional): mainのdeviceを指定します。分散学習を用いない場合、これだけが使用されます. Defaults to "AUTO".
+            enable_tf_device (bool, optional): tensorflowにて、 'with tf.device()' を使用する. Defaults to True.
             set_CUDA_VISIBLE_DEVICES_if_CPU (bool, optional): CPUの場合 CUDA_VISIBLE_DEVICES を-1にする. Defaults to True.
-            tf_device_enable (bool, optional): tensorflowにて、 'with tf.device()' を使用する. Defaults to True.
             tf_enable_memory_growth (bool, optional): tensorflowにて、'set_memory_growth(True)' を実行する. Defaults to True.
         """
         if self.context.is_setup():
             logger.warning("Device cannot be changed after initialization.")
             return
         self.context.device = device
+        self.context.enable_tf_device = enable_tf_device
         self.context.set_CUDA_VISIBLE_DEVICES_if_CPU = set_CUDA_VISIBLE_DEVICES_if_CPU
-        self.context.tf_device_enable = tf_device_enable
         self.context.tf_enable_memory_growth = tf_enable_memory_growth
 
     # ------------------------------

@@ -81,7 +81,7 @@ class RunContext:
     device: str = "AUTO"
     enable_tf_device: bool = True
     set_CUDA_VISIBLE_DEVICES_if_CPU: bool = True
-    tf_device_enable: bool = True
+    #: tensorflowにて、'set_memory_growth(True)' を実行する
     tf_enable_memory_growth: bool = True
 
     # --- private(static class instance)

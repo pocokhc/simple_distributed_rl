@@ -38,7 +38,7 @@ def _setup_compute_V():
 
 
 def test_compute_V_simple():
-    from srl.algorithms.dreamer_v3 import _compute_V
+    from srl.algorithms.dreamer_v3.dreamer_v3 import _compute_V
 
     horizon_reward, horizon_v, horizon_cont = _setup_compute_V()
     horizon_V = _compute_V(
@@ -62,7 +62,7 @@ def test_compute_V_simple():
 
 
 def test_compute_V_discount():
-    from srl.algorithms.dreamer_v3 import _compute_V
+    from srl.algorithms.dreamer_v3.dreamer_v3 import _compute_V
 
     discount = 0.9
 
@@ -90,7 +90,7 @@ def test_compute_V_discount():
 
 @pytest.mark.parametrize("horizon_ewa_disclam", [0.1, 0.9])
 def test_compute_V_dreamer_v1(horizon_ewa_disclam):
-    from srl.algorithms.dreamer_v3 import _compute_V
+    from srl.algorithms.dreamer_v3.dreamer_v3 import _compute_V
 
     discount = 0.9
 
@@ -130,7 +130,7 @@ def test_compute_V_dreamer_v1(horizon_ewa_disclam):
 
 @pytest.mark.parametrize("horizon_h_target", [0.1, 0.9])
 def test_compute_V_dreamer_v2(horizon_h_target):
-    from srl.algorithms.dreamer_v3 import _compute_V
+    from srl.algorithms.dreamer_v3.dreamer_v3 import _compute_V
 
     discount = 0.9
 
@@ -156,9 +156,7 @@ def test_compute_V_dreamer_v2(horizon_h_target):
         if i == 1:
             _b = 1
         elif i == 0:
-            _b = horizon_reward[i][1][0] + discount * (
-                (1 - horizon_h_target) * horizon_v[i][1][0] + horizon_h_target * _b
-            )
+            _b = horizon_reward[i][1][0] + discount * ((1 - horizon_h_target) * horizon_v[i][1][0] + horizon_h_target * _b)
         y.insert(0, [[_a], [_b]])
     print(y)
 
@@ -170,7 +168,7 @@ def test_compute_V_dreamer_v2(horizon_h_target):
 @pytest.mark.parametrize("resize_type", ["stride", "stride3", "max"])
 @pytest.mark.parametrize("dist_type", ["linear", "normal"])
 def test_image_enc_dec(normalization_type, resize_type, dist_type):
-    from srl.algorithms.dreamer_v3 import ImageDecoder, ImageEncoder
+    from srl.algorithms.dreamer_v3.dreamer_v3 import ImageDecoder, ImageEncoder
 
     img = np.zeros((96, 192, 3))
     encode = ImageEncoder(img.shape, 16, 1, "relu", normalization_type, resize_type, 4)

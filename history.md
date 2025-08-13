@@ -1,10 +1,10 @@
 # TODO list
 1. Async-SGD
-1. (distribution)オリジナルrl/env対応
 1. (distribution)学習後のworker側のparam共有
 1. MCP化
 1. renderのfpsなどの表示
 1. streamlit or nicegui?
+1. rollout->trainなど、複数学習
 
 //// 中止(stopped)  
 // (tensorboard) SRL上でいいI/Fの作成方法が思い浮かばず保留、tensorboardを愚直にいれると遅い  
@@ -21,14 +21,13 @@
 
 
 
-- dist分散
-- 内部しゃむ
-- DQNの高速化、次targetを固定
-
-
-
-
 # v1.4.0
+
+- yaml（hydra(OmegaConf)）形式で各種ハイパーパラメータを設定できるように変更
+   - サンプルとして "examples/sample_template" "examples/sample_template_adv" を追加
+   - ドキュメントに "Yaml Training" ページを追加 
+   - configsディレクトリ配下にサンプルを追加
+- distributionをsubprocessの独立したpy実行により安定化（＋最近の更新に合わせて更新）
 
 **Parameter Updates**
 
@@ -59,6 +58,11 @@
    - 特にinput_blockの仕様を変更し、algorithm側のコードも変更
 1. [utils.common] update: load_moduleを"."でも読み込めるように変更
 1. [processors] update: dataclassを継承する事をデフォルトに変更
+
+**Distribution Updates**
+
+1. [runner.distribution] actor/trainerサーバを基本待機のみにして、実行時はsubprocessで完全に独立したpythonの実行にし、安定化
+   - 合わせて最近の更新に合わせて修正+全部見直して最適化
 
 **OtherUpdates**
 

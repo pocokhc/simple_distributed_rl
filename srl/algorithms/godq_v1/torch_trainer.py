@@ -35,6 +35,40 @@ def shrink_model_params(params: Iterable[nn.Parameter], rate: float):
         param.data.copy_(rate * param.data)
 
 
+def push_to_edge(x: float, k: float = 2.0) -> float:
+    """
+    0.5以下なら0へ、0.5以上なら1へと強く引き寄せる関数。
+
+    Args:
+        x: 入力値（0.0〜1.0）
+        k: 引き寄せの強さ（大きいほど急激）
+
+    Returns:
+        変換された値（0.0〜1.0）
+    """
+    return x**k / (x**k + (1 - x) ** k)
+
+
+def plot_push_to_edge():
+    import matplotlib.pyplot as plt
+
+    plt.figure(figsize=(8, 6))
+
+    x_vals = np.linspace(0, 1, 1000)
+    plt.plot(x_vals, x_vals, label="x")
+
+    for k in [0.5, 1.5, 2, 4, 8]:
+        y = np.array([push_to_edge(x, k) for x in x_vals])
+        plt.plot(x_vals, y, label=f"push_to_edge k={k}")
+
+    plt.xlabel("x")
+    plt.ylabel("output")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+
 class TorchTrainer:
     def on_setup(self, trainer: RLTrainer):
         self.trainer = trainer
@@ -134,7 +168,7 @@ class TorchTrainer:
 
             error = error.detach().cpu().numpy()
             self.net.rnd_max = max(self.net.rnd_max, float(np.max(error)))
-            discount = 1 - error / self.net.rnd_max
+            discount = 1 - push_to_edge(error / self.net.rnd_max, self.config.discount_k)
             self.trainer.info["discount"] = np.mean(discount)
         else:
             discount = self.config.discount

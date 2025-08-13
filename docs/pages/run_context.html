@@ -1,0 +1,310 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="ja" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Context &mdash; SimpleDistributedRL 1.3.6.2 ドキュメント</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=034df441"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/translations.js?v=4755f45a"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="../genindex.html" />
+    <link rel="search" title="検索" href="../search.html" />
+    <link rel="next" title="Runner(Base)" href="runner.html" />
+    <link rel="prev" title="RLConfig" href="rl_config.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            SimpleDistributedRL
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="howtouse.html">How To Use</a></li>
+<li class="toctree-l1"><a class="reference internal" href="yaml_training.html">Yaml Training</a></li>
+<li class="toctree-l1"><a class="reference internal" href="distributed.html">Distributed Learning (Online)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Custom</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Making a Custom environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Making a Custom algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="framework_detail.html">Detailed Framework</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="env_config.html">EnvConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Context</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#srl.base.context.RunContext"><code class="docutils literal notranslate"><span class="pre">RunContext</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.context.RunContext.play_mode"><code class="docutils literal notranslate"><span class="pre">RunContext.play_mode</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.context.RunContext.max_episodes"><code class="docutils literal notranslate"><span class="pre">RunContext.max_episodes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.context.RunContext.timeout"><code class="docutils literal notranslate"><span class="pre">RunContext.timeout</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.context.RunContext.max_steps"><code class="docutils literal notranslate"><span class="pre">RunContext.max_steps</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.context.RunContext.max_train_count"><code class="docutils literal notranslate"><span class="pre">RunContext.max_train_count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.context.RunContext.max_memory"><code class="docutils literal notranslate"><span class="pre">RunContext.max_memory</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.context.RunContext.players"><code class="docutils literal notranslate"><span class="pre">RunContext.players</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.context.RunContext.shuffle_player"><code class="docutils literal notranslate"><span class="pre">RunContext.shuffle_player</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.context.RunContext.train_interval"><code class="docutils literal notranslate"><span class="pre">RunContext.train_interval</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.context.RunContext.train_repeat"><code class="docutils literal notranslate"><span class="pre">RunContext.train_repeat</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.context.RunContext.actor_num"><code class="docutils literal notranslate"><span class="pre">RunContext.actor_num</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.context.RunContext.actor_devices"><code class="docutils literal notranslate"><span class="pre">RunContext.actor_devices</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.context.RunContext.memory_limit"><code class="docutils literal notranslate"><span class="pre">RunContext.memory_limit</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.context.RunContext.enable_stats"><code class="docutils literal notranslate"><span class="pre">RunContext.enable_stats</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.context.RunContext.seed"><code class="docutils literal notranslate"><span class="pre">RunContext.seed</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.context.RunContext.seed_enable_gpu"><code class="docutils literal notranslate"><span class="pre">RunContext.seed_enable_gpu</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.context.RunContext.device"><code class="docutils literal notranslate"><span class="pre">RunContext.device</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.context.RunContext.enable_tf_device"><code class="docutils literal notranslate"><span class="pre">RunContext.enable_tf_device</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.context.RunContext.set_CUDA_VISIBLE_DEVICES_if_CPU"><code class="docutils literal notranslate"><span class="pre">RunContext.set_CUDA_VISIBLE_DEVICES_if_CPU</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.context.RunContext.tf_enable_memory_growth"><code class="docutils literal notranslate"><span class="pre">RunContext.tf_enable_memory_growth</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Base)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#id1">Runner</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Algorithm Config</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_memory.html">Memory</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html">RLConfigComponentFramework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#inputblock">InputBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#inputvalueblock">InputValueBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#inputimageblock">InputImageBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#hiddenblock">HiddenBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#duelingnetwork">DuelingNetwork</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_scheduler.html">Scheduler</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_scheduler.html#lrschaduler">LRSchaduler</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/ql.html">Q-Learning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/dqn.html">Deep Q-Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/rainbow.html">Rainbow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/agent57.html">Agent57</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/agent57_light.html">Agent57 light</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/ppo.html">PPO(Proximal Policy Optimization)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/ddpg.html">DDPG(Deep Deterministic Policy Gradient)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/sac.html">SAC(Soft-Actor-Critic)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/snd.html">SND(Self-supervised Network Distillation)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/mcts.html">Monte Carlo tree search</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/alphazero.html">AlphaZero</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/muzero.html">MuZero</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/dreamer_v3.html">DreamerV3</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SimpleDistributedRL</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Context</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/pages/run_context.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="context">
+<span id="run-context"></span><h1>Context<a class="headerlink" href="#context" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="srl.base.context.RunContext">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.base.context.</span></span><span class="sig-name descname"><span class="pre">RunContext</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">env_config:</span> <span class="pre">EnvConfig</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rl_config:</span> <span class="pre">RLConfig</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">callbacks:</span> <span class="pre">~typing.List[~srl.base.run.callback.RunCallback]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">run_name:</span> <span class="pre">~typing.Literal['main'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">'trainer'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">'actor'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">'eval']</span> <span class="pre">=</span> <span class="pre">'main'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">play_mode:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_episodes:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_steps:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_train_count:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_memory:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">players:</span> <span class="pre">~typing.Sequence[None</span> <span class="pre">|</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">~typing.Tuple[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dict]</span> <span class="pre">|</span> <span class="pre">RLConfig</span> <span class="pre">|</span> <span class="pre">~typing.Tuple[RLConfig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">~typing.Any]]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shuffle_player:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">disable_trainer:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_interval:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_repeat:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distributed:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">training:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_only:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rollout:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">env_render_mode:</span> <span class="pre">~typing.Literal[''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">'terminal'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">'rgb_array'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">'window'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">'terminal_rgb_array']</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rl_render_mode:</span> <span class="pre">~typing.Literal[''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">'terminal'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">'rgb_array'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">'window'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">'terminal_rgb_array']</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">actor_num:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">actor_devices:</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">~typing.List[str]</span> <span class="pre">=</span> <span class="pre">'CPU'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory_limit:</span> <span class="pre">int</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_stats:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed:</span> <span class="pre">int</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed_enable_gpu:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'AUTO'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_tf_device:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">set_CUDA_VISIBLE_DEVICES_if_CPU:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tf_enable_memory_growth:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.base.context.RunContext" title="Link to this definition"></a></dt>
+<dd><p>実行時の状態をまとめたクラス
+A class that summarizes the runtime state</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.context.RunContext.play_mode">
+<span class="sig-name descname"><span class="pre">play_mode</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">''</span></em><a class="headerlink" href="#srl.base.context.RunContext.play_mode" title="Link to this definition"></a></dt>
+<dd><p>実行時の関数名がはいります（yamlで指定できるのは[&quot;train&quot;, &quot;train_mp&quot;, &quot;rollout&quot;, &quot;train_only&quot;, &quot;evaluate&quot;]）</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.context.RunContext.max_episodes">
+<span class="sig-name descname"><span class="pre">max_episodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.base.context.RunContext.max_episodes" title="Link to this definition"></a></dt>
+<dd><p>[終了条件] 実行が終了するまでのエピソード数</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.context.RunContext.timeout">
+<span class="sig-name descname"><span class="pre">timeout</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.base.context.RunContext.timeout" title="Link to this definition"></a></dt>
+<dd><p>[終了条件] 実行が終了するまでの時間（秒）</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.context.RunContext.max_steps">
+<span class="sig-name descname"><span class="pre">max_steps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.base.context.RunContext.max_steps" title="Link to this definition"></a></dt>
+<dd><p>[終了条件] 実行が終了するまでの総ステップ数</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.context.RunContext.max_train_count">
+<span class="sig-name descname"><span class="pre">max_train_count</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.base.context.RunContext.max_train_count" title="Link to this definition"></a></dt>
+<dd><p>[終了条件] 実行が終了するまでの学習回数</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.context.RunContext.max_memory">
+<span class="sig-name descname"><span class="pre">max_memory</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#srl.base.context.RunContext.max_memory" title="Link to this definition"></a></dt>
+<dd><p>[終了条件] 実行が終了するまでのRLのメモリサイズ</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.context.RunContext.players">
+<span class="sig-name descname"><span class="pre">players</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">None</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="rl_config.html#srl.base.rl.config.RLConfig" title="srl.base.rl.config.RLConfig"><span class="pre">RLConfig</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="rl_config.html#srl.base.rl.config.RLConfig" title="srl.base.rl.config.RLConfig"><span class="pre">RLConfig</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#srl.base.context.RunContext.players" title="Link to this definition"></a></dt>
+<dd><p>二人以上の環境で他プレイヤーが使うアルゴリズムを指定</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.context.RunContext.shuffle_player">
+<span class="sig-name descname"><span class="pre">shuffle_player</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.base.context.RunContext.shuffle_player" title="Link to this definition"></a></dt>
+<dd><p>二人以上の環境でプレイヤーをシャッフルするかどうか</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.context.RunContext.train_interval">
+<span class="sig-name descname"><span class="pre">train_interval</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#srl.base.context.RunContext.train_interval" title="Link to this definition"></a></dt>
+<dd><p>1学習間隔に対するstep回数、例えば5にすると1学習5stepになる</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.context.RunContext.train_repeat">
+<span class="sig-name descname"><span class="pre">train_repeat</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#srl.base.context.RunContext.train_repeat" title="Link to this definition"></a></dt>
+<dd><p>1回の学習での学習回数、例えば5にすると1step5学習になる</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.context.RunContext.actor_num">
+<span class="sig-name descname"><span class="pre">actor_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#srl.base.context.RunContext.actor_num" title="Link to this definition"></a></dt>
+<dd><p>分散学習時のactorの数</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.context.RunContext.actor_devices">
+<span class="sig-name descname"><span class="pre">actor_devices</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'CPU'</span></em><a class="headerlink" href="#srl.base.context.RunContext.actor_devices" title="Link to this definition"></a></dt>
+<dd><p>分散学習時のactorの使うデバイス</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.context.RunContext.memory_limit">
+<span class="sig-name descname"><span class="pre">memory_limit</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">-1</span></em><a class="headerlink" href="#srl.base.context.RunContext.memory_limit" title="Link to this definition"></a></dt>
+<dd><p>PC側のメモリ制限（linuxで有効）
+None : not change
+&lt;=0  : auto
+int  : 指定サイズで設定</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.context.RunContext.enable_stats">
+<span class="sig-name descname"><span class="pre">enable_stats</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.base.context.RunContext.enable_stats" title="Link to this definition"></a></dt>
+<dd><p>統計情報を収集するか</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.context.RunContext.seed">
+<span class="sig-name descname"><span class="pre">seed</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#srl.base.context.RunContext.seed" title="Link to this definition"></a></dt>
+<dd><p>random seed</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.context.RunContext.seed_enable_gpu">
+<span class="sig-name descname"><span class="pre">seed_enable_gpu</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#srl.base.context.RunContext.seed_enable_gpu" title="Link to this definition"></a></dt>
+<dd><p>GPU時にseedを固定するか</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.context.RunContext.device">
+<span class="sig-name descname"><span class="pre">device</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'AUTO'</span></em><a class="headerlink" href="#srl.base.context.RunContext.device" title="Link to this definition"></a></dt>
+<dd><p>使うデバイス</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.context.RunContext.enable_tf_device">
+<span class="sig-name descname"><span class="pre">enable_tf_device</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.base.context.RunContext.enable_tf_device" title="Link to this definition"></a></dt>
+<dd><p>tf時に <cite>with tf.device()</cite> での実行を有効にするか</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.context.RunContext.set_CUDA_VISIBLE_DEVICES_if_CPU">
+<span class="sig-name descname"><span class="pre">set_CUDA_VISIBLE_DEVICES_if_CPU</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.base.context.RunContext.set_CUDA_VISIBLE_DEVICES_if_CPU" title="Link to this definition"></a></dt>
+<dd><p>CPU時に CUDA_VISIBLE_DEVICES 環境変数で無効にするか</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.context.RunContext.tf_enable_memory_growth">
+<span class="sig-name descname"><span class="pre">tf_enable_memory_growth</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#srl.base.context.RunContext.tf_enable_memory_growth" title="Link to this definition"></a></dt>
+<dd><p>tensorflowにて、'set_memory_growth(True)' を実行する</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="rl_config.html" class="btn btn-neutral float-left" title="RLConfig" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="runner.html" class="btn btn-neutral float-right" title="Runner(Base)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, poco.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

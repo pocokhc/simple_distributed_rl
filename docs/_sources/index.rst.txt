@@ -9,6 +9,7 @@ Welcome to SimpleDistributedRL's documentation!
 
    pages/install
    pages/howtouse
+   pages/yaml_training
    pages/distributed
 
 .. toctree::
@@ -25,8 +26,16 @@ Welcome to SimpleDistributedRL's documentation!
 
    pages/env_config
    pages/rl_config
-   pages/rl_config_tree
+   pages/run_context
    pages/runner
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Algorithm Config
+
+   pages/rl_config_memory
+   pages/rl_config_model
+   pages/rl_config_scheduler
 
 .. toctree::
    :maxdepth: 2

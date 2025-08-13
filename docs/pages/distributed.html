@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Distributed Learning (Online) &mdash; SimpleDistributedRL 1.3.4 ドキュメント</title>
+  <title>Distributed Learning (Online) &mdash; SimpleDistributedRL 1.3.6.2 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=7a4248da"></script>
+      <script src="../_static/documentation_options.js?v=034df441"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -21,7 +21,7 @@
     <link rel="index" title="索引" href="../genindex.html" />
     <link rel="search" title="検索" href="../search.html" />
     <link rel="next" title="Making a Custom environment" href="custom_env.html" />
-    <link rel="prev" title="How To Use" href="howtouse.html" /> 
+    <link rel="prev" title="Yaml Training" href="yaml_training.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -47,6 +47,7 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="howtouse.html">How To Use</a></li>
+<li class="toctree-l1"><a class="reference internal" href="yaml_training.html">Yaml Training</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Distributed Learning (Online)</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#id1">0. 必要なライブラリのインストール</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#redis">1. Redisサーバの起動</a></li>
@@ -65,9 +66,21 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="env_config.html">EnvConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
-<li class="toctree-l1"><a class="reference internal" href="rl_config_tree.html">RLConfig Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="run_context.html">Context</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Base)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runner.html#id1">Runner</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Algorithm Config</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_memory.html">Memory</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html">RLConfigComponentFramework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#inputblock">InputBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#inputvalueblock">InputValueBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#inputimageblock">InputImageBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#hiddenblock">HiddenBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#duelingnetwork">DuelingNetwork</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_scheduler.html">Scheduler</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_scheduler.html#lrschaduler">LRSchaduler</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
 <ul>
@@ -229,7 +242,8 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">srl</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">srl.algorithms</span><span class="w"> </span><span class="kn">import</span> <span class="n">ql</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">srl.runner.distribution</span><span class="w"> </span><span class="kn">import</span> <span class="n">RedisParameters</span><span class="p">,</span> <span class="n">TaskManager</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">srl.runner.distribution</span><span class="w"> </span><span class="kn">import</span> <span class="n">RedisParameters</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">srl.runner.distribution.server_manager</span><span class="w"> </span><span class="kn">import</span> <span class="n">TaskManager</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">srl.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">common</span>
 
 <span class="n">redis_params</span> <span class="o">=</span> <span class="n">RedisParameters</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s2">&quot;localhost&quot;</span><span class="p">)</span>
@@ -295,7 +309,7 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="howtouse.html" class="btn btn-neutral float-left" title="How To Use" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="yaml_training.html" class="btn btn-neutral float-left" title="Yaml Training" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="custom_env.html" class="btn btn-neutral float-right" title="Making a Custom environment" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

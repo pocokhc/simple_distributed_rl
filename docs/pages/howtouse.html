@@ -6,21 +6,21 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>How To Use &mdash; SimpleDistributedRL 1.3.4 ドキュメント</title>
+  <title>How To Use &mdash; SimpleDistributedRL 1.3.6.2 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=7a4248da"></script>
+      <script src="../_static/documentation_options.js?v=034df441"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="索引" href="../genindex.html" />
     <link rel="search" title="検索" href="../search.html" />
-    <link rel="next" title="Distributed Learning (Online)" href="distributed.html" />
+    <link rel="next" title="Yaml Training" href="yaml_training.html" />
     <link rel="prev" title="Installation" href="install.html" /> 
 </head>
 
@@ -74,6 +74,7 @@
 </li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="yaml_training.html">Yaml Training</a></li>
 <li class="toctree-l1"><a class="reference internal" href="distributed.html">Distributed Learning (Online)</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Custom</span></p>
@@ -86,9 +87,21 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="env_config.html">EnvConfig</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
-<li class="toctree-l1"><a class="reference internal" href="rl_config_tree.html">RLConfig Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="run_context.html">Context</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Base)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runner.html#id1">Runner</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Algorithm Config</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_memory.html">Memory</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html">RLConfigComponentFramework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#inputblock">InputBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#inputvalueblock">InputValueBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#inputimageblock">InputImageBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#hiddenblock">HiddenBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#duelingnetwork">DuelingNetwork</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_scheduler.html">Scheduler</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_scheduler.html#lrschaduler">LRSchaduler</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
 <ul>
@@ -133,7 +146,7 @@
              
   <section id="how-to-use">
 <span id="howtouse"></span><h1>How To Use<a class="headerlink" href="#how-to-use" title="Link to this heading"></a></h1>
-<p>大きく以下となります。</p>
+<p>以下の3手順となります。</p>
 <ol class="arabic simple">
 <li><p>環境を設定（EnvConfig）</p></li>
 <li><p>アルゴリズムを設定（RLConfig）</p></li>
@@ -292,6 +305,7 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">():</span>
     <span class="n">runner</span> <span class="o">=</span> <span class="n">_create_runner</span><span class="p">(</span><span class="n">load_parameter</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">rewards</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">max_episodes</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">rewards</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Average reward for 100 episodes: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">rewards</span><span class="p">,</span><span class="w"> </span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
 
@@ -325,14 +339,13 @@
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
     <span class="n">train</span><span class="p">()</span>
     <span class="n">evaluate</span><span class="p">()</span>
-    <span class="n">render_terminal</span><span class="p">()</span>
-    <span class="n">render_window</span><span class="p">()</span>
-    <span class="n">animation</span><span class="p">()</span>
+    <span class="c1"># render_terminal()</span>
+    <span class="c1"># render_window()</span>
+    <span class="c1"># animation()</span>
     <span class="n">replay_window</span><span class="p">()</span>
 </pre></div>
 </div>
 <img alt="../_images/Grid.gif" src="../_images/Grid.gif" />
-<p>引数や他のRunnerの機能に関しては <a class="reference internal" href="runner.html#runner"><span class="std std-ref">Runner(Base)</span></a> を見てください。</p>
 </section>
 </section>
 <section id="runner-functions">
@@ -653,7 +666,7 @@ pygameのwindowが表示できる環境である必要があります。</p>
 環境によっては動作しない場合があります。</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">srl</span>
 
-<span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">,</span> <span class="n">rl_config</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">)</span>
 <span class="n">runner</span><span class="o">.</span><span class="n">play_terminal</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -704,6 +717,7 @@ pygameのwindowが表示できる環境である必要があります。</p>
 <span class="n">runner</span><span class="o">.</span><span class="n">play_window</span><span class="p">(</span><span class="n">key_bind</span><span class="o">=</span><span class="n">key_bind</span><span class="p">)</span>
 </pre></div>
 </div>
+<p>引数や他のRunnerの機能に関しては <a class="reference internal" href="runner.html#runner"><span class="std std-ref">Runner(Base)</span></a> を見てください。</p>
 </section>
 </section>
 </section>
@@ -713,7 +727,7 @@ pygameのwindowが表示できる環境である必要があります。</p>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="install.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="distributed.html" class="btn btn-neutral float-right" title="Distributed Learning (Online)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="yaml_training.html" class="btn btn-neutral float-right" title="Yaml Training" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

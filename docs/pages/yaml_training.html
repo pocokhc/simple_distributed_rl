@@ -1,0 +1,266 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="ja" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Yaml Training &mdash; SimpleDistributedRL 1.3.6.2 ドキュメント</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=034df441"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/translations.js?v=4755f45a"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="索引" href="../genindex.html" />
+    <link rel="search" title="検索" href="../search.html" />
+    <link rel="next" title="Distributed Learning (Online)" href="distributed.html" />
+    <link rel="prev" title="How To Use" href="howtouse.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            SimpleDistributedRL
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="howtouse.html">How To Use</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Yaml Training</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#yaml-format">1. Yaml format</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#run">2. Run</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#hydra">3. hydra</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="distributed.html">Distributed Learning (Online)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Custom</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="custom_env.html">Making a Custom environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_algorithm.html">Making a Custom algorithm</a></li>
+<li class="toctree-l1"><a class="reference internal" href="framework_detail.html">Detailed Framework</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="env_config.html">EnvConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config.html">RLConfig</a></li>
+<li class="toctree-l1"><a class="reference internal" href="run_context.html">Context</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html">Runner(Base)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runner.html#id1">Runner</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Algorithm Config</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_memory.html">Memory</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html">RLConfigComponentFramework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#inputblock">InputBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#inputvalueblock">InputValueBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#inputimageblock">InputImageBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#hiddenblock">HiddenBlock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_model.html#duelingnetwork">DuelingNetwork</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_scheduler.html">Scheduler</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rl_config_scheduler.html#lrschaduler">LRSchaduler</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Algorithms</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/ql.html">Q-Learning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/dqn.html">Deep Q-Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/rainbow.html">Rainbow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/agent57.html">Agent57</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/agent57_light.html">Agent57 light</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/ppo.html">PPO(Proximal Policy Optimization)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/ddpg.html">DDPG(Deep Deterministic Policy Gradient)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/sac.html">SAC(Soft-Actor-Critic)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/snd.html">SND(Self-supervised Network Distillation)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/mcts.html">Monte Carlo tree search</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/alphazero.html">AlphaZero</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/muzero.html">MuZero</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/dreamer_v3.html">DreamerV3</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SimpleDistributedRL</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Yaml Training</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/pages/yaml_training.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="yaml-training">
+<span id="yamltraining"></span><h1>Yaml Training<a class="headerlink" href="#yaml-training" title="Link to this heading"></a></h1>
+<p>Yamlで学習内容を記述して学習する方法となります。</p>
+<section id="yaml-format">
+<h2>1. Yaml format<a class="headerlink" href="#yaml-format" title="Link to this heading"></a></h2>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># --- EnvConfigの内容を記載します。（keyは[env, envs]のどちらか）</span>
+<span class="c1"># id にenvのIDを記載（必須）</span>
+<span class="c1"># その他オプションは必要に応じて記載（※1）</span>
+<span class="nt">env</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Grid</span>
+
+<span class="c1"># --- RLConfigの内容を記載します。（keyは[rl,algorithm,algorithms]のどれか）</span>
+<span class="c1"># _target_ にアルゴリズムのConfigへのパスを記載（必須）</span>
+<span class="c1"># その他オプションは必要に応じて記載（※2）</span>
+<span class="nt">rl</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">_target_</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">srl.algorithms.ql.Config</span>
+
+<span class="c1"># --- 学習内容を記載します。（keyは[runner,runners,context,contexts]のどれか）</span>
+<span class="c1"># play_mode に学習内容を、追加で学習条件を記載（必須）</span>
+<span class="c1"># その他オプションは必要に応じて記載（※3）</span>
+<span class="nt">context</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">play_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">train</span><span class="w">  </span><span class="c1"># Literal[&quot;train&quot;, &quot;train_mp&quot;, &quot;rollout&quot;, &quot;train_only&quot;, &quot;evaluate&quot;]</span>
+<span class="w">  </span><span class="nt">max_train_count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10000</span>
+</pre></div>
+</div>
+<div class="line-block">
+<div class="line">※1 envに設定できる項目はこちら <a class="reference internal" href="env_config.html#env-config"><span class="std std-ref">EnvConfig</span></a></div>
+<div class="line">※2 RLConfigに共通で設定できる項目はこちら <a class="reference internal" href="rl_config.html#rl-config"><span class="std std-ref">RLConfig</span></a>、それ以外は各アルゴリズムを参照</div>
+<div class="line">※3 Contextに設定できる項目はこちら <a class="reference internal" href="run_context.html#run-context"><span class="std std-ref">Context</span></a></div>
+</div>
+</section>
+<section id="run">
+<h2>2. Run<a class="headerlink" href="#run" title="Link to this heading"></a></h2>
+<p>yamlファイルをloadして実行する例です。</p>
+<div class="literal-block-wrapper docutils container" id="id1">
+<div class="code-block-caption"><span class="caption-text">yaml_training.yaml</span><a class="headerlink" href="#id1" title="Link to this code"></a></div>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">env</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Grid</span>
+<span class="nt">rl</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">_target_</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">srl.algorithms.ql.Config</span>
+
+<span class="nt">context</span><span class="p">:</span><span class="w"> </span>
+<span class="w">  </span><span class="nt">play_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">train</span>
+<span class="w">  </span><span class="nt">max_train_count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10000</span>
+</pre></div>
+</div>
+</div>
+<div class="literal-block-wrapper docutils container" id="id2">
+<div class="code-block-caption"><span class="caption-text">yaml_training.py</span><a class="headerlink" href="#id2" title="Link to this code"></a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">srl</span>
+
+<span class="n">yaml_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="s2">&quot;yaml_training.yaml&quot;</span><span class="p">)</span>
+
+<span class="c1"># yamlファイルから読み込む</span>
+<span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">yaml_path</span><span class="p">)</span>
+
+<span class="c1"># loadした設定情報を表示</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">summary</span><span class="p">(</span><span class="n">show_changed_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># yamlに設定されている内容で実行する</span>
+<span class="n">runner</span><span class="o">.</span><span class="n">play</span><span class="p">()</span>
+
+<span class="c1"># 結果の簡易評価</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+</section>
+<section id="hydra">
+<h2>3. hydra<a class="headerlink" href="#hydra" title="Link to this heading"></a></h2>
+<p>設定管理ライブラリの hydra(<a class="reference external" href="https://hydra.cc/">https://hydra.cc/</a>) から作られた設定や OmegaConf(<a class="reference external" href="https://github.com/omry/omegaconf">https://github.com/omry/omegaconf</a>) からでもロードできます。
+コード例は以下です。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">hydra</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">omegaconf</span><span class="w"> </span><span class="kn">import</span> <span class="n">OmegaConf</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">srl</span>
+
+
+<span class="nd">@hydra</span><span class="o">.</span><span class="n">main</span><span class="p">(</span><span class="n">version_base</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">config_path</span><span class="o">=</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="n">config_name</span><span class="o">=</span><span class="s2">&quot;yaml_training&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="n">cfg</span><span class="p">):</span>
+    <span class="n">OmegaConf</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
+
+    <span class="c1"># dict形式からrunnerを作成</span>
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
+
+    <span class="c1"># loadした設定情報を表示</span>
+    <span class="n">runner</span><span class="o">.</span><span class="n">summary</span><span class="p">(</span><span class="n">show_changed_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># 設定されている内容で実行する</span>
+    <span class="n">runner</span><span class="o">.</span><span class="n">play</span><span class="p">()</span>
+
+    <span class="c1"># 結果の簡易評価</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">runner</span><span class="o">.</span><span class="n">evaluate</span><span class="p">())</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+</div>
+<div class="line-block">
+<div class="line">その他のサンプルは以下の examples を見てください。</div>
+<div class="line">- examples/sample_template</div>
+<div class="line">- examples/sample_template_adv</div>
+</div>
+<p>また、yamlのサンプルは configs フォルダ配下を見てください。</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="howtouse.html" class="btn btn-neutral float-left" title="How To Use" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="distributed.html" class="btn btn-neutral float-right" title="Distributed Learning (Online)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, poco.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

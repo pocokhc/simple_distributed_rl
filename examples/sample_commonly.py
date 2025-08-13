@@ -13,8 +13,7 @@ _parameter_path = "_params.dat"
 # --- sample config
 # For the parameters of Config, refer to the argument completion or the original code.
 def _create_runner(load_parameter: bool):
-    # (Run "pip install gymnasium pygame" to use the gymnasium environment)
-    env_config = srl.EnvConfig("FrozenLake-v1")
+    env_config = srl.EnvConfig("Grid")
 
     rl_config = ql.Config()
     runner = srl.Runner(env_config, rl_config)
@@ -62,7 +61,7 @@ def render_window():
 #  (Run "pip install opencv-python pillow pygame" to use the animation)
 def animation():
     runner = _create_runner(load_parameter=True)
-    runner.animation_save_gif("_FrozenLake.gif")
+    runner.animation_save_gif("_Grid.gif")
 
 
 # --- replay window sample

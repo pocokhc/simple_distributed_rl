@@ -1,0 +1,6 @@
+id: "ALE/Pong-v5"
+kwargs:
+  frameskip: 4
+  repeat_action_probability: 0
+  full_action_space: False
+  obs_type: "grayscale"

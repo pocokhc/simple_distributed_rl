@@ -41,6 +41,7 @@ def train(timeout=10):
 def evaluate():
     runner = _create_runner(load_parameter=True)
     rewards = runner.evaluate(max_episodes=100)
+    print(rewards)
     print(f"Average reward for 100 episodes: {np.mean(rewards, axis=0)}")
 
 
@@ -74,7 +75,7 @@ def replay_window():
 if __name__ == "__main__":
     train()
     evaluate()
-    render_terminal()
-    render_window()
-    animation()
+    # render_terminal()
+    # render_window()
+    # animation()
     replay_window()

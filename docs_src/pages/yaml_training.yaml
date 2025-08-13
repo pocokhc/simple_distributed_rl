@@ -1,0 +1,10 @@
+
+env:
+  id: Grid
+rl:
+  _target_: srl.algorithms.ql.Config
+
+context: 
+  play_mode: train
+  max_train_count: 10000
+

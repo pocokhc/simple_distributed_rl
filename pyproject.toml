@@ -16,6 +16,7 @@ dependencies = [
     "opencv-python",
     "Pillow",
     "pygame",
+    "pyyaml",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",

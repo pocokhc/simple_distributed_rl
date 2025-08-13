@@ -1439,6 +1439,12 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
 
         return results
 
+    # ------------------------------
+    # config save/load
+    # ------------------------------
+    def save(self, path: str):
+        self.context.save(path)
+
 
 def load_runner(path_or_cfg_dict: Union[dict, Any, str]) -> Runner:
     context = RunContext.load(path_or_cfg_dict)

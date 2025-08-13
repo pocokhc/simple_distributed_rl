@@ -41,6 +41,7 @@ Install options
    + opencv-python
    + Pillow
    + pygame
+   + pyyaml
 + full
    + 「なし」に以下が追加されます
    + gymnasium
@@ -104,6 +105,8 @@ Download(No install)
    + pillow
    + opencv-python
    + pygame
++ yamlファイルから設定ファイルを読み込む際に必要
+   + pyyaml
 + OpenAI Gym の環境を使用する場合に必要
    + gym or gymnasium
    + pygame

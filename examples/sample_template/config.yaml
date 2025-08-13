@@ -1,0 +1,45 @@
+env:
+  id: "Grid"
+
+algorithm:
+  _target_: srl.algorithms.rainbow.Config
+  epsilon: 0.1
+
+  # --- スケジュール設定例
+  epsilon_scheduler:
+    schedulers:
+      - name: "constant"
+        phase_steps: 100
+        rate: 1.0
+      - name: "linear"
+        phase_steps: 10000  # train_count
+        start_rate: 1.0
+        end_rate: 0.01
+  
+  # --- memory設定例
+  memory:
+    capacity: 100000
+    warmup_size: 1000
+    compress: False
+    name: "Proportional"
+    kwargs:
+      beta_steps: 10000  # train_count
+
+  # --- model設定例
+  input_block:
+    image:
+      name: "DQN"
+      # --- 追加オプションの設定例
+      #kwargs:
+      #  filters: 32
+      #processors:
+      #  - _target_: srl.rl.processors.image_processor.ImageProcessor
+      #    resize: [84, 84]
+  hidden_block:
+    name: "MLP"
+    kwargs:
+      layer_sizes: [64]
+
+context:
+  play_mode: "train"
+  max_train_count: 20000

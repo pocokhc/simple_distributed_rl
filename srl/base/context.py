@@ -37,49 +37,68 @@ class RunContext:
 
     # --- runtime context
     run_name: Literal["main", "trainer", "actor", "eval"] = "main"
+    #: 実行時の関数名がはいります（yamlで指定できるのは["train", "train_mp", "rollout", "train_only", "evaluate"]）
     play_mode: str = ""
-    # stop config
+    # --- stop config
+    #: [終了条件] 実行が終了するまでのエピソード数
     max_episodes: int = 0
+    #: [終了条件] 実行が終了するまでの時間（秒）
     timeout: float = 0
+    #: [終了条件] 実行が終了するまでの総ステップ数
     max_steps: int = 0
+    #: [終了条件] 実行が終了するまでの学習回数
     max_train_count: int = 0
+    #: [終了条件] 実行が終了するまでのRLのメモリサイズ
     max_memory: int = 0
-    # play config
+    # --- play config
+    #: 二人以上の環境で他プレイヤーが使うアルゴリズムを指定
     players: PlayersType = field(default_factory=list)
+    #: 二人以上の環境でプレイヤーをシャッフルするかどうか
     shuffle_player: bool = True
     disable_trainer: bool = False
-    # train option
+    # --- train option
+    #: 1学習間隔に対するstep回数、例えば5にすると1学習5stepになる
     train_interval: int = 1
+    #: 1回の学習での学習回数、例えば5にすると1step5学習になる
     train_repeat: int = 1
-    # play info
+    # --- play info
     distributed: bool = False
     training: bool = False
     train_only: bool = False
     rollout: bool = False
-    # render
+    # --- render
     env_render_mode: RenderModeType = ""
     rl_render_mode: RenderModeType = ""
 
     # --- mp
+    #: 分散学習時のactorの数
     actor_num: int = 1
+    #: 分散学習時のactorの使うデバイス
     actor_devices: Union[str, List[str]] = "CPU"
 
     # --- memory
+    #: PC側のメモリ制限（linuxで有効）
     #: None : not change
     #: <=0  : auto
     #: int  : 指定サイズで設定
     memory_limit: Optional[int] = -1
 
     # --- stats
+    #: 統計情報を収集するか
     enable_stats: bool = True
 
     # --- random
+    #: random seed
     seed: Optional[int] = None
+    #: GPU時にseedを固定するか
     seed_enable_gpu: bool = False
 
     # --- device option
+    #: 使うデバイス
     device: str = "AUTO"
+    #: tf時に `with tf.device()` での実行を有効にするか
     enable_tf_device: bool = True
+    #: CPU時に CUDA_VISIBLE_DEVICES 環境変数で無効にするか
     set_CUDA_VISIBLE_DEVICES_if_CPU: bool = True
     #: tensorflowにて、'set_memory_growth(True)' を実行する
     tf_enable_memory_growth: bool = True
@@ -209,13 +228,13 @@ class RunContext:
                 if "_target_" not in d["env_config"]:
                     d["env_config"]["_target_"] = "srl.base.env.config.EnvConfig"
                 break
-        for rl_key in ["rl", "algorithm"]:
+        for rl_key in ["rl", "algorithm", "algorithms"]:
             if rl_key in d:
                 d["rl_config"] = d.pop(rl_key)
                 break
 
         # contextは展開
-        for c_key in ["context", "runner"]:
+        for c_key in ["runner", "runners", "context", "contexts"]:
             if c_key in d:
                 for k, v in d.pop(c_key).items():
                     d[k] = v
@@ -231,8 +250,13 @@ class RunContext:
 
         return apply_dict_to_dataclass(cls(), d)
 
-    def save(self, path: str):
-        save_dict(self.to_dict(), path)
+    def save(self, path: str, include_env_config: bool = True, include_rl_config: bool = True):
+        d = self.to_dict()
+        if include_env_config:
+            d["env_config"] = self.env_config.to_dict()
+        if include_rl_config:
+            d["rl_config"] = self.rl_config.to_dict(include_base_config=True)
+        save_dict(d, path)
         return self
 
     def to_dict(self, to_print: bool = False) -> dict:

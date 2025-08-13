@@ -1,0 +1,9 @@
+defaults:
+  - env: grid.yaml
+  #- algorithms: ql.yaml
+  - algorithms: rainbow.yaml
+  - _self_
+
+context:
+  play_mode: train
+  max_train_count: 10000

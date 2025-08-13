@@ -1,0 +1,8 @@
+id: "ALE/Pong-v5"
+kwargs:
+  frameskip: 7
+  repeat_action_probability: 0
+  full_action_space: False
+  obs_type: "grayscale"
+processors:
+  - _target_: srl.envs.processors.atari_processor.AtariPongProcessor

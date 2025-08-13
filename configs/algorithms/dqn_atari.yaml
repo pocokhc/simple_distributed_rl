@@ -1,0 +1,14 @@
+_target_: srl.algorithms.dqn.Config
+batch_size: 32
+discount: 0.99
+enable_double_dqn: true
+enable_rescale: false
+enable_reward_clip: false
+epsilon: 0.1
+memory:
+  capacity: 1_000_000
+  warmup_size: 50_000
+input_block:
+  image:
+    name: "DQN"
+

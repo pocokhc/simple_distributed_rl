@@ -1,0 +1,2 @@
+play_mode: "train"
+max_steps: 100_000

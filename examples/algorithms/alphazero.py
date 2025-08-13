@@ -18,7 +18,7 @@ def main_ox():
         discount=1.0,
     )
     rl_config.memory.warmup_size = 100
-    rl_config.input_image_block.set_alphazero_block(1, 32)
+    rl_config.input_block.set_alphazero_block(1, 32)
     rl_config.value_block.set((32,))
     rl_config.value_type = "rate"
 
@@ -62,7 +62,7 @@ def main_othello():
     )
     rl_config.memory.capacity = 100_000
     rl_config.memory.warmup_size = 200
-    rl_config.input_image_block.set_alphazero_block(3, 64)
+    rl_config.input_block.set_alphazero_block(3, 64)
     rl_config.value_block.set((64,))
     rl_config.policy_block.set(())
 

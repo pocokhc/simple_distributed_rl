@@ -56,12 +56,15 @@ class MLFlowCallback(RunCallback, Evaluate):
         assert active_run is not None
         self.run_id = active_run.info.run_id
         logger.info(f"mlflow run_id: {self.run_id}")
-        mlflow.set_tag("Version", srl.__version__)
-        mlflow.set_tag("Env", context.env_config.name)
-        mlflow.set_tag("RL", context.rl_config.name)
-        mlflow.set_tag("Framework", context.rl_config.get_framework())
-        mlflow.set_tag("Play", context.play_mode)
-        mlflow.set_tags(self.tags)
+        tags = {
+            "Version": srl.__version__,
+            "Env": context.env_config.name,
+            "RL": context.rl_config.name,
+            "Framework": context.rl_config.get_framework(),
+            "Play": context.play_mode,
+        }
+        tags.update(self.tags)
+        mlflow.set_tags(tags)
 
         d = {"env/" + k: v for k, v in context.env_config.to_dict(to_print=True).items()}
         d.update({"rl/" + k: v for k, v in context.rl_config.to_dict(to_print=True).items()})
@@ -73,6 +76,19 @@ class MLFlowCallback(RunCallback, Evaluate):
                 continue
             d[f"context/callbacks_{i}"] = str(c)
         mlflow.log_params(d)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = os.path.join(tmp_dir, "rl_config.yaml")
+            context.rl_config.save(path)
+            mlflow.log_artifact(path, run_id=self.run_id)
+
+            path = os.path.join(tmp_dir, "env_config.yaml")
+            context.env_config.save(path)
+            mlflow.log_artifact(path, run_id=self.run_id)
+
+            path = os.path.join(tmp_dir, "context.yaml")
+            context.save(path)
+            mlflow.log_artifact(path, run_id=self.run_id)
 
         # if context.distributed:
         #    # メインプロセス以外でtkinterを使うと落ちるので使わない

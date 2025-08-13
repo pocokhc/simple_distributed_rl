@@ -220,14 +220,14 @@ class _GridBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSp
         if self.screen is None:
             self.screen = pw.create_surface(WIDTH, HEIGHT)
 
-            pw.load_image("cell", os.path.join(os.path.dirname(__file__), "img/cell.png"))
-            pw.load_image("goal", os.path.join(os.path.dirname(__file__), "img/goal.png"))
-            pw.load_image("hole", os.path.join(os.path.dirname(__file__), "img/hole.png"))
-            pw.load_image("wall", os.path.join(os.path.dirname(__file__), "img/wall.png"))
-            pw.load_image("player_down", os.path.join(os.path.dirname(__file__), "img/player_down.png"))
-            pw.load_image("player_left", os.path.join(os.path.dirname(__file__), "img/player_left.png"))
-            pw.load_image("player_right", os.path.join(os.path.dirname(__file__), "img/player_right.png"))
-            pw.load_image("player_up", os.path.join(os.path.dirname(__file__), "img/player_up.png"))
+            pw.load_image("cell", os.path.join(os.path.dirname(__file__), "img", "cell.png"))
+            pw.load_image("goal", os.path.join(os.path.dirname(__file__), "img", "goal.png"))
+            pw.load_image("hole", os.path.join(os.path.dirname(__file__), "img", "hole.png"))
+            pw.load_image("wall", os.path.join(os.path.dirname(__file__), "img", "wall.png"))
+            pw.load_image("player_down", os.path.join(os.path.dirname(__file__), "img", "player_down.png"))
+            pw.load_image("player_left", os.path.join(os.path.dirname(__file__), "img", "player_left.png"))
+            pw.load_image("player_right", os.path.join(os.path.dirname(__file__), "img", "player_right.png"))
+            pw.load_image("player_up", os.path.join(os.path.dirname(__file__), "img", "player_up.png"))
 
         pw.draw_fill(self.screen, color=(255, 255, 255))
 

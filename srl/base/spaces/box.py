@@ -133,7 +133,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
                 a = random.choice(valid_acts)
                 return np.array(a, self._dtype).reshape(self._shape)
             else:
-                return np.random.randint(self._low, self._high + 1, dtype=self._dtype)
+                return np.random.randint(self._low, self._high, dtype=self._dtype)
         else:
             if len(mask) > 0:
                 logger.info(f"mask is not support: {mask}")

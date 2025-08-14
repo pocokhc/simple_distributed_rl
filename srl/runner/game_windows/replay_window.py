@@ -143,6 +143,8 @@ class RePlayableGame(GameWindow):
             self.env_pause = True
         elif self.get_key("-") == KeyStatus.PRESSED:
             self.interval *= 2
+            if self.interval > 5000:
+                self.interval = 5000
         elif self.get_key("+") == KeyStatus.PRESSED:
             self.interval /= 2
             if self.interval < 1:

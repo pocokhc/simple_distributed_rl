@@ -576,9 +576,13 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._render.set_render_options(interval, scale, font_name, font_size)
 
     def get_render_interval(self, interval: float = -1):  # ms
-        if interval > 0:
-            return interval
-        return self._render.interval
+        if interval < 0:
+            interval = self._render.interval
+        if interval < 1:
+            interval = 1
+        if interval > 5000:
+            interval = 5000
+        return interval
 
     def render(self, **kwargs):
         logger.debug("render")

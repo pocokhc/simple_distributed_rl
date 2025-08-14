@@ -612,12 +612,19 @@ class RunnerBase(Generic[TRLConfig]):
             self.make_parameter(),
         )
 
-    def make_html_all_parameters_in_mlflow(self, experiment_name: str = "", run_idx: int = -1, **render_kwargs):
+    def make_html_all_parameters_in_mlflow(
+        self,
+        experiment_name: str = "",
+        run_idx: int = -1,
+        run_id: Optional[str] = None,
+        **render_kwargs,
+    ):
         from srl.runner.callbacks.mlflow_callback import MLFlowCallback
 
-        if experiment_name == "":
-            experiment_name = self.env_config.name
-        run_id = MLFlowCallback.get_run_id(experiment_name, self.rl_config.get_name(), run_idx)
+        if run_id is None:
+            if experiment_name == "":
+                experiment_name = self.env_config.name
+            run_id = MLFlowCallback.get_run_id(experiment_name, self.rl_config.get_name(), run_idx)
         if run_id is None:
             raise ValueError(f"run id is not found. experiment: {experiment_name}, rl_name: {self.rl_config.get_name()}")
         MLFlowCallback.make_html_all_parameters(run_id, self.env_config, self.rl_config, **render_kwargs)

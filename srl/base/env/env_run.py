@@ -580,8 +580,8 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             interval = self._render.interval
         if interval < 1:
             interval = 1
-        if interval > 5000:
-            interval = 5000
+        if interval > 2000:
+            interval = 2000
         return interval
 
     def render(self, **kwargs):

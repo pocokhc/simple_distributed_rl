@@ -690,7 +690,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._env.abort_episode()
 
     def print_discrete_action_info(self, maxa: int, func) -> None:
-        view_actions_num = min(15, self.config.action_space.n)
+        view_actions_num = min(20, self.config.action_space.n)
         for action in range(view_actions_num):
             if action in self.invalid_actions:
                 s = "x"

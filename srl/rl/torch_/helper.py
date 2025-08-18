@@ -32,6 +32,11 @@ def model_sync(target_model: nn.Module, source_model: nn.Module):
     target_model.load_state_dict(source_model.state_dict())
 
 
+def model_params_sync(target_params: Iterable[nn.Parameter], source_params: Iterable[nn.Parameter]):
+    for target, source in zip(target_params, source_params):
+        target.data.copy_(source.data)
+
+
 def model_soft_sync(target_model: nn.Module, source_model: nn.Module, tau: float):
     for param, target_param in zip(source_model.parameters(), target_model.parameters()):
         target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)

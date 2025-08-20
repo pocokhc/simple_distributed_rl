@@ -2,8 +2,7 @@
 1. Async-SGD
 1. (distribution)学習後のworker側のparam共有
 1. MCP化
-1. renderのfpsなどの表示
-1. streamlit or nicegui?
+1. renderのfpsなどの表示、streamlit or nicegui?などでGUIを豪華に
 1. rollout->trainなど、複数学習
 
 //// 中止(stopped)  
@@ -19,6 +18,24 @@
 // tomlはNone型が定義できないので対象外
 // keras3対応 → tfは@tf.functionが使えなくなるので遅くなる。torchはcpu()が必要になるっぽい、しばらく保留
 
+
+# v1.4.1
+
+**Updates**
+
+1. [rl.schedulers] update: 見直してリファクタリング、また全てにend_rateの引数を追加し、開始と終了の値を指定できるように変更
+1. [base.rl.worker_run] update: get_trackingsでkeysを指定しない場合、登録時のkey情報をそのまま使えるように更新
+1. [runner.mlflow] update: intervalの指定方法をtimeとstepから指定できるように修正、またhistoryと指定方法を統一
+1. [base.env.env_run] update: intervalの上限を追加
+1. [runner.mlflow] update: make_html_all_parameters_in_mlflowでrun_idで直接選択できるように修正
+1. [rl.torch.helper] add: model_params_sync関数を追加
+1. [algorithms] new: オリジナルアルゴリズムNoT_DQNを追加
+
+**Bug Fixes**
+
+1. [base.rl.worker_run] fix: add_trackingでデフォルト値で warning("Tracking data size exceeded") が出続ける問題を修正
+1. [base.spaces.box] fix: DISCRETEのsample時にhigh+1の値が選ばれる不具合修正
+1. #54 fix: notebook上でos.pathのディレクトリ区切りが正しく機能しなくfile not found errorになるバグ修正
 
 
 # v1.4.0

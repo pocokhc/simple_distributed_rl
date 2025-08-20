@@ -293,6 +293,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
         # tracking
         self._tracking_data: List[Dict[str, Any]] = []
+        self._tracking_keys: List[str] = []
 
     def _ready_policy(self):
         """policyの準備を実行。1週目は on_reset、2週目以降は on_step を実行。"""
@@ -545,6 +546,9 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def add_tracking(self, data: Dict[str, Any]):
         if (self._tracking_size > 0) and (len(self._tracking_data) == self._tracking_size):
             del self._tracking_data[0]
+        for k in data.keys():
+            if k not in self._tracking_keys:
+                self._tracking_keys.append(k)
         self._tracking_data.append(data)
         if (self._tracking_size > 0) and (len(self._tracking_data) > self._tracking_size):
             logger.warning("Tracking data size exceeded: %d > %d", len(self._tracking_data), self._tracking_size)
@@ -565,11 +569,13 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     def get_trackings(
         self,
-        keys: List[str] = [],
+        keys: Optional[List[str]] = None,
         size: int = 0,
         padding_data: dict = {},
         padding_direct: Literal["head", "tail"] = "head",
     ) -> list:
+        if keys is None:
+            keys = self._tracking_keys
         if size > 0:
             if len(self._tracking_data) < size:
                 pad = [

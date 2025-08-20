@@ -19,7 +19,7 @@ def test_train(tmpdir):
     rl_config = ql.Config()
     runner = srl.Runner("Grid", rl_config)
 
-    runner.set_mlflow("test_Grid", interval_checkpoint=1)
+    runner.set_mlflow("test_Grid", checkpoint_interval=1)
     runner.train(max_train_count=100_000)
 
     rewards = runner.evaluate(max_episodes=100)

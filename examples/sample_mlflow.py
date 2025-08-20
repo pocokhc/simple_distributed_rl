@@ -24,7 +24,7 @@ def train_ql(timeout=30):
     runner = create_ql_runner()
 
     # Configuring Data Collection for MLFlow
-    runner.set_mlflow(interval_checkpoint=10)
+    runner.set_mlflow(checkpoint_interval=10)
 
     runner.train(timeout=timeout)
 

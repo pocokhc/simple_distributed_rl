@@ -10,5 +10,5 @@ class Constant(Scheduler):
     def update(self, step: int) -> Scheduler:
         return self
 
-    def get_rate(self) -> float:
+    def to_float(self) -> float:
         return self.rate

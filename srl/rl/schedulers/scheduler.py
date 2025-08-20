@@ -108,51 +108,56 @@ class SchedulerConfig:
         return self
 
     # --- cos
-    def set_cosine(self, start_rate: float, phase_steps: int):
-        """cosに従って0へ変動
+    def set_cosine(self, start_rate: float, end_rate: float, phase_steps: int):
+        """cosに従って変動
 
         Args:
             start_rate (float): 開始時のrate
+            end_rate (float): 終了時のrate
             phase_steps (int): 継続するstep数
         """
         self.clear()
-        self.add_cosine(start_rate, phase_steps)
+        self.add_cosine(start_rate, end_rate, phase_steps)
         return self
 
-    def add_cosine(self, start_rate: float, phase_steps: int):
-        """cosに従って0へ変動
+    def add_cosine(self, start_rate: float, end_rate: float, phase_steps: int):
+        """cosに従って変動
 
         Args:
             start_rate (float): 開始時のrate
+            end_rate (float): 終了時のrate
             phase_steps (int): 継続するstep数
         """
         self.schedulers.append(
             dict(
                 name="cosine",
                 start_rate=start_rate,
+                end_rate=end_rate,
                 phase_steps=phase_steps,
             )
         )
         return self
 
     # --- cos restart
-    def set_cosine_with_hard_restarts(self, start_rate: float, phase_steps: int, num_cycles: int):
+    def set_cosine_with_hard_restarts(self, start_rate: float, end_rate: float, phase_steps: int, num_cycles: int):
         """cosに従って0へ変動、ただしnum_cycles数繰り返す
 
         Args:
             start_rate (float): 開始時のrate
+            end_rate (float): 終了時のrate
             phase_steps (int): 継続するstep数
             num_cycles (int): 繰り返す回数
         """
         self.clear()
-        self.add_cosine_with_hard_restarts(start_rate, phase_steps, num_cycles)
+        self.add_cosine_with_hard_restarts(start_rate, end_rate, phase_steps, num_cycles)
         return self
 
-    def add_cosine_with_hard_restarts(self, start_rate: float, phase_steps: int, num_cycles: int):
+    def add_cosine_with_hard_restarts(self, start_rate: float, end_rate: float, phase_steps: int, num_cycles: int):
         """cosに従って0へ変動、ただしnum_cycles数繰り返す
 
         Args:
             start_rate (float): 開始時のrate
+            end_rate (float): 終了時のrate
             phase_steps (int): 継続するstep数
             num_cycles (int): 繰り返す回数
         """
@@ -160,6 +165,7 @@ class SchedulerConfig:
             dict(
                 name="cosine_with_hard_restarts",
                 start_rate=start_rate,
+                end_rate=end_rate,
                 phase_steps=phase_steps,
                 num_cycles=num_cycles,
             )
@@ -167,27 +173,29 @@ class SchedulerConfig:
         return self
 
     # --- polynomial
-    def set_polynomial(self, start_rate: float, phase_steps: int, power: float = 2):
+    def set_polynomial(self, start_rate: float, end_rate: float, phase_steps: int, power: float = 2):
         """多項式に従って0へ減少
 
         y = start_rate * (1 - step/phase_steps)^power
 
         Args:
             start_rate (float): 開始時のrate
+            end_rate (float): 終了時のrate
             phase_steps (int): 継続するstep数
             power (float, optional): 強さ、1で線形と同じ. Defaults to 2.
         """
         self.clear()
-        self.add_polynomial(start_rate, phase_steps, power)
+        self.add_polynomial(start_rate, end_rate, phase_steps, power)
         return self
 
-    def add_polynomial(self, start_rate: float, phase_steps: int, power: float = 2):
+    def add_polynomial(self, start_rate: float, end_rate: float, phase_steps: int, power: float = 2):
         """多項式に従って0へ減少
 
         y = start_rate * (1 - step/phase_steps)^power
 
         Args:
             phase_steps (int): 継続するstep数
+            end_rate (float): 終了時のrate
             start_rate (float): 開始時のrate
             power (float, optional): 強さ、1で線形と同じ. Defaults to 2.
         """
@@ -195,6 +203,7 @@ class SchedulerConfig:
             dict(
                 name="polynomial",
                 start_rate=start_rate,
+                end_rate=end_rate,
                 phase_steps=phase_steps,
                 power=power,
             )
@@ -316,7 +325,7 @@ class ListScheduler(Scheduler):
 
     def update(self, step: int) -> Scheduler:
         self.current_sch.update(step - self.current_step)
-        rate = self.current_sch.get_rate()
+        rate = self.current_sch.to_float()
 
         if step in self.schedulers_idx:
             self.current_step = step
@@ -325,5 +334,5 @@ class ListScheduler(Scheduler):
         self.prev_rate = rate
         return self
 
-    def get_rate(self) -> float:
+    def to_float(self) -> float:
         return self.prev_rate

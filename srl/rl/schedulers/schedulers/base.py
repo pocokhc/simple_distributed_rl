@@ -16,11 +16,8 @@ class Scheduler(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def get_rate(self) -> float:
+    def to_float(self) -> float:
         raise NotImplementedError()
 
     def __float__(self) -> float:
-        return self.get_rate()
-
-    def to_float(self) -> float:
-        return self.get_rate()
+        return self.to_float()

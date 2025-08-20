@@ -546,7 +546,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         if (self._tracking_size > 0) and (len(self._tracking_data) == self._tracking_size):
             del self._tracking_data[0]
         self._tracking_data.append(data)
-        if len(self._tracking_data) > self._tracking_size:
+        if (self._tracking_size > 0) and (len(self._tracking_data) > self._tracking_size):
             logger.warning("Tracking data size exceeded: %d > %d", len(self._tracking_data), self._tracking_size)
 
     def get_tracking_data(self) -> List[Dict[str, Any]]:

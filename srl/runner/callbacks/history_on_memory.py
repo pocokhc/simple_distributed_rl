@@ -2,6 +2,7 @@ import logging
 import time
 import traceback
 from dataclasses import dataclass
+from typing import Literal, Union
 
 import numpy as np
 
@@ -17,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class HistoryOnMemory(RunCallback, Evaluate):
-    interval: int = 1
-    interval_mode: str = "step"
+    interval: Union[float, int] = 1
+    interval_mode: Literal["time", "step"] = "time"
 
     def _read_stats(self, context: RunContext):
         if not context.enable_stats:

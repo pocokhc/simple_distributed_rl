@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>How To Use &mdash; SimpleDistributedRL 1.3.6.2 ドキュメント</title>
+  <title>How To Use &mdash; SimpleDistributedRL 1.4.0 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=034df441"></script>
+      <script src="../_static/documentation_options.js?v=0868a3b3"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -118,6 +118,7 @@
 <li class="toctree-l1"><a class="reference internal" href="algorithms/alphazero.html">AlphaZero</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/muzero.html">MuZero</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dreamer_v3.html">DreamerV3</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/not_dqn.html">No Target Deep Q-Networks</a></li>
 </ul>
 
         </div>
@@ -277,8 +278,7 @@
 <span class="c1"># --- sample config</span>
 <span class="c1"># For the parameters of Config, refer to the argument completion or the original code.</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">_create_runner</span><span class="p">(</span><span class="n">load_parameter</span><span class="p">:</span> <span class="nb">bool</span><span class="p">):</span>
-    <span class="c1"># (Run &quot;pip install gymnasium pygame&quot; to use the gymnasium environment)</span>
-    <span class="n">env_config</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;FrozenLake-v1&quot;</span><span class="p">)</span>
+    <span class="n">env_config</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">EnvConfig</span><span class="p">(</span><span class="s2">&quot;Grid&quot;</span><span class="p">)</span>
 
     <span class="n">rl_config</span> <span class="o">=</span> <span class="n">ql</span><span class="o">.</span><span class="n">Config</span><span class="p">()</span>
     <span class="n">runner</span> <span class="o">=</span> <span class="n">srl</span><span class="o">.</span><span class="n">Runner</span><span class="p">(</span><span class="n">env_config</span><span class="p">,</span> <span class="n">rl_config</span><span class="p">)</span>
@@ -326,7 +326,7 @@
 <span class="c1">#  (Run &quot;pip install opencv-python pillow pygame&quot; to use the animation)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">animation</span><span class="p">():</span>
     <span class="n">runner</span> <span class="o">=</span> <span class="n">_create_runner</span><span class="p">(</span><span class="n">load_parameter</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">runner</span><span class="o">.</span><span class="n">animation_save_gif</span><span class="p">(</span><span class="s2">&quot;_FrozenLake.gif&quot;</span><span class="p">)</span>
+    <span class="n">runner</span><span class="o">.</span><span class="n">animation_save_gif</span><span class="p">(</span><span class="s2">&quot;_Grid.gif&quot;</span><span class="p">)</span>
 
 
 <span class="c1"># --- replay window sample</span>

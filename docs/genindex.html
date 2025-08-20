@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>索引 &mdash; SimpleDistributedRL 1.3.6.2 ドキュメント</title>
+  <title>索引 &mdash; SimpleDistributedRL 1.4.0 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=034df441"></script>
+      <script src="_static/documentation_options.js?v=0868a3b3"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="_static/translations.js?v=4755f45a"></script>
@@ -88,6 +88,7 @@
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/alphazero.html">AlphaZero</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/muzero.html">MuZero</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/algorithms/dreamer_v3.html">DreamerV3</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pages/algorithms/not_dqn.html">No Target Deep Q-Networks</a></li>
 </ul>
 
         </div>
@@ -188,6 +189,10 @@
 </li>
       <li><a href="pages/rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig.add_polynomial">add_polynomial() (srl.rl.schedulers.scheduler.SchedulerConfig のメソッド)</a>
 </li>
+      <li><a href="pages/algorithms/not_dqn.html#srl.algorithms.not_dqn.Config.alignment_loss_coeff">alignment_loss_coeff (srl.algorithms.not_dqn.Config の属性)</a>
+</li>
+      <li><a href="pages/algorithms/not_dqn.html#srl.algorithms.not_dqn.Config.alignment_loss_coeff_scheduler">alignment_loss_coeff_scheduler (srl.algorithms.not_dqn.Config の属性)</a>
+</li>
       <li><a href="pages/rl_config_memory.html#srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory.alpha">alpha (srl.rl.memories.priority_memories.proportional_memory.ProportionalMemory の属性)</a>
 
       <ul>
@@ -220,6 +225,8 @@
         <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.batch_size">(srl.algorithms.dreamer_v3.Config の属性)</a>
 </li>
         <li><a href="pages/algorithms/muzero.html#srl.algorithms.muzero.Config.batch_size">(srl.algorithms.muzero.Config の属性)</a>
+</li>
+        <li><a href="pages/algorithms/not_dqn.html#srl.algorithms.not_dqn.Config.batch_size">(srl.algorithms.not_dqn.Config の属性)</a>
 </li>
         <li><a href="pages/algorithms/ppo.html#srl.algorithms.ppo.Config.batch_size">(srl.algorithms.ppo.Config の属性)</a>
 </li>
@@ -317,6 +324,8 @@
 </li>
         <li><a href="pages/algorithms/muzero.html#srl.algorithms.muzero.Config">(srl.algorithms.muzero のクラス)</a>
 </li>
+        <li><a href="pages/algorithms/not_dqn.html#srl.algorithms.not_dqn.Config">(srl.algorithms.not_dqn のクラス)</a>
+</li>
         <li><a href="pages/algorithms/ppo.html#srl.algorithms.ppo.Config">(srl.algorithms.ppo のクラス)</a>
 </li>
         <li><a href="pages/algorithms/ql.html#srl.algorithms.ql.Config">(srl.algorithms.ql のクラス)</a>
@@ -386,6 +395,8 @@
         <li><a href="pages/algorithms/mcts.html#srl.algorithms.mcts.Config.discount">(srl.algorithms.mcts.Config の属性)</a>
 </li>
         <li><a href="pages/algorithms/muzero.html#srl.algorithms.muzero.Config.discount">(srl.algorithms.muzero.Config の属性)</a>
+</li>
+        <li><a href="pages/algorithms/not_dqn.html#srl.algorithms.not_dqn.Config.discount">(srl.algorithms.not_dqn.Config の属性)</a>
 </li>
         <li><a href="pages/algorithms/ppo.html#srl.algorithms.ppo.Config.discount">(srl.algorithms.ppo.Config の属性)</a>
 </li>
@@ -504,10 +515,10 @@
 </li>
       <li><a href="pages/algorithms/sac.html#srl.algorithms.sac.Config.entropy_alpha">entropy_alpha (srl.algorithms.sac.Config の属性)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="pages/algorithms/sac.html#srl.algorithms.sac.Config.entropy_alpha_auto_scale">entropy_alpha_auto_scale (srl.algorithms.sac.Config の属性)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.entropy_rate">entropy_rate (srl.algorithms.dreamer_v3.Config の属性)</a>
 </li>
       <li><a href="pages/algorithms/ppo.html#srl.algorithms.ppo.Config.entropy_weight">entropy_weight (srl.algorithms.ppo.Config の属性)</a>
@@ -575,6 +586,8 @@
       <ul>
         <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.epsilon">(srl.algorithms.dreamer_v3.Config の属性)</a>
 </li>
+        <li><a href="pages/algorithms/not_dqn.html#srl.algorithms.not_dqn.Config.epsilon">(srl.algorithms.not_dqn.Config の属性)</a>
+</li>
         <li><a href="pages/algorithms/ql.html#srl.algorithms.ql.Config.epsilon">(srl.algorithms.ql.Config の属性)</a>
 </li>
         <li><a href="pages/algorithms/rainbow.html#srl.algorithms.rainbow.rainbow.Config.epsilon">(srl.algorithms.rainbow.rainbow.Config の属性)</a>
@@ -587,6 +600,8 @@
       <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.epsilon_scheduler">epsilon_scheduler (srl.algorithms.dqn.dqn.Config の属性)</a>
 
       <ul>
+        <li><a href="pages/algorithms/not_dqn.html#srl.algorithms.not_dqn.Config.epsilon_scheduler">(srl.algorithms.not_dqn.Config の属性)</a>
+</li>
         <li><a href="pages/algorithms/ql.html#srl.algorithms.ql.Config.epsilon_scheduler">(srl.algorithms.ql.Config の属性)</a>
 </li>
         <li><a href="pages/algorithms/rainbow.html#srl.algorithms.rainbow.rainbow.Config.epsilon_scheduler">(srl.algorithms.rainbow.rainbow.Config の属性)</a>
@@ -645,6 +660,8 @@
 </li>
         <li><a href="pages/algorithms/muzero.html#srl.algorithms.muzero.Config.get_processors">(srl.algorithms.muzero.Config のメソッド)</a>
 </li>
+        <li><a href="pages/algorithms/not_dqn.html#srl.algorithms.not_dqn.Config.get_processors">(srl.algorithms.not_dqn.Config のメソッド)</a>
+</li>
         <li><a href="pages/algorithms/ppo.html#srl.algorithms.ppo.Config.get_processors">(srl.algorithms.ppo.Config のメソッド)</a>
 </li>
         <li><a href="pages/algorithms/rainbow.html#srl.algorithms.rainbow.rainbow.Config.get_processors">(srl.algorithms.rainbow.rainbow.Config のメソッド)</a>
@@ -686,6 +703,8 @@
         <li><a href="pages/algorithms/agent57_light.html#srl.algorithms.agent57_light.agent57_light.Config.hidden_block">(srl.algorithms.agent57_light.agent57_light.Config の属性)</a>
 </li>
         <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.hidden_block">(srl.algorithms.dqn.dqn.Config の属性)</a>
+</li>
+        <li><a href="pages/algorithms/not_dqn.html#srl.algorithms.not_dqn.Config.hidden_block">(srl.algorithms.not_dqn.Config の属性)</a>
 </li>
         <li><a href="pages/algorithms/ppo.html#srl.algorithms.ppo.Config.hidden_block">(srl.algorithms.ppo.Config の属性)</a>
 </li>
@@ -730,6 +749,8 @@
         <li><a href="pages/algorithms/ddpg.html#srl.algorithms.ddpg.Config.input_block">(srl.algorithms.ddpg.Config の属性)</a>
 </li>
         <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.input_block">(srl.algorithms.dqn.dqn.Config の属性)</a>
+</li>
+        <li><a href="pages/algorithms/not_dqn.html#srl.algorithms.not_dqn.Config.input_block">(srl.algorithms.not_dqn.Config の属性)</a>
 </li>
         <li><a href="pages/algorithms/ppo.html#srl.algorithms.ppo.Config.input_block">(srl.algorithms.ppo.Config の属性)</a>
 </li>
@@ -823,6 +844,8 @@
 </li>
         <li><a href="pages/algorithms/muzero.html#srl.algorithms.muzero.Config.lr">(srl.algorithms.muzero.Config の属性)</a>
 </li>
+        <li><a href="pages/algorithms/not_dqn.html#srl.algorithms.not_dqn.Config.lr">(srl.algorithms.not_dqn.Config の属性)</a>
+</li>
         <li><a href="pages/algorithms/ppo.html#srl.algorithms.ppo.Config.lr">(srl.algorithms.ppo.Config の属性)</a>
 </li>
         <li><a href="pages/algorithms/ql.html#srl.algorithms.ql.Config.lr">(srl.algorithms.ql.Config の属性)</a>
@@ -838,10 +861,10 @@
 </li>
       <li><a href="pages/algorithms/sac.html#srl.algorithms.sac.Config.lr_alpha">lr_alpha (srl.algorithms.sac.Config の属性)</a>
 </li>
-      <li><a href="pages/algorithms/sac.html#srl.algorithms.sac.Config.lr_alpha_scheduler">lr_alpha_scheduler (srl.algorithms.sac.Config の属性)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pages/algorithms/sac.html#srl.algorithms.sac.Config.lr_alpha_scheduler">lr_alpha_scheduler (srl.algorithms.sac.Config の属性)</a>
+</li>
       <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.lr_critic">lr_critic (srl.algorithms.dreamer_v3.Config の属性)</a>
 </li>
       <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.lr_critic_scheduler">lr_critic_scheduler (srl.algorithms.dreamer_v3.Config の属性)</a>
@@ -928,6 +951,8 @@
 </li>
       <li><a href="pages/run_context.html#srl.base.context.RunContext.max_memory">max_memory (srl.base.context.RunContext の属性)</a>
 </li>
+      <li><a href="pages/algorithms/not_dqn.html#srl.algorithms.not_dqn.Config.max_n_step">max_n_step (srl.algorithms.not_dqn.Config の属性)</a>
+</li>
       <li><a href="pages/run_context.html#srl.base.context.RunContext.max_steps">max_steps (srl.base.context.RunContext の属性)</a>
 </li>
       <li><a href="pages/run_context.html#srl.base.context.RunContext.max_train_count">max_train_count (srl.base.context.RunContext の属性)</a>
@@ -946,6 +971,8 @@
         <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.memory">(srl.algorithms.dreamer_v3.Config の属性)</a>
 </li>
         <li><a href="pages/algorithms/muzero.html#srl.algorithms.muzero.Config.memory">(srl.algorithms.muzero.Config の属性)</a>
+</li>
+        <li><a href="pages/algorithms/not_dqn.html#srl.algorithms.not_dqn.Config.memory">(srl.algorithms.not_dqn.Config の属性)</a>
 </li>
         <li><a href="pages/algorithms/ppo.html#srl.algorithms.ppo.Config.memory">(srl.algorithms.ppo.Config の属性)</a>
 </li>
@@ -1216,10 +1243,10 @@
 </li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.config.input_block.InputImageBlockConfig.set_dqn_block">set_dqn_block() (srl.rl.models.config.input_block.InputImageBlockConfig のメソッド)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="pages/rl_config_model.html#srl.rl.models.config.dueling_network.DuelingNetworkConfig.set_dueling_network">set_dueling_network() (srl.rl.models.config.dueling_network.DuelingNetworkConfig のメソッド)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="pages/runner.html#srl.runner.runner_base.RunnerBase.set_history_on_file">set_history_on_file() (srl.runner.runner_base.RunnerBase のメソッド)</a>
 </li>
       <li><a href="pages/runner.html#srl.runner.runner_base.RunnerBase.set_history_on_memory">set_history_on_memory() (srl.runner.runner_base.RunnerBase のメソッド)</a>
@@ -1248,8 +1275,12 @@
         <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.setup_from_actor">(srl.base.rl.config.RLConfig のメソッド)</a>
 </li>
       </ul></li>
-      <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.setup_from_env">setup_from_env() (srl.base.rl.config.RLConfig のメソッド)</a>
+      <li><a href="pages/algorithms/not_dqn.html#srl.algorithms.not_dqn.Config.setup_from_env">setup_from_env() (srl.algorithms.not_dqn.Config のメソッド)</a>
+
+      <ul>
+        <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.setup_from_env">(srl.base.rl.config.RLConfig のメソッド)</a>
 </li>
+      </ul></li>
       <li><a href="pages/run_context.html#srl.base.context.RunContext.shuffle_player">shuffle_player (srl.base.context.RunContext の属性)</a>
 </li>
       <li><a href="pages/rl_config_memory.html#srl.rl.memories.single_use_buffer.SingleUseBuffer">SingleUseBuffer (srl.rl.memories.single_use_buffer のクラス)</a>
@@ -1306,6 +1337,8 @@
         <li><a href="pages/algorithms/agent57_light.html#srl.algorithms.agent57_light.agent57_light.Config.test_epsilon">(srl.algorithms.agent57_light.agent57_light.Config の属性)</a>
 </li>
         <li><a href="pages/algorithms/dqn.html#srl.algorithms.dqn.dqn.Config.test_epsilon">(srl.algorithms.dqn.dqn.Config の属性)</a>
+</li>
+        <li><a href="pages/algorithms/not_dqn.html#srl.algorithms.not_dqn.Config.test_epsilon">(srl.algorithms.not_dqn.Config の属性)</a>
 </li>
         <li><a href="pages/algorithms/ql.html#srl.algorithms.ql.Config.test_epsilon">(srl.algorithms.ql.Config の属性)</a>
 </li>

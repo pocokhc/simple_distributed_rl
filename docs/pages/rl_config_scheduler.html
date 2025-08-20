@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scheduler &mdash; SimpleDistributedRL 1.3.6.2 ドキュメント</title>
+  <title>Scheduler &mdash; SimpleDistributedRL 1.4.0 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=034df441"></script>
+      <script src="../_static/documentation_options.js?v=0868a3b3"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -117,6 +117,7 @@
 <li class="toctree-l1"><a class="reference internal" href="algorithms/alphazero.html">AlphaZero</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/muzero.html">MuZero</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dreamer_v3.html">DreamerV3</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/not_dqn.html">No Target Deep Q-Networks</a></li>
 </ul>
 
         </div>
@@ -236,12 +237,13 @@ clear後、addから始まる関数を使ってください。</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig.set_cosine">
-<span class="sig-name descname"><span class="pre">set_cosine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_cosine" title="Link to this definition"></a></dt>
-<dd><p>cosに従って0へ変動</p>
+<span class="sig-name descname"><span class="pre">set_cosine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_cosine" title="Link to this definition"></a></dt>
+<dd><p>cosに従って変動</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>start_rate</strong> (<em>float</em>) -- 開始時のrate</p></li>
+<li><p><strong>end_rate</strong> (<em>float</em>) -- 終了時のrate</p></li>
 <li><p><strong>phase_steps</strong> (<em>int</em>) -- 継続するstep数</p></li>
 </ul>
 </dd>
@@ -250,12 +252,13 @@ clear後、addから始まる関数を使ってください。</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig.add_cosine">
-<span class="sig-name descname"><span class="pre">add_cosine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.add_cosine" title="Link to this definition"></a></dt>
-<dd><p>cosに従って0へ変動</p>
+<span class="sig-name descname"><span class="pre">add_cosine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.add_cosine" title="Link to this definition"></a></dt>
+<dd><p>cosに従って変動</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>start_rate</strong> (<em>float</em>) -- 開始時のrate</p></li>
+<li><p><strong>end_rate</strong> (<em>float</em>) -- 終了時のrate</p></li>
 <li><p><strong>phase_steps</strong> (<em>int</em>) -- 継続するstep数</p></li>
 </ul>
 </dd>
@@ -264,12 +267,13 @@ clear後、addから始まる関数を使ってください。</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig.set_cosine_with_hard_restarts">
-<span class="sig-name descname"><span class="pre">set_cosine_with_hard_restarts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_cycles</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_cosine_with_hard_restarts" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">set_cosine_with_hard_restarts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_cycles</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_cosine_with_hard_restarts" title="Link to this definition"></a></dt>
 <dd><p>cosに従って0へ変動、ただしnum_cycles数繰り返す</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>start_rate</strong> (<em>float</em>) -- 開始時のrate</p></li>
+<li><p><strong>end_rate</strong> (<em>float</em>) -- 終了時のrate</p></li>
 <li><p><strong>phase_steps</strong> (<em>int</em>) -- 継続するstep数</p></li>
 <li><p><strong>num_cycles</strong> (<em>int</em>) -- 繰り返す回数</p></li>
 </ul>
@@ -279,12 +283,13 @@ clear後、addから始まる関数を使ってください。</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig.add_cosine_with_hard_restarts">
-<span class="sig-name descname"><span class="pre">add_cosine_with_hard_restarts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_cycles</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.add_cosine_with_hard_restarts" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">add_cosine_with_hard_restarts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_cycles</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.add_cosine_with_hard_restarts" title="Link to this definition"></a></dt>
 <dd><p>cosに従って0へ変動、ただしnum_cycles数繰り返す</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>start_rate</strong> (<em>float</em>) -- 開始時のrate</p></li>
+<li><p><strong>end_rate</strong> (<em>float</em>) -- 終了時のrate</p></li>
 <li><p><strong>phase_steps</strong> (<em>int</em>) -- 継続するstep数</p></li>
 <li><p><strong>num_cycles</strong> (<em>int</em>) -- 繰り返す回数</p></li>
 </ul>
@@ -294,13 +299,14 @@ clear後、addから始まる関数を使ってください。</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig.set_polynomial">
-<span class="sig-name descname"><span class="pre">set_polynomial</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">power</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_polynomial" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">set_polynomial</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">power</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.set_polynomial" title="Link to this definition"></a></dt>
 <dd><p>多項式に従って0へ減少</p>
 <p>y = start_rate * (1 - step/phase_steps)^power</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>start_rate</strong> (<em>float</em>) -- 開始時のrate</p></li>
+<li><p><strong>end_rate</strong> (<em>float</em>) -- 終了時のrate</p></li>
 <li><p><strong>phase_steps</strong> (<em>int</em>) -- 継続するstep数</p></li>
 <li><p><strong>power</strong> (<em>float</em><em>, </em><em>optional</em>) -- 強さ、1で線形と同じ. Defaults to 2.</p></li>
 </ul>
@@ -310,13 +316,14 @@ clear後、addから始まる関数を使ってください。</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="srl.rl.schedulers.scheduler.SchedulerConfig.add_polynomial">
-<span class="sig-name descname"><span class="pre">add_polynomial</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">power</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.add_polynomial" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">add_polynomial</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phase_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">power</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.rl.schedulers.scheduler.SchedulerConfig.add_polynomial" title="Link to this definition"></a></dt>
 <dd><p>多項式に従って0へ減少</p>
 <p>y = start_rate * (1 - step/phase_steps)^power</p>
 <dl class="field-list simple">
 <dt class="field-odd">パラメータ<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>phase_steps</strong> (<em>int</em>) -- 継続するstep数</p></li>
+<li><p><strong>end_rate</strong> (<em>float</em>) -- 終了時のrate</p></li>
 <li><p><strong>start_rate</strong> (<em>float</em>) -- 開始時のrate</p></li>
 <li><p><strong>power</strong> (<em>float</em><em>, </em><em>optional</em>) -- 強さ、1で線形と同じ. Defaults to 2.</p></li>
 </ul>

@@ -50,7 +50,7 @@ def test_linear_down():
 
 def test_cosine():
     sch = SchedulerConfig()
-    sch.set_cosine(1.0, 10)
+    sch.set_cosine(1.0, 0, 10)
     val = sch.create()
 
     for i in range(10):
@@ -67,7 +67,7 @@ def test_cosine():
 
 def test_cosine_with_hard_restarts():
     sch = SchedulerConfig()
-    sch.set_cosine_with_hard_restarts(1.0, 10, 2)
+    sch.set_cosine_with_hard_restarts(1.0, 0, 10, 2)
     val = sch.create()
 
     for i in range(5):
@@ -90,7 +90,7 @@ def test_cosine_with_hard_restarts():
 
 def test_polynomial():
     sch = SchedulerConfig()
-    sch.set_polynomial(1.0, 10, power=2)
+    sch.set_polynomial(1.0, 0, 10, power=2)
     val = sch.create()
 
     for i in range(10):
@@ -111,8 +111,8 @@ def test_multi_plot():
     sch = SchedulerConfig()
     sch.add_linear(0.5, 1.0, 100)
     sch.add_linear(1.0, 0.1, 200)
-    sch.add_cosine(0.7, 200)
-    sch.add_cosine_with_hard_restarts(0.7, 500, 5)
-    sch.add_polynomial(1.0, 200)
+    sch.add_cosine(0.7, 0.2, 200)
+    sch.add_cosine_with_hard_restarts(0.7, 0.2, 500, 5)
+    sch.add_polynomial(1.5, 0.3, 200)
     sch.add(0.2)
     sch.plot(_no_plot=True)

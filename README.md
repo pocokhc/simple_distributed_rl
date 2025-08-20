@@ -164,6 +164,7 @@ animation_save_gifで生成された画像は以下です。
 |SearchDynaQ   |Discrete   |Discrete|ModelBase|-         |-    |100%|original|
 |GoDynaQ       |Discrete   |Discrete|ModelBase|-         |-    |99%|original|
 |GoDQN         |Continuous |Discrete|ValueBase|✔        |-    |90%|original|
+|NoT_DQN       |Continuous |Discrete|ValueBase|-        |✔    |100%|No Target DQN, original|
 |GoDQ_v1       |Continuous |Discrete|ValueBase|-        |✔    |100%|original|
 
 

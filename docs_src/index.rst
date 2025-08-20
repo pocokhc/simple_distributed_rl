@@ -54,6 +54,7 @@ Welcome to SimpleDistributedRL's documentation!
    pages/algorithms/alphazero
    pages/algorithms/muzero
    pages/algorithms/dreamer_v3
+   pages/algorithms/not_dqn
 
 
 Indices and tables

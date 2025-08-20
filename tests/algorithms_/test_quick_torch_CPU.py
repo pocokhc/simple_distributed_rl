@@ -10,6 +10,7 @@ from tests.algorithms_ import (
     base_go_explore,
     base_godq_v1,
     base_muzero,
+    base_not_dqn,
     base_planet,
     base_ppo,
     base_r2d2,
@@ -42,6 +43,10 @@ class Test_dqn(_CommonOption, base_dqn.QuickCase):
 
 
 class Test_rainbow(_CommonOption, base_rainbow.QuickCase):
+    pass
+
+
+class Test_not_dqn(_CommonOption, base_not_dqn.QuickCase):
     pass
 
 

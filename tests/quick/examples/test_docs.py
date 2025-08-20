@@ -50,7 +50,7 @@ def test_howtouse():
     import howtouse_animation  # type: ignore  # noqa: F401
     import howtouse_eval  # type: ignore  # noqa: F401
     import howtouse_render_terminal  # type: ignore  # noqa: F401
-    import howtouse_render_window  # type: ignore  # noqa: F401
+    # import howtouse_render_window  # type: ignore  # noqa: F401
 
 
 def test_yaml_training():

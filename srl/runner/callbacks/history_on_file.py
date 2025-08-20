@@ -6,7 +6,7 @@ import os
 import time
 import traceback
 from dataclasses import dataclass
-from typing import Optional
+from typing import Literal, Optional, Union
 
 import numpy as np
 
@@ -164,8 +164,8 @@ class HistoryOnFileBase:
 @dataclass
 class HistoryOnFile(RunCallback, Evaluate):
     save_dir: str = ""
-    interval: int = 1
-    interval_mode: str = "time"
+    interval: Union[float, int] = 1
+    interval_mode: Literal["time", "step"] = "time"
     add_history: bool = False
     write_system: bool = False
 

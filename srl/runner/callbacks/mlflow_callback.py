@@ -6,7 +6,7 @@ import tempfile
 import time
 import traceback
 from dataclasses import dataclass, field
-from typing import Optional, cast
+from typing import Literal, Optional, Union, cast
 
 import mlflow
 import mlflow.artifacts
@@ -16,6 +16,7 @@ import mlflow.tracking
 import srl
 from srl.base.context import RunContext, RunState
 from srl.base.env.config import EnvConfig
+from srl.base.exception import UndefinedError
 from srl.base.rl.config import RLConfig
 from srl.base.rl.parameter import RLParameter
 from srl.base.run.callback import RunCallback
@@ -33,9 +34,11 @@ class MLFlowCallback(RunCallback, Evaluate):
     run_name: str = ""
     tags: dict = field(default_factory=dict)
 
-    interval_episode: float = 60
-    interval_eval: float = -1  # -1 is auto
-    interval_checkpoint: float = 60 * 30
+    interval: Union[float, int] = 60
+    interval_mode: Literal["time", "step"] = "time"
+
+    eval_interval: float = -1  # -1 is auto
+    checkpoint_interval: float = 60 * 30
     enable_checkpoint: bool = True
 
     def on_start(self, context: RunContext, **kwargs) -> None:
@@ -102,12 +105,20 @@ class MLFlowCallback(RunCallback, Evaluate):
     def on_episodes_begin(self, context: RunContext, state, **kwargs) -> None:
         if context.actor_id != 0:
             return
+
         # --- error check
         self._log_actor(context, state)
-        self._log_eval(context, state)
+        self._log_eval(context, state, init=True)
         if not context.distributed:
             self._log_checkpoint(context, state)
-        self.t0_episode = time.time()
+
+        if self.interval_mode == "time":
+            self.interval0 = time.time()
+        elif self.interval_mode == "step":
+            self.interval0 = 0
+        else:
+            raise UndefinedError(self.interval_mode)
+
         self.t0_eval = time.time()
         self.t0_checkpoint = time.time()
 
@@ -115,16 +126,25 @@ class MLFlowCallback(RunCallback, Evaluate):
         if context.actor_id != 0:
             return False
         _time = time.time()
-        if _time - self.t0_episode > self.interval_episode:
-            self._log_actor(context, state)
-            self.t0_episode = time.time()  # last
 
-        if _time - self.t0_eval > self.interval_eval:
+        if self.interval_mode == "time":
+            if _time - self.interval0 > self.interval:
+                self._log_actor(context, state)
+                self.interval0 = time.time()  # last
+        elif self.interval_mode == "step":
+            self.interval0 += 1
+            if self.interval0 >= self.interval:
+                self._log_actor(context, state)
+                self.interval0 = 0  # last
+        else:
+            raise UndefinedError(self.interval_mode)
+
+        if _time - self.t0_eval > self._eval_interval:
             self._log_eval(context, state)
             self.t0_eval = time.time()  # last
 
         if not context.distributed:
-            if _time - self.t0_checkpoint > self.interval_checkpoint:
+            if _time - self.t0_checkpoint > self.checkpoint_interval:
                 self._log_checkpoint(context, state)
                 self.t0_checkpoint = time.time()  # last
 
@@ -143,9 +163,16 @@ class MLFlowCallback(RunCallback, Evaluate):
     def on_trainer_start(self, context: RunContext, state, **kwargs) -> None:
         self._log_trainer(context, state)
         if not context.distributed:
-            self._log_eval(context, state)
+            self._log_eval(context, state, init=True)
         self._log_checkpoint(context, state)
-        self.t0_episode = time.time()
+
+        if self.interval_mode == "time":
+            self.interval0 = time.time()
+        elif self.interval_mode == "step":
+            self.interval0 = 0
+        else:
+            raise UndefinedError(self.interval_mode)
+
         self.t0_eval = time.time()
         self.t0_checkpoint = time.time()
 
@@ -157,16 +184,25 @@ class MLFlowCallback(RunCallback, Evaluate):
 
     def on_train_after(self, context: RunContext, state, **kwargs) -> bool:
         _time = time.time()
-        if _time - self.t0_episode > self.interval_episode:
-            self._log_trainer(context, state)
-            self.t0_episode = time.time()  # last
+
+        if self.interval_mode == "time":
+            if _time - self.interval0 > self.interval:
+                self._log_trainer(context, state)
+                self.interval0 = time.time()  # last
+        elif self.interval_mode == "step":
+            self.interval0 += 1
+            if self.interval0 >= self.interval:
+                self._log_trainer(context, state)
+                self.interval0 = 0  # last
+        else:
+            raise UndefinedError(self.interval_mode)
 
         if not context.distributed:
-            if _time - self.t0_eval > self.interval_eval:
+            if _time - self.t0_eval > self._eval_interval:
                 self._log_eval(context, state)
                 self.t0_eval = time.time()  # last
 
-        if _time - self.t0_checkpoint > self.interval_checkpoint:
+        if _time - self.t0_checkpoint > self.checkpoint_interval:
             self._log_checkpoint(context, state)
             self.t0_checkpoint = time.time()  # last
 
@@ -242,9 +278,12 @@ class MLFlowCallback(RunCallback, Evaluate):
 
         return d
 
-    def _log_eval(self, context: RunContext, state: RunState):
+    def _log_eval(self, context: RunContext, state: RunState, init: bool = False):
         if not self.enable_eval:
             return
+
+        if init:
+            self._eval_interval = 0 if self.eval_interval < 0 else self.eval_interval
 
         t0 = time.time()
         eval_rewards = self.run_eval_with_state(context, state)
@@ -255,16 +294,17 @@ class MLFlowCallback(RunCallback, Evaluate):
             mlflow.log_metrics(d, self._get_step(context, state), run_id=self.run_id)
 
         # check interval
-        eval_time = time.time() - t0
-        interval = eval_time * 10
-        if interval < 1:
-            interval = 1
-        interval = math.ceil(interval)
-        if interval > 60 * 10:
-            interval = 60 * 10
-        if self.interval_eval < interval:
-            self.interval_eval = interval
-            logger.info(f"set eval interval: {interval:.0f}s (eval time: {eval_time:.3f}s)")
+        if self.eval_interval < 0:
+            eval_time = time.time() - t0
+            interval = eval_time * 10
+            if interval < 1:
+                interval = 1
+            interval = math.ceil(interval)
+            if interval > 60 * 10:
+                interval = 60 * 10
+            if self._eval_interval < interval:
+                self._eval_interval = interval
+                logger.info(f"set eval interval: {interval:.0f}s (eval time: {eval_time:.3f}s)")
 
     def _log_checkpoint(self, context: RunContext, state):
         if not self.enable_checkpoint:

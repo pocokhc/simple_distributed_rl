@@ -1,7 +1,7 @@
 import logging
 import os
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Generic, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Generic, List, Literal, Optional, Union, cast
 
 from srl.base.context import RunContext, RunState
 from srl.base.define import PlayersType
@@ -369,8 +369,8 @@ class RunnerBase(Generic[TRLConfig]):
 
     def set_history_on_memory(
         self,
-        interval: int = 1,
-        interval_mode: str = "time",
+        interval: Union[float, int] = 1,
+        interval_mode: Literal["time", "step"] = "time",
         enable_eval: bool = False,
         eval_episode: int = 1,
         eval_timeout: float = -1,
@@ -405,8 +405,8 @@ class RunnerBase(Generic[TRLConfig]):
     def set_history_on_file(
         self,
         save_dir: str = "",
-        interval: int = 1,
-        interval_mode: str = "time",
+        interval: Union[float, int] = 1,
+        interval_mode: Literal["time", "step"] = "time",
         add_history: bool = False,
         write_system: bool = False,
         enable_eval: bool = False,
@@ -562,9 +562,10 @@ class RunnerBase(Generic[TRLConfig]):
         experiment_name: str = "",
         run_name: str = "",
         tags: dict = {},
-        interval_episode: float = 60,
-        interval_eval: float = -1,
-        interval_checkpoint: float = 60 * 30,
+        interval: Union[float, int] = 60,
+        interval_mode: Literal["time", "step"] = "time",
+        eval_interval: float = -1,
+        checkpoint_interval: float = 60 * 30,
         enable_checkpoint: bool = True,
         enable_eval: bool = True,
         eval_episode: int = 1,
@@ -577,9 +578,10 @@ class RunnerBase(Generic[TRLConfig]):
             experiment_name=experiment_name,
             run_name=run_name,
             tags=tags,
-            interval_episode=interval_episode,
-            interval_eval=interval_eval,
-            interval_checkpoint=interval_checkpoint,
+            interval=interval,
+            interval_mode=interval_mode,
+            eval_interval=eval_interval,
+            checkpoint_interval=checkpoint_interval,
             enable_checkpoint=enable_checkpoint,
             enable_eval=enable_eval,
             eval_episode=eval_episode,

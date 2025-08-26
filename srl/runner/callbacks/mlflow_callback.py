@@ -226,14 +226,16 @@ class MLFlowCallback(RunCallback, Evaluate):
         d["worker/episode"] = state.episode_count
         d["worker/total_step"] = state.total_step
         if state.trainer is not None:
-            d2 = {"trainer/" + k: v for k, v in state.trainer.info.to_dict().items()}
-            d2["trainer/train_count"] = state.trainer.train_count
-            d.update(d2)
+            for k, v in state.trainer.info.to_dict().items():
+                d["trainer/" + k] = v
+            d["trainer/train_count"] = state.trainer.train_count
         else:
             d["worker/train_count"] = state.train_count
-        d2 = {"worker/" + k: v for k, v in state.worker.info.to_dict().items()}
-        d.update(d2)
+        for k, v in state.worker.info.to_dict().items():
+            d["worker/" + k] = v
         d.update(self._get_system_log(context, state))
+        for k, v in state.env.info.to_dict().items():
+            d["env/" + k] = v
         mlflow.log_metrics(d, self._get_step(context, state), run_id=self.run_id)
 
     def _log_trainer(self, context: RunContext, state: RunState):

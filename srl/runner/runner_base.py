@@ -593,24 +593,28 @@ class RunnerBase(Generic[TRLConfig]):
 
     def load_parameter_from_mlflow(
         self,
+        run_id: Optional[str] = None,
+        file_name: str = "",
         experiment_name: str = "",
         run_idx: int = -1,
         parameter_idx: int = -1,
     ):
         from srl.runner.callbacks.mlflow_callback import MLFlowCallback
 
-        if experiment_name == "":
-            experiment_name = self.env_config.name
-
-        run_id = MLFlowCallback.get_run_id(experiment_name, self.rl_config.get_name(), run_idx)
         if run_id is None:
-            raise ValueError(f"run id is not found. experiment: {experiment_name}, rl_name: {self.rl_config.get_name()}")
-        files = MLFlowCallback.get_parameter_files(run_id)
-        if len(files) == 0:
-            raise ValueError(f"parameter is not found. experiment: {experiment_name}, rl_name: {self.rl_config.get_name()}")
+            if experiment_name == "":
+                experiment_name = self.env_config.name
+            run_id = MLFlowCallback.get_run_id(experiment_name, self.rl_config.get_name(), run_idx)
+            if run_id is None:
+                raise ValueError(f"run id is not found. experiment: {experiment_name}, rl_name: {self.rl_config.get_name()}")
+        if file_name == "":
+            files = MLFlowCallback.get_parameter_files(run_id)
+            if len(files) == 0:
+                raise ValueError(f"parameter is not found. experiment: {experiment_name}, rl_name: {self.rl_config.get_name()}")
+            file_name = files[parameter_idx]
         MLFlowCallback.load_parameter(
             run_id,
-            files[parameter_idx],
+            file_name,
             self.make_parameter(),
         )
 

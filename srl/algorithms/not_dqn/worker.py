@@ -14,10 +14,12 @@ logger = logging.getLogger(__name__)
 class Worker(RLWorker[Config, Parameter, Memory]):
     def on_setup(self, worker, context) -> None:
         self.epsilon_sch = self.config.epsilon_scheduler.create(self.config.epsilon)
-        worker.set_tracking_max_size(self.config.max_n_step)
+        worker.set_tracking_max_size(self.config.max_discount_steps)
 
     def policy(self, worker) -> int:
-        epsilon = self.epsilon_sch.update(self.step_in_training).to_float() if self.training else self.config.test_epsilon
+        epsilon = (
+            self.epsilon_sch.update(self.step_in_training).to_float() if self.training else self.config.test_epsilon
+        )
         if random.random() < epsilon:
             return self.sample_action()
         q = self.parameter.pred_q(worker.state[np.newaxis, ...])[0]
@@ -37,7 +39,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             }
         )
         if not worker.done:
-            if worker.get_tracking_length() == self.config.max_n_step:
+            if worker.get_tracking_length() == self.config.max_discount_steps:
                 discounted_reward = 0
                 for b in reversed(worker.get_trackings()):
                     discounted_reward = b[3] + self.config.discount * discounted_reward

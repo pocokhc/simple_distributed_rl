@@ -26,7 +26,7 @@ class Config(RLConfig):
     discount: float = 0.995
 
     #: 累積報酬和を計算する最大ステップ数
-    max_n_step: int = 500
+    max_discount_steps: int = 500
     #: Q値がNステップ割引累積報酬和から乖離しすぎないようにする正則化項の係数
     alignment_loss_coeff: float = 0.1
     #: <:ref:`SchedulerConfig`>

@@ -64,7 +64,7 @@ def play_generator(
 
     # --- 3 setup
     env.setup(context, "" if context.rl_config is None else context.rl_config.request_env_render)
-    [w.setup(context) for w in workers]
+    [w.setup(context, run_state=state) for w in workers]
     if trainer is not None:
         trainer.setup(context)
 

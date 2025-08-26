@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Generic, Optional
 
 import numpy as np
 
+from srl.base.context import RunState
 from srl.base.define import DoneTypes, RLActionType, RLObservationType
 from srl.base.info import Info
 from srl.base.render import IRender
@@ -116,6 +117,14 @@ class RLWorkerGeneric(
     @property
     def step_in_episode(self) -> int:
         return self.__worker_run.step_in_episode
+
+    @property
+    def run_state(self) -> RunState:
+        return self.__worker_run._run_state
+
+    @property
+    def train_count(self) -> int:
+        return self.__worker_run._run_state.train_count
 
     # --- env info (shortcut properties)
     @property

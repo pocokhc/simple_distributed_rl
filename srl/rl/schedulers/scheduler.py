@@ -276,6 +276,13 @@ class SchedulerConfig:
         else:
             raise ValueError(name)
 
+    def is_update_step(self) -> bool:
+        if len(self.schedulers) == 0:
+            return False
+        if self.schedulers[-1]["name"] == "constant":
+            return False
+        return True
+
     def plot(
         self,
         _no_plot: bool = False,  # for test

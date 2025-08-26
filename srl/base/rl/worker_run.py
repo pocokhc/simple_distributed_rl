@@ -4,7 +4,7 @@ from typing import Any, Dict, Generic, List, Literal, Optional, cast
 
 import numpy as np
 
-from srl.base.context import RunContext
+from srl.base.context import RunContext, RunState
 from srl.base.define import DoneTypes, EnvActionType, RenderModeType, RLActionType
 from srl.base.env.env_run import EnvRun
 from srl.base.exception import SRLError
@@ -41,7 +41,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._render = Render(worker)
         self._is_setup = False
 
-        self._setup_val(RunContext())
+        self._setup_val(RunContext(), RunState())
         self._reset_val(0)
 
     # ------------------------------------
@@ -94,6 +94,14 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     @property
     def info(self) -> Info:
         return self._worker.info
+
+    @property
+    def run_state(self) -> RunState:
+        return self._run_state
+
+    @property
+    def train_count(self) -> int:
+        return self._run_state.train_count
 
     @property
     def prev_state(self) -> TObsType:
@@ -223,6 +231,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self,
         context: Optional[RunContext] = None,
         render_mode: RenderModeType = "",
+        run_state: Optional[RunState] = None,
     ):
         if context is None:
             context = RunContext(self.env.config, self._config)
@@ -230,15 +239,18 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             render_mode = context.rl_render_mode
         if render_mode == "window":  # rlはwindowは使わない
             render_mode = "rgb_array"
+        if run_state is None:
+            run_state = RunState()
 
-        self._setup_val(context)
+        self._setup_val(context, run_state)
         self._render.set_render_mode(render_mode)
         logger.debug(f"on_setup: {render_mode=}")
         self._worker.on_setup(self, context)
         self._is_setup = True
 
-    def _setup_val(self, context: RunContext):
+    def _setup_val(self, context: RunContext, run_state: RunState):
         self._context = context
+        self._run_state = run_state
         self._step_in_training: int = 0
 
         self._use_stacked_state = self._config.window_length > 1

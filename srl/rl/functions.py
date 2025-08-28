@@ -122,6 +122,14 @@ def get_random_max_index(arr: Union[np.ndarray, List[float]], invalid_actions: L
         return random.choice(np.where(arr == arr.max())[0].tolist())
 
 
+def get_random_idx_by_rankbase(arr_size: int, alpha: float = 1.0):
+    total = arr_size * (2 + (arr_size - 1) * alpha) / 2
+    r = random.random() * total
+    inverse_r = (alpha - 2 + np.sqrt((2 - alpha) ** 2 + 8 * alpha * r)) / (2 * alpha)
+    idx = int(inverse_r)
+    return idx
+
+
 def random_choice_by_probs(probs, total=None):
     if total is None:
         total = sum(probs)

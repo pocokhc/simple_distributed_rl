@@ -591,6 +591,17 @@ class RunnerBase(Generic[TRLConfig]):
             eval_shuffle_player=eval_shuffle_player,
         )
 
+    def disable_mlflow(self):
+        self._mlflow_kwargs = None
+
+    def apply_mlflow(self, callbacks: list):
+        if self._mlflow_kwargs is None:
+            return
+        from srl.runner.callbacks.mlflow_callback import MLFlowCallback
+
+        callbacks.append(MLFlowCallback(**self._mlflow_kwargs))
+        logger.info("add callback MLFlowCallback")
+
     def load_parameter_from_mlflow(
         self,
         run_id: Optional[str] = None,
@@ -634,14 +645,3 @@ class RunnerBase(Generic[TRLConfig]):
         if run_id is None:
             raise ValueError(f"run id is not found. experiment: {experiment_name}, rl_name: {self.rl_config.get_name()}")
         MLFlowCallback.make_html_all_parameters(run_id, self.env_config, self.rl_config, **render_kwargs)
-
-    def disable_mlflow(self):
-        self._mlflow_kwargs = None
-
-    def apply_mlflow(self, callbacks: list):
-        if self._mlflow_kwargs is None:
-            return
-        from srl.runner.callbacks.mlflow_callback import MLFlowCallback
-
-        callbacks.append(MLFlowCallback(**self._mlflow_kwargs))
-        logger.info("add callback MLFlowCallback")

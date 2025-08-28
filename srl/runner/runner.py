@@ -1449,3 +1449,14 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
 def load_runner(path_or_cfg_dict: Union[dict, Any, str]) -> Runner:
     context = RunContext.load(path_or_cfg_dict)
     return Runner(context=context)
+
+
+def load_runner_from_mlflow(run_id: str, parameter_idx: int = -1):
+    from srl.runner.callbacks.mlflow_callback import MLFlowCallback
+
+    env_config = MLFlowCallback.load_env_config(run_id)
+    rl_config = MLFlowCallback.load_rl_config(run_id)
+    context = MLFlowCallback.load_context(run_id)
+    runner = Runner(env_config, rl_config, context)
+    runner.load_parameter_from_mlflow(run_id=run_id, parameter_idx=parameter_idx)
+    return runner

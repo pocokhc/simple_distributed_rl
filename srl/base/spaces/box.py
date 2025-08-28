@@ -67,11 +67,73 @@ class BoxSpace(SpaceBase[np.ndarray]):
     def flatten_size(self) -> int:
         return int(np.prod(self._shape))
 
-    def rescale_from(self, x: np.ndarray, src_low: float, src_high: float) -> np.ndarray:
-        assert src_low < src_high
-        assert not self._is_inf
-        x = ((x - src_low) / (src_high - src_low)) * (self._high - self._low) + self._low
-        return x
+    def rescale_from(self, x: np.ndarray, src_low: float, src_high: float, raise_error: bool = False) -> np.ndarray:
+        """
+        値 x を [src_low, src_high] から [self._low, self._high] に線形変換する。
+        self._low/self._high が無限大の場合は例外を出すか、そのまま返す。
+
+        Parameters
+        ----------
+        x : np.ndarray
+            入力値
+        src_low : float
+            入力値の下限
+        src_high : float
+            入力値の上限 (src_low < src_high でなければならない)
+        raise_error : bool, optional
+            True の場合は不正な範囲に対して例外を出す (default=False)
+
+        Returns
+        -------
+        np.ndarray
+            スケーリング後の値
+
+        Raises
+        ------
+        AssertionError
+            src_low >= src_high の場合
+        ValueError
+            self._low または self._high が inf かつ raise_error=True の場合
+        """
+        assert src_low < src_high, f"src_low >= src_high: {src_low}, {src_high}"
+        if self._is_inf:
+            if raise_error:
+                raise ValueError(f"low/high is inf. {self}")
+            else:
+                return x
+        scale = (self._high - self._low) / (src_high - src_low)
+        return (x - src_low) * scale + self._low
+
+    def rescale_to(self, x: np.ndarray, target_low: float, target_high: float, raise_error: bool = False) -> np.ndarray:
+        """
+        値 x を [self.low, self.high] から [target_low, target_high] に線形変換する。
+        low/high が無限大の場合は例外を出すか、そのまま返す。
+
+        Parameters
+        ----------
+        x : np.ndarray
+            入力値
+        target_low : float
+            変換後の最小値
+        target_high : float
+            変換後の最大値
+        raise_error : bool, optional
+            True の場合は不正な範囲に対して例外を出す (default=False)
+
+        Returns
+        -------
+        np.ndarray
+            スケーリング後の値
+        """
+        if self._is_inf:
+            if raise_error:
+                raise ValueError(f"low/high is inf. {self}")
+            return x
+        if (self.low == self.high).any():
+            if raise_error:
+                raise ValueError(f"low == high is not allowed. {self}")
+            return np.full_like(x, target_low)
+        return (x - self.low) / (self.high - self.low) * (target_high - target_low) + target_low
 
     def to_image(self, x: np.ndarray) -> np.ndarray:
         """

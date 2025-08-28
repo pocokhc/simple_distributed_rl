@@ -8,6 +8,7 @@ from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.np_array import NpArraySpace
+from srl.base.spaces.space import SpaceEncodeOptions
 from srl.base.spaces.text import TextSpace
 
 
@@ -139,33 +140,35 @@ def test_sanitize2():
 
 
 @pytest.mark.parametrize(
-    "create_space, true_space, val, decode_val",
+    "create_space, options, true_space, val, decode_val",
     [
-        [RLBaseTypes.NONE, NpArraySpace(2, -1, 3), np.array([1.1, 1.0], np.float32), [1.1, 1.0]],
-        [RLBaseTypes.DISCRETE, DiscreteSpace(4, 0), 2, [3.0, -1.0]],
-        [RLBaseTypes.ARRAY_DISCRETE, ArrayDiscreteSpace(2, -1, 3), [1, 1], [1.0, 1.0]],
-        [RLBaseTypes.CONTINUOUS, None, 1.0, [1.0, 1.0]],
-        [RLBaseTypes.ARRAY_CONTINUOUS, ArrayContinuousSpace(2, -1, 3), [1.1, 1.0], [1.1, 1.0]],
-        [RLBaseTypes.NP_ARRAY, NpArraySpace(2, -1, 3), np.array([1.1, 1.0], np.float32), [1.1, 1.0]],
-        [RLBaseTypes.NP_ARRAY_UNTYPED, NpArraySpace(2, -1, 3), np.array([1.1, 1.0], np.float32), [1.1, 1.0]],
-        [RLBaseTypes.BOX, BoxSpace((2,), -1, 3), np.full((2,), 2.0), [2.0, 2.0]],
-        [RLBaseTypes.BOX_UNTYPED, BoxSpace((2,), -1, 3), np.full((2,), 2.0), [2.0, 2.0]],
-        [RLBaseTypes.TEXT, TextSpace(min_length=1, charset="0123456789-.,"), "2.0,1.0", [2.0, 1.0]],
+        [RLBaseTypes.NONE, None, NpArraySpace(2, -1, 3), np.array([1.1, 1.0], np.float32), [1.1, 1.0]],
+        [RLBaseTypes.DISCRETE, None, DiscreteSpace(4, 0), 2, [3.0, -1.0]],
+        [RLBaseTypes.ARRAY_DISCRETE, None, ArrayDiscreteSpace(2, -1, 3), [1, 1], [1.0, 1.0]],
+        [RLBaseTypes.CONTINUOUS, None, None, 1.0, [1.0, 1.0]],
+        [RLBaseTypes.ARRAY_CONTINUOUS, None, ArrayContinuousSpace(2, -1, 3), [1.1, 1.0], [1.1, 1.0]],
+        [RLBaseTypes.NP_ARRAY, None, NpArraySpace(2, -1, 3), np.array([1.1, 1.0], np.float32), [1.1, 1.0]],
+        [RLBaseTypes.NP_ARRAY, SpaceEncodeOptions(cast=False), NpArraySpace(2, -1, 3), np.array([1.1, 1.0], np.float32), [1.1, 1.0]],
+        [RLBaseTypes.BOX, None, BoxSpace((2,), -1, 3), np.full((2,), 2.0), [2.0, 2.0]],
+        [RLBaseTypes.BOX, SpaceEncodeOptions(cast=False), BoxSpace((2,), -1, 3), np.full((2,), 2.0), [2.0, 2.0]],
+        [RLBaseTypes.TEXT, None, TextSpace(min_length=1, charset="0123456789-.,"), "2.0,1.0", [2.0, 1.0]],
     ],
 )
-def test_space(create_space, true_space, val, decode_val):
+def test_space(create_space, options, true_space, val, decode_val):
     decode_val = np.array(decode_val, dtype=np.float32)
     space = NpArraySpace(2, -1, 3)
     print(space)
+    if options is None:
+        options = SpaceEncodeOptions(cast=True)
 
     if true_space is None:
         with pytest.raises(NotSupportedError):
-            space.create_encode_space(create_space)
+            space.create_encode_space(create_space, options)
         return
 
     if create_space in [RLBaseTypes.DISCRETE]:
         space.create_division_tbl(5)
-    target_space = space.create_encode_space(create_space)
+    target_space = space.create_encode_space(create_space, options)
     print(target_space)
     assert target_space == true_space
 

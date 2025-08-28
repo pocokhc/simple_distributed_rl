@@ -6,7 +6,7 @@ from typing import Any, List
 import numpy as np
 
 from srl.base.define import RLBaseTypes, SpaceTypes
-from srl.base.spaces.space import SpaceBase
+from srl.base.spaces.space import SpaceBase, SpaceEncodeOptions
 
 logger = logging.getLogger(__name__)
 
@@ -160,9 +160,7 @@ class ContinuousSpace(SpaceBase[float]):
             RLBaseTypes.CONTINUOUS,
             RLBaseTypes.ARRAY_CONTINUOUS,
             RLBaseTypes.NP_ARRAY,
-            RLBaseTypes.NP_ARRAY_UNTYPED,
             RLBaseTypes.BOX,
-            RLBaseTypes.BOX_UNTYPED,
             RLBaseTypes.DISCRETE,
             RLBaseTypes.ARRAY_DISCRETE,
             RLBaseTypes.TEXT,
@@ -242,51 +240,29 @@ class ContinuousSpace(SpaceBase[float]):
         return val[0]
 
     # --- NpArray
-    def create_encode_space_NpArraySpace(self, dtype):
+    def create_encode_space_NpArraySpace(self, options: SpaceEncodeOptions):
         from srl.base.spaces.np_array import NpArraySpace
 
+        dtype = options.cast_dtype if options.cast else self.dtype
         return NpArraySpace(1, self._low, self._high, dtype, SpaceTypes.CONTINUOUS)
 
-    def encode_to_space_NpArraySpace(self, val: float, dtype) -> np.ndarray:
-        return np.array([val], dtype=dtype)
+    def encode_to_space_NpArraySpace(self, val: float, to_space: SpaceBase) -> np.ndarray:
+        return np.array([val], dtype=to_space.dtype)
 
-    def decode_from_space_NpArraySpace(self, val: np.ndarray) -> float:
-        return float(val[0])
-
-    # --- NpArrayUnTyped
-    def create_encode_space_NpArrayUnTyped(self):
-        from srl.base.spaces.np_array import NpArraySpace
-
-        return NpArraySpace(1, self._low, self._high, self.dtype, SpaceTypes.CONTINUOUS)
-
-    def encode_to_space_NpArrayUnTyped(self, val: float) -> np.ndarray:
-        return np.array([val], dtype=self.dtype)
-
-    def decode_from_space_NpArrayUnTyped(self, val: np.ndarray) -> float:
+    def decode_from_space_NpArraySpace(self, val: np.ndarray, from_space: SpaceBase) -> float:
         return float(val[0])
 
     # --- Box
-    def create_encode_space_Box(self, dtype):
+    def create_encode_space_Box(self, options: SpaceEncodeOptions):
         from srl.base.spaces.box import BoxSpace
 
+        dtype = options.cast_dtype if options.cast else self.dtype
         return BoxSpace((1,), self._low, self._high, dtype, SpaceTypes.CONTINUOUS)
 
-    def encode_to_space_Box(self, val: float, dtype) -> np.ndarray:
-        return np.array([val], dtype)
+    def encode_to_space_Box(self, val: float, to_space: SpaceBase) -> np.ndarray:
+        return np.array([val], dtype=to_space.dtype)
 
-    def decode_from_space_Box(self, val: np.ndarray) -> float:
-        return float(val[0])
-
-    # --- BoxUnTyped
-    def create_encode_space_BoxUnTyped(self):
-        from srl.base.spaces.box import BoxSpace
-
-        return BoxSpace((1,), self._low, self._high, self.dtype, SpaceTypes.CONTINUOUS)
-
-    def encode_to_space_BoxUnTyped(self, val: float) -> np.ndarray:
-        return np.array([val], self.dtype)
-
-    def decode_from_space_BoxUnTyped(self, val: np.ndarray) -> float:
+    def decode_from_space_Box(self, val: np.ndarray, from_space: SpaceBase) -> float:
         return float(val[0])
 
     # --- TextSpace

@@ -7,7 +7,7 @@ import numpy as np
 
 from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.exception import NotSupportedError
-from srl.base.spaces.space import SpaceBase
+from srl.base.spaces.space import SpaceBase, SpaceEncodeOptions
 
 logger = logging.getLogger(__name__)
 
@@ -174,9 +174,7 @@ class MultiSpace(SpaceBase[list]):
         return [
             RLBaseTypes.MULTI,
             RLBaseTypes.BOX,
-            RLBaseTypes.BOX_UNTYPED,
             RLBaseTypes.NP_ARRAY,
-            RLBaseTypes.NP_ARRAY_UNTYPED,
             RLBaseTypes.ARRAY_CONTINUOUS,
             RLBaseTypes.ARRAY_DISCRETE,
             RLBaseTypes.DISCRETE,
@@ -299,117 +297,116 @@ class MultiSpace(SpaceBase[list]):
         return arr
 
     # --- NpArray
-    def _setup_NpArraySpace(self, dtype):
+    def _setup_NpArraySpace(self, options: SpaceEncodeOptions):
         if hasattr(self, "_np_array_spaces"):
             return self._np_array_space
         from srl.base.spaces.np_array import NpArraySpace
 
-        self._np_array_spaces = [s.create_encode_space_NpArraySpace(dtype) for s in self.spaces]
+        self._np_array_spaces = [s.create_encode_space_NpArraySpace(options) for s in self.spaces]
         size = sum([s.size for s in self._np_array_spaces])
         low = []
         high = []
-        for s in self._np_array_spaces:
-            low += s.low.tolist()
-            high += s.high.tolist()
-        self._np_array_space = NpArraySpace(size, low, high, dtype)
-        return self._np_array_space
-
-    def create_encode_space_NpArraySpace(self, dtype):
-        return self._setup_NpArraySpace(dtype)
-
-    def encode_to_space_NpArraySpace(self, val: list, dtype) -> np.ndarray:
-        self._setup_NpArraySpace(dtype)
-        x = []
-        for v, s in zip(val, self.spaces):
-            x.append(s.encode_to_space_NpArraySpace(v, dtype))
-        return np.concatenate(x).astype(dtype)
-
-    def decode_from_space_NpArraySpace(self, val: np.ndarray) -> list:
-        arr = []
-        n = 0
-        for s, s2 in zip(self.spaces, self._np_array_spaces):
-            v = val[n : n + s2.size]
-            arr.append(s.decode_from_space_NpArraySpace(v.astype(s.dtype)))
-            n += s2.size
-        return arr
-
-    # --- NpArrayUnTyped
-    def _setup_NpArrayUnTyped(self):
-        if hasattr(self, "_np_array_untyped_space"):
-            return self._np_array_untyped_space
-        from srl.base.spaces.np_array import NpArraySpace
-
-        self._np_array_untyped_spaces = [s.create_encode_space_NpArrayUnTyped() for s in self.spaces]
-        size = sum([s.size for s in self._np_array_untyped_spaces])
-        low = []
-        high = []
         stype = SpaceTypes.DISCRETE
-        for s in self._np_array_untyped_spaces:
+        for s in self._np_array_spaces:
             low += s.low.tolist()
             high += s.high.tolist()
             if s.stype == SpaceTypes.CONTINUOUS:
                 stype = SpaceTypes.CONTINUOUS
-        dtype = np.int64 if stype == SpaceTypes.DISCRETE else np.float32
-        self._np_array_untyped_space = NpArraySpace(size, low, high, dtype)
-        return self._np_array_untyped_space
+        if options.cast:
+            dtype = options.cast_dtype
+        else:
+            dtype = np.int64 if stype == SpaceTypes.DISCRETE else options.cast_dtype
+        self._np_array_space = NpArraySpace(size, low, high, dtype)
+        return self._np_array_space
 
-    def create_encode_space_NpArrayUnTyped(self):
-        return self._setup_NpArrayUnTyped()
+    def create_encode_space_NpArraySpace(self, options: SpaceEncodeOptions):
+        return self._setup_NpArraySpace(options)
 
-    def encode_to_space_NpArrayUnTyped(self, val: list) -> np.ndarray:
-        self._setup_NpArrayUnTyped()
+    def encode_to_space_NpArraySpace(self, val: list, to_space: SpaceBase) -> np.ndarray:
         x = []
         for v, s in zip(val, self.spaces):
-            x.append(s.encode_to_space_NpArrayUnTyped(v))
-        return np.concatenate(x)
+            x.append(s.encode_to_space_NpArraySpace(v, to_space))
+        return np.concatenate(x).astype(to_space.dtype)
 
-    def decode_from_space_NpArrayUnTyped(self, val: np.ndarray) -> list:
-        self._setup_NpArrayUnTyped()
+    def decode_from_space_NpArraySpace(self, val: np.ndarray, from_space: SpaceBase) -> list:
         arr = []
         n = 0
-        for s, s2 in zip(self.spaces, self._np_array_untyped_spaces):
+        for s, s2 in zip(self.spaces, self._np_array_spaces):
             v = val[n : n + s2.size]
-            arr.append(s.decode_from_space_NpArrayUnTyped(v.astype(s.dtype)))
+            arr.append(s.decode_from_space_NpArraySpace(v.astype(s.dtype), from_space))
             n += s2.size
         return arr
 
     # --- Box
-    def create_encode_space_Box(self, dtype):
+    def create_encode_space_Box(self, options: SpaceEncodeOptions):
         from srl.base.spaces.box import BoxSpace
 
         # shapeが同じならboxで使う、shapeが違うならNpArrayと同じ処理
-        box_spaces = [s.create_encode_space_Box(dtype) for s in self.spaces]
+        box_spaces = [s.create_encode_space_Box(options) for s in self.spaces]
         self._is_box_spaces_same_shape = len(set([tuple(s.shape) for s in box_spaces])) == 1
 
         if self._is_box_spaces_same_shape:
             shape = (len(box_spaces),) + box_spaces[0].shape
             low = np.asarray([s.low for s in box_spaces])
             high = np.asarray([s.high for s in box_spaces])
-            return BoxSpace(shape, low, high, dtype)
+            if options.cast:
+                dtype = options.cast_dtype
+                stype = SpaceTypes.UNKNOWN
+            else:
+                # stype: DISCRETE -> CONTINUOUS
+                # dtype: np.uint -> np.int64 -> np.float32
+                dtype = np.uint
+                stype = SpaceTypes.DISCRETE
+                for s in box_spaces:
+                    if s.stype == SpaceTypes.CONTINUOUS:
+                        stype = SpaceTypes.CONTINUOUS
+                    if "float" in str(s.dtype):
+                        dtype = s.dtype
+                    elif ("float" not in str(dtype)) and ("uint" not in str(s.dtype)) and ("int" in str(s.dtype)):
+                        dtype = s.dtype
+            return BoxSpace(shape, low, high, dtype, stype)
         else:
-            self._box_space_list = [s.create_encode_space_NpArraySpace(dtype) for s in self.spaces]
+            self._box_space_list = [s.create_encode_space_NpArraySpace(options) for s in self.spaces]
             size = sum([s.size for s in self._box_space_list])
             low = []
             high = []
             for s in self._box_space_list:
                 low += s.low.tolist()
                 high += s.high.tolist()
-            return BoxSpace((size,), low, high, dtype)
+            if options.cast:
+                dtype = options.cast_dtype
+                stype = SpaceTypes.UNKNOWN
+            else:
+                dtype = np.uint
+                stype = SpaceTypes.DISCRETE
+                for s in self._box_space_list:
+                    if s.stype == SpaceTypes.CONTINUOUS:
+                        stype = SpaceTypes.CONTINUOUS
+                    if "float" in str(s.dtype):
+                        dtype = s.dtype
+                    elif ("float" not in str(dtype)) and ("uint" not in str(s.dtype)) and ("int" in str(s.dtype)):
+                        dtype = s.dtype
+            return BoxSpace((size,), low, high, dtype, stype)
 
-    def encode_to_space_Box(self, val: list, dtype) -> np.ndarray:
+    def encode_to_space_Box(self, val: list, to_space: SpaceBase) -> np.ndarray:
         if getattr(self, "_is_box_spaces_same_shape", True):
-            x = [s.encode_to_space_Box(v, dtype) for v, s in zip(val, self.spaces)]
-            return np.asarray(x).astype(dtype)
+            x = [s.encode_to_space_Box(v, to_space) for v, s in zip(val, self.spaces)]
+            return np.asarray(x).astype(to_space.dtype)
         else:
             x = []
             for v, s in zip(val, self.spaces):
-                x.append(s.encode_to_space_NpArraySpace(v, dtype))
-            return np.concatenate(x).astype(dtype)
+                x.append(s.encode_to_space_NpArraySpace(v, to_space))
+            return np.concatenate(x).astype(to_space.dtype)
 
-    def decode_from_space_Box(self, val: np.ndarray) -> list:
+    def decode_from_space_Box(self, val: np.ndarray, from_space: SpaceBase) -> list:
         if getattr(self, "_is_box_spaces_same_shape", True):
             x = [
-                self.spaces[i].decode_from_space_Box(val[i].astype(self.spaces[i].dtype))
+                self.spaces[i].decode_from_space_Box(
+                    val[i].astype(
+                        self.spaces[i].dtype,
+                    ),
+                    from_space,
+                )
                 for i in range(len(self.spaces))  #
             ]
             return x
@@ -418,75 +415,7 @@ class MultiSpace(SpaceBase[list]):
             n = 0
             for s, s2 in zip(self.spaces, self._box_space_list):
                 v = val[n : n + s2.size]
-                arr.append(s.decode_from_space_NpArraySpace(v.astype(s.dtype)))
-                n += s2.size
-            return arr
-
-    # --- BoxUnTyped
-    def create_encode_space_BoxUnTyped(self):
-        from srl.base.spaces.box import BoxSpace
-
-        # shapeが同じならboxで使う、shapeが違うならNpArrayと同じ処理
-        box_spaces = [s.create_encode_space_BoxUnTyped() for s in self.spaces]
-        self._is_box_untyped_spaces_same_shape = len(set([tuple(s.shape) for s in box_spaces])) == 1
-
-        # stype: DISCRETE -> CONTINUOUS
-        # dtype: np.uint -> np.int64 -> np.float32
-        if self._is_box_untyped_spaces_same_shape:
-            shape = (len(box_spaces),) + box_spaces[0].shape
-            low = np.asarray([s.low for s in box_spaces])
-            high = np.asarray([s.high for s in box_spaces])
-            dtype = np.uint
-            stype = SpaceTypes.DISCRETE
-            for s in box_spaces:
-                if s.stype == SpaceTypes.CONTINUOUS:
-                    stype = SpaceTypes.CONTINUOUS
-                if "float" in str(s.dtype):
-                    dtype = s.dtype
-                elif ("float" not in str(dtype)) and ("uint" not in str(s.dtype)) and ("int" in str(s.dtype)):
-                    dtype = s.dtype
-            return BoxSpace(shape, low, high, dtype, stype)
-        else:
-            self._box_untyped_space_list = [s.create_encode_space_NpArrayUnTyped() for s in self.spaces]
-            size = sum([s.size for s in self._box_untyped_space_list])
-            low = []
-            high = []
-            dtype = np.uint
-            stype = SpaceTypes.DISCRETE
-            for s in self._box_untyped_space_list:
-                low += s.low.tolist()
-                high += s.high.tolist()
-                if s.stype == SpaceTypes.CONTINUOUS:
-                    stype = SpaceTypes.CONTINUOUS
-                if "float" in str(s.dtype):
-                    dtype = s.dtype
-                elif ("float" not in str(dtype)) and ("uint" not in str(s.dtype)) and ("int" in str(s.dtype)):
-                    dtype = s.dtype
-            return BoxSpace((size,), low, high, dtype, stype)
-
-    def encode_to_space_BoxUnTyped(self, val: list) -> np.ndarray:
-        if getattr(self, "_is_box_untyped_spaces_same_shape", True):
-            x = [s.encode_to_space_BoxUnTyped(v) for v, s in zip(val, self.spaces)]
-            return np.asarray(x)
-        else:
-            x = []
-            for v, s in zip(val, self.spaces):
-                x.append(s.encode_to_space_NpArrayUnTyped(v))
-            return np.concatenate(x)
-
-    def decode_from_space_BoxUnTyped(self, val: np.ndarray) -> list:
-        if getattr(self, "_is_box_untyped_spaces_same_shape", True):
-            x = [
-                self.spaces[i].decode_from_space_BoxUnTyped(val[i].astype(self.spaces[i].dtype))
-                for i in range(len(self.spaces))  #
-            ]
-            return x
-        else:
-            arr = []
-            n = 0
-            for s, s2 in zip(self.spaces, self._box_untyped_space_list):
-                v = val[n : n + s2.size]
-                arr.append(s.decode_from_space_NpArrayUnTyped(v.astype(s.dtype)))
+                arr.append(s.decode_from_space_NpArraySpace(v.astype(s.dtype), from_space))
                 n += s2.size
             return arr
 

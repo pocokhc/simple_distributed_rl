@@ -10,6 +10,7 @@ from srl.base.spaces.continuous import ContinuousSpace
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.multi import MultiSpace
 from srl.base.spaces.np_array import NpArraySpace
+from srl.base.spaces.space import SpaceEncodeOptions
 from srl.base.spaces.text import TextSpace
 
 
@@ -161,66 +162,75 @@ def test_valid_actions():
 
 
 @pytest.mark.parametrize(
-    "create_space, true_space, val, decode_val",
+    "create_space, options, true_space, val, decode_val",
     [
         [
             RLBaseTypes.NONE,
+            None,
             MultiSpace,
             [1, [0], 0.1, [0.5], np.array([0.2], np.float32), np.ones((1, 1), np.float32), "5"],
             [1, [0], 0.1, [0.5], np.array([0.2], np.float32), np.ones((1, 1), np.float32), "5"],
         ],
         [
             RLBaseTypes.DISCRETE,
+            None,
             DiscreteSpace(2916, 0),
             0,
             [0, [0], 0.0, [0.0], np.array([0], dtype=np.float32), np.array([[0]], dtype=np.float32), "0"],
         ],
         [
             RLBaseTypes.ARRAY_DISCRETE,
+            None,
             ArrayDiscreteSpace(7, 0, [1, 1, 3, 3, 3, 3, 127]),
             [1, 1, 1, 1, 1, 1, 49],
             [1, [1], 0.5, [0.5], np.array([0.5], dtype=np.float32), np.array([[0.5]], dtype=np.float32), "1"],
         ],
-        [RLBaseTypes.CONTINUOUS, None, 1.1, 1.1],
+        [RLBaseTypes.CONTINUOUS, None, None, 1.1, 1.1],
         [
             RLBaseTypes.ARRAY_CONTINUOUS,
+            None,
             ArrayContinuousSpace(7, 0, [1, 1, 1, 1, 1, 1, 127]),
             [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 49.0],
             [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32), np.array([[1.0]], dtype=np.float32), "1"],
         ],
         [
             RLBaseTypes.NP_ARRAY,
+            None,
             NpArraySpace(7, 0, [1, 1, 1, 1, 1, 1, 127]),
             np.array([1, 1, 1, 1, 1, 1, 49], np.float32),
             [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32), np.array([[1.0]], dtype=np.float32), "1"],
         ],
         [
-            RLBaseTypes.NP_ARRAY_UNTYPED,
+            RLBaseTypes.NP_ARRAY,
+            SpaceEncodeOptions(cast=False),
             NpArraySpace(7, 0, [1, 1, 1, 1, 1, 1, 127]),
             np.array([1, 1, 1, 1, 1, 1, 49], np.float32),
             [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32), np.array([[1.0]], dtype=np.float32), "1"],
         ],
         [
             RLBaseTypes.BOX,
+            None,
             BoxSpace((7,), 0, [1, 1, 1, 1, 1, 1, 127]),
             np.array([1, 1, 1, 1, 1, 1, 49], np.float32),
             [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32), np.array([[1.0]], dtype=np.float32), "1"],
         ],
         [
-            RLBaseTypes.BOX_UNTYPED,
+            RLBaseTypes.BOX,
+            SpaceEncodeOptions(cast=False),
             BoxSpace((7,), 0, [1, 1, 1, 1, 1, 1, 127]),
             np.array([1, 1, 1, 1, 1, 1, 49], np.float32),
             [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32), np.array([[1.0]], dtype=np.float32), "1"],
         ],
         [
             RLBaseTypes.TEXT,
+            None,
             TextSpace(-1, 1, "0123456789-,._"),
             "1_1_1.0_1.0_1.0_1.0_5",
             [1, [1], 1.0, [1.0], np.array([1.0], dtype=np.float32), np.array([[1.0]], dtype=np.float32), "5"],
         ],
     ],
 )
-def test_space_same_shape(create_space, true_space, val, decode_val):
+def test_space_same_shape(create_space, options, true_space, val, decode_val):
     space = MultiSpace(
         [
             DiscreteSpace(2),
@@ -235,13 +245,15 @@ def test_space_same_shape(create_space, true_space, val, decode_val):
     print(space)
     assert space.stype == SpaceTypes.MULTI
     space.create_division_tbl(division_num=3)
+    if options is None:
+        options = SpaceEncodeOptions(cast=True)
 
     if true_space is None:
         with pytest.raises(NotSupportedError):
-            space.create_encode_space(create_space)
+            space.create_encode_space(create_space, options)
         return
 
-    target_space = space.create_encode_space(create_space)
+    target_space = space.create_encode_space(create_space, options)
     print(target_space)
     print(true_space)
     if create_space == RLBaseTypes.NONE:
@@ -277,66 +289,75 @@ def test_space_same_shape(create_space, true_space, val, decode_val):
 
 
 @pytest.mark.parametrize(
-    "create_space, true_space, val, decode_val",
+    "create_space, options, true_space, val, decode_val",
     [
         [
             RLBaseTypes.NONE,
+            None,
             MultiSpace,
             [1, [0], 0.1, [0.5, 0.6, 0.7], np.array([0.2, 0.3], np.float32), np.ones((2, 1), np.float32), "5"],
             [1, [0], 0.1, [0.5, 0.6, 0.7], np.array([0.2, 0.3], np.float32), np.ones((2, 1), np.float32), "5"],
         ],
         [
             RLBaseTypes.DISCRETE,
+            None,
             DiscreteSpace(152064, 0),
             0,
             [0, [0], 0.0, [0.0, 0.0, 0.0], np.array([0, 0], dtype=np.float32), np.array([[0], [0]], dtype=np.float32), "0"],
         ],
         [
             RLBaseTypes.ARRAY_DISCRETE,
+            None,
             ArrayDiscreteSpace(8, 0, [1, 1, 3, 8, 4, 4, 127, 127]),
             [1, 1, 1, 1, 1, 1, 49, 49],
             [1, [1], 0.5, [0.0, 0.0, 1.0], np.array([0, 1], dtype=np.float32), np.array([[0], [1]], dtype=np.float32), "11"],
         ],
-        [RLBaseTypes.CONTINUOUS, None, 1.1, 1.1],
+        [RLBaseTypes.CONTINUOUS, None, None, 1.1, 1.1],
         [
             RLBaseTypes.ARRAY_CONTINUOUS,
+            None,
             ArrayContinuousSpace(12, 0, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 127, 127]),
             [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 49.0, 49.0],
             [1, [1], 1.0, [1.0, 1.0, 1.0], np.array([1, 1], dtype=np.float32), np.array([[1], [1]], dtype=np.float32), "11"],
         ],
         [
             RLBaseTypes.NP_ARRAY,
+            None,
             NpArraySpace(12, 0, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 127, 127]),
             np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 49, 49], np.float32),
             [1, [1], 1.0, [1.0, 1.0, 1.0], np.array([1, 1], dtype=np.float32), np.array([[1], [1]], dtype=np.float32), "11"],
         ],
         [
-            RLBaseTypes.NP_ARRAY_UNTYPED,
+            RLBaseTypes.NP_ARRAY,
+            SpaceEncodeOptions(cast=False),
             NpArraySpace(12, 0, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 127, 127]),
             np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 49, 49], np.float32),
             [1, [1], 1.0, [1.0, 1.0, 1.0], np.array([1, 1], dtype=np.float32), np.array([[1], [1]], dtype=np.float32), "11"],
         ],
         [
             RLBaseTypes.BOX,
+            None,
             BoxSpace((12,), 0, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 127, 127]),
             np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 49, 49], np.float32),
             [1, [1], 1.0, [1.0, 1.0, 1.0], np.array([1, 1], dtype=np.float32), np.array([[1], [1]], dtype=np.float32), "11"],
         ],
         [
-            RLBaseTypes.BOX_UNTYPED,
+            RLBaseTypes.BOX,
+            SpaceEncodeOptions(cast=False),
             BoxSpace((12,), 0, [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 127, 127]),
             np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 49, 49], np.float32),
             [1, [1], 1.0, [1.0, 1.0, 1.0], np.array([1, 1], dtype=np.float32), np.array([[1], [1]], dtype=np.float32), "11"],
         ],
         [
             RLBaseTypes.TEXT,
+            None,
             TextSpace(-1, 1, "0123456789-,._"),
             "1_1_1.0_1.0,1.0,1.0_1.0,1.0_1.0,1.0_55",
             [1, [1], 1.0, [1.0, 1.0, 1.0], np.array([1, 1], dtype=np.float32), np.array([[1], [1]], dtype=np.float32), "55"],
         ],
     ],
 )
-def test_space_no_same_shape(create_space, true_space, val, decode_val):
+def test_space_no_same_shape(create_space, options, true_space, val, decode_val):
     space = MultiSpace(
         [
             DiscreteSpace(2),
@@ -351,13 +372,15 @@ def test_space_no_same_shape(create_space, true_space, val, decode_val):
     print(space)
     assert space.stype == SpaceTypes.MULTI
     space.create_division_tbl(division_num=3)
+    if options is None:
+        options = SpaceEncodeOptions(cast=True)
 
     if true_space is None:
         with pytest.raises(NotSupportedError):
-            space.create_encode_space(create_space)
+            space.create_encode_space(create_space, options)
         return
 
-    target_space = space.create_encode_space(create_space)
+    target_space = space.create_encode_space(create_space, options)
     print(target_space)
     print(true_space)
     if create_space == RLBaseTypes.NONE:
@@ -400,23 +423,25 @@ def test_space_no_same_shape(create_space, true_space, val, decode_val):
 
 
 @pytest.mark.parametrize(
-    "create_space, true_space, val, decode_val",
+    "create_space, options, true_space, val, decode_val",
     [
         [
             RLBaseTypes.BOX,
+            None,
             BoxSpace((4, 3), 0, 1),
             np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]], np.float32),
             [[1, 1, 1], [1.0, 1.0, 1.0], np.array([1, 1, 1], dtype=np.float32), np.array([1, 1, 1], dtype=np.float32)],
         ],
         [
-            RLBaseTypes.BOX_UNTYPED,
+            RLBaseTypes.BOX,
+            SpaceEncodeOptions(cast=False),
             BoxSpace((4, 3), 0, 1),
             np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]], np.float32),
             [[1, 1, 1], [1.0, 1.0, 1.0], np.array([1, 1, 1], dtype=np.float32), np.array([1, 1, 1], dtype=np.float32)],
         ],
     ],
 )
-def test_space_box(create_space, true_space, val, decode_val):
+def test_space_box(create_space, options, true_space, val, decode_val):
     space = MultiSpace(
         [
             ArrayDiscreteSpace(3, 0, 1),
@@ -428,13 +453,15 @@ def test_space_box(create_space, true_space, val, decode_val):
     print(space)
     assert space.stype == SpaceTypes.MULTI
     space.create_division_tbl(division_num=3)
+    if options is None:
+        options = SpaceEncodeOptions(cast=True)
 
     if true_space is None:
         with pytest.raises(NotSupportedError):
-            space.create_encode_space(create_space)
+            space.create_encode_space(create_space, options)
         return
 
-    target_space = space.create_encode_space(create_space)
+    target_space = space.create_encode_space(create_space, options)
     print(target_space)
     print(true_space)
     if create_space == RLBaseTypes.NONE:

@@ -20,7 +20,7 @@ from srl.base.define import (
 from srl.base.env.env_run import EnvRun
 from srl.base.exception import NotSupportedError, UndefinedError
 from srl.base.spaces.box import BoxSpace
-from srl.base.spaces.space import SpaceBase, TActSpace, TObsSpace
+from srl.base.spaces.space import SpaceBase, SpaceEncodeOptions, TActSpace, TObsSpace
 from srl.utils.serialize import apply_dict_to_dataclass, dataclass_to_dict, get_modified_fields, load_dict, save_dict
 
 if TYPE_CHECKING:
@@ -77,6 +77,10 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     window_length: int = 1
     #: 2以上で過去Nステップをまとめて状態とします(use_render_image_stateが有効なアルゴリズムの場合適用)
     render_image_window_length: int = 1
+    #: override state encode option
+    state_encode_options: Optional[SpaceEncodeOptions] = None
+    #: override action decode option
+    action_decode_options: Optional[SpaceEncodeOptions] = None
 
     # --- render
     #: render時にエピソード終了時のstepで描画するか
@@ -147,9 +151,15 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     def get_base_action_type(self) -> RLBaseTypes:
         raise NotImplementedError()
 
+    def get_base_action_type_options(self) -> SpaceEncodeOptions:
+        return SpaceEncodeOptions(cast=True)  # NotImplemented
+
     @abstractmethod
     def get_base_observation_type(self) -> RLBaseTypes:
         raise NotImplementedError()
+
+    def get_base_observation_type_options(self) -> SpaceEncodeOptions:
+        return SpaceEncodeOptions(cast=True)  # NotImplemented
 
     def get_framework(self) -> str:
         return ""  # NotImplemented
@@ -225,6 +235,14 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                 logger.error(f"'{self.get_name()}' uses restore/backup, but it is not implemented in {env.name}.")
                 raise
 
+        # --- encode/decode options
+        self.__state_encode_options = self.get_base_observation_type_options() if self.state_encode_options is None else self.state_encode_options
+        self.__action_decode_options = self.get_base_action_type_options() if self.action_decode_options is None else self.action_decode_options
+        if self.__state_encode_options.cast_dtype == "":
+            self.__state_encode_options.cast_dtype = self.get_dtype("np")
+        if self.__action_decode_options.cast_dtype == "":
+            self.__action_decode_options.cast_dtype = self.get_dtype("np")
+
         # -------------------------------------------------
         # observation space
         #  - env space(original) または observation_mode 後のspace(env_obs_space)
@@ -297,6 +315,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             override_type=self.override_observation_type,
             env_space=self.__env_obs_space_in_rl,
             division_num=self.observation_division_num,
+            options=self.__state_encode_options,
         )
 
         # --- window_length
@@ -357,6 +376,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             override_type=self.override_action_type,
             env_space=self.__env_act_space,
             division_num=self.action_division_num,
+            options=self.__action_decode_options,
         )
 
         # --------------------------------------------
@@ -404,7 +424,14 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                     logger.info(f" render_img(one_step): {self.__rl_obs_render_img_space_one_step}")
                 logger.info(f" render_img  : {self.__rl_obs_render_img_space}")
 
-    def _get_rl_space(self, required_type: RLBaseTypes, override_type: RLBaseTypes, env_space: SpaceBase, division_num: int):
+    def _get_rl_space(
+        self,
+        required_type: RLBaseTypes,
+        override_type: RLBaseTypes,
+        env_space: SpaceBase,
+        division_num: int,
+        options: SpaceEncodeOptions,
+    ):
         # 優先度
         # 1. override
         # 2. RL base type
@@ -431,7 +458,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             # RLがDISCRETEを要求する場合、(ENVがCONTINUOUSなら)分割する
             env_space.create_division_tbl(division_num)
 
-        rl_space = env_space.create_encode_space(required_type, self)
+        rl_space = env_space.create_encode_space(required_type, options)
         return rl_space, required_type
 
     # --- setup property
@@ -529,11 +556,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         if self.enable_state_encode:
             for p in self.__applied_remap_obs_processors:
                 env_state = p[0].remap_observation(env_state, p[1], p[2], env_run=env, rl_config=self)
-
-            rl_state: RLObservationType = self.__env_obs_space_in_rl.encode_to_space(
-                env_state,
-                self.__rl_obs_space_one_step,
-            )
+            rl_state: RLObservationType = self.__env_obs_space_in_rl.encode_to_space(env_state, self.__rl_obs_space_one_step)
         else:
             rl_state = cast(RLObservationType, env_state)
 
@@ -569,10 +592,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         assert self.__is_setup
 
         if self.enable_action_decode:
-            rl_act = self.__env_act_space.encode_to_space(
-                env_action,
-                self.__rl_act_space,
-            )
+            rl_act = self.__env_act_space.encode_to_space(env_action, self.__rl_act_space)
         else:
             rl_act = cast(RLActionType, env_action)
 

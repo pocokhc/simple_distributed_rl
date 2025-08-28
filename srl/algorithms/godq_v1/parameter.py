@@ -20,8 +20,7 @@ class Parameter(RLParameter[Config]):
         self.net.restore(dat["net"], from_serialized)
         if (not from_serialized) or from_worker:
             if self.config.enable_archive:
-                if "archive" in dat:
-                    self.archive.restore(dat["archive"])
+                self.archive.restore(dat["archive"])
 
     def call_backup(self, serialized: bool = False, to_worker=False, **kwargs) -> Any:
         dat: dict = {"net": self.net.backup(serialized)}

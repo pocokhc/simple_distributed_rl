@@ -8,7 +8,7 @@ import numpy as np
 
 from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.exception import NotSupportedError
-from srl.base.spaces.space import SpaceBase
+from srl.base.spaces.space import SpaceBase, SpaceEncodeOptions
 
 logger = logging.getLogger(__name__)
 
@@ -475,18 +475,14 @@ class BoxSpace(SpaceBase[np.ndarray]):
         if self.stype == SpaceTypes.DISCRETE:
             arr = [
                 RLBaseTypes.BOX,
-                RLBaseTypes.BOX_UNTYPED,
                 RLBaseTypes.NP_ARRAY,
-                RLBaseTypes.NP_ARRAY_UNTYPED,
                 RLBaseTypes.ARRAY_DISCRETE,
                 RLBaseTypes.ARRAY_CONTINUOUS,
             ]
         else:
             arr = [
                 RLBaseTypes.BOX,
-                RLBaseTypes.BOX_UNTYPED,
                 RLBaseTypes.NP_ARRAY,
-                RLBaseTypes.NP_ARRAY_UNTYPED,
                 RLBaseTypes.ARRAY_CONTINUOUS,
                 RLBaseTypes.ARRAY_DISCRETE,
             ]
@@ -611,56 +607,43 @@ class BoxSpace(SpaceBase[np.ndarray]):
         return np.array(val, dtype=self._dtype).reshape(self._shape)
 
     # --- NpArray
-    def create_encode_space_NpArraySpace(self, dtype):
-        from srl.base.spaces.np_array import NpArraySpace
-
-        return NpArraySpace(len(self._low.flatten()), self._low.flatten(), self._high.flatten(), dtype, self.stype)
-
-    def encode_to_space_NpArraySpace(self, val: np.ndarray, dtype) -> np.ndarray:
-        return val.flatten().astype(dtype=dtype)
-
-    def decode_from_space_NpArraySpace(self, val: np.ndarray) -> np.ndarray:
-        return val.astype(dtype=self._dtype).reshape(self._shape)
-
-    # --- NpArrayUnTyped
-    def create_encode_space_NpArrayUnTyped(self):
+    def create_encode_space_NpArraySpace(self, options: SpaceEncodeOptions):
         from srl.base.spaces.np_array import NpArraySpace
 
         return NpArraySpace(
             len(self._low.flatten()),
             self._low.flatten(),
             self._high.flatten(),
-            dtype=self._dtype,
+            options.cast_dtype if options.cast else self._dtype,
+            self._stype,
         )
 
-    def encode_to_space_NpArrayUnTyped(self, val: np.ndarray) -> np.ndarray:
-        return val.flatten()
-
-    def decode_from_space_NpArrayUnTyped(self, val: np.ndarray) -> np.ndarray:
-        return val.reshape(self._shape)
-
-    # --- Box
-    def create_encode_space_Box(self, dtype):
-        return self.copy(dtype=dtype)
-
-    def encode_to_space_Box(self, x: np.ndarray, dtype) -> np.ndarray:
-        if x.shape == ():
-            x = x.reshape((1,))
-        return x.astype(dtype)
-
-    def decode_from_space_Box(self, x: np.ndarray) -> np.ndarray:
-        return x.astype(self._dtype)
-
-    # --- BoxUnTyped
-    def create_encode_space_BoxUnTyped(self):
-        return self.copy()
-
-    def encode_to_space_BoxUnTyped(self, x: np.ndarray) -> np.ndarray:
-        if x.shape == ():
-            x = x.reshape((1,))
+    def encode_to_space_NpArraySpace(self, x: np.ndarray, to_space: SpaceBase) -> np.ndarray:
+        x = x.flatten()
+        if to_space.encode_options.cast:
+            x = x.astype(to_space.dtype)
         return x
 
-    def decode_from_space_BoxUnTyped(self, x: np.ndarray) -> np.ndarray:
+    def decode_from_space_NpArraySpace(self, x: np.ndarray, from_space: SpaceBase) -> np.ndarray:
+        if from_space.encode_options.cast:
+            x = x.astype(self._dtype)
+        return x.reshape(self._shape)
+
+    # --- Box
+    def create_encode_space_Box(self, options: SpaceEncodeOptions):
+        dtype = options.cast_dtype if options.cast else self._dtype
+        return self.copy(dtype=dtype)
+
+    def encode_to_space_Box(self, x: np.ndarray, to_space: "BoxSpace") -> np.ndarray:
+        if x.shape == ():
+            x = x.reshape((1,))
+        if to_space.encode_options.cast:
+            x = x.astype(to_space.dtype)
+        return x
+
+    def decode_from_space_Box(self, x: np.ndarray, from_space: "BoxSpace") -> np.ndarray:
+        if from_space.encode_options.cast:
+            x = x.astype(self._dtype)
         return x
 
     # --- TextSpace

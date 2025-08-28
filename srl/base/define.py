@@ -126,9 +126,7 @@ class RLBaseTypes(enum.Flag):
     CONTINUOUS = enum.auto()
     ARRAY_CONTINUOUS = enum.auto()
     NP_ARRAY = enum.auto()
-    NP_ARRAY_UNTYPED = enum.auto()
     BOX = enum.auto()
-    BOX_UNTYPED = enum.auto()
     TEXT = enum.auto()
     MULTI = enum.auto()
 

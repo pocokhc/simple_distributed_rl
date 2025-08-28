@@ -4,7 +4,7 @@ import numpy as np
 
 from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.exception import NotSupportedError
-from srl.base.spaces.space import SpaceBase
+from srl.base.spaces.space import SpaceBase, SpaceEncodeOptions
 
 
 class AnySpace(SpaceBase[Any]):
@@ -72,9 +72,7 @@ class AnySpace(SpaceBase[Any]):
             RLBaseTypes.CONTINUOUS,
             RLBaseTypes.ARRAY_CONTINUOUS,
             RLBaseTypes.NP_ARRAY,
-            RLBaseTypes.NP_ARRAY_UNTYPED,
             RLBaseTypes.BOX,
-            RLBaseTypes.BOX_UNTYPED,
             RLBaseTypes.TEXT,
             RLBaseTypes.MULTI,
         ]
@@ -120,43 +118,23 @@ class AnySpace(SpaceBase[Any]):
         return val
 
     # --- NpArray
-    def create_encode_space_NpArraySpace(self, dtype):
+    def create_encode_space_NpArraySpace(self, options: SpaceEncodeOptions):
         return self
 
-    def encode_to_space_NpArraySpace(self, val: Any, dtype) -> np.ndarray:
+    def encode_to_space_NpArraySpace(self, val: Any, options: SpaceEncodeOptions) -> np.ndarray:
         return val
 
-    def decode_from_space_NpArraySpace(self, val: np.ndarray) -> Any:
-        return val
-
-    # --- NpArrayUnTyped
-    def create_encode_space_NpArrayUnTyped(self):
-        return self
-
-    def encode_to_space_NpArrayUnTyped(self, val: Any) -> np.ndarray:
-        return val
-
-    def decode_from_space_NpArrayUnTyped(self, val: np.ndarray) -> Any:
+    def decode_from_space_NpArraySpace(self, val: np.ndarray, options: SpaceEncodeOptions) -> Any:
         return val
 
     # --- Box
-    def create_encode_space_Box(self, dtype):
+    def create_encode_space_Box(self, options: SpaceEncodeOptions):
         return self
 
-    def encode_to_space_Box(self, val: Any, dtype) -> np.ndarray:
+    def encode_to_space_Box(self, val: Any, options: SpaceEncodeOptions) -> np.ndarray:
         return val
 
-    def decode_from_space_Box(self, val: np.ndarray) -> Any:
-        return val
-
-    # --- BoxUnTyped
-    def create_encode_space_BoxUnTyped(self):
-        return self
-
-    def encode_to_space_BoxUnTyped(self, val: Any) -> np.ndarray:
-        return val
-
-    def decode_from_space_BoxUnTyped(self, val: np.ndarray) -> Any:
+    def decode_from_space_Box(self, val: np.ndarray, options: SpaceEncodeOptions) -> Any:
         return val
 
     # --- TextSpace

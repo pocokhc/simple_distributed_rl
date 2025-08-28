@@ -6,6 +6,7 @@ from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.exception import NotSupportedError
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.np_array import NpArraySpace
+from srl.base.spaces.space import SpaceEncodeOptions
 from srl.base.spaces.text import TextSpace
 
 
@@ -305,24 +306,25 @@ CB = BoxSpace((2, 1), -1, 0)
 
 
 @pytest.mark.parametrize(
-    "space, create_space, true_space, val, decode_val",
+    "space, create_space, options, true_space, val, decode_val",
     [
-        [DB, RLBaseTypes.NONE, BoxSpace((2, 1), -1, 0, np.int64), np.array([[-1], [-1]]), [[-1], [-1]]],
-        [DB, RLBaseTypes.DISCRETE, spaces.DiscreteSpace(4), 0, [[-1], [-1]]],
-        [DB, RLBaseTypes.ARRAY_DISCRETE, spaces.ArrayDiscreteSpace(2, -1, 0), [-1, -1], [[-1], [-1]]],
-        [DB, RLBaseTypes.CONTINUOUS, None, 0, [[-1], [-1]]],
-        [DB, RLBaseTypes.ARRAY_CONTINUOUS, spaces.ArrayContinuousSpace(2, -1, 0), [-1, -1], [[-1], [-1]]],
-        [DB, RLBaseTypes.NP_ARRAY, NpArraySpace(2, -1, 0, stype=SpaceTypes.DISCRETE), np.array([-1, -1], np.float32), [[-1], [-1]]],
-        [DB, RLBaseTypes.NP_ARRAY_UNTYPED, NpArraySpace(2, -1, 0, np.int64), np.array([-1, -1], np.int64), [[-1], [-1]]],
+        [DB, RLBaseTypes.NONE, None, BoxSpace((2, 1), -1, 0, np.int64), np.array([[-1], [-1]]), [[-1], [-1]]],
+        [DB, RLBaseTypes.DISCRETE, None, spaces.DiscreteSpace(4), 0, [[-1], [-1]]],
+        [DB, RLBaseTypes.ARRAY_DISCRETE, None, spaces.ArrayDiscreteSpace(2, -1, 0), [-1, -1], [[-1], [-1]]],
+        [DB, RLBaseTypes.CONTINUOUS, None, None, 0, [[-1], [-1]]],
+        [DB, RLBaseTypes.ARRAY_CONTINUOUS, None, spaces.ArrayContinuousSpace(2, -1, 0), [-1, -1], [[-1], [-1]]],
+        [DB, RLBaseTypes.NP_ARRAY, None, NpArraySpace(2, -1, 0, stype=SpaceTypes.DISCRETE), np.array([-1, -1], np.float32), [[-1], [-1]]],
+        [DB, RLBaseTypes.NP_ARRAY, SpaceEncodeOptions(cast=False), NpArraySpace(2, -1, 0, np.int64), np.array([-1, -1], np.int64), [[-1], [-1]]],
         # box
-        [DB, RLBaseTypes.BOX, BoxSpace((2, 1), -1, 0, np.float32, SpaceTypes.DISCRETE), np.array([[-1], [-1]], np.float32), [[-1], [-1]]],
-        [DB, RLBaseTypes.BOX_UNTYPED, BoxSpace((2, 1), -1, 0, np.int64), np.array([[-1], [-1]]), [[-1], [-1]]],
-        [CB, RLBaseTypes.BOX, BoxSpace((2, 1), -1.0, 0.0, np.float32), np.array([[-1], [-1]], np.float32), [[-1], [-1]]],
-        [CB, RLBaseTypes.BOX_UNTYPED, BoxSpace((2, 1), -1, 0, np.float32), np.array([[-1], [-1]], np.float32), [[-1], [-1]]],
+        [DB, RLBaseTypes.BOX, None, BoxSpace((2, 1), -1, 0, np.float32, SpaceTypes.DISCRETE), np.array([[-1], [-1]], np.float32), [[-1], [-1]]],
+        [DB, RLBaseTypes.BOX, SpaceEncodeOptions(cast=False), BoxSpace((2, 1), -1, 0, np.int64), np.array([[-1], [-1]]), [[-1], [-1]]],
+        [CB, RLBaseTypes.BOX, None, BoxSpace((2, 1), -1.0, 0.0, np.float32), np.array([[-1], [-1]], np.float32), [[-1], [-1]]],
+        [CB, RLBaseTypes.BOX, SpaceEncodeOptions(cast=False), BoxSpace((2, 1), -1, 0, np.float32), np.array([[-1], [-1]], np.float32), [[-1], [-1]]],
         # image
         [
             BoxSpace((8, 4), 0, 255, np.uint, SpaceTypes.GRAY_2ch),
             RLBaseTypes.BOX,
+            None,
             BoxSpace((8, 4), 0, 255, np.float32, SpaceTypes.GRAY_2ch),
             np.full((8, 4), 2),
             np.full((8, 4), 2),
@@ -330,6 +332,7 @@ CB = BoxSpace((2, 1), -1, 0)
         [
             BoxSpace((8, 4, 1), 0, 255, np.uint, SpaceTypes.GRAY_3ch),
             RLBaseTypes.BOX,
+            None,
             BoxSpace((8, 4, 1), 0, 255, np.float32, SpaceTypes.GRAY_3ch),
             np.full((8, 4, 1), 2),
             np.full((8, 4, 1), 2),
@@ -337,6 +340,7 @@ CB = BoxSpace((2, 1), -1, 0)
         [
             BoxSpace((8, 4, 3), 0, 255, np.uint, SpaceTypes.COLOR),
             RLBaseTypes.BOX,
+            None,
             BoxSpace((8, 4, 3), 0, 255, np.float32, SpaceTypes.COLOR),
             np.full((8, 4, 3), 2),
             np.full((8, 4, 3), 2),
@@ -344,6 +348,7 @@ CB = BoxSpace((2, 1), -1, 0)
         [
             BoxSpace((8, 4, 2), 0, 255, np.int64, SpaceTypes.IMAGE),
             RLBaseTypes.BOX,
+            None,
             BoxSpace((8, 4, 2), 0, 255, np.float32, SpaceTypes.IMAGE),
             np.full((8, 4, 2), 2),
             np.full((8, 4, 2), 2),
@@ -351,22 +356,25 @@ CB = BoxSpace((2, 1), -1, 0)
         [
             CB,
             RLBaseTypes.TEXT,
+            None,
             TextSpace(min_length=1, charset="0123456789-.,"),
             "-1.0,0.0",
             np.array([[-1.0], [0.0]], np.float32),
         ],
     ],
 )
-def test_space(space: BoxSpace, create_space, true_space, val, decode_val):
+def test_space(space: BoxSpace, create_space, options, true_space, val, decode_val):
     decode_val = np.array(decode_val)
     print(space)
+    if options is None:
+        options = SpaceEncodeOptions(cast=True)
 
     if true_space is None:
         with pytest.raises(NotSupportedError):
-            space.create_encode_space(create_space)
+            space.create_encode_space(create_space, options)
         return
 
-    target_space = space.create_encode_space(create_space)
+    target_space = space.create_encode_space(create_space, options)
     print(target_space)
     print(true_space)
     assert target_space == true_space

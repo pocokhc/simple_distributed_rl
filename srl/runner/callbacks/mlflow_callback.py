@@ -391,3 +391,24 @@ class MLFlowCallback(RunCallback, Evaluate):
             rewards = runner.state.last_episode_rewards
             fn = file[: -len("model.dat")] + f"{rewards}.html"
             mlflow.log_text(html, fn, run_id=run_id)
+
+    @classmethod
+    def load_env_config(cls, run_id: str, path: str = "env_config.yaml"):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=path, dst_path=temp_dir)
+            cfg = EnvConfig.load(os.path.join(temp_dir, path))
+        return cfg
+
+    @classmethod
+    def load_rl_config(cls, run_id: str, path: str = "rl_config.yaml"):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=path, dst_path=temp_dir)
+            cfg = RLConfig.load(os.path.join(temp_dir, path))
+        return cfg
+
+    @classmethod
+    def load_context(cls, run_id: str, path: str = "context.yaml"):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=path, dst_path=temp_dir)
+            cfg = RunContext.load(os.path.join(temp_dir, path))
+        return cfg

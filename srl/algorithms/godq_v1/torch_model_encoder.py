@@ -79,36 +79,42 @@ class DiscreteEncoder(nn.Module):
     def __init__(self, units: int, out_units: int, space: BoxSpace):
         super().__init__()
 
-        low = torch.tensor(space.low, dtype=torch.long)
-        self.register_buffer("low", low.unsqueeze(0))
-
+        self.register_buffer("low", torch.tensor(space.low, dtype=torch.long).unsqueeze(0))
         emb_size = int(np.max(space.high - space.low))
-        self.layers = nn.ModuleList(
-            [
-                nn.Embedding(emb_size, units),
-                nn.Flatten(),
-                nn.LazyLinear(out_units),
-                nn.LayerNorm(out_units),
-                nn.SiLU(),
-            ]
+        self.layers = nn.Sequential(
+            nn.Embedding(emb_size, units),
+            nn.Flatten(),
+            nn.LazyLinear(out_units),
+            nn.LayerNorm(out_units),
+            nn.SiLU(),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = x.long() - self.low  # type: ignore
-        for layer in self.layers:
-            x = layer(x)
-        return x
+        return self.layers(x)
 
 
-def ContEncoder(units: int, out_units: int):
-    return nn.Sequential(
-        nn.Flatten(),
-        nn.LazyLinear(units),
-        nn.LayerNorm(units),
-        nn.SiLU(),
-        nn.Linear(units, out_units),
-        nn.SiLU(),
-    )
+class ContEncoder(nn.Module):
+    def __init__(self, units: int, out_units: int, space: BoxSpace, torch_dtype, enable_norm: bool):
+        super().__init__()
+        self.enable_norm = enable_norm
+
+        self.register_buffer("low", torch.tensor(space.low, dtype=torch_dtype).unsqueeze(0))
+        diff = torch.tensor(2 / (space.high - space.low), dtype=torch_dtype)
+        self.register_buffer("diff", diff.unsqueeze(0))
+        self.layers = nn.Sequential(
+            nn.Flatten(),
+            nn.LazyLinear(units),
+            nn.LayerNorm(units),
+            nn.SiLU(),
+            nn.Linear(units, out_units),
+            nn.SiLU(),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.enable_norm:
+            x = (x - self.low) * self.diff - 1  # type: ignore
+        return self.layers(x)
 
 
 # --------------------------------------
@@ -136,12 +142,12 @@ def create_encoder_block(config: Config):
         # 下限以下の場合はcontにする
         if emb_units < 16:
             out_units = min(config.base_units, 128)
-            obs_block = ContEncoder(units, out_units)
+            obs_block = ContEncoder(units, out_units, space, config.get_dtype("torch"), config.enable_state_norm)
         else:
             emb_units = min(emb_units, units)  # 上限はunits数
             obs_block = DiscreteEncoder(emb_units, out_units, space)
     else:
         out_units = min(config.base_units, 128)
-        obs_block = ContEncoder(units, out_units)
+        obs_block = ContEncoder(units, out_units, space, config.get_dtype("torch"), config.enable_state_norm)
 
     return obs_block

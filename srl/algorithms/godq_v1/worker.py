@@ -47,38 +47,84 @@ def plot_symlog_scalar():
 class Worker(RLWorker[Config, Parameter, Memory]):
     def on_setup(self, worker, context) -> None:
         self.screen = None
-        self.abort_count = 0
         self.np_dtype = self.config.get_dtype("np")
+        self.abort_count = 0
+        worker.set_tracking_max_size(self.config.max_discount_steps)
 
     def on_reset(self, worker):
         self.oe = None
         self.q = None
-        self.oz = None
 
         # --- arvhie(restoreの可能性あり)
-        if self.training and self.config.enable_archive:
+        if self.config.enable_archive:
             self.parameter.archive.on_reset(worker, self)
             self.search_step = 0
 
-    def policy(self, worker) -> int:
-        # e-greedy
-        epsilon = self.config.epsilon if self.training else self.config.test_epsilon
-        if random.random() < epsilon:
-            return self.sample_action()
+        # --- policy
+        if self.training:
+            if self.train_count == 0:
+                self.policy_mode = "go"
+                self.go_action = self.sample_action()
+            elif self.config.enable_int_q:
+                self.policy_mode = "int"
+            else:
+                self.policy_mode = "q"
+        else:
+            self.policy_mode = self.config.test_policy
 
-        if self.q is None:
-            self.oe, self.q = self.parameter.net.pred_q(worker.state[np.newaxis, ...])
-            self.q = self.q[0]
-        q = self.q.copy()
-        q[worker.invalid_actions] = -np.inf
-        return int(np.argmax(q))
+    def set_q_oe(self, state: np.ndarray, set_q: bool = True, set_oe: bool = True):
+        if set_q:
+            if self.oe is None:
+                self.oe, self.q = self.parameter.net.pred_q(state[np.newaxis, ...])
+                self.q = self.q[0]
+                return self.q
+            else:
+                self.q = self.parameter.net.q_online.forward_q(self.oe)
+                self.q = self.q[0]
+                return self.q
+        if set_oe:
+            self.oe = self.parameter.net.pred_oe(state[np.newaxis, ...])
+            return self.oe
+
+    def policy(self, worker) -> int:
+        if self.policy_mode == "go":
+            if random.random() < 0.1:
+                self.go_action = self.sample_action()
+            return self.go_action
+        elif self.policy_mode == "int":
+            epsilon = self.config.epsilon if self.training else self.config.test_epsilon
+            if random.random() < epsilon:
+                return self.sample_action()
+
+            rate = random.random() * 1
+
+            q_ext = self.set_q_oe(worker.state)
+            assert self.oe is not None
+            q_int = self.parameter.net.pred_q_int(self.oe)[0].copy()
+            q = q_ext + q_int * rate
+            q[worker.invalid_actions] = -np.inf
+            return int(np.argmax(q))
+        else:  # "q"
+            epsilon = self.config.epsilon if self.training else self.config.test_epsilon
+            if random.random() < epsilon:
+                return self.sample_action()
+            q = self.set_q_oe(worker.state)
+            assert q is not None
+            q = q.copy()
+            q[worker.invalid_actions] = -np.inf
+            return int(np.argmax(q))
 
     def on_step(self, worker):
-        # --- encode, q
         prev_q = self.q
         self.oe = None
         self.q = None
-        oz = None
+
+        if self.rendering and self.config.enable_int_q:
+            self.int_reward = self.parameter.net.pred_single_int_reward(
+                worker.state,
+                worker.action,
+                worker.next_state,
+            )
 
         if not self.training:
             return
@@ -94,12 +140,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
 
         # --- archive
         if self.config.enable_archive:
-            if self.oe is None:
-                self.oe, self.q = self.parameter.net.pred_q(worker.next_state[np.newaxis, ...])
-                self.q = self.q[0]
-            if oz is None:
-                oz = self.parameter.net.encode_latent(self.oe)
-            if self.parameter.archive.on_step(oz, worker):
+            if self.parameter.archive.on_step(worker, self):
                 # 新しいcellを見つけたらリセット
                 self.search_step = 0
 
@@ -107,16 +148,27 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         reward = worker.reward
         if self.config.enable_reward_symlog_scalar:
             reward = float(symlog_scalar(reward))
-        self.memory.add_q(
-            [
-                worker.state,
-                worker.action,
-                worker.next_state,
-                reward,
-                1 - int(worker.terminated),
-            ],
-            priority=self._calc_priority(worker, reward, prev_q),
+        worker.add_tracking(
+            {
+                "state": worker.state,
+                "n_state": worker.next_state,
+                "action": worker.action,
+                "reward": reward,
+                "not_done": int(not worker.terminated),
+                "priority": self._calc_priority(worker, reward, prev_q),
+            }
         )
+        if not worker.done:
+            if worker.get_tracking_length() == self.config.max_discount_steps:
+                total_reward = 0
+                for b in reversed(worker.get_trackings()):
+                    total_reward = b[3] + self.config.discount * total_reward
+                self.memory.add_q(b[:-1] + [total_reward], b[-1])
+        else:
+            total_reward = 0
+            for b in reversed(worker.get_trackings()):
+                total_reward = b[3] + self.config.discount * total_reward
+                self.memory.add_q(b[:-1] + [total_reward], b[-1])
 
     def _calc_priority(self, worker: WorkerRun, reward: float, prev_q):
         if not self.config.memory.requires_priority():
@@ -126,11 +178,9 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         # 分散の場合は計算
         if self.distributed:
             if prev_q is None:
-                _, prev_q = self.parameter.net.pred_q(worker.state[np.newaxis, ...])
+                state = self.config.observation_space.rescale_from(worker.state, -1, 1)
+                _, prev_q = self.parameter.net.pred_q(state[np.newaxis, ...])
                 prev_q = prev_q[0]
-            if not worker.terminated:
-                self.oe, self.q = self.parameter.net.pred_q(worker.next_state[np.newaxis, ...])
-                self.q = self.q[0]
 
         if prev_q is None:
             return None
@@ -146,28 +196,12 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         return priority
 
     def render_terminal(self, worker, **kwargs):
-        if self.config.enable_archive:
-            if self.oe is not None:
-                oz = self.parameter.net.encode_latent(self.oe)
-                self.parameter.archive.render_terminal(oz)
         self.parameter.net.render_terminal(worker)
-
-    def render_rgb_array(self, worker, **kwargs):
-        if not self.config.enable_archive:
-            return None
-
-        from srl.utils.pygame_wrapper import PygameScreen
-
-        WIDTH = 600
-        HEIGHT = 400
-
-        if self.screen is None:
-            self.screen = PygameScreen(WIDTH, HEIGHT)
-        self.screen.draw_fill((0, 0, 0))
+        if self.config.enable_int_q:
+            if worker.step_in_episode > 0:
+                print(f"int_reward: {float(self.int_reward):.5f}")
+            else:
+                print()
 
         if self.config.enable_archive:
-            if self.oe is not None:
-                oz = self.parameter.net.encode_latent(self.oe)
-                self.parameter.archive.render_rgb_array(self.screen, oz, 0, 0)
-
-        return self.screen.get_rgb_array()
+            self.parameter.archive.render_terminal(worker)

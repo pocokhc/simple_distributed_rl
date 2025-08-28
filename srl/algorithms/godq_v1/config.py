@@ -2,11 +2,11 @@ import logging
 from dataclasses import dataclass, field
 from typing import List, Literal
 
-from srl.base.define import RLBaseTypes, SpaceTypes
+from srl.base.define import SpaceTypes
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.algorithms.base_dqn import RLConfig
 from srl.base.rl.processor import RLProcessor
-from srl.base.spaces.space import SpaceBase
+from srl.base.spaces.space import SpaceBase, SpaceEncodeOptions
 from srl.rl.memories.priority_replay_buffer import PriorityReplayBufferConfig
 from srl.rl.processors.image_processor import ImageProcessor
 
@@ -17,44 +17,39 @@ logger = logging.getLogger(__name__)
 class Config(RLConfig):
     # --- policy
     test_epsilon: float = 0
+    test_policy: Literal["q", "int"] = "q"
     epsilon: float = 0.05
 
     # --- archive
     enable_archive: bool = True
+    archive_steps: int = 200
+    archive_max_size: int = 10
     archive_rate: float = 0.5
-    search_max_step: int = 200
-    archive_min_num: int = 5
-    archive_max_size: int = 100
-    archive_novelty_threshold: float = 0.1
+    search_max_step: int = 500
     archive_rankbase_alpha: float = 1.0
-
-    # --- latent
-    latent_size: int = 8
-
-    # --- int
-    episodic_count_max: int = 10
-    episodic_epsilon: float = 0.001
-    episodic_cluster_distance: float = 0.008
-    episodic_memory_capacity: int = 30000
-    enable_int_reward_debug: bool = False
 
     # --- encoder/feat
     encode_img_type: Literal["DQN", "R2D3"] = "DQN"
-    feat_type: Literal["", "SimSiam", "SPR"] = "SPR"
+    enable_state_norm: bool = True
     used_discrete_block: bool = True
+    feat_type: Literal["", "SimSiam", "BYOL"] = "SimSiam"
 
-    # --- SPR
-    replay_ratio: int = 2
-    reset_interval_shrink: int = 5000
-    select_model: Literal["online", "target"] = "target"
+    # --- BYOL
+    byol_model_update_rate: float = 0.1
+    byol_model_update_interval: int = 10
+    # --- int
+    enable_int_q: bool = True
+    int_target_prob: float = 0.9
+    int_discount: float = 0.99
+    int_align_loss_coeff: float = 0.03
 
     # --- q train
+    replay_ratio: int = 2
+    reset_net_interval: int = 5000
+    max_discount_steps: int = 500
     enable_reward_symlog_scalar: bool = True
-    target_policy: float = 0.99
-    discount: float = -1  # -1 is auto. 0.999
-    discount_k: float = 1.5
-    target_model_update_rate: float = 0.01
-    init_target_q_zero: bool = True
+    discount: float = 0.999
+    align_loss_coeff: float = 0.05
 
     # --- model/train
     base_units: int = 512
@@ -62,12 +57,6 @@ class Config(RLConfig):
     batch_size: int = 64
     lr: float = 0.0001
     memory: PriorityReplayBufferConfig = field(default_factory=lambda: PriorityReplayBufferConfig(compress=False).set_proportional_cpp(beta_steps=100_000))
-
-    @property
-    def enable_int_reward(self) -> bool:
-        if self.enable_int_reward_debug:
-            return True
-        return self.enable_archive
 
     def get_name(self) -> str:
         return "GoDQ_v1"
@@ -86,8 +75,8 @@ class Config(RLConfig):
         if env.player_num != 1:
             raise ValueError(f"assert {env.player_num} == 1")
 
-    def get_base_observation_type(self) -> RLBaseTypes:
-        return RLBaseTypes.BOX_UNTYPED
+    def get_base_observation_type_options(self) -> SpaceEncodeOptions:
+        return SpaceEncodeOptions(cast=False)
 
     def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
         if prev_observation_space.is_image():
@@ -98,4 +87,4 @@ class Config(RLConfig):
         return []
 
     def use_update_parameter_from_worker(self) -> bool:
-        return True
+        return self.enable_archive

@@ -15,31 +15,31 @@ from srl.base.spaces.space import SpaceBase
 
 @dataclass
 class NormalizeProcessor(RLProcessor):
-    feature_rang: Tuple[float, float] = (0, 1)
+    feature_range: Tuple[float, float] = (-1, 1)
 
     def remap_observation_space(self, prev_space: SpaceBase, **kwargs) -> Optional[SpaceBase]:
-        assert self.feature_rang[0] <= self.feature_rang[1]
+        assert self.feature_range[0] <= self.feature_range[1]
 
         if isinstance(prev_space, DiscreteSpace):
-            return ContinuousSpace(self.feature_rang[0], self.feature_rang[1])
+            return ContinuousSpace(self.feature_range[0], self.feature_range[1])
 
         if isinstance(prev_space, ContinuousSpace):
-            return ContinuousSpace(self.feature_rang[0], self.feature_rang[1])
+            return ContinuousSpace(self.feature_range[0], self.feature_range[1])
 
         if isinstance(prev_space, ArrayDiscreteSpace):
-            return NpArraySpace(prev_space._size, self.feature_rang[0], self.feature_rang[1])
+            return NpArraySpace(prev_space._size, self.feature_range[0], self.feature_range[1])
 
         if isinstance(prev_space, NpArraySpace):
-            return NpArraySpace(prev_space._size, self.feature_rang[0], self.feature_rang[1])
+            return NpArraySpace(prev_space._size, self.feature_range[0], self.feature_range[1])
 
         if isinstance(prev_space, BoxSpace):
-            return BoxSpace(prev_space.shape, self.feature_rang[0], self.feature_rang[1])
+            return BoxSpace(prev_space.shape, self.feature_range[0], self.feature_range[1])
 
         return None
 
     def remap_observation(self, state: EnvObservationType, prev_space: SpaceBase, new_space: SpaceBase, **kwargs) -> EnvObservationType:
-        _min = self.feature_rang[0]
-        _max = self.feature_rang[1]
+        _min = self.feature_range[0]
+        _max = self.feature_range[1]
 
         if isinstance(prev_space, DiscreteSpace):
             state = cast(int, state)

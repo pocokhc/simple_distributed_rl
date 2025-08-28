@@ -660,7 +660,7 @@ class _GridBase(EnvBase[DiscreteSpace, int, TObsSpace, TObsType], Generic[TObsSp
 class Grid(_GridBase[ArrayDiscreteSpace, List[int]]):
     @property
     def observation_space(self):
-        return ArrayDiscreteSpace(2, low=0, high=[self.W, self.H])
+        return ArrayDiscreteSpace(2, low=0, high=[self.W - 1, self.H - 1])
 
     def _create_state(self):
         return list(self.player_pos)

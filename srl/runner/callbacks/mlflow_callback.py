@@ -90,7 +90,7 @@ class MLFlowCallback(RunCallback, Evaluate):
             mlflow.log_artifact(path, run_id=self.run_id)
 
             path = os.path.join(tmp_dir, "context.yaml")
-            context.save(path)
+            context.save(path, include_env_config=False, include_rl_config=False)
             mlflow.log_artifact(path, run_id=self.run_id)
 
         # if context.distributed:

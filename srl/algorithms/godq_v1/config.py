@@ -21,7 +21,7 @@ class Config(RLConfig):
     epsilon: float = 0.05
 
     # --- archive
-    enable_archive: bool = True
+    enable_archive: bool = False
     archive_steps: int = 200
     archive_max_size: int = 10
     archive_rate: float = 0.5

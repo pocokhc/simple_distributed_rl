@@ -80,7 +80,7 @@ class DiscreteEncoder(nn.Module):
         super().__init__()
 
         self.register_buffer("low", torch.tensor(space.low, dtype=torch.long).unsqueeze(0))
-        emb_size = int(np.max(space.high - space.low))
+        emb_size = int(np.max(space.high - space.low)) + 1
         self.layers = nn.Sequential(
             nn.Embedding(emb_size, units),
             nn.Flatten(),

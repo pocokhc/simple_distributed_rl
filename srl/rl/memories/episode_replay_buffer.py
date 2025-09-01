@@ -59,6 +59,9 @@ class EpisodeReplayBuffer:
     def length(self) -> int:
         return self.total_size
 
+    def is_warmup(self) -> bool:
+        return self.total_size < self.cfg.warmup_size
+
     def add(self, steps: List[Any], size: int = 0, serialized: bool = False) -> None:
         # compressなら圧縮状態で、違うならdeserializeしたものをbufferに入れる
         if serialized:
@@ -118,6 +121,15 @@ class EpisodeReplayBuffer:
             j = random.randint(skip_head, sample_size)
             batches.append(steps[j : j + batch_length])
         return batches
+
+    def sample_steps(self, batch_size: int = -1):
+        if self.total_size < self.cfg.warmup_size:
+            return None
+        batch_size = self.batch_size if batch_size == -1 else batch_size
+        steps, _ = self.buffer[random.randint(0, len(self.buffer) - 1)]
+        if self.cfg.compress:
+            steps = pickle.loads(zlib.decompress(steps))
+        return steps
 
     def sample_sequential(
         self,

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
-FROM tensorflow/tensorflow:2.19.0-gpu
-RUN pip install --no-cache-dir tensorflow[and-cuda]==2.19.0
+FROM tensorflow/tensorflow:2.20.0-gpu
+RUN pip install --no-cache-dir tensorflow[and-cuda]==2.20.0
 
 WORKDIR /code
 ENV PYTHONPATH="/code"

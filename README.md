@@ -100,72 +100,73 @@ animation_save_gifで生成された画像は以下です。
 ## モデルフリー
 ### 価値ベース
 
-|Algorithm |Observation|Action  |Tensorflow|Torch|ProgressRate||
-|----------|-----------|--------|----------|-----|------------|---|
-|QL        |Discrete   |Discrete|-         |- |100%|Basic Q Learning|
-|DQN       |Continuous |Discrete|✔        |✔|100%||
-|C51       |Continuous |Discrete|✔        |- |99%|CategoricalDQN|
-|Rainbow   |Continuous |Discrete|✔        |✔|100%||
-|R2D2      |Continuous |Discrete|✔        |- |100%||
-|Agent57   |Continuous |Discrete|✔        |✔|100%||
-|SND       |Continuous |Discrete|✔        |- |100%||
-|Go-Explore|Continuous |Discrete|✔        |- |100%|DQN base, R2D3 memory base|
+|Algorithm |Observation|Action  |Tensorflow|Torch|Comment|
+|----------|-----------|--------|----------|-----|-------|
+|QL        |Discrete   |Discrete|         |    |Basic Q Learning|
+|DQN       |Box        |Discrete|✔        |✔||
+|C51       |Box        |Discrete|✔        |-|CategoricalDQN|
+|Rainbow   |Box        |Discrete|✔        |✔||
+|R2D2      |Box        |Discrete|✔        |-|
+|Agent57   |Box        |Discrete|✔        |✔||
+|SND       |Box        |Discrete|✔        |-|
+|Go-Explore|Box        |Discrete|✔        |-|DQN base, R2D3 memory base|
 
 ### 方策ベース/ActorCritic
 
-|Algorithm     |Observation|Action    |Tensorflow|Torch|ProgressRate|
+|Algorithm     |Observation|Action    |Tensorflow|Torch|Comment|
 |--------------|-----------|----------|----------|-----|---|
-|VanillaPolicy |Discrete   |Both      |-         |-    |100%|
-|A3C/A2C       |-          |-         |-         |-    |-   |
-|TRPO          |-          |-         |-         |-    |-   |
-|PPO           |Continuous |Both      |✔        |-    |100%|
-|DDPG/TD3      |Continuous |Continuous|✔        |-    |100%|
-|SAC           |Continuous |Both      |✔        |-    |100%|
+|VanillaPolicy |Discrete   |Discrete<br>Continuous||||
+|A3C/A2C       |-          |-         |-         |-|Not implemented|
+|TRPO          |-          |-         |-         |-|Not implemented|
+|PPO           |Box|Discrete<br>Continuous|✔|-||
+|DDPG/TD3      |Box|Continuous            |✔|-||
+|SAC           |Box|Discrete<br>Continuous|✔|-||
 
 ## Alphaシリーズ
 
-|Algorithm  |Observation|Action  |Tensorflow|Torch|ProgressRate||
-|-----------|-----------|--------|----------|-----|---|---|
-|MCTS       |Discrete   |Discrete|-         |-    |100%|MDP base|
-|AlphaZero  |Image      |Discrete|✔        |-    |100%|MDP base|
-|MuZero     |Image      |Discrete|✔        |-    |100%||
-|StochasticMuZero|Image |Discrete|✔        |-    |100%||
-|EfficientZeroV2|Image  |Both    |✔        |-    |100%||
+|Algorithm  |Observation|Action  |Tensorflow|Torch|Comment|
+|-----------|-----------|--------|----------|-----|-------|
+|MCTS       |Discrete   |Discrete|          |     |MDP base|
+|AlphaZero  |Image(shape)|Discrete|✔|-|MDP base|
+|MuZero     |Image(shape)|Discrete|✔|-||
+|StochasticMuZero|Box   |Discrete|✔|-||
+|EfficientZeroV2 |Box   |Discrete<br>Continuous|✔|-||
 
 ## モデルベース
 
-|Algorithm  |Observation|Action     |Framework|ProgressRate|
+|Algorithm  |Observation|Action     |Framework|Comment|
 |-----------|-----------|-----------|---------|----|
-|DynaQ      |Discrete   |Discrete   |-        |100%|
+|DynaQ      |Discrete   |Discrete   |-        ||
 
 ## WorldModelシリーズ
 
-|Algorithm  |Observation|Action     |Tensorflow|Torch|ProgressRate|
-|-----------|-----------|-----------|----------|-----|---|
-|WorldModels|Continuous |Discrete   |✔        |-    |100%|
-|PlaNet     |Continuous |Discrete   |✔(+tensorflow-probability)|-|100%|
-|Dreamer    |Continuous |Both       |-|-|merge DreamerV3|
-|DreamerV2  |Continuous |Both       |-|-|merge DreamerV3|
-|DreamerV3  |Continuous |Both       |✔(+tensorflow-probability)|-|100%|
-|DIAMOND    |Image      |Discrete   |✔|-|100%|
+|Algorithm  |Observation|Action     |Tensorflow|Torch|Comment|
+|-----------|-----------|-----------|----------|-----|------|
+|WorldModels|Box        |Discrete   |✔        |-||
+|PlaNet     |Box        |Discrete   |✔(+tensorflow-probability)|-||
+|Dreamer    |-|-|-|-|merge DreamerV3|
+|DreamerV2  |-|-|-|-|merge DreamerV3|
+|DreamerV3  |Box        |Discrete<br>Continuous|✔(+tensorflow-probability)|-||
+|DIAMOND    |Image      |Discrete   |✔|-||
 
 ## オフライン
 
-|Algorithm  |Observation|Action     |Framework|ProgressRate|
-|-----------|-----------|-----------|----------|----|
-|CQL        |Discrete   |Discrete   |          |  0%|
+|Algorithm  |Observation|Action     |Framework|Comment|
+|-----------|-----------|-----------|----------|------|
+|CQL        |Discrete   |Discrete   |          |ProgressRate: 0%|
 
 ## オリジナル
 
-|Algorithm     |Observation|Action  |Type     |Tensorflow|Torch|ProgressRate||
-|--------------|-----------|--------|---------|----------|-----|---|---|
-|QL_agent57    |Discrete   |Discrete|ValueBase|-         |-    |80%|QL + Agent57|
-|Agent57_light |Continuous |Discrete|ValueBase|✔        |✔   |100%|Agent57 - (LSTM,MultiStep)|
-|SearchDynaQ   |Discrete   |Discrete|ModelBase|-         |-    |100%|original|
-|GoDynaQ       |Discrete   |Discrete|ModelBase|-         |-    |99%|original|
-|GoDQN         |Continuous |Discrete|ValueBase|✔        |-    |90%|original|
-|NoT_DQN       |Continuous |Discrete|ValueBase|-        |✔    |100%|No Target DQN, original|
-|GoDQ_v1       |Continuous |Discrete|ValueBase|-        |✔    |100%|original|
+|Algorithm     |Observation|Action  |Framework|Comment|
+|--------------|-----------|--------|---------|-------|
+|QL_agent57    |Discrete   |Discrete||QL + Agent57<br>Progress:80%|
+|Agent57_light |Box        |Discrete|TF<br>Torch|Agent57 - (LSTM,MultiSteps)|
+|SearchDynaQ   |Discrete   |Discrete||Original(ModelBase)<br>QL(TableBase)+PolicyIteration+IntrinsicReward|
+|GoDynaQ       |Discrete   |Discrete||Original(ModelBase)<br>SearchDynaQ+Go-Explore|
+|GoDQN         |Box        |Discrete|TF|Original(Progress:90%)<br>DQN+Go-Explore|
+|NoT_DQN       |Box        |Discrete|Torch|Original<br>No Target DQN|
+|GoDQ_v1       |Box        |Discrete|Torch|Original<br>NoT_DQN + BYOL-Explorer(IntrinsicReward) + Archive + SR-SPR|
+|GoDQ_v1_LSTM  |Box        |Discrete|Torch|Original<br>GoDQ_v1+LSTM|
 
 
 # 5. オンライン分散学習

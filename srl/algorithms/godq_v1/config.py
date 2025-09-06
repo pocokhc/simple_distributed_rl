@@ -30,6 +30,7 @@ class Config(RLConfig):
 
     # --- encoder/feat
     encode_img_type: Literal["DQN", "R2D3"] = "DQN"
+    encode_discrete_type: Literal["BOX", "Discrete", "Conv1D"] = "Discrete"
     enable_state_norm: bool = True
     used_discrete_block: bool = True
     feat_type: Literal["", "SimSiam", "BYOL"] = "SimSiam"
@@ -42,6 +43,7 @@ class Config(RLConfig):
     int_target_prob: float = 0.9
     int_discount: float = 0.99
     int_align_loss_coeff: float = 0.03
+    int_q_distribution: bool = False
 
     # --- q train
     replay_ratio: int = 2
@@ -50,13 +52,14 @@ class Config(RLConfig):
     enable_reward_symlog_scalar: bool = True
     discount: float = 0.999
     align_loss_coeff: float = 0.05
+    enable_q_distribution: bool = True
 
     # --- model/train
-    base_units: int = 512
+    base_units: int = 256
     max_grad_norm: float = 5
     batch_size: int = 64
     lr: float = 0.0001
-    memory: PriorityReplayBufferConfig = field(default_factory=lambda: PriorityReplayBufferConfig(compress=False).set_proportional_cpp(beta_steps=100_000))
+    memory: PriorityReplayBufferConfig = field(default_factory=lambda: PriorityReplayBufferConfig(compress=False).set_replay_buffer())
 
     def get_name(self) -> str:
         return "GoDQ_v1"

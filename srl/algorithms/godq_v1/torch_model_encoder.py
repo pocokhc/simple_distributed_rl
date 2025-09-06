@@ -81,7 +81,10 @@ class DiscreteEncoder(nn.Module):
 
         self.register_buffer("low", torch.tensor(space.low, dtype=torch.long).unsqueeze(0))
         emb_size = int(np.max(space.high - space.low)) + 1
-        self.layers = nn.Sequential(
+        emb_size = min(emb_size, units)  # 上限を設定
+
+        self.block = nn.Sequential(
+            nn.Flatten(),
             nn.Embedding(emb_size, units),
             nn.Flatten(),
             nn.LazyLinear(out_units),
@@ -91,7 +94,53 @@ class DiscreteEncoder(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = x.long() - self.low  # type: ignore
-        return self.layers(x)
+        return self.block(x)
+
+
+class ResidualBlock1D(nn.Module):
+    """
+    1D畳み込みのResidualブロック
+    """
+
+    def __init__(self, in_channels: int, out_channels: int, kernel_size: int = 3, output_scale_factor: float = 2.0):
+        super().__init__()
+        self.output_scale_factor = output_scale_factor
+        self.block = nn.Sequential(
+            nn.Conv1d(in_channels, out_channels, kernel_size, padding=kernel_size // 2),
+            nn.SiLU(),
+            nn.Conv1d(out_channels, out_channels, kernel_size, padding=kernel_size // 2),
+            nn.SiLU(),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return (self.block(x) + x) / self.output_scale_factor
+
+
+class DiscreteConv1DEncoder(nn.Module):
+    def __init__(self, units: int, out_units: int, space: BoxSpace):
+        super().__init__()
+
+        self.register_buffer("low", torch.tensor(space.low, dtype=torch.long).unsqueeze(0))
+        emb_size = int(np.max(space.high - space.low)) + 1
+        emb_size = min(emb_size, units)  # 上限を設定
+
+        self.in_flatten = nn.Flatten()
+        self.embedding = nn.Embedding(emb_size, units)
+        self.block = nn.Sequential(
+            ResidualBlock1D(units, units),
+            ResidualBlock1D(units, units),
+            nn.Flatten(),
+            nn.LazyLinear(out_units),
+            nn.LayerNorm(out_units),
+            nn.SiLU(),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = x.long() - self.low  # type: ignore
+        x = self.in_flatten(x)
+        x = self.embedding(x)
+        x = x.transpose(1, 2)
+        return self.block(x)
 
 
 class ContEncoder(nn.Module):
@@ -121,11 +170,11 @@ class ContEncoder(nn.Module):
 
 
 def create_encoder_block(config: Config):
-    units = config.base_units
+    base_units = config.base_units
     space = config.observation_space
 
+    out_units = base_units
     if space.is_image():
-        out_units = min(config.base_units, 256)
         if config.encode_img_type == "DQN":
             units = 32
             obs_block = DQNImageEncoder(units, out_units, space)
@@ -133,21 +182,17 @@ def create_encoder_block(config: Config):
             units = 16
             obs_block = R2D3ImageEncoder(units, out_units, space)
     elif config.used_discrete_block and space.is_discrete():
-        out_units = min(config.base_units, 128)
-
-        # embの出力units数を制限
-        max_units = 8192
-        emb_size = int(np.max(space.high - space.low)) * space.flatten_size
-        emb_units = max_units // emb_size  # max_units以下になるように計算
-        # 下限以下の場合はcontにする
-        if emb_units < 16:
-            out_units = min(config.base_units, 128)
-            obs_block = ContEncoder(units, out_units, space, config.get_dtype("torch"), config.enable_state_norm)
-        else:
-            emb_units = min(emb_units, units)  # 上限はunits数
-            obs_block = DiscreteEncoder(emb_units, out_units, space)
+        if config.encode_discrete_type == "BOX":
+            obs_block = ContEncoder(base_units, out_units, space, config.get_dtype("torch"), config.enable_state_norm)
+        elif config.encode_discrete_type == "Discrete":
+            obs_block = DiscreteEncoder(base_units, out_units, space)
+        elif config.encode_discrete_type == "Conv1D":
+            obs_block = DiscreteConv1DEncoder(base_units, out_units, space)
     else:
-        out_units = min(config.base_units, 128)
-        obs_block = ContEncoder(units, out_units, space, config.get_dtype("torch"), config.enable_state_norm)
+        obs_block = ContEncoder(base_units, out_units, space, config.get_dtype("torch"), config.enable_state_norm)
 
-    return obs_block
+    # --- init weight
+    x = torch.zeros((1, *config.observation_space.shape), dtype=config.get_dtype("torch"))
+    obs_block(x)
+
+    return obs_block, out_units

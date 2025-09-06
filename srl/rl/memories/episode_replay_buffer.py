@@ -135,35 +135,46 @@ class EpisodeReplayBuffer:
         self,
         dummy_step: Optional[list] = None,
         should_drop_batch_func: Optional[Callable[[int, List[list]], bool]] = None,
+        batch_size: int = -1,
+        batch_length: int = -1,
+        skip_head: int = -1,
+        skip_tail: int = -1,
+        sequential_stride: int = -1,
     ):
         """時系列に沿ったbatchを生成"""
         if self.total_size < self.cfg.warmup_size:
             return None
+        batch_size = self.batch_size if batch_size == -1 else batch_size
+        assert batch_size <= self.batch_size
+        batch_length = self.batch_length if batch_length == -1 else batch_length
+        skip_head = self.skip_head if skip_head == -1 else skip_head
+        skip_tail = self.skip_tail if skip_tail == -1 else skip_tail
+        sequential_stride = self.sequential_stride if sequential_stride == -1 else sequential_stride
 
         batches: List[list] = []
-        for i in range(self.batch_size):
+        for i in range(batch_size):
             for j in range(99):  # for safety
                 # --- 足りなくなったらbufferから追加
-                while len(self._sequential_batches[i]) < self.batch_length:
+                while len(self._sequential_batches[i]) < batch_length:
                     r = random.randint(0, len(self.buffer) - 1)
                     steps, _ = self.buffer[r]
                     if self.cfg.compress:
                         steps = pickle.loads(zlib.decompress(steps))
-                    if len(steps) <= self.skip_head + self.skip_tail:
-                        logger.warning(f"Episode length must be equal to or greater than batch_length. {len(steps)} > {self.skip_head + self.skip_tail}")
+                    if len(steps) <= skip_head + skip_tail:
+                        logger.warning(f"Episode length must be equal to or greater than batch_length. {len(steps)} > {skip_head + skip_tail}")
                         continue
 
-                    if self.skip_tail <= 0:
-                        steps = steps[self.skip_head :]
+                    if skip_tail <= 0:
+                        steps = steps[skip_head:]
                     else:
-                        steps = steps[self.skip_head : -self.skip_tail]
+                        steps = steps[skip_head:-skip_tail]
                     if dummy_step is not None:
                         self._sequential_batches[i].extend([dummy_step] * i)
                     self._sequential_batches[i].extend(steps)
 
                 # --- batchを追加
-                batch = self._sequential_batches[i][: self.batch_length]
-                self._sequential_batches[i] = self._sequential_batches[i][self.sequential_stride :]
+                batch = self._sequential_batches[i][:batch_length]
+                self._sequential_batches[i] = self._sequential_batches[i][sequential_stride:]
                 if should_drop_batch_func is not None:
                     if should_drop_batch_func(i, batch):
                         continue  # 追加できるまで繰り返す

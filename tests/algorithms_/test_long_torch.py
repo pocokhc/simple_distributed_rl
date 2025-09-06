@@ -9,6 +9,7 @@ from tests.algorithms_ import (
     base_go_dqn,
     base_go_explore,
     base_godq_v1,
+    base_godq_v1_lstm,
     base_muzero,
     base_not_dqn,
     base_planet,
@@ -48,4 +49,8 @@ class Test_not_dqn(_CommonOption, base_not_dqn.LongCase):
 
 
 class Test_godq_v1(_CommonOption, base_godq_v1.LongCase):
+    pass
+
+
+class Test_godq_v1_lstm(_CommonOption, base_godq_v1_lstm.LongCase):
     pass

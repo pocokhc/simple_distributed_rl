@@ -19,6 +19,34 @@
 // keras3対応 → tfは@tf.functionが使えなくなるので遅くなる。torchはcpu()が必要になるっぽい、しばらく保留
 
 
+# v1.4.2
+
+細かい修正のみの更新になります。
+
+**Updates**
+
+1. [runner.mlflow] new: mlflowから直接runnerをloadするsrl.load_mlflowを作成
+1. [base.rl.config] change: encodeにoptionsを追加し、cast等をconfigから設定できるように変更、NPARRAY_UNTYPED/BOX_UNTYPEDを削除
+1. [base.rl.worker] add: workerからrun_stateとtrain_countを参照できるように修正
+1. [runner.mlflow] update: load_parameter_from_mlflowをrun_idとfile名から直接指定できるように引数を追加
+1. [runner.mlflow] change: contextのsaveからenvとrlを除外
+1. [runner.callback.mlflow] update: envのinfo情報も記録するように追加
+1. [base.spaces.box] add: rescale_toを追加
+1. [rl.scheduler] add: 更新があるかを見るis_update_step関数を追加
+1. [rl.processors.normalize_processor] change: range初期値を(-1,1)に変更
+1. [rl.functions] new: get_random_idx_by_rankbaseを追加
+1. [rl.memories] add: episode_replay_bufferにis_warmupとsample_steps関数を追加
+1. [rl.memories] add: episode_replay_bufferのsample_sequentialに各種設定を変えれる引数を追加
+1. [dockers] update: versionアップとmlflowのバージョンを固定
+1. [algorithms.not_dqn] rename: max_n_stepをmax_discount_stepsに名前変更
+1. [algorithms.godq_v1] update: Qの分布化を追加と高速化など
+1. [algorithms] new: godq_v1_lstmを追加
+
+**Bug Fixes**
+
+1. [envs.grid] fix: observation_spaceのhighが1多かったので修正
+
+
 # v1.4.1
 
 **Updates**

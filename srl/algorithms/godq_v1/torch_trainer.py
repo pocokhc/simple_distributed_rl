@@ -49,9 +49,10 @@ class TorchTrainer:
         self.reset_params = []
 
         # --- q
-        self.models = [self.net.q_online]
+        self.models = [self.net.encoder, self.net.q_online]
         self.loss_q_func = nn.HuberLoss(reduction="none")
         self.loss_align_func = nn.MSELoss(reduction="none")
+        self.reset_params += list(self.net.encoder.parameters())
         self.reset_params += list(self.net.q_online.parameters())
 
         if self.config.feat_type == "SimSiam":
@@ -73,6 +74,18 @@ class TorchTrainer:
         else:
             self.opt = optim.RAdam(self.params, lr=self.config.lr)
         [m.train() for m in self.models]
+
+        self.int_target_w = torch.full(
+            (self.config.batch_size, self.act_num),
+            (1 - self.config.int_target_prob) / (self.act_num - 1),
+            dtype=self.torch_dtype,
+            device=self.net.device,
+        )
+        self.states_np = np.empty((self.config.batch_size * 2, *self.config.observation_space.shape), dtype=self.np_dtype)
+        self.action_indices_np = np.empty((self.config.batch_size, 1), dtype=np.int64)
+        self.reward_np = np.empty((self.config.batch_size,), dtype=self.np_dtype)
+        self.not_terminated_np = np.empty((self.config.batch_size,), dtype=self.np_dtype)
+        self.total_reward_np = np.empty((self.config.batch_size,), dtype=self.np_dtype)
 
         self.reset_net = 0
 
@@ -102,29 +115,34 @@ class TorchTrainer:
         device = self.net.device
         batches, weights, update_args = batches
 
-        state, n_state, action, reward, not_terminated, total_reward = zip(*batches)
-        state = torch.tensor(np.asarray(state, dtype=self.np_dtype), device=device)
-        n_state = torch.tensor(np.asarray(n_state, dtype=self.np_dtype), device=device)
-        action_indices = torch.tensor(np.asarray(action), dtype=torch.long, device=device).unsqueeze(1)
-        reward = torch.tensor(np.asarray(reward, dtype=self.np_dtype), device=device)
-        not_terminated = torch.tensor(np.asarray(not_terminated, dtype=self.np_dtype), device=device)
-        total_reward = torch.tensor(np.asarray(total_reward, dtype=self.np_dtype), device=device)
+        for i, b in enumerate(batches):
+            self.states_np[i] = b[0]
+            self.states_np[self.config.batch_size + i] = b[1]
+            self.action_indices_np[i] = b[2]
+            self.reward_np[i] = b[3]
+            self.not_terminated_np[i] = b[4]
+            self.total_reward_np[i] = b[5]
+        states = torch.from_numpy(self.states_np).to(device)
+        action_indices = torch.from_numpy(self.action_indices_np).to(device)
+        reward = torch.from_numpy(self.reward_np).to(device)
+        not_terminated = torch.from_numpy(self.not_terminated_np).to(device)
+        total_reward = torch.from_numpy(self.total_reward_np).to(device)
+
         if self.config.memory.requires_priority():
             weights = torch.tensor(np.asarray(weights), dtype=self.torch_dtype, device=device)
         else:
             weights = 1
 
         loss = 0
-        with torch.no_grad():
-            n_oe_online, n_q_online = self.net.q_online(n_state)
-        oe_online, q_all = self.net.q_online(state)
+        oe_s = self.net.encoder(states)
+        q_all_s = self.net.q_online(oe_s)
 
         # --- target_q
-        n_q = n_q_online.detach().max(dim=1).values
+        n_q = q_all_s[self.config.batch_size :].detach().max(dim=1).values
         target_q = reward + not_terminated * self.config.discount * n_q
 
         # --- q
-        q = q_all.gather(1, action_indices).squeeze(1)
+        q = q_all_s[: self.config.batch_size].gather(1, action_indices).squeeze(1)
         loss_q = (self.loss_q_func(target_q, q) * weights).mean()
         loss += loss_q
         self.trainer.info["loss_q"] = loss_q.item()
@@ -141,17 +159,21 @@ class TorchTrainer:
 
         # --- feat
         if self.config.feat_type == "SimSiam":
-            y_hat = self.net.projector(oe_online, action_indices.squeeze(-1))
+            oe = oe_s[: self.config.batch_size]
+            y_hat = self.net.projector(oe, action_indices.squeeze(-1))
             with torch.no_grad():
-                y_target = self.net.projector.projection(n_oe_online)
+                n_oe = oe_s[self.config.batch_size :].detach()
+                y_target = self.net.projector.projection(n_oe)
             loss_sim, int_rew = self.net.projector.compute_loss_and_reward(y_target.detach(), y_hat)
             loss_sim = (loss_sim * weights).mean()
             loss += loss_sim
             self.trainer.info["loss_sim"] = loss_sim.item()
         elif self.config.feat_type == "BYOL":
-            y_hat = self.net.byol_online(oe_online, action_indices.squeeze(-1))
+            oe = oe_s[: self.config.batch_size]
+            y_hat = self.net.byol_online(oe, action_indices.squeeze(-1))
             with torch.no_grad():
-                y_target = self.net.byol_target(n_oe_online)
+                n_oe = oe_s[self.config.batch_size :].detach()
+                y_target = self.net.byol_target(n_oe)
             loss_byol, int_rew = self.net.byol_online.compute_loss_and_reward(y_target.detach(), y_hat)
             loss_byol = (loss_byol * weights).mean()
             loss += loss_byol
@@ -159,22 +181,16 @@ class TorchTrainer:
 
         if self.config.enable_int_q:
             # --- q int target
-            with torch.no_grad():
-                n_q_int_online = self.net.q_int_online(n_oe_online)
-            w = torch.full(
-                (self.config.batch_size, self.act_num),
-                (1 - self.config.int_target_prob) / (self.act_num - 1),
-                dtype=self.torch_dtype,
-                device=device,
-            )
-            n_int_act_idx = torch.argmax(n_q_int_online, dim=1)
-            w.scatter_(1, n_int_act_idx.unsqueeze(1), self.config.int_target_prob)
-            n_q_int = (n_q_int_online * w).sum(dim=1)
+            q_int_all_s = self.net.q_int_online(oe_s)
+            n_q_int = q_int_all_s[self.config.batch_size :].detach()
+            n_int_act_idx = torch.argmax(n_q_int, dim=1)
+            self.int_target_w.fill_((1 - self.config.int_target_prob) / (self.act_num - 1))
+            self.int_target_w.scatter_(1, n_int_act_idx.unsqueeze(1), self.config.int_target_prob)
+            n_q_int = (n_q_int * self.int_target_w).sum(dim=1)
             target_q_int = int_rew + not_terminated * self.config.int_discount * n_q_int
 
             # --- q int train
-            q_int_all = self.net.q_int_online(oe_online.detach())
-            q_int = q_int_all.gather(1, action_indices).squeeze(1)
+            q_int = q_int_all_s[: self.config.batch_size].gather(1, action_indices).squeeze(1)
             loss_int_q = (self.loss_int_q_func(target_q_int, q_int) * weights).mean()
             loss += loss_int_q
             self.trainer.info["loss_int_q"] = loss_int_q.item()

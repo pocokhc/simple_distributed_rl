@@ -72,19 +72,14 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         else:
             self.policy_mode = self.config.test_policy
 
-    def set_q_oe(self, state: np.ndarray, set_q: bool = True, set_oe: bool = True):
-        if set_q:
-            if self.oe is None:
-                self.oe, self.q = self.parameter.net.pred_q(state[np.newaxis, ...])
-                self.q = self.q[0]
-                return self.q
-            else:
-                self.q = self.parameter.net.q_online.forward_q(self.oe)
-                self.q = self.q[0]
-                return self.q
+    def set_q_oe(self, state: np.ndarray, set_q: bool = True, set_oe: bool = True, is_mean: bool = False):
         if set_oe:
             self.oe = self.parameter.net.pred_oe(state[np.newaxis, ...])
-            return self.oe
+        if set_q:
+            if self.oe is None:
+                self.oe = self.parameter.net.pred_oe(state[np.newaxis, ...])
+            self.q = self.parameter.net.pred_q(self.oe, is_mean)
+            self.q = self.q[0]
 
     def policy(self, worker) -> int:
         if self.policy_mode == "go":
@@ -98,19 +93,19 @@ class Worker(RLWorker[Config, Parameter, Memory]):
 
             rate = random.random() * 1
 
-            q_ext = self.set_q_oe(worker.state)
+            self.set_q_oe(worker.state, is_mean=not self.training)
             assert self.oe is not None
             q_int = self.parameter.net.pred_q_int(self.oe)[0].copy()
-            q = q_ext + q_int * rate
+            q = self.q + q_int * rate
             q[worker.invalid_actions] = -np.inf
             return int(np.argmax(q))
         else:  # "q"
             epsilon = self.config.epsilon if self.training else self.config.test_epsilon
             if random.random() < epsilon:
                 return self.sample_action()
-            q = self.set_q_oe(worker.state)
-            assert q is not None
-            q = q.copy()
+            self.set_q_oe(worker.state, is_mean=not self.training)
+            assert self.q is not None
+            q = self.q.copy()
             q[worker.invalid_actions] = -np.inf
             return int(np.argmax(q))
 
@@ -179,7 +174,8 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         if self.distributed:
             if prev_q is None:
                 state = self.config.observation_space.rescale_from(worker.state, -1, 1)
-                _, prev_q = self.parameter.net.pred_q(state[np.newaxis, ...])
+                prev_oe = self.parameter.net.pred_oe(state[np.newaxis, ...])
+                prev_q = self.parameter.net.pred_q(prev_oe, is_mean=False)
                 prev_q = prev_q[0]
 
         if prev_q is None:

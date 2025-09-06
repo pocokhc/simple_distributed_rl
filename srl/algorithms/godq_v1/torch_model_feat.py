@@ -6,7 +6,6 @@ import torch.nn.functional as F
 class RunningNorm(nn.Module):
     """観測や報酬のRMS正規化を行う簡易クラス。
 
-
     Note:
     - 数値安定性のために分散の下限を設定。
     - 学習時のみ統計を更新し、評価時は固定。
@@ -36,7 +35,6 @@ class RunningNorm(nn.Module):
 
     def forward(self, x: torch.Tensor, update: bool = True) -> torch.Tensor:
         """入力xを(z-score風に)正規化して返す。
-
 
         Args:
         x: 任意shapeのテンソル

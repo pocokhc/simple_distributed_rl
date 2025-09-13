@@ -110,6 +110,7 @@ def test_trainer(mocker: pytest_mock.MockerFixture, interrupt_stop: bool):
 
     # --- add queue
     serialize_func = runner.make_memory().get_worker_funcs()["add"][1]
+    assert serialize_func is not None
     for _ in range(100):
         batch = {
             "states": ["1,3", "1,2"],

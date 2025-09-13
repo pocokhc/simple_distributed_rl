@@ -34,7 +34,7 @@ def _memory_communicate(
         memory_receiver = server.get_memory_receiver()
         memory_receiver.ping()
 
-        worker_funcs = {k: v[0] for k, v in memory.get_worker_funcs().items()}
+        worker_funcs = {k: (v[0], v[1] is None) for k, v in memory.get_worker_funcs().items()}
         while not share_data.end_signal:
             if not memory_receiver.is_connected:
                 time.sleep(1)
@@ -51,7 +51,11 @@ def _memory_communicate(
                 time.sleep(0.1)
             else:
                 name, raw = dat
-                worker_funcs[name](*raw, serialized=True)
+                if worker_funcs[name][1]:
+                    args, kwargs = pickle.loads(raw)
+                    worker_funcs[name][0](*args, **kwargs)
+                else:
+                    worker_funcs[name][0](*raw, serialized=True)
                 share_data.q_recv_count += 1
 
     except Exception:

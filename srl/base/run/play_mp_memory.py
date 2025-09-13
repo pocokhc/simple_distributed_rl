@@ -87,9 +87,12 @@ class _ActorRLMemoryInterceptor:
                     break
 
                 if self.qsize_act_to_mem.value < self.cfg.queue_capacity:
-                    raw = serialize_func(*args, **kwargs)
-                    # 引数で展開させるためにtupleにする、なので戻り値1つのtupleのみできない
-                    raw = raw if isinstance(raw, tuple) else (raw,)
+                    if serialize_func is None:
+                        raw = pickle.dumps((args, kwargs))
+                    else:
+                        raw = serialize_func(*args, **kwargs)
+                        # 引数で展開させるためにtupleにする、なので戻り値1つのtupleのみできない
+                        raw = raw if isinstance(raw, tuple) else (raw,)
                     self.queue_act_to_mem.put((name, raw))
                     with self.qsize_act_to_mem.get_lock():
                         self.qsize_act_to_mem.value += 1
@@ -266,7 +269,7 @@ def _run_memory(
         memory = cfg.context.rl_config.make_memory()
         if memory_dat is not None:
             memory.restore(memory_dat)
-        worker_funcs = {k: v[0] for k, v in memory.get_worker_funcs().items()}
+        worker_funcs = {k: (v[0], v[1] is None) for k, v in memory.get_worker_funcs().items()}
         trainer_recv_funcs = memory.get_trainer_recv_funcs()
         trainer_send_funcs = memory.get_trainer_send_funcs()
 
@@ -293,7 +296,11 @@ def _run_memory(
                 name, raw = queue_act_to_mem.get(timeout=5)
                 with qsize_act_to_mem.get_lock():
                     qsize_act_to_mem.value -= 1
-                worker_funcs[name](*raw, serialized=True)
+                if worker_funcs[name][1]:
+                    args, kwargs = pickle.loads(raw)
+                    worker_funcs[name][0](*args, **kwargs)
+                else:
+                    worker_funcs[name][0](*raw, serialized=True)
                 info["act_to_mem_size"] = qsize_act_to_mem.value
                 info["act_to_mem"] += 1
 

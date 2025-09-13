@@ -14,9 +14,14 @@ def _assert_memory_mp(memory: RLMemory, bach_size: int, tmpdir):
         for k, (func, serialize_func) in worker_funcs.items():
             assert isinstance(k, str)
             batch = (1, 2, 3, 4)
-            raw = serialize_func(batch)
-            raw = raw if isinstance(raw, tuple) else (raw,)
-            func(*raw, serialized=True)
+            if serialize_func is None:
+                raw = pickle.dumps(batch)
+                dat = pickle.loads(raw)
+                func(dat)
+            else:
+                raw = serialize_func(batch)
+                raw = raw if isinstance(raw, tuple) else (raw,)
+                func(*raw, serialized=True)
     assert memory.length() == len(worker_funcs) * 100
 
     # --- memory -> trainer

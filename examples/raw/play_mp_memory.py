@@ -31,8 +31,11 @@ class _ActorRLMemoryInterceptor:
 
         # 登録されている関数に割り込んでデータを送信
         def wrapped(*args, **kwargs):
-            raw = serialize_func(*args, **kwargs)
-            raw = raw if isinstance(raw, tuple) else (raw,)
+            if serialize_func is None:
+                raw = pickle.dumps((args, kwargs))
+            else:
+                raw = serialize_func(*args, **kwargs)
+                raw = raw if isinstance(raw, tuple) else (raw,)
             self.remote_queue.put((name, raw))
 
         return wrapped
@@ -99,7 +102,7 @@ def _run_memory(
     memory = rl_config.make_memory()
 
     # worker -> memory
-    worker_funcs = {k: v[0] for k, v in memory.get_worker_funcs().items()}
+    worker_funcs = {k: (v[0], v[1] is None) for k, v in memory.get_worker_funcs().items()}
 
     trainer_recv_funcs = memory.get_trainer_recv_funcs()  # memory -> trainer
     trainer_send_funcs = memory.get_trainer_send_funcs()  # trainer -> memory
@@ -109,7 +112,11 @@ def _run_memory(
         # worker -> memory
         if not queue_act_to_mem.empty():
             name, raw = queue_act_to_mem.get()
-            worker_funcs[name](*raw, serialized=True)
+            if worker_funcs[name][1]:
+                args, kwargs = pickle.loads(raw)
+                worker_funcs[name][0](*args, **kwargs)
+            else:
+                worker_funcs[name][0](*raw, serialized=True)
 
         # memory -> trainer
         for i, trainer_recv_func in enumerate(trainer_recv_funcs):

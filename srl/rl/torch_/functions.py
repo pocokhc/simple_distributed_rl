@@ -24,6 +24,40 @@ def symexp(x):
     return torch.sign(x) * (torch.exp(torch.abs(x)) - 1)
 
 
+def signed_sqrt(x):
+    return torch.sign(x) * torch.sqrt(torch.abs(x))
+
+
+def inverse_signed_sqrt(x):
+    return torch.sign(x) * (x**2)
+
+
+def sqrt_symlog(x: torch.Tensor):
+    abs_x = x.abs()
+    sqrt = x.sign() * torch.sqrt(abs_x)
+    symlog = x.sign() * (torch.log1p(abs_x - 1) + 1)
+    return torch.where(abs_x <= 1, sqrt, symlog)
+
+
+def inverse_sqrt_symlog(x: torch.Tensor):
+    abs_x = x.abs()
+    square = x.sign() * (x**2)
+    symexp = x.sign() * (torch.exp(abs_x - 1))
+    return torch.where(abs_x <= 1, square, symexp)
+
+
+def linear_symlog(x: torch.Tensor):
+    abs_x = x.abs()
+    symlog = x.sign() * (torch.log1p(abs_x - 1) + 1)
+    return torch.where(abs_x <= 1, x, symlog)
+
+
+def inverse_linear_symlog(x: torch.Tensor):
+    abs_x = x.abs()
+    symexp = x.sign() * (torch.exp(abs_x - 1))
+    return torch.where(abs_x <= 1, x, symexp)
+
+
 def unimix(probs, unimix: float):
     uniform = torch.ones_like(probs) / probs.shape[-1]
     return (1 - unimix) * probs + unimix * uniform

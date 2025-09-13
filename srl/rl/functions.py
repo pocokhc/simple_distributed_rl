@@ -24,6 +24,28 @@ def symexp(x):
     return np.sign(x) * (np.exp(np.abs(x)) - 1)
 
 
+def signed_sqrt(x):
+    return np.sign(x) * np.sqrt(np.abs(x))
+
+
+def inverse_signed_sqrt(x):
+    return np.sign(x) * (x**2)
+
+
+def sqrt_symlog(x):
+    abs_x = np.abs(x)
+    sqrt = np.sign(x) * np.sqrt(abs_x)
+    symlog = np.sign(x) * (np.log1p(abs_x - 1) + 1)
+    return np.where(abs_x <= 1, sqrt, symlog)
+
+
+def inverse_sqrt_symlog(x):
+    abs_x = np.abs(x)
+    square = np.sign(x) * (x**2)
+    symexp = np.sign(x) * (np.exp(abs_x - 1))
+    return np.where(abs_x <= 1, square, symexp)
+
+
 def unimix(probs, unimix: float):
     uniform = np.ones_like(probs) / probs.shape[-1]
     return (1 - unimix) * probs + unimix * uniform

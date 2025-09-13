@@ -3,7 +3,7 @@ import os
 import pickle
 import time
 from abc import ABC
-from typing import Any, Callable, Dict, Generic, List, Optional, Protocol, Tuple, TypeVar, cast
+from typing import Any, Callable, Dict, Generic, List, Optional, Protocol, Tuple, TypeVar, Union, cast
 
 from srl.base.rl.config import DummyRLConfig, TRLConfig
 from srl.utils.common import load_file, save_file
@@ -14,6 +14,13 @@ TRLMemory = TypeVar("TRLMemory", bound="RLMemory", covariant=True)
 
 
 class WorkerFunc(Protocol):
+    def __call__(self, *args, **kwargs) -> None: ...
+
+    @property
+    def __name__(self) -> str: ...
+
+
+class WorkerFuncCustom(Protocol):
     def __call__(self, *args, serialized: bool = False) -> None: ...
 
     @property
@@ -41,7 +48,7 @@ class TrainerSendFunc(Protocol):
 class RLMemory(ABC, Generic[TRLConfig]):
     def __init__(self, config: Optional[TRLConfig]):
         self.config: TRLConfig = cast(TRLConfig, DummyRLConfig()) if config is None else config
-        self.__worker_funcs: Dict[str, Tuple[WorkerFunc, WorkerSerializeFunc]] = {}
+        self.__worker_funcs: Dict[str, Union[Tuple[WorkerFuncCustom, WorkerSerializeFunc], Tuple[WorkerFunc, None]]] = {}
         self.__trainer_recv_funcs: List[TrainerRecvFunc] = []
         self.__trainer_send_funcs: Dict[str, TrainerSendFunc] = {}
         self.setup()
@@ -49,10 +56,26 @@ class RLMemory(ABC, Generic[TRLConfig]):
     def setup(self) -> None:
         pass  # NotImplemented
 
-    def register_worker_func(self, func: Callable, serialize_func: WorkerSerializeFunc):
+    def register_worker_func(self, func: WorkerFunc):
         """
-        serialize_funcは引数展開用にtuple形式に変換する。
-        その条件にtupleかどうかを見ているので戻り値1つの場合にtupleは使用できない。
+        ※分散学習で使用
+        Worker側が使う関数を登録する(Worker->Memory)
+        serializeにはpickleを使用
+        """
+        if func.__name__ in self.__worker_funcs:
+            logger.warning(f"'{func.__name__}' is already registered. It has been overwritten.")
+
+        self.__worker_funcs[func.__name__] = (func, None)
+
+    def register_worker_func_custom(self, func: Callable, serialize_func: WorkerSerializeFunc):
+        """
+        ※分散学習で使用
+        Worker側が使う関数を登録する(Worker->Memory)
+        serializeを手動で行いたい場合はこちらで登録
+
+        - funcの関数の最後の引数に serialized が必要
+        - serialize_funcは引数展開用にtuple形式に変換する関数
+          その条件にtupleかどうかを見ているので戻り値1つの場合にtupleは使用できない。
         """
         if func.__name__ in self.__worker_funcs:
             logger.warning(f"'{func.__name__}' is already registered. It has been overwritten.")
@@ -63,12 +86,20 @@ class RLMemory(ABC, Generic[TRLConfig]):
         return self.__worker_funcs
 
     def register_trainer_recv_func(self, func: TrainerRecvFunc):
+        """
+        ※分散学習で使用
+        Trainer側が使う関数を登録する(Memory->Trainer)
+        """
         self.__trainer_recv_funcs.append(func)
 
     def get_trainer_recv_funcs(self):
         return self.__trainer_recv_funcs
 
     def register_trainer_send_func(self, func: TrainerSendFunc):
+        """
+        ※分散学習で使用
+        TrainerからMemoryに送る関数を登録する(Trainer->Memory)
+        """
         if func.__name__ in self.__trainer_send_funcs:
             logger.warning(f"'{func.__name__}' is already registered. It has been overwritten.")
         self.__trainer_send_funcs[func.__name__] = func

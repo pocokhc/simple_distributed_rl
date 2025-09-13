@@ -66,8 +66,11 @@ class _ActorRLMemoryInterceptor:
                     # --- qが一定以下のみ送信
                     if remote_qsize < self.dist_queue_capacity:
                         try:
-                            raw = serialize_func(*args, **kwargs)
-                            raw = raw if isinstance(raw, tuple) else (raw,)
+                            if serialize_func is None:
+                                raw = pickle.dumps((args, kwargs))
+                            else:
+                                raw = serialize_func(*args, **kwargs)
+                                raw = raw if isinstance(raw, tuple) else (raw,)
                             self.memory_sender.memory_send((name, raw))
                             self.q_send_count += 1
                         except Exception as e:

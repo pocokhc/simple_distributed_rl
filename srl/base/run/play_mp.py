@@ -85,9 +85,12 @@ class _ActorRLMemoryInterceptor:
                     break
 
                 if self.remote_qsize.value < self.cfg.queue_capacity:
-                    raw = serialize_func(*args, **kwargs)
-                    # 引数で展開させるためにtupleにする、なので戻り値1つのtupleのみできない
-                    raw = raw if isinstance(raw, tuple) else (raw,)
+                    if serialize_func is None:
+                        raw = pickle.dumps((args, kwargs))
+                    else:
+                        raw = serialize_func(*args, **kwargs)
+                        # 引数で展開させるためにtupleにする、なので戻り値1つのtupleのみできない
+                        raw = raw if isinstance(raw, tuple) else (raw,)
                     self.remote_queue.put((name, raw))
                     with self.remote_qsize.get_lock():
                         self.remote_qsize.value += 1
@@ -251,7 +254,7 @@ def _train_memory_communicate(
     exception_queue: queue.Queue,
 ):
     try:
-        worker_funcs = {k: v[0] for k, v in memory.get_worker_funcs().items()}
+        worker_funcs = {k: (v[0], v[1] is None) for k, v in memory.get_worker_funcs().items()}
 
         while not end_signal.value:
             if remote_queue.empty():
@@ -260,7 +263,11 @@ def _train_memory_communicate(
                 name, raw = remote_queue.get(timeout=5)
                 with remote_qsize.get_lock():
                     remote_qsize.value -= 1
-                worker_funcs[name](*raw, serialized=True)
+                if worker_funcs[name][1]:
+                    args, kwargs = pickle.loads(raw)
+                    worker_funcs[name][0](*args, **kwargs)
+                else:
+                    worker_funcs[name][0](*raw, serialized=True)
                 share_dict["q_recv"] += 1
     except MemoryError:
         import gc

@@ -1,5 +1,4 @@
 import json
-import pickle
 import random
 from dataclasses import dataclass
 
@@ -42,15 +41,13 @@ class Config(RLConfig[DiscreteSpace, ArrayDiscreteSpace]):
 class Memory(RLMemory[Config]):
     def setup(self):
         self.buffer = []
-        self.register_worker_func(self.add, pickle.dumps)
+        self.register_worker_func(self.add)
         self.register_trainer_recv_func(self.sample)
 
     def length(self) -> int:
         return len(self.buffer)
 
-    def add(self, batch, serialized: bool = False) -> None:
-        if serialized:
-            batch = pickle.loads(batch)
+    def add(self, batch) -> None:
         self.buffer.append(batch)
 
     def sample(self):

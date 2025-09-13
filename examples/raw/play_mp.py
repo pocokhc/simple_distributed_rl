@@ -1,5 +1,6 @@
 import ctypes
 import multiprocessing as mp
+import pickle
 import queue
 from typing import Any, Callable, List, cast
 
@@ -30,8 +31,11 @@ class _ActorRLMemoryInterceptor:
 
         # 登録されている関数に割り込んでデータを送信
         def wrapped(*args, **kwargs):
-            raw = serialize_func(*args, **kwargs)
-            raw = raw if isinstance(raw, tuple) else (raw,)
+            if serialize_func is None:
+                raw = pickle.dumps((args, kwargs))
+            else:
+                raw = serialize_func(*args, **kwargs)
+                raw = raw if isinstance(raw, tuple) else (raw,)
             self.remote_queue.put((name, raw))
 
         return wrapped
@@ -101,7 +105,7 @@ def _run_trainer(
     context: RunContext = config["context"]
 
     # 受信用のmemoryを準備
-    worker_funcs = {k: v[0] for k, v in memory.get_worker_funcs().items()}
+    worker_funcs = {k: (v[0], v[1] is None) for k, v in memory.get_worker_funcs().items()}
 
     trainer = rl_config.make_trainer(parameter, memory)
     trainer.setup(context)
@@ -121,7 +125,11 @@ def _run_trainer(
         # recv memory
         if not remote_queue.empty():
             name, raw = remote_queue.get()
-            worker_funcs[name](*raw, serialized=True)
+            if worker_funcs[name][1]:
+                args, kwargs = pickle.loads(raw)
+                worker_funcs[name][0](*args, **kwargs)
+            else:
+                worker_funcs[name][0](*raw, serialized=True)
             recv_queue += 1
 
         # send parameter

@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, Tuple
 
 import numpy as np
 import torch
@@ -41,7 +41,7 @@ class QNetwork(nn.Module):
         v = self.v_block(x)
         adv = self.adv_block(x)
         x = v + adv - torch.mean(adv, dim=-1, keepdim=True)
-        return x
+        return x, v
 
 
 class Parameter(RLParameter[Config]):
@@ -62,10 +62,10 @@ class Parameter(RLParameter[Config]):
     def summary(self, **kwargs):
         print(self.q_online)
 
-    def pred_q(self, state: np.ndarray) -> np.ndarray:
+    def pred_q(self, state: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         state_torch = torch.tensor(np.asarray(state, dtype=self.np_dtype), device=self.device)
         with torch.no_grad():
             self.q_online.eval()
-            q = self.q_online(state_torch)
+            q, v = self.q_online(state_torch)
             self.q_online.train()  # 常にtrain
-        return q.detach().cpu().numpy()
+        return q.detach().cpu().numpy(), v.detach().cpu().numpy()

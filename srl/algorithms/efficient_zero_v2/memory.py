@@ -12,7 +12,7 @@ class Memory(RLPriorityReplayBuffer[Config]):
         self.np_dtype = self.config.get_dtype("np")
         self.q_min = float("inf")
         self.q_max = float("-inf")
-        self.register_worker_func(self.add_q, lambda x1, x2: (x1, x2))
+        self.register_worker_func_custom(self.add_q, lambda x1, x2: (x1, x2))
         self.register_trainer_recv_func(self.get_q)
 
         self.register_trainer_send_func(self.update_parameter)

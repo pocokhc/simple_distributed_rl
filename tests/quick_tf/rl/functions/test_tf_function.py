@@ -13,7 +13,7 @@ def test_rescaling():
     x2 = functions.inverse_rescaling(y)
     print(x)
     print(x2)
-    assert tf.allclose(x, x2, rtol=1e-3, atol=1e-3)
+    assert np.allclose(x, x2, rtol=1e-3, atol=1e-3)
 
 
 def test_symlog():
@@ -27,7 +27,7 @@ def test_symlog():
     x2 = functions.symexp(y)
     print(x)
     print(x2)
-    assert tf.allclose(x, x2, rtol=1e-3, atol=1e-3)
+    assert np.allclose(x, x2, rtol=1e-3, atol=1e-3)
 
 
 def test_signed_sqrt():
@@ -41,7 +41,7 @@ def test_signed_sqrt():
     x2 = functions.inverse_signed_sqrt(y)
     print(x)
     print(x2)
-    assert tf.allclose(x, x2, rtol=1e-3, atol=1e-3)
+    assert np.allclose(x, x2, rtol=1e-3, atol=1e-3)
 
 
 def test_sqrt_symlog():
@@ -55,4 +55,4 @@ def test_sqrt_symlog():
     x2 = functions.inverse_sqrt_symlog(y)
     print(x)
     print(x2)
-    assert tf.allclose(x, x2, rtol=1e-3, atol=1e-3)
+    assert np.allclose(x, x2, rtol=1e-3, atol=1e-3)

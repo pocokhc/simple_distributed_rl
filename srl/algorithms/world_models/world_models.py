@@ -1,5 +1,4 @@
 import collections
-import pickle
 import random
 from functools import reduce
 from typing import Any, Optional, cast
@@ -30,9 +29,9 @@ class Memory(RLMemory[Config]):
         self.c_score = -np.inf
         self.c_params = None
 
-        self.register_worker_func(self.add_vae, pickle.dumps)
-        self.register_worker_func(self.add_rnn, pickle.dumps)
-        self.register_worker_func(self.add_c, lambda x1, x2: (x1, x2))
+        self.register_worker_func(self.add_vae)
+        self.register_worker_func(self.add_rnn)
+        self.register_worker_func_custom(self.add_c, lambda x1, x2: (x1, x2))
         self.register_trainer_recv_func(self.sample_vae)
         self.register_trainer_recv_func(self.sample_rnn)
 
@@ -43,14 +42,10 @@ class Memory(RLMemory[Config]):
             return len(self.rnn_buffer)
         return len(self.vae_buffer) + len(self.rnn_buffer)
 
-    def add_vae(self, batch: Any, serialized: bool = False) -> None:
-        if serialized:
-            batch = pickle.loads(batch)
+    def add_vae(self, batch: Any) -> None:
         self.vae_buffer.append(batch)
 
-    def add_rnn(self, batch: Any, serialized: bool = False) -> None:
-        if serialized:
-            batch = pickle.loads(batch)
+    def add_rnn(self, batch: Any) -> None:
         self.rnn_buffer.append(batch)
 
     def add_c(self, params, score, serialized: bool = False) -> None:

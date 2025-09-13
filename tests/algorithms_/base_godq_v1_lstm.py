@@ -29,6 +29,18 @@ class LongCase(CommonLongCase):
         rl_config.base_units = 128
         return rl_config
 
+    def test_Tiger(self):
+        rl_config = self._create_rl_config()
+        rl_config.base_units = 64
+        rl_config.batch_length = 1
+        rl_config.encode_discrete_type = "Discrete"
+        rl_config.feat_type = ""
+        rl_config.enable_int_q = False
+        rl_config.enable_archive = False
+        runner = self.create_test_runner("Tiger", rl_config)
+        runner.train(max_train_count=3000)
+        assert runner.evaluate_compare_to_baseline_single_player()
+
     @pytest.mark.parametrize("feat_type, archive", [["SimSiam", False], ["BYOL", True]])
     def test_Grid(self, feat_type, archive):
         rl_config = self._create_rl_config()

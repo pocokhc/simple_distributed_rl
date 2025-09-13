@@ -59,6 +59,16 @@ class LongCase(CommonLongCase):
 
         return rl_config
 
+    def test_Tiger(self):
+        rl_config = self._create_rl_config()
+        rl_config.lstm_units = 64
+        rl_config.sequence_length = 1
+        rl_config.burnin = 5
+        rl_config.input_action = True
+        runner = self.create_test_runner("Tiger", rl_config)
+        runner.train(max_train_count=10000)
+        assert runner.evaluate_compare_to_baseline_single_player(baseline=-0.5)
+
     def test_Pendulum(self):
         rl_config = self._create_rl_config()
         runner = self.create_test_runner("Pendulum-v1", rl_config)

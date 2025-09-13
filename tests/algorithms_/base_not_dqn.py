@@ -14,7 +14,7 @@ class QuickCase(CommonQuickCase):
         rl_config.memory.warmup_size = 2
         rl_config.input_block.image.set_dqn_block(filters=2)
         rl_config.input_block.value.set((1,))
-        rl_config.hidden_block.set((2,))
+        rl_config.base_units = 2
         return rl_config, {"env_list": ["Grid"]}
 
 
@@ -25,7 +25,7 @@ class LongCase(CommonLongCase):
         from srl.algorithms import not_dqn
 
         rl_config = not_dqn.Config(discount=0.9, lr=0.001)
-        rl_config.hidden_block.set((64, 64))
+        rl_config.base_units = 64
         return rl_config
 
     def test_Pendulum(self):

@@ -25,7 +25,7 @@ class Memory(RLReplayBuffer):
         super().setup()
         self.q_min = float("inf")
         self.q_max = float("-inf")
-        self.register_worker_func(self.add_q, lambda x1, x2: (x1, x2))
+        self.register_worker_func_custom(self.add_q, lambda x1, x2: (x1, x2))
         self.register_trainer_recv_func(self.get_q)
 
     def add_q(self, q_min, q_max, serialized: bool = False):

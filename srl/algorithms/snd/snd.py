@@ -8,7 +8,6 @@ from srl.base.rl.algorithms.base_dqn import RLWorker
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.trainer import RLTrainer
-from srl.rl.memories.replay_buffer import ReplayBuffer
 from srl.rl.tf.model import KerasModelAddedSummary
 
 from .config import Config
@@ -18,11 +17,11 @@ kl = keras.layers
 
 class Memory(RLMemory[Config]):
     def setup(self) -> None:
-        self.memory_snd = ReplayBuffer(self.config.memory, self.config.batch_size)
-        self.memory_q = ReplayBuffer(self.config.memory, self.config.batch_size)
+        self.memory_snd = self.config.memory.create_memory(self.config.batch_size)
+        self.memory_q = self.config.memory.create_memory(self.config.batch_size)
 
-        self.register_worker_func(self.add_snd, self.memory_snd.serialize)
-        self.register_worker_func(self.add_q, self.memory_q.serialize)
+        self.register_worker_func_custom(self.add_snd, self.memory_snd.serialize)
+        self.register_worker_func_custom(self.add_q, self.memory_q.serialize)
         self.register_trainer_recv_func(self.sample_snd)
         self.register_trainer_recv_func(self.sample_q)
 

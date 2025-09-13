@@ -1,4 +1,5 @@
 import logging
+import os
 from abc import ABC, abstractmethod
 from typing import Tuple, cast
 
@@ -64,7 +65,13 @@ class CommonQuickCase(ABC):
         self._check_test_params()
         rl_config, test_kwargs = self.create_rl_config(rl_param)
         self._setup_rl_config(rl_config)
-        test_rl.test_rl(rl_config, device=self.use_device(), **test_kwargs, tmp_dir=tmpdir)
+        test_rl.test_rl(
+            rl_config,
+            device=self.use_device(),
+            **test_kwargs,
+            tmp_dir=tmpdir,
+            test_render_window=os.environ.get("SRL_NO_RENDER_TEST", "0") == "0",
+        )
 
     @pytest.mark.timeout(120)  # pip install pytest_timeout
     def test_simple_dtype(self, rl_param, tmpdir):
@@ -73,7 +80,13 @@ class CommonQuickCase(ABC):
         rl_config, test_kwargs = self.create_rl_config(rl_param)
         rl_config.dtype = "float16"
         self._setup_rl_config(rl_config)
-        test_rl.test_rl(rl_config, device=self.use_device(), **test_kwargs, tmp_dir=tmpdir)
+        test_rl.test_rl(
+            rl_config,
+            device=self.use_device(),
+            **test_kwargs,
+            tmp_dir=tmpdir,
+            test_render_window=os.environ.get("SRL_NO_RENDER_TEST", "0") == "0",
+        )
 
     @pytest.mark.timeout(120)  # pip install pytest_timeout
     def test_simple_rollout_train(self, rl_param, tmpdir):
@@ -93,6 +106,8 @@ class CommonQuickCase(ABC):
 
     @pytest.mark.timeout(120)  # pip install pytest_timeout
     def test_simple_input_image(self, rl_param, tmpdir):
+        if os.environ.get("SRL_NO_RENDER_TEST", "0") == "1":
+            pytest.skip("SRL_NO_RENDER_TEST")
         pytest.importorskip("PIL")
         pytest.importorskip("pygame")
         self._check_test_params()

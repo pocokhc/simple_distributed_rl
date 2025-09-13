@@ -17,9 +17,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         worker.set_tracking_max_size(self.config.max_discount_steps)
 
     def policy(self, worker) -> int:
-        epsilon = (
-            self.epsilon_sch.update(self.step_in_training).to_float() if self.training else self.config.test_epsilon
-        )
+        epsilon = self.epsilon_sch.update(self.step_in_training).to_float() if self.training else self.config.test_epsilon
         if random.random() < epsilon:
             return self.sample_action()
         q = self.parameter.pred_q(worker.state[np.newaxis, ...])[0]
@@ -40,21 +38,20 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         )
         if not worker.done:
             if worker.get_tracking_length() == self.config.max_discount_steps:
-                discounted_reward = 0
+                total_reward = 0
                 for b in reversed(worker.get_trackings()):
-                    discounted_reward = b[3] + self.config.discount * discounted_reward
-                self.memory.add(b[:] + [discounted_reward])
+                    total_reward = b[3] + self.config.discount * total_reward
+                self.memory.add(b[:] + [total_reward])
         else:
-            discounted_reward = 0
+            total_reward = 0
             for b in reversed(worker.get_trackings()):
-                discounted_reward = b[3] + self.config.discount * discounted_reward
-                self.memory.add(b[:] + [discounted_reward])
+                total_reward = b[3] + self.config.discount * total_reward
+                self.memory.add(b[:] + [total_reward])
 
     def render_terminal(self, worker, **kwargs):
         q = self.parameter.pred_q(worker.state[np.newaxis, ...])[0]
-        maxa = np.argmax(q)
 
         def _render_sub(a: int) -> str:
             return f"{q[a]:7.5f}"
 
-        worker.print_discrete_action_info(int(maxa), _render_sub)
+        worker.print_discrete_action_info(int(np.argmax(q)), _render_sub)

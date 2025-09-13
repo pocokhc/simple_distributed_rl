@@ -7,7 +7,6 @@ from srl.base.rl.algorithms.base_dqn import RLConfig
 from srl.base.rl.processor import RLProcessor
 from srl.base.spaces.space import SpaceBase
 from srl.rl.memories.priority_replay_buffer import PriorityReplayBufferConfig, RLPriorityReplayBuffer
-from srl.rl.models.config.dueling_network import DuelingNetworkConfig
 from srl.rl.models.config.input_block import InputBlockConfig
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -28,9 +27,9 @@ class Config(RLConfig):
     #: 累積報酬和を計算する最大ステップ数
     max_discount_steps: int = 500
     #: Q値がNステップ割引累積報酬和から乖離しすぎないようにする正則化項の係数
-    alignment_loss_coeff: float = 0.1
+    align_loss_coeff: float = 0.1
     #: <:ref:`SchedulerConfig`>
-    alignment_loss_coeff_scheduler: SchedulerConfig = field(default_factory=lambda: SchedulerConfig())
+    align_loss_coeff_scheduler: SchedulerConfig = field(default_factory=lambda: SchedulerConfig())
 
     #: <:ref:`PriorityReplayBufferConfig`>
     memory: PriorityReplayBufferConfig = field(default_factory=lambda: PriorityReplayBufferConfig())
@@ -41,8 +40,8 @@ class Config(RLConfig):
     lr: float = 0.0002
     #: <:ref:`InputBlockConfig`>
     input_block: InputBlockConfig = field(default_factory=lambda: InputBlockConfig())
-    #: <:ref:`DuelingNetworkConfig`> hidden+out layer
-    hidden_block: DuelingNetworkConfig = field(init=False, default_factory=lambda: DuelingNetworkConfig())
+    #: base units
+    base_units: int = 512
 
     def get_name(self) -> str:
         return "NoTarget_DQN"

@@ -16,13 +16,31 @@ logger = logging.getLogger(__name__)
 class QNetwork(nn.Module):
     def __init__(self, config: Config):
         super().__init__()
+        units = config.base_units
 
         self.in_block = config.input_block.create_torch_block(config)
-        self.hidden_block = config.hidden_block.create_torch_block(self.in_block.out_size, config.action_space.n)
+        self.hidden_block = nn.Sequential(
+            nn.Linear(self.in_block.out_size, units),
+            nn.ReLU(),
+        )
+
+        self.v_block = nn.Sequential(
+            nn.Linear(units, units),
+            nn.ReLU(),
+            nn.Linear(units, 1),
+        )
+        self.adv_block = nn.Sequential(
+            nn.Linear(units, units),
+            nn.ReLU(),
+            nn.Linear(units, config.action_space.n),
+        )
 
     def forward(self, x):
         x = self.in_block(x)
         x = self.hidden_block(x)
+        v = self.v_block(x)
+        adv = self.adv_block(x)
+        x = v + adv - torch.mean(adv, dim=-1, keepdim=True)
         return x
 
 

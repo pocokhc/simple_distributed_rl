@@ -2,38 +2,30 @@ import logging
 import pickle
 import random
 import zlib
-from dataclasses import dataclass
 from typing import Any, Callable, List, Optional, cast
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class EpisodeReplayBufferConfig:
-    #: capacity
-    capacity: int = 10_000
-    #: warmup_size
-    warmup_size: int = 1_000
-
-    #: memoryデータを圧縮してやり取りするかどうか
-    compress: bool = True
-    #: memory(zlib)の圧縮レベル
-    compress_level: int = -1
-
-
 class EpisodeReplayBuffer:
     def __init__(
         self,
-        config: EpisodeReplayBufferConfig,
-        batch_size: int,
+        batch_size: int = 32,
+        capacity: int = 100_000,
+        warmup_size: int = 1000,
+        compress: bool = True,
+        compress_level: int = -1,
         prefix_size: int = 0,
         suffix_size: int = 0,
         skip_head: int = 0,
         skip_tail: int = 0,
         sequential_stride: int = 1,
     ):
-        self.cfg = config
         self.batch_size = batch_size
+        self.capacity = capacity
+        self.warmup_size = warmup_size
+        self.compress = compress
+        self.compress_level = compress_level
         self.prefix_size = prefix_size
         self.suffix_size = suffix_size
         self.skip_head = skip_head
@@ -45,12 +37,12 @@ class EpisodeReplayBuffer:
         self._sequential_batches = [[] for _ in range(self.batch_size)]
 
         # --- validate
-        if not (self.cfg.warmup_size <= self.cfg.capacity):
-            raise ValueError(f"assert {self.cfg.warmup_size} <= {self.cfg.capacity}")
+        if not (self.warmup_size <= self.capacity):
+            raise ValueError(f"assert {self.warmup_size} <= {self.capacity}")
         if not (batch_size > 0):
             raise ValueError(f"assert {batch_size} > 0")
-        if not (batch_size <= self.cfg.warmup_size):
-            raise ValueError(f"assert {batch_size} <= {self.cfg.warmup_size}")
+        if not (batch_size <= self.warmup_size):
+            raise ValueError(f"assert {batch_size} <= {self.warmup_size}")
 
     @property
     def batch_length(self) -> int:
@@ -60,17 +52,17 @@ class EpisodeReplayBuffer:
         return self.total_size
 
     def is_warmup(self) -> bool:
-        return self.total_size < self.cfg.warmup_size
+        return self.total_size < self.warmup_size
 
     def add(self, steps: List[Any], size: int = 0, serialized: bool = False) -> None:
         # compressなら圧縮状態で、違うならdeserializeしたものをbufferに入れる
         if serialized:
-            if not self.cfg.compress:
+            if not self.compress:
                 steps = pickle.loads(cast(bytes, steps))
         else:
             size = len(steps)
-            if self.cfg.compress:
-                steps = cast(List[Any], zlib.compress(pickle.dumps(steps), level=self.cfg.compress_level))
+            if self.compress:
+                steps = cast(List[Any], zlib.compress(pickle.dumps(steps), level=self.compress_level))
 
         sample_size = size - (self.batch_length + self.skip_head + self.skip_tail) + 1
         if sample_size < 0:
@@ -79,15 +71,15 @@ class EpisodeReplayBuffer:
         self.buffer.append((steps, sample_size))
 
         # capacityを超えないように減らす
-        while self.total_size > self.cfg.capacity:
+        while self.total_size > self.capacity:
             _, sample_size = self.buffer.pop(0)
             self.total_size -= sample_size
 
     def serialize(self, steps) -> Any:
         size = len(steps)
         steps = pickle.dumps(steps)
-        if self.cfg.compress:
-            steps = zlib.compress(steps, level=self.cfg.compress_level)
+        if self.compress:
+            steps = zlib.compress(steps, level=self.compress_level)
         return steps, size
 
     def sample(
@@ -98,7 +90,7 @@ class EpisodeReplayBuffer:
         skip_head: int = -1,
         skip_tail: int = -1,
     ):
-        if self.total_size < self.cfg.warmup_size:
+        if self.total_size < self.warmup_size:
             return None
         batch_size = self.batch_size if batch_size == -1 else batch_size
         prefix_size = self.prefix_size if prefix_size == -1 else prefix_size
@@ -112,7 +104,7 @@ class EpisodeReplayBuffer:
         while len(batches) < batch_size:
             i = random.randint(0, len(self.buffer) - 1)
             steps, _ = self.buffer[i]
-            if self.cfg.compress:
+            if self.compress:
                 steps = pickle.loads(zlib.decompress(steps))
             sample_size = len(steps) - batch_length - skip_tail
             if len(steps) < sample_size + batch_length:
@@ -123,11 +115,11 @@ class EpisodeReplayBuffer:
         return batches
 
     def sample_steps(self, batch_size: int = -1):
-        if self.total_size < self.cfg.warmup_size:
+        if self.total_size < self.warmup_size:
             return None
         batch_size = self.batch_size if batch_size == -1 else batch_size
         steps, _ = self.buffer[random.randint(0, len(self.buffer) - 1)]
-        if self.cfg.compress:
+        if self.compress:
             steps = pickle.loads(zlib.decompress(steps))
         return steps
 
@@ -142,7 +134,7 @@ class EpisodeReplayBuffer:
         sequential_stride: int = -1,
     ):
         """時系列に沿ったbatchを生成"""
-        if self.total_size < self.cfg.warmup_size:
+        if self.total_size < self.warmup_size:
             return None
         batch_size = self.batch_size if batch_size == -1 else batch_size
         assert batch_size <= self.batch_size
@@ -158,7 +150,7 @@ class EpisodeReplayBuffer:
                 while len(self._sequential_batches[i]) < batch_length:
                     r = random.randint(0, len(self.buffer) - 1)
                     steps, _ = self.buffer[r]
-                    if self.cfg.compress:
+                    if self.compress:
                         steps = pickle.loads(zlib.decompress(steps))
                     if len(steps) <= skip_head + skip_tail:
                         logger.warning(f"Episode length must be equal to or greater than batch_length. {len(steps)} > {skip_head + skip_tail}")

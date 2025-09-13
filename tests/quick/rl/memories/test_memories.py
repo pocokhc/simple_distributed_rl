@@ -79,13 +79,13 @@ def _play_memory_sub(
 
 @pytest.mark.parametrize("compress", [False, True])
 def test_replay_buffer(compress):
-    from srl.rl.memories.replay_buffer import ReplayBuffer, ReplayBufferConfig
+    from srl.rl.memories.replay_buffer import ReplayBuffer
 
     capacity = 10
     warmup_size = 5
     batch_size = 5
 
-    memory = ReplayBuffer(ReplayBufferConfig(capacity, warmup_size, compress), batch_size)
+    memory = ReplayBuffer(batch_size, capacity, warmup_size, compress)
     _play_memory_sub(memory, capacity, warmup_size, batch_size, is_priority=False)
 
 

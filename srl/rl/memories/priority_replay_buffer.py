@@ -175,17 +175,15 @@ class PriorityReplayBuffer:
         self.step = 0
 
         if self.cfg.enable_demo_memory:
-            from srl.rl.memories.replay_buffer import ReplayBuffer, ReplayBufferConfig
+            from srl.rl.memories.replay_buffer import ReplayBuffer
 
             self.demo_batch_size = max(1, int(batch_size * self.cfg.demo_ratio))
             self.demo_memory = ReplayBuffer(
-                ReplayBufferConfig(
-                    self.cfg.capacity,
-                    warmup_size=self.demo_batch_size,
-                    compress=self.cfg.compress,
-                    compress_level=self.cfg.compress_level,
-                ),
                 batch_size=self.demo_batch_size,
+                capacity=self.cfg.capacity,
+                warmup_size=self.demo_batch_size,
+                compress=self.cfg.compress,
+                compress_level=self.cfg.compress_level,
             )
             logger.info(f"demo_batch_size={self.demo_batch_size}")
             batch_size = batch_size - self.demo_batch_size

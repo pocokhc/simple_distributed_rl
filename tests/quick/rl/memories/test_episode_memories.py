@@ -1,6 +1,6 @@
 import pytest
 
-from srl.rl.memories.episode_replay_buffer import EpisodeReplayBuffer, EpisodeReplayBufferConfig
+from srl.rl.memories.episode_replay_buffer import EpisodeReplayBuffer
 
 
 @pytest.mark.parametrize("compress", [False, True])
@@ -14,12 +14,14 @@ def test_episode_replay_buffer(compress):
     skip_tail = 4
 
     memory = EpisodeReplayBuffer(
-        EpisodeReplayBufferConfig(capacity, warmup_size, compress),
         batch_size,
-        prefix_size,
-        suffix_size,
-        skip_head,
-        skip_tail,
+        capacity,
+        warmup_size,
+        compress,
+        prefix_size=prefix_size,
+        suffix_size=suffix_size,
+        skip_head=skip_head,
+        skip_tail=skip_tail,
     )
     assert memory.length() == 0
     assert memory.batch_length == prefix_size + 1 + suffix_size
@@ -68,12 +70,14 @@ def test_episode_sequential_replay_buffer(compress):
     skip_tail = 4
 
     memory = EpisodeReplayBuffer(
-        EpisodeReplayBufferConfig(capacity, warmup_size, compress),
         batch_size,
-        prefix_size,
-        suffix_size,
-        skip_head,
-        skip_tail,
+        capacity,
+        warmup_size,
+        compress,
+        prefix_size=prefix_size,
+        suffix_size=suffix_size,
+        skip_head=skip_head,
+        skip_tail=skip_tail,
         sequential_stride=2,
     )
 

@@ -24,6 +24,28 @@ def symexp(x):
     return tf.sign(x) * (tf.exp(tf.abs(x)) - 1)
 
 
+def signed_sqrt(x):
+    return tf.sign(x) * tf.sqrt(tf.abs(x))
+
+
+def inverse_signed_sqrt(x):
+    return tf.sign(x) * (x**2)
+
+
+def sqrt_symlog(x):
+    abs_x = x.abs()
+    sqrt = x.sign() * tf.sqrt(abs_x)
+    symlog = x.sign() * (tf.log1p(abs_x - 1) + 1)
+    return tf.where(abs_x <= 1, sqrt, symlog)
+
+
+def inverse_sqrt_symlog(x):
+    abs_x = x.abs()
+    square = x.sign() * (x**2)
+    symexp = x.sign() * (tf.exp(abs_x - 1))
+    return tf.where(abs_x <= 1, square, symexp)
+
+
 def unimix(probs, unimix: float):
     uniform = tf.ones_like(probs) / probs.shape[-1]
     return (1 - unimix) * probs + unimix * uniform

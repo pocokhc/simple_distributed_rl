@@ -44,12 +44,13 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 
         loss = 0
 
-        q_all = self.parameter.q_online(torch.cat([state, n_state]))
+        q_all, v_all = self.parameter.q_online(torch.cat([state, n_state]))
         q = q_all[: self.config.batch_size]
         n_q = q_all[self.config.batch_size :].detach()
+        n_v = v_all[self.config.batch_size :].detach().squeeze(-1)
 
         n_maxq = n_q.max(dim=1).values
-        target_q = reward + not_done * self.config.discount * n_maxq
+        target_q = reward + not_done * self.config.discount * (n_maxq + n_v) / 2
 
         q = q.gather(1, action_indices).squeeze(1)
         loss_q = (self.criterion1(target_q, q) * weights).mean()

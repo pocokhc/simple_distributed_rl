@@ -20,8 +20,8 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         epsilon = self.epsilon_sch.update(self.step_in_training).to_float() if self.training else self.config.test_epsilon
         if random.random() < epsilon:
             return self.sample_action()
-        q = self.parameter.pred_q(worker.state[np.newaxis, ...])[0]
-        return int(np.argmax(q))
+        q, _ = self.parameter.pred_q(worker.state[np.newaxis, ...])
+        return int(np.argmax(q[0]))
 
     def on_step(self, worker):
         if not self.training:
@@ -49,9 +49,12 @@ class Worker(RLWorker[Config, Parameter, Memory]):
                 self.memory.add(b[:] + [total_reward])
 
     def render_terminal(self, worker, **kwargs):
-        q = self.parameter.pred_q(worker.state[np.newaxis, ...])[0]
+        q, v = self.parameter.pred_q(worker.state[np.newaxis, ...])
+        q = q[0]
+        v = v[0][0]
+        print(f"V={v:.7f}")
 
         def _render_sub(a: int) -> str:
-            return f"{q[a]:7.5f}"
+            return f"{q[a]:8.5f} (adv: {q[a] - v:8.5f})"
 
         worker.print_discrete_action_info(int(np.argmax(q)), _render_sub)

@@ -20,6 +20,15 @@ class ReplayBufferConfig:
     #: memory(zlib)の圧縮レベル
     compress_level: int = -1
 
+    def create_memory(self, batch_size: int = 32):
+        return ReplayBuffer(
+            batch_size,
+            capacity=self.capacity,
+            warmup_size=self.warmup_size,
+            compress=self.compress,
+            compress_level=self.compress_level,
+        )
+
 
 class ReplayBuffer:
     def __init__(

@@ -7,7 +7,7 @@ from srl.base.define import SpaceTypes
 from srl.base.rl.algorithms.base_dqn import RLConfig
 from srl.base.rl.processor import RLProcessor
 from srl.base.spaces.space import SpaceBase
-from srl.rl.memories.episode_replay_buffer import EpisodeReplayBufferConfig
+from srl.rl.memories.replay_buffer import ReplayBufferConfig
 from srl.rl.processors.image_processor import ImageProcessor
 
 """
@@ -86,8 +86,8 @@ class Config(RLConfig):
 
     #: Batch size
     batch_size: int = 32
-    #: <:ref:`EpisodeReplayBufferConfig`>
-    memory: EpisodeReplayBufferConfig = field(default_factory=lambda: EpisodeReplayBufferConfig())
+    #: <:ref:`ReplayBufferConfig`>
+    memory: ReplayBufferConfig = field(default_factory=lambda: ReplayBufferConfig())
 
     burnin: int = 4
     horizon: int = 15

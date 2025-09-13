@@ -33,16 +33,16 @@ def inverse_signed_sqrt(x):
 
 
 def sqrt_symlog(x):
-    abs_x = x.abs()
-    sqrt = x.sign() * tf.sqrt(abs_x)
-    symlog = x.sign() * (tf.log1p(abs_x - 1) + 1)
+    abs_x = tf.abs(x)
+    sqrt = tf.sign(x) * tf.sqrt(abs_x)
+    symlog = tf.sign(x) * (tf.math.log1p(abs_x - 1.0) + 1.0)
     return tf.where(abs_x <= 1, sqrt, symlog)
 
 
 def inverse_sqrt_symlog(x):
-    abs_x = x.abs()
-    square = x.sign() * (x**2)
-    symexp = x.sign() * (tf.exp(abs_x - 1))
+    abs_x = tf.abs(x)
+    square = tf.sign(x) * tf.square(x)
+    symexp = tf.sign(x) * tf.exp(abs_x - 1.0)
     return tf.where(abs_x <= 1, square, symexp)
 
 

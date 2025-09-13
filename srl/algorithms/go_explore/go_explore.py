@@ -24,7 +24,7 @@ class Memory(RLMemory[Config]):
     def setup(self) -> None:
         self.memory_q = []
 
-        self.register_worker_func(self.add_q, pickle.dumps)
+        self.register_worker_func(self.add_q)
         self.register_trainer_recv_func(self.sample_q)
 
     def call_backup(self, **kwargs) -> Any:
@@ -36,9 +36,7 @@ class Memory(RLMemory[Config]):
     def length(self):
         return len(self.memory_q)
 
-    def add_q(self, batch, serialized: bool = False) -> None:
-        if serialized:
-            batch = pickle.loads(batch)
+    def add_q(self, batch) -> None:
         self.memory_q.append(batch)
         if len(self.memory_q) > self.config.memory_capacity:
             self.memory_q.pop(0)

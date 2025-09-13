@@ -33,9 +33,8 @@ class State(enum.Enum):
 
 @dataclass
 class Tiger(EnvBase[DiscreteSpace, int, DiscreteSpace, int]):
-    def __post_init__(self):
-        super().__init__()
-        self.prob = 0.85
+    prob: float = 0.85
+    max_episode: int = 50
 
     @property
     def action_space(self):
@@ -51,11 +50,11 @@ class Tiger(EnvBase[DiscreteSpace, int, DiscreteSpace, int]):
 
     @property
     def max_episode_steps(self) -> int:
-        return 50
+        return self.max_episode
 
     @property
     def reward_baseline(self) -> dict:
-        return {"episode": 100, "baseline": 0.0}
+        return {"episode": 1000, "baseline": 0.0}
 
     def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
         self.tiger = State(random.randint(0, 1))

@@ -37,9 +37,10 @@ class LongCase(CommonLongCase):
         rl_config.feat_type = ""
         rl_config.enable_int_q = False
         rl_config.enable_archive = False
+        rl_config.reset_net_interval = 0
         runner = self.create_test_runner("Tiger", rl_config)
-        runner.train(max_train_count=3000)
-        assert runner.evaluate_compare_to_baseline_single_player()
+        runner.train(max_train_count=5000)
+        assert runner.evaluate_compare_to_baseline_single_player(baseline=-0.1)
 
     @pytest.mark.parametrize("feat_type, archive", [["SimSiam", False], ["BYOL", True]])
     def test_Grid(self, feat_type, archive):

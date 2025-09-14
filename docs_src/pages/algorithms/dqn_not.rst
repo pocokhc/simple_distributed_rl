@@ -1,5 +1,5 @@
 
 No Target Deep Q-Networks
 ============================
-.. autoclass:: srl.algorithms.not_dqn.Config
+.. autoclass:: srl.algorithms.dqn_not.Config
    :members:

@@ -7,9 +7,9 @@ from tests.algorithms_.common_quick_case import CommonQuickCase
 
 class QuickCase(CommonQuickCase):
     def create_rl_config(self, rl_param) -> Tuple[RLConfig, dict]:
-        from srl.algorithms import not_dqn
+        from srl.algorithms import dqn_not
 
-        rl_config = not_dqn.Config()
+        rl_config = dqn_not.Config()
         rl_config.batch_size = 2
         rl_config.memory.warmup_size = 2
         rl_config.input_block.image.set_dqn_block(filters=2)
@@ -22,9 +22,9 @@ class LongCase(CommonLongCase):
     def _create_rl_config(self):
         self.check_test_skip()
 
-        from srl.algorithms import not_dqn
+        from srl.algorithms import dqn_not
 
-        rl_config = not_dqn.Config(discount=0.9, lr=0.001)
+        rl_config = dqn_not.Config(discount=0.9, lr=0.001)
         rl_config.base_units = 64
         return rl_config
 

@@ -1,15 +1,16 @@
 import logging
+from typing import Tuple
 
 import numpy as np
 import torch
 
-from srl.base.rl.worker_run import WorkerRun
+from srl.rl.torch_.functions import inverse_linear_symlog
 from srl.rl.torch_.helper import model_backup, model_restore
 
 from .config import Config
 from .torch_model_encoder import create_encoder_block
 from .torch_model_feat import BYOLNetwork, ProjectorNetwork
-from .torch_model_q import QNetwork
+from .torch_model_q import QIntNetwork, QNetwork
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +25,9 @@ class Model:
         # --- Q
         self.encoder, enc_out_size = create_encoder_block(config)
         self.encoder.to(self.device)
-        self.q_online = QNetwork(enc_out_size, config, config.enable_q_distribution, duel_net=True).to(self.device)
+        self.q_online = QNetwork(enc_out_size, config, config.enable_q_distribution).to(self.device)
 
+        # --- feat
         if self.config.feat_type == "SimSiam":
             self.projector = ProjectorNetwork(config.base_units, enc_out_size, config.action_space.n).to(self.device)
         elif self.config.feat_type == "BYOL":
@@ -36,9 +38,10 @@ class Model:
             for p in self.byol_target.parameters():
                 p.requires_grad_(False)
 
+        # --- q int
         if self.config.enable_int_q:
             assert self.config.feat_type != ""
-            self.q_int_online = QNetwork(enc_out_size, config, config.int_q_distribution, duel_net=False).to(self.device)
+            self.q_int_online = QIntNetwork(enc_out_size, config).to(self.device)
 
     def restore(self, dat, from_serialized: bool) -> None:
         model_restore(self.encoder, dat["encoder"], from_serialized)
@@ -84,24 +87,23 @@ class Model:
             self.encoder.train()  # 常にtrain
         return oe
 
-    def pred_q(self, oe: torch.Tensor, is_mean: bool = False) -> np.ndarray:
+    def pred_q(self, oe: torch.Tensor, is_mean: bool = False) -> Tuple[np.ndarray, np.ndarray]:
         with torch.no_grad():
             self.q_online.eval()
             if is_mean:
-                q = self.q_online.forward_mean(oe)
+                q, v = self.q_online.forward_mean(oe)
             else:
-                q = self.q_online(oe)
+                q, v = self.q_online(oe)
             self.q_online.train()  # 常にtrain
-        q = q.detach().cpu().numpy()
-        return q
+        if self.config.enable_q_rescale:
+            q = inverse_linear_symlog(q)
+            v = inverse_linear_symlog(v)
+        return q.detach().cpu().numpy(), v.detach().cpu().numpy()
 
-    def pred_q_int(self, oe: torch.Tensor, is_mean: bool = False) -> np.ndarray:
+    def pred_q_int(self, oe: torch.Tensor) -> np.ndarray:
         with torch.no_grad():
             self.q_int_online.eval()
-            if is_mean:
-                q = self.q_int_online.forward_mean(oe)
-            else:
-                q = self.q_int_online(oe)
+            q = self.q_int_online(oe)
             self.q_int_online.train()  # 常にtrain
         return q.detach().cpu().numpy()
 
@@ -124,52 +126,3 @@ class Model:
                 self.byol_online.train()
             int_rew = int_rew.detach().cpu().numpy()[0]
         return int_rew
-
-    # -------------------
-
-    def render_terminal(self, worker: WorkerRun):
-        # --- q
-        print("--- q")
-        oe = self.pred_oe(worker.state[np.newaxis, ...])
-        q = self.pred_q(oe, is_mean=True)[0]
-        if self.config.enable_q_distribution:
-            q_dist, v_dist, adv_dist = self.q_online.get_distribution(oe)
-            v_mean = v_dist.mean().detach().cpu().numpy()[0][0]
-            v_stdev = v_dist.stddev().detach().cpu().numpy()[0][0]
-            adv_mean = adv_dist.mean().detach().cpu().numpy()[0]
-            adv_stdev = adv_dist.stddev().detach().cpu().numpy()[0]
-            q_mean = q_dist.mean().detach().cpu().numpy()[0]
-            q_stdev = q_dist.stddev().detach().cpu().numpy()[0]
-            print(f" V: {v_mean:.7f}(sigma: {v_stdev:.5f})")
-
-        def _render_sub(a: int) -> str:
-            s = f"{q[a]:6.3f}"
-            if self.config.enable_q_distribution:
-                s += f" q({q_mean[a]:6.3f}, {q_stdev[a]:6.3f})"
-                s += f" adv({adv_mean[a]:6.3f}, {adv_stdev[a]:6.3f})"
-            return s
-
-        worker.print_discrete_action_info(int(np.argmax(q)), _render_sub)
-
-        # --- q int
-        if self.config.enable_int_q:
-            print("--- q int")
-            q_int = self.pred_q_int(oe, is_mean=True)[0]
-            if self.config.int_q_distribution:
-                q_dist, v_dist, adv_dist = self.q_int_online.get_distribution(oe)
-                v_mean = v_dist.mean().detach().cpu().numpy()[0][0]
-                v_stdev = v_dist.stddev().detach().cpu().numpy()[0][0]
-                adv_mean = adv_dist.mean().detach().cpu().numpy()[0]
-                adv_stdev = adv_dist.stddev().detach().cpu().numpy()[0]
-                q_mean = q_dist.mean().detach().cpu().numpy()[0]
-                q_stdev = q_dist.stddev().detach().cpu().numpy()[0]
-                print(f" V: {v_mean:.7f}(sigma: {v_stdev:.5f})")
-
-            def _render_sub2(a: int) -> str:
-                s = f"{q_int[a]:6.3f}"
-                if self.config.int_q_distribution:
-                    s += f" q({q_mean[a]:6.3f}, {q_stdev[a]:6.3f})"
-                    s += f" adv({adv_mean[a]:6.3f}, {adv_stdev[a]:6.3f})"
-                return s
-
-            worker.print_discrete_action_info(int(np.argmax(q_int)), _render_sub2)

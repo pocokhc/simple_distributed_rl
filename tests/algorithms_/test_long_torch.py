@@ -5,13 +5,13 @@ from tests.algorithms_ import (
     base_c51,
     base_ddpg,
     base_dqn,
+    base_dqn_not,
     base_dreamer_v3,
     base_go_dqn,
     base_go_explore,
     base_godq_v1,
     base_godq_v1_lstm,
     base_muzero,
-    base_not_dqn,
     base_planet,
     base_ppo,
     base_r2d2,
@@ -44,7 +44,7 @@ class Test_rainbow(_CommonOption, base_rainbow.LongCase):
     pass
 
 
-class Test_not_dqn(_CommonOption, base_not_dqn.LongCase):
+class Test_dqn_not(_CommonOption, base_dqn_not.LongCase):
     pass
 
 

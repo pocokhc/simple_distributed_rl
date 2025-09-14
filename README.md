@@ -164,7 +164,7 @@ animation_save_gifで生成された画像は以下です。
 |SearchDynaQ   |Discrete   |Discrete||Original(ModelBase)<br>QL(TableBase)+PolicyIteration+IntrinsicReward|
 |GoDynaQ       |Discrete   |Discrete||Original(ModelBase)<br>SearchDynaQ+Go-Explore|
 |GoDQN         |Box        |Discrete|TF|Original(Progress:90%)<br>DQN+Go-Explore|
-|NoT_DQN       |Box        |Discrete|Torch|Original<br>No Target DQN|
+|DQN_NoT       |Box        |Discrete|Torch|Original<br>No Target DQN|
 |GoDQ_v1       |Box        |Discrete|Torch|Original<br>NoT_DQN + BYOL-Explorer(IntrinsicReward) + Archive + SR-SPR|
 |GoDQ_v1_LSTM  |Box        |Discrete|Torch|Original<br>GoDQ_v1+LSTM|
 

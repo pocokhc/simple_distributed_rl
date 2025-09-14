@@ -36,6 +36,7 @@
 1. [envs.tiger] update: いくつかのパラメータを設定できるように修正
 1. [rl.functions] add: scale系の関数を追加（signed_sqrt, sqrt_symlog）、テストも追加
 1. [algorithms.not_dqn] update
+1. [algorithms.not_dqn] rename: dqn_notに変更
 1. [algorithms.godq_v1] update: 拡散モデルを暫定追加
 1. [algorithms.godq_v1_lstm] update
 

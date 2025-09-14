@@ -330,18 +330,30 @@ class MLFlowCallback(RunCallback, Evaluate):
         return None
 
     @classmethod
-    def get_run_id(cls, experiment_name: str, rl_name: str, idx: int = -1) -> Optional[str]:
+    def get_run_id(cls, experiment_name: str, run_name: str = "", rl_name: str = "", idx: int = -1) -> Optional[str]:
         experiment_id = cls.get_experiment_id(experiment_name)
         if experiment_id is None:
             return None
 
-        # --- tag search
-        filter = f"tags.RL = '{rl_name}'"
-        runs = mlflow.search_runs([experiment_id], filter_string=filter, order_by=["start_time ASC"])
-        if runs.empty:
-            return None
-        run_id = runs.iloc[idx].run_id
-        return run_id
+        if run_name != "":
+            runs = mlflow.search_runs(
+                [experiment_id],
+                filter_string=f"tags.mlflow.runName = '{run_name}'",
+                order_by=["start_time ASC"],
+            )
+            if not runs.empty:
+                return runs.iloc[idx].run_id
+
+        if rl_name != "":
+            filter = f"tags.RL = '{rl_name}'"
+            runs = mlflow.search_runs(
+                [experiment_id],
+                filter_string=filter,
+                order_by=["start_time ASC"],
+            )
+            if not runs.empty:
+                return runs.iloc[idx].run_id
+        return None
 
     @classmethod
     def get_metric(cls, run_id: Optional[str], metric_name: str):

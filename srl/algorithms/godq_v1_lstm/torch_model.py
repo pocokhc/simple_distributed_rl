@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 import torch
@@ -7,7 +7,8 @@ import torch.nn as nn
 
 from srl.algorithms.godq_v1.torch_model_encoder import create_encoder_block
 from srl.algorithms.godq_v1.torch_model_feat import BYOLNetwork, ProjectorNetwork
-from srl.algorithms.godq_v1.torch_model_q import QNetwork
+from srl.algorithms.godq_v1.torch_model_q import QIntNetwork, QNetwork
+from srl.rl.torch_.functions import inverse_linear_symlog
 from srl.rl.torch_.helper import model_backup, model_restore
 
 from .config import Config
@@ -20,6 +21,7 @@ class Encoder(nn.Module):
         super().__init__()
         base_units = config.base_units
         self.torch_dtype = config.get_dtype("torch")
+        self.lstm_c_clip = config.lstm_c_clip
         self.device = device
 
         self.obs_encoder, enc_out_size = create_encoder_block(config)
@@ -34,6 +36,8 @@ class Encoder(nn.Module):
         ta = self.act_encoder(action_indices)
         z = torch.cat([ts, ta], dim=-1)
         h, c = self.lstm(z, hc)
+        if self.lstm_c_clip > 0:
+            c = torch.clamp(c, -self.lstm_c_clip, self.lstm_c_clip)
         return h, (h, c)
 
     def forward_encode(self, state: torch.Tensor, action_indices: torch.Tensor):
@@ -43,6 +47,8 @@ class Encoder(nn.Module):
 
     def forward_lstm(self, z: torch.Tensor, hc):
         h, c = self.lstm(z, hc)
+        if self.lstm_c_clip > 0:
+            c = torch.clamp(c, -self.lstm_c_clip, self.lstm_c_clip)
         return h, (h, c)
 
     def get_initial_state(self, batch_size=1):
@@ -61,7 +67,7 @@ class Model:
 
         # --- Q
         self.encoder = Encoder(config, self.device).to(self.device)
-        self.q_online = QNetwork(self.encoder.out_size, config, config.enable_q_distribution, duel_net=True).to(self.device)
+        self.q_online = QNetwork(self.encoder.out_size, config, config.enable_q_distribution).to(self.device)
 
         if self.config.feat_type == "SimSiam":
             self.projector = ProjectorNetwork(config.base_units, self.encoder.out_size, config.action_space.n).to(self.device)
@@ -75,7 +81,7 @@ class Model:
 
         if self.config.enable_int_q:
             assert self.config.feat_type != ""
-            self.q_int_online = QNetwork(self.encoder.out_size, config, config.int_q_distribution, duel_net=False).to(self.device)
+            self.q_int_online = QIntNetwork(self.encoder.out_size, config).to(self.device)
 
     def restore(self, dat, from_serialized: bool) -> None:
         model_restore(self.encoder, dat["encoder"], from_serialized)
@@ -122,23 +128,23 @@ class Model:
             self.encoder.train()
         return z, hc
 
-    def pred_q(self, oe: torch.Tensor, is_mean: bool = False) -> np.ndarray:
+    def pred_q(self, oe: torch.Tensor, is_mean: bool = False) -> Tuple[np.ndarray, np.ndarray]:
         with torch.no_grad():
             self.q_online.eval()
             if is_mean:
-                q = self.q_online.forward_mean(oe)
+                q, v = self.q_online.forward_mean(oe)
             else:
-                q = self.q_online(oe)
+                q, v = self.q_online(oe)
             self.q_online.train()  # 常にtrain
-        return q.detach().cpu().numpy()
+        if self.config.enable_q_rescale:
+            q = inverse_linear_symlog(q)
+            v = inverse_linear_symlog(v)
+        return q.detach().cpu().numpy(), v.detach().cpu().numpy()
 
-    def pred_q_int(self, oe: torch.Tensor, is_mean: bool = False) -> np.ndarray:
+    def pred_q_int(self, oe: torch.Tensor) -> np.ndarray:
         with torch.no_grad():
             self.q_int_online.eval()
-            if is_mean:
-                q = self.q_int_online.forward_mean(oe)
-            else:
-                q = self.q_int_online(oe)
+            q = self.q_int_online(oe)
             self.q_int_online.train()  # 常にtrain
         return q.detach().cpu().numpy()
 

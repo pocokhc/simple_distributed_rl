@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from srl.base.rl.trainer import RLTrainer
+from srl.rl.torch_.functions import inverse_linear_symlog, linear_symlog
 from srl.rl.torch_.helper import decode_sequence_batch, encode_sequence_batch, model_soft_sync
 
 from .config import Config
@@ -152,30 +153,41 @@ class TorchTrainer:
 
         # --- lstm
         z_list = []
-        hc = (self.hc[0][:batch_size].detach(), self.hc[1][:batch_size].detach())
+        hc = (self.hc[0][:batch_size], self.hc[1][:batch_size])
         for i in range(batch_length):
             hc = (hc[0] * not_starts[:, i, ...], hc[1] * not_starts[:, i, ...])
-            z, hc = self.net.encoder.forward_lstm(enc_sa_s[:, i, ...], hc)
+            z, hc2 = self.net.encoder.forward_lstm(enc_sa_s[:, i, ...], hc)
+            if i < batch_length - 1:
+                hc = hc2
             z_list.append(z)
         z_s = torch.stack(z_list, dim=0)
         z_s = torch.permute(z_s, (1, 0, 2))
-        self.hc[0][:batch_size] = hc[0]
-        self.hc[1][:batch_size] = hc[1]
+        self.hc[0][:batch_size] = hc[0].detach()
+        self.hc[1][:batch_size] = hc[1].detach()
 
         # --- q
-        q_all_s = self.net.q_online(z_s)
+        q_all_s, v_s = self.net.q_online(z_s)
         q_all = q_all_s[:, :-1, ...]
         n_q_all = q_all_s[:, 1:, ...]
+        n_v = v_s[:, 1:, ...].detach().squeeze(-1)
 
         n_q = n_q_all.detach().max(dim=-1).values
-        target_q = rewards[:, 1:, ...] + not_terminateds[:, 1:, ...] * self.config.discount * n_q
+        if self.config.enable_q_rescale:
+            n_q = inverse_linear_symlog(n_q)
+            n_v = inverse_linear_symlog(n_v)
+        target_q = rewards[:, 1:, ...] + not_terminateds[:, 1:, ...] * self.config.discount * (n_q + n_v) / 2
+        if self.config.enable_q_rescale:
+            target_q = linear_symlog(target_q)
 
         q = q_all.gather(2, action_indices[:, 1:].unsqueeze(-1)).squeeze(-1)
         loss_q = self.loss_q_func(target_q, q)
         loss += loss_q
         self.trainer.info["loss_q"] = loss_q.mean().item()
 
-        loss_align = self.loss_align_func(total_rewards[:, 1:, ...], q)
+        total_reward = total_rewards[:, 1:, ...]
+        if self.config.enable_q_rescale:
+            total_reward = linear_symlog(total_reward)
+        loss_align = self.loss_align_func(total_reward, q)
         loss += self.config.align_loss_coeff * loss_align
         self.trainer.info["loss_align"] = loss_align.mean().item()
 

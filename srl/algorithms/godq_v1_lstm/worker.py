@@ -79,7 +79,9 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         if self.policy_mode != "go":
             self.hc = self.net.encoder.get_initial_state()
             self.oe, self.hc = self.net.pred_oe(worker.state[np.newaxis, ...], [0], self.hc)
-            self.q = self.net.pred_q(self.oe)[0]
+            self.q, self.v = self.net.pred_q(self.oe)
+            self.q = self.q[0]
+            self.v = self.v[0][0]
 
         # --- arvhie(restoreの可能性あり)
         if self.config.enable_archive:
@@ -112,7 +114,9 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         if self.policy_mode != "go":
             pred_oe = self.oe
             self.oe, self.hc = self.net.pred_oe(worker.next_state[np.newaxis, ...], [worker.action], self.hc)
-            self.q = self.net.pred_q(self.oe)[0]
+            self.q, self.v = self.net.pred_q(self.oe)
+            self.q = self.q[0]
+            self.v = self.v[0][0]
 
         if self.rendering and self.config.enable_int_q:
             self.int_reward = self.parameter.net.pred_single_int_reward(
@@ -140,14 +144,11 @@ class Worker(RLWorker[Config, Parameter, Memory]):
                 self.search_step = 0
 
         # --- add memory
-        reward = worker.reward
-        if self.config.enable_reward_symlog_scalar:
-            reward = float(symlog_scalar(reward))
         worker.add_tracking(
             {
                 "state": worker.next_state,
                 "action": worker.action,
-                "reward": reward,
+                "reward": worker.reward,
                 "not_terminated": int(not worker.terminated),
                 "not_start": 1,
                 "not_done": not worker.done,
@@ -165,6 +166,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
     def render_terminal(self, worker, **kwargs):
         # --- q
         print("--- q")
+        print(f"     V: {self.v:.7f}")
         if self.config.enable_q_distribution:
             q_dist, v_dist, adv_dist = self.net.q_online.get_distribution(self.oe)
             v_mean = v_dist.mean().detach().cpu().numpy()[0][0]
@@ -188,21 +190,9 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         if self.config.enable_int_q:
             print("--- q int")
             q_int = self.net.pred_q_int(self.oe)[0]
-            if self.config.int_q_distribution:
-                q_dist, v_dist, adv_dist = self.net.q_int_online.get_distribution(self.oe)
-                v_mean = v_dist.mean().detach().cpu().numpy()[0][0]
-                v_stdev = v_dist.stddev().detach().cpu().numpy()[0][0]
-                adv_mean = adv_dist.mean().detach().cpu().numpy()[0]
-                adv_stdev = adv_dist.stddev().detach().cpu().numpy()[0]
-                q_mean = q_dist.mean().detach().cpu().numpy()[0]
-                q_stdev = q_dist.stddev().detach().cpu().numpy()[0]
-                print(f" V: {v_mean:.7f}(sigma: {v_stdev:.5f})")
 
             def _render_sub2(a: int) -> str:
                 s = f"{q_int[a]:6.3f}"
-                if self.config.int_q_distribution:
-                    s += f" q({q_mean[a]:6.3f}, {q_stdev[a]:6.3f})"
-                    s += f" adv({adv_mean[a]:6.3f}, {adv_stdev[a]:6.3f})"
                 return s
 
             worker.print_discrete_action_info(int(np.argmax(q_int)), _render_sub2)

@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from srl.base.rl.trainer import RLTrainer
+from srl.rl.torch_.functions import inverse_linear_symlog, linear_symlog
 from srl.rl.torch_.helper import model_soft_sync
 
 from .config import Config
@@ -37,13 +38,15 @@ def shrink_model_params(params: Iterable[nn.Parameter], rate: float):
 
 class TorchTrainer:
     def on_setup(self, trainer: RLTrainer):
-        self.trainer = trainer
+        self.info = trainer.info
         self.config: Config = trainer.config
         self.memory: Memory = trainer.memory
         self.net: Model = trainer.parameter.net
         self.torch_dtype = self.config.get_dtype("torch")
         self.np_dtype = self.config.get_dtype("np")
         self.act_num = self.config.action_space.n
+
+        self.train_count = 0
 
         # --- reset params
         self.reset_params = []
@@ -96,20 +99,20 @@ class TorchTrainer:
                 break
 
             # --- reset
-            if (self.config.reset_net_interval > 0) and (self.trainer.train_count % self.config.reset_net_interval == 1):
+            if (self.config.reset_net_interval > 0) and (self.train_count % self.config.reset_net_interval == 1):
                 reset_model_params(self.reset_params, (1 - self.config.lr), self.config.lr, stddev=0.1)
                 self.reset_net += 1
-                self.trainer.info["reset_net"] = self.reset_net
+                self.info["reset_net"] = self.reset_net
 
             # --- train
             self._train(batches)
 
             # --- target sync
             if self.config.feat_type == "BYOL":
-                if self.trainer.train_count % self.config.byol_model_update_interval == 0:
+                if self.train_count % self.config.byol_model_update_interval == 0:
                     model_soft_sync(self.net.byol_target, self.net.byol_online.proj_block, self.config.byol_model_update_rate)
 
-            self.trainer.train_count += 1
+            self.train_count += 1
 
     def _train(self, batches):
         device = self.net.device
@@ -135,27 +138,35 @@ class TorchTrainer:
 
         loss = 0
         oe_s = self.net.encoder(states)
-        q_all_s = self.net.q_online(oe_s)
+        q_all_s, v_all_s = self.net.q_online(oe_s)
 
         # --- target_q
         n_q = q_all_s[self.config.batch_size :].detach().max(dim=1).values
-        target_q = reward + not_terminated * self.config.discount * n_q
+        n_v = v_all_s[self.config.batch_size :].detach().squeeze(-1)
+        if self.config.enable_q_rescale:
+            n_q = inverse_linear_symlog(n_q)
+            n_v = inverse_linear_symlog(n_v)
+        target_q = reward + not_terminated * self.config.discount * (n_q + n_v) / 2
+        if self.config.enable_q_rescale:
+            target_q = linear_symlog(target_q)
 
         # --- q
         q = q_all_s[: self.config.batch_size].gather(1, action_indices).squeeze(1)
         loss_q = (self.loss_q_func(target_q, q) * weights).mean()
         loss += loss_q
-        self.trainer.info["loss_q"] = loss_q.item()
+        self.info["loss_q"] = loss_q.item()
 
         # --- alignment q
+        if self.config.enable_q_rescale:
+            total_reward = linear_symlog(total_reward)
         loss_align = (self.loss_align_func(total_reward, q) * weights).mean()
         loss += self.config.align_loss_coeff * loss_align
-        self.trainer.info["loss_align"] = loss_align.item()
+        self.info["loss_align"] = loss_align.item()
 
         # --- memory update
         if self.config.memory.requires_priority():
             priorities = np.abs((target_q - q).detach().cpu().numpy())
-            self.memory.update_q(update_args, priorities, self.trainer.train_count)
+            self.memory.update_q(update_args, priorities, self.train_count)
 
         # --- feat
         if self.config.feat_type == "SimSiam":
@@ -167,7 +178,7 @@ class TorchTrainer:
             loss_sim, int_rew = self.net.projector.compute_loss_and_reward(y_target.detach(), y_hat)
             loss_sim = (loss_sim * weights).mean()
             loss += loss_sim
-            self.trainer.info["loss_sim"] = loss_sim.item()
+            self.info["loss_sim"] = loss_sim.item()
         elif self.config.feat_type == "BYOL":
             oe = oe_s[: self.config.batch_size]
             y_hat = self.net.byol_online(oe, action_indices.squeeze(-1))
@@ -177,7 +188,7 @@ class TorchTrainer:
             loss_byol, int_rew = self.net.byol_online.compute_loss_and_reward(y_target.detach(), y_hat)
             loss_byol = (loss_byol * weights).mean()
             loss += loss_byol
-            self.trainer.info["loss_byol"] = loss_byol.item()
+            self.info["loss_byol"] = loss_byol.item()
 
         if self.config.enable_int_q:
             # --- q int target
@@ -193,12 +204,12 @@ class TorchTrainer:
             q_int = q_int_all_s[: self.config.batch_size].gather(1, action_indices).squeeze(1)
             loss_int_q = (self.loss_int_q_func(target_q_int, q_int) * weights).mean()
             loss += loss_int_q
-            self.trainer.info["loss_int_q"] = loss_int_q.item()
+            self.info["loss_int_q"] = loss_int_q.item()
 
             # --- alignment q int
             loss_int_align = (self.loss_int_align_func(int_rew, q_int) * weights).mean()
             loss += self.config.int_align_loss_coeff * loss_int_align
-            self.trainer.info["loss_int_align"] = loss_int_align.item()
+            self.info["loss_int_align"] = loss_int_align.item()
 
         # --- bp
         self.opt.zero_grad()

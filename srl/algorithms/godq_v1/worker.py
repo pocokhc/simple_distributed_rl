@@ -1,5 +1,4 @@
 import logging
-import math
 import random
 
 import numpy as np
@@ -12,36 +11,6 @@ from .memory import Memory
 from .parameter import Parameter
 
 logger = logging.getLogger(__name__)
-
-
-def symlog_scalar(x: float, shift: float = 1) -> float:
-    if -shift <= x <= shift:
-        return x
-    return math.copysign(math.log1p(abs(x) - shift) + shift, x)
-
-
-def plot_symlog_scalar():
-    import matplotlib.pyplot as plt
-
-    def symlog(x):
-        return np.sign(x) * np.log(1 + np.abs(x))
-
-    x_vals = np.linspace(-5, 5, 10000)
-    y_scalar = np.array([symlog_scalar(x) for x in x_vals])
-    y_symlog = np.array([symlog(x) for x in x_vals])
-
-    plt.figure(figsize=(8, 6))
-    plt.plot(x_vals, y_scalar, label="symlog_scalar")
-    plt.plot(x_vals, y_symlog, label="symlog")
-    plt.axvline(-1, color="gray", linestyle=":")
-    plt.axvline(1, color="gray", linestyle=":")
-    plt.title("Scalar Symlog Function")
-    plt.xlabel("x")
-    plt.ylabel("output")
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
 
 
 class Worker(RLWorker[Config, Parameter, Memory]):
@@ -105,7 +74,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
                 return self.sample_action()
             self.set_q_oe(worker.state, is_mean=not self.training)
             assert self.q is not None
-            q = self.q.copy()
+            q = self.q.copy()  # type: ignore
             q[worker.invalid_actions] = -np.inf
             return int(np.argmax(q))
 
@@ -139,31 +108,39 @@ class Worker(RLWorker[Config, Parameter, Memory]):
                 # 新しいcellを見つけたらリセット
                 self.search_step = 0
 
+        # --- add diff memory
+        if self.config.enable_diffusion and self.config.train_diffusion:
+            self.memory.add_diff(
+                [
+                    worker.render_image_state,
+                    worker.next_render_image_state,
+                    worker.action,
+                ]
+            )
+
         # --- add memory
-        reward = worker.reward
-        if self.config.enable_reward_symlog_scalar:
-            reward = float(symlog_scalar(reward))
-        worker.add_tracking(
-            {
-                "state": worker.state,
-                "n_state": worker.next_state,
-                "action": worker.action,
-                "reward": reward,
-                "not_done": int(not worker.terminated),
-                "priority": self._calc_priority(worker, reward, prev_q),
-            }
-        )
-        if not worker.done:
-            if worker.get_tracking_length() == self.config.max_discount_steps:
+        if self.config.train_q:
+            worker.add_tracking(
+                {
+                    "state": worker.state,
+                    "n_state": worker.next_state,
+                    "action": worker.action,
+                    "reward": worker.reward,
+                    "not_done": int(not worker.terminated),
+                    "priority": self._calc_priority(worker, worker.reward, prev_q),
+                }
+            )
+            if not worker.done:
+                if worker.get_tracking_length() == self.config.max_discount_steps:
+                    total_reward = 0
+                    for b in reversed(worker.get_trackings()):
+                        total_reward = b[3] + self.config.discount * total_reward
+                    self.memory.add_q(b[:-1] + [total_reward], b[-1])
+            else:
                 total_reward = 0
                 for b in reversed(worker.get_trackings()):
                     total_reward = b[3] + self.config.discount * total_reward
-                self.memory.add_q(b[:-1] + [total_reward], b[-1])
-        else:
-            total_reward = 0
-            for b in reversed(worker.get_trackings()):
-                total_reward = b[3] + self.config.discount * total_reward
-                self.memory.add_q(b[:-1] + [total_reward], b[-1])
+                    self.memory.add_q(b[:-1] + [total_reward], b[-1])
 
     def _calc_priority(self, worker: WorkerRun, reward: float, prev_q):
         if not self.config.memory.requires_priority():
@@ -192,12 +169,68 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         return priority
 
     def render_terminal(self, worker, **kwargs):
-        self.parameter.net.render_terminal(worker)
+        # --- q
+        print("--- q")
+        oe = self.parameter.net.pred_oe(worker.state[np.newaxis, ...])
+        q, v = self.parameter.net.pred_q(oe, is_mean=True)
+        q = q[0]
+        v = v[0][0]
+        print(f"     V: {v:.7f}")
+        if self.config.enable_q_distribution:
+            q_dist, v_dist, adv_dist = self.parameter.net.q_online.get_distribution(oe)
+            v_mean = v_dist.mean().detach().cpu().numpy()[0][0]
+            v_stdev = v_dist.stddev().detach().cpu().numpy()[0][0]
+            adv_mean = adv_dist.mean().detach().cpu().numpy()[0]
+            adv_stdev = adv_dist.stddev().detach().cpu().numpy()[0]
+            q_mean = q_dist.mean().detach().cpu().numpy()[0]
+            q_stdev = q_dist.stddev().detach().cpu().numpy()[0]
+            print(f"dist V: {v_mean:.7f}(sigma: {v_stdev:.5f})")
+
+        def _render_sub(a: int) -> str:
+            s = f"{q[a]:6.3f} adv:{q[a] - v:6.3f}"
+            if self.config.enable_q_distribution:
+                s += f"|q({q_mean[a]:6.3f},{q_stdev[a]:5.3f})"
+                s += f" adv({adv_mean[a]:6.3f},{adv_stdev[a]:5.3f})"
+            return s
+
+        worker.print_discrete_action_info(int(np.argmax(q)), _render_sub)
+
+        # --- q int
+        if self.config.enable_int_q:
+            print("--- q int")
+            q_int = self.parameter.net.pred_q_int(oe)[0]
+
+            def _render_sub2(a: int) -> str:
+                s = f"{q_int[a]:6.3f}"
+                return s
+
+            worker.print_discrete_action_info(int(np.argmax(q_int)), _render_sub2)
+
+        # --- int q
         if self.config.enable_int_q:
             if worker.step_in_episode > 0:
                 print(f"int_reward: {float(self.int_reward):.5f}")
             else:
                 print()
 
+        # --- archive
         if self.config.enable_archive:
             self.parameter.archive.render_terminal(worker)
+
+    def render_rgb_array(self, worker, **kwargs):
+        if not self.config.enable_diffusion:
+            return None
+
+        from srl.utils.pygame_wrapper import PygameScreen
+
+        WIDTH = 700
+        HEIGHT = 600
+
+        if self.screen is None:
+            self.screen = PygameScreen(WIDTH, HEIGHT)
+        self.screen.draw_fill((0, 0, 0))
+
+        if self.config.enable_diffusion:
+            self.parameter.sampler.render_rgb_array(self.screen, worker)
+
+        return self.screen.get_rgb_array()

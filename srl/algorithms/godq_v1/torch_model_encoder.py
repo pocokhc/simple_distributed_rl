@@ -81,7 +81,6 @@ class DiscreteEncoder(nn.Module):
 
         self.register_buffer("low", torch.tensor(space.low, dtype=torch.long).unsqueeze(0))
         emb_size = int(np.max(space.high - space.low)) + 1
-        emb_size = min(emb_size, units)  # 上限を設定
 
         self.block = nn.Sequential(
             nn.Flatten(),
@@ -122,7 +121,6 @@ class DiscreteConv1DEncoder(nn.Module):
 
         self.register_buffer("low", torch.tensor(space.low, dtype=torch.long).unsqueeze(0))
         emb_size = int(np.max(space.high - space.low)) + 1
-        emb_size = min(emb_size, units)  # 上限を設定
 
         self.in_flatten = nn.Flatten()
         self.embedding = nn.Embedding(emb_size, units)
@@ -148,9 +146,10 @@ class ContEncoder(nn.Module):
         super().__init__()
         self.enable_norm = enable_norm
 
-        self.register_buffer("low", torch.tensor(space.low, dtype=torch_dtype).unsqueeze(0))
-        diff = torch.tensor(2 / (space.high - space.low), dtype=torch_dtype)
-        self.register_buffer("diff", diff.unsqueeze(0))
+        if self.enable_norm:
+            self.register_buffer("low", torch.tensor(space.low, dtype=torch_dtype).unsqueeze(0))
+            diff = torch.tensor(2 / (space.high - space.low), dtype=torch_dtype)
+            self.register_buffer("diff", diff.unsqueeze(0))
         self.layers = nn.Sequential(
             nn.Flatten(),
             nn.LazyLinear(units),
@@ -184,10 +183,15 @@ def create_encoder_block(config: Config):
     elif config.used_discrete_block and space.is_discrete():
         if config.encode_discrete_type == "BOX":
             obs_block = ContEncoder(base_units, out_units, space, config.get_dtype("torch"), config.enable_state_norm)
-        elif config.encode_discrete_type == "Discrete":
-            obs_block = DiscreteEncoder(base_units, out_units, space)
-        elif config.encode_discrete_type == "Conv1D":
-            obs_block = DiscreteConv1DEncoder(base_units, out_units, space)
+        else:
+            # obs * enb_units = params
+            target_units = config.encode_discrete_target_params // config.observation_space.flatten_size
+            units = min(target_units, base_units)
+            units = max(units, config.encode_discrete_low_units)
+            if config.encode_discrete_type == "Discrete":
+                obs_block = DiscreteEncoder(units, out_units, space)
+            elif config.encode_discrete_type == "Conv1D":
+                obs_block = DiscreteConv1DEncoder(units, out_units, space)
     else:
         obs_block = ContEncoder(base_units, out_units, space, config.get_dtype("torch"), config.enable_state_norm)
 

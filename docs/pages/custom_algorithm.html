@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Making a Custom algorithm &mdash; SimpleDistributedRL 1.4.0 ドキュメント</title>
+  <title>Making a Custom algorithm &mdash; SimpleDistributedRL 1.4.3 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=0868a3b3"></script>
+      <script src="../_static/documentation_options.js?v=3f9029d9"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -529,8 +529,8 @@
    <span class="k">def</span><span class="w"> </span><span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
       <span class="c1"># self.config に上で定義した MyConfig が入っています</span>
 
-      <span class="c1"># Worker -&gt; Memory用の関数を登録、同時にシリアライズ用の関数も指定する必要あり</span>
-      <span class="bp">self</span><span class="o">.</span><span class="n">register_worker_func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">serialize</span><span class="p">)</span>
+      <span class="c1"># Worker -&gt; Memory用の関数を登録</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">register_worker_func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">)</span>
 
       <span class="c1"># Memory -&gt; Trainer用の関数を登録</span>
       <span class="bp">self</span><span class="o">.</span><span class="n">register_trainer_recv_func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sample</span><span class="p">)</span>
@@ -538,24 +538,25 @@
       <span class="c1"># Trainer -&gt; Memory用の関数を登録</span>
       <span class="bp">self</span><span class="o">.</span><span class="n">register_trainer_send_func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">)</span>
 
-   <span class="k">def</span><span class="w"> </span><span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">,</span> <span class="n">serialized</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-      <span class="c1"># Worker-&gt;Memory関数は引数に serialized を持つ必要があり、</span>
-      <span class="c1">#   Trueの場合、シリアライズされたデータになっている。</span>
-      <span class="k">if</span> <span class="n">serialized</span><span class="p">:</span>
-         <span class="n">batch</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>  <span class="c1"># デシリアライズ例</span>
-
-   <span class="k">def</span><span class="w"> </span><span class="nf">serialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">):</span>
-      <span class="c1"># Worker-&gt;Memoryのデータをシリアライズする関数</span>
-      <span class="k">return</span> <span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>  <span class="c1"># シリアライズ例</span>
+   <span class="k">def</span><span class="w"> </span><span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+      <span class="c1"># Worker-&gt;Memoryの送信で使う関数の書式例</span>
+      <span class="c1">#   - 引数は任意</span>
+      <span class="c1">#   - 戻り値はNone固定</span>
+      <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
    <span class="k">def</span><span class="w"> </span><span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-      <span class="c1"># 引数はなし</span>
+      <span class="c1"># Memory-&gt;Trainerの送信で使う関数の書式例</span>
+      <span class="c1">#   - 引数はなし</span>
+      <span class="c1">#   - 戻り値は任意の型</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+      <span class="c1"># Trainer-&gt;Memoryの送信で使う関数の書式例</span>
+      <span class="c1">#   - 引数は任意</span>
+      <span class="c1">#   - 戻り値はNone固定</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-   <span class="c1"># オプションですが、定義すると表示してくれます。</span>
+   <span class="c1"># オプションですが、定義するとSRL内の必要な場所で呼び出されます。（主に表示）</span>
    <span class="k">def</span><span class="w"> </span><span class="nf">length</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
       <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
 
@@ -814,7 +815,6 @@
 <section id="q">
 <h2>5. 実装例(Q学習)<a class="headerlink" href="#q" title="Link to this heading"></a></h2>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">random</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
 
@@ -857,15 +857,13 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">Memory</span><span class="p">(</span><span class="n">RLMemory</span><span class="p">[</span><span class="n">Config</span><span class="p">]):</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">register_worker_func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">,</span> <span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_worker_func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">register_trainer_recv_func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sample</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">length</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
         <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">,</span> <span class="n">serialized</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">serialized</span><span class="p">:</span>
-            <span class="n">batch</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>

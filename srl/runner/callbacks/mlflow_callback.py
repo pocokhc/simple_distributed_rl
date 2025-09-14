@@ -50,15 +50,16 @@ class MLFlowCallback(RunCallback, Evaluate):
             mlflow.set_experiment(self.experiment_name)
             if self.run_name == "":
                 self.run_name = context.rl_config.name
-            if framework != "":
-                self.run_name += f":{framework}"
-            self.run_name += f"({context.play_mode})"
+                if framework != "":
+                    self.run_name += f":{framework}"
+                self.run_name += f"({context.play_mode})"
             mlflow.start_run(run_name=self.run_name)
             self._auto_run = True
         active_run = mlflow.active_run()
         assert active_run is not None
         self.run_id = active_run.info.run_id
-        logger.info(f"mlflow run_id: {self.run_id}")
+        print(f"MLFlow experiment={self.experiment_name}, run={self.run_name}, run_id={self.run_id}")
+        logger.info(f"MLFlow experiment={self.experiment_name}, run={self.run_name}, run_id={self.run_id}")
         tags = {
             "Version": srl.__version__,
             "Env": context.env_config.name,

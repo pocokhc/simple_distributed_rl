@@ -19,6 +19,28 @@
 // keras3対応 → tfは@tf.functionが使えなくなるので遅くなる。torchはcpu()が必要になるっぽい、しばらく保留
 
 
+
+# v1.4.3
+
+**MainUpdates**
+
+1. [base.rl.memory.RLMemory] update: register_worker_funcからserialize_funcをなくし、登録を簡単に変更
+   - Worker->Memoryのやりとりはpickleで実施
+   - 既存の動作（serialize_funcを実装）はregister_worker_func_customに変更
+   - ドキュメントも更新
+
+**OtherUpdates**
+
+1. [rl.memories] change: ReplayBufferの引数をConfigではなく展開し、Configがなくても設定できるように変更、同じくepisode_replay_bufferも
+1. [envs.tiger] update: NNで学習しやすいように報酬のスケールを100分の1に変更、最大ステップを10から50に変更
+1. [envs.tiger] update: いくつかのパラメータを設定できるように修正
+1. [rl.functions] add: scale系の関数を追加（signed_sqrt, sqrt_symlog）、テストも追加
+1. [algorithms.not_dqn] update
+1. [algorithms.godq_v1] update: 拡散モデルを暫定追加
+1. [algorithms.godq_v1_lstm] update
+
+
+
 # v1.4.2
 
 細かい修正のみの更新になります。

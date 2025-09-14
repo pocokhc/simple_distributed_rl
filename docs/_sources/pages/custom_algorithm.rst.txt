@@ -277,8 +277,8 @@ RLPriorityReplayBuffer
       def setup(self) -> None:
          # self.config に上で定義した MyConfig が入っています
 
-         # Worker -> Memory用の関数を登録、同時にシリアライズ用の関数も指定する必要あり
-         self.register_worker_func(self.add, self.serialize)
+         # Worker -> Memory用の関数を登録
+         self.register_worker_func(self.add)
 
          # Memory -> Trainer用の関数を登録
          self.register_trainer_recv_func(self.sample)
@@ -286,24 +286,25 @@ RLPriorityReplayBuffer
          # Trainer -> Memory用の関数を登録
          self.register_trainer_send_func(self.update)
 
-      def add(self, batch, serialized: bool = False) -> None:
-         # Worker->Memory関数は引数に serialized を持つ必要があり、
-         #   Trueの場合、シリアライズされたデータになっている。
-         if serialized:
-            batch = pickle.loads(batch)  # デシリアライズ例
-
-      def serialize(self, batch):
-         # Worker->Memoryのデータをシリアライズする関数
-         return pickle.dumps(batch)  # シリアライズ例
-
+      def add(self, batch) -> None:
+         # Worker->Memoryの送信で使う関数の書式例
+         #   - 引数は任意
+         #   - 戻り値はNone固定
+         raise NotImplementedError()
+         
       def sample(self) -> Any:
-         # 引数はなし
+         # Memory->Trainerの送信で使う関数の書式例
+         #   - 引数はなし
+         #   - 戻り値は任意の型
          raise NotImplementedError()
 
       def update(self, batch) -> None:
+         # Trainer->Memoryの送信で使う関数の書式例
+         #   - 引数は任意
+         #   - 戻り値はNone固定
          raise NotImplementedError()
 
-      # オプションですが、定義すると表示してくれます。
+      # オプションですが、定義するとSRL内の必要な場所で呼び出されます。（主に表示）
       def length(self) -> int:
          return -1
 

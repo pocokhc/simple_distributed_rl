@@ -46,7 +46,7 @@ def train_dqn():
     rl_config.memory.warmup_size = 1000
     rl_config.memory.capacity = 10_000
     rl_config.memory.compress = False
-    rl_config.input_image_block.set_dqn_block(resize=(64, 64))
+    rl_config.input_block.image.set_dqn_block()
     rl_config.hidden_block.set((256,))
 
     _train(rl_config)

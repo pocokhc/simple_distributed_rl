@@ -37,12 +37,10 @@ def main_dqn(is_mp=False, is_image=False):
     rl_config = dqn.Config(
         lr=BASE_LR,
         target_model_update_interval=2000,
-        memory=dqn.PriorityReplayBufferConfig(
-            capacity=10_000,
-            warmup_size=1000,
-            compress=False,
-        ),
     )
+    rl_config.memory.capacity = 10_000
+    rl_config.memory.warmup_size = 1000
+    rl_config.memory.compress = False
     rl_config.hidden_block.set(BASE_BLOCK)
     _run(rl_config, is_mp, is_image, BASE_TRAIN)
 
@@ -100,12 +98,10 @@ def main_ppo(is_mp=False, is_image=False):
 
     rl_config = ppo.Config(
         lr=BASE_LR,
-        memory=ppo.ReplayBufferConfig(
-            capacity=10_000,
-            warmup_size=1000,
-            compress=False,
-        ),
     )
+    rl_config.memory.capacity = 10_000
+    rl_config.memory.warmup_size = 1000
+    rl_config.memory.compress = False
     rl_config.hidden_block.set((128,))
     rl_config.policy_block.set((128,))
     rl_config.value_block.set((128,))
@@ -117,12 +113,10 @@ def main_ddpg(is_mp=False, is_image=False):
 
     rl_config = ddpg.Config(
         lr=BASE_LR,
-        memory=ddpg.ReplayBufferConfig(
-            capacity=10_000,
-            warmup_size=1000,
-            compress=False,
-        ),
     )
+    rl_config.memory.capacity = 10_000
+    rl_config.memory.warmup_size = 1000
+    rl_config.memory.compress = False
     rl_config.policy_block.set(BASE_BLOCK)
     rl_config.q_block.set(BASE_BLOCK)
     _run(rl_config, is_mp, is_image, BASE_TRAIN)
@@ -134,12 +128,10 @@ def main_sac(is_mp=False, is_image=False):
     rl_config = sac.Config(
         lr_policy=BASE_LR,
         lr_q=BASE_LR,
-        memory=sac.ReplayBufferConfig(
-            capacity=10_000,
-            warmup_size=1000,
-            compress=False,
-        ),
     )
+    rl_config.memory.capacity = 10_000
+    rl_config.memory.warmup_size = 1000
+    rl_config.memory.compress = False
     rl_config.policy_hidden_block.set(BASE_BLOCK)
     rl_config.q_hidden_block.set(BASE_BLOCK)
     _run(rl_config, is_mp, is_image, BASE_TRAIN)
@@ -174,7 +166,7 @@ def compare():
 
     from srl.runner.callbacks.mlflow_callback import MLFlowCallback
 
-    metric_name = "eval_reward0"
+    metric_name = "eval/reward0"
 
     plt.figure(figsize=(12, 6))
     plt.xlabel("train")
@@ -189,7 +181,7 @@ def compare():
         "SAC",
         "DreamerV3",
     ]:
-        history = MLFlowCallback.get_metric(ENV_NAME, name, metric_name)
+        history = MLFlowCallback.get_metric(MLFlowCallback.get_run_id(ENV_NAME, rl_name=name), metric_name)
         if history is None:
             continue
         times = np.array([h.timestamp for h in history])

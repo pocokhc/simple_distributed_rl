@@ -74,7 +74,8 @@ def compare():
         "SearchDynaQ",
         "GoDynaQ",
     ]:
-        history = MLFlowCallback.get_metric(ENV_NAME, name, metric_name)
+        run_id = MLFlowCallback.get_run_id(ENV_NAME, rl_name=name)
+        history = MLFlowCallback.get_metric(run_id, metric_name)
         if history is None:
             continue
         times = np.array([h.timestamp for h in history])

@@ -42,14 +42,12 @@ def train_dqn():
         enable_reward_clip=False,
         enable_double_dqn=True,
         enable_rescale=False,
-        memory=dqn.PriorityReplayBufferConfig(
-            warmup_size=1000,
-            capacity=10_000,
-            compress=False,
-        ),
         window_length=4,
     )
-    rl_config.input_image_block.set_dqn_block()
+    rl_config.memory.capacity = 10_000
+    rl_config.memory.warmup_size = 1000
+    rl_config.memory.compress = False
+    rl_config.input_block.image.set_dqn_block()
     rl_config.hidden_block.set((512,))
     # Total params: 4,046,502
 

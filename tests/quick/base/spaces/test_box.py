@@ -68,57 +68,61 @@ def test_space_type():
 
 
 def test_discrete():
-    space = BoxSpace((3, 1), 0, [[2], [5], [3]], np.int64)
+    space = BoxSpace((3, 1), 0, np.array([[2], [5], [3]], np.int64), np.int64)
     print(space)
     assert space.stype == SpaceTypes.DISCRETE
 
     # --- discrete
-    assert space.int_size == (2 + 1) * (5 + 1) * (3 + 1)
-    de = space.decode_from_int(1)
+    enc_space = space.set_encode_space(RLBaseTypes.DISCRETE)
+    assert enc_space.n == (2 + 1) * (5 + 1) * (3 + 1)
+    de = space.decode_from_space(1)
     assert isinstance(de, np.ndarray)
     assert de.shape == (3, 1)
     np.testing.assert_array_equal(de, [[0], [0], [1]])
-    en = space.encode_to_int(np.array([[0], [0], [1]], np.int64))
+    en = space.encode_to_space(np.array([[0], [0], [1]], np.int64))
     assert isinstance(en, int)
     assert en == 1
 
     # --- list int
-    assert space.list_int_size == 3
-    assert space.list_int_low == [0, 0, 0]
-    assert space.list_int_high == [2, 5, 3]
-    de = space.decode_from_list_int([1, 2, 0])
+    enc_space = space.set_encode_space(RLBaseTypes.ARRAY_DISCRETE)
+    assert enc_space.size == 3
+    assert enc_space.low == [0, 0, 0]
+    assert enc_space.high == [2, 5, 3]
+    de = space.decode_from_space([1, 2, 0])
     assert isinstance(de, np.ndarray)
     assert de.shape == (3, 1)
     np.testing.assert_array_equal(de, [[1], [2], [0]])
-    en = space.encode_to_list_int(np.array([[1], [2], [0]], np.int64))
+    en = space.encode_to_space(np.array([[1], [2], [0]], np.int64))
     assert isinstance(en, list)
     assert len(en) == 3
     np.testing.assert_array_equal(en, [1, 2, 0])
 
     # --- list float
-    assert space.list_float_size == 3
-    np.testing.assert_array_equal(space.list_float_low, [0, 0, 0])
-    np.testing.assert_array_equal(space.list_float_high, [2, 5, 3])
-    de = space.decode_from_list_float([0.1, 0.6, 1.9])
+    enc_space = space.set_encode_space(RLBaseTypes.ARRAY_CONTINUOUS)
+    assert enc_space.size == 3
+    np.testing.assert_array_equal(enc_space.low, [0, 0, 0])
+    np.testing.assert_array_equal(enc_space.high, [2, 5, 3])
+    de = space.decode_from_space([0.1, 0.6, 1.9])
     assert isinstance(de, np.ndarray)
     assert de.shape == (3, 1)
     np.testing.assert_array_equal(de, [[0], [0], [1]])
-    en = space.encode_to_list_float(np.array([[0], [1], [1]], np.int64))
+    en = space.encode_to_space(np.array([[0], [1], [1]], np.int64))
     assert isinstance(en, list)
     for n in en:
         assert isinstance(n, float)
     np.testing.assert_array_equal(en, [0.0, 1.0, 1.0])
 
     # --- continuous numpy
-    assert space.shape == (3, 1)
-    np.testing.assert_array_equal(space.low, [[0], [0], [0]])
-    np.testing.assert_array_equal(space.high, [[2], [5], [3]])
-    de = space.decode_from_np(np.array([[0.1], [0.6], [1.9]]))
+    enc_space = space.set_encode_space(RLBaseTypes.BOX, SpaceEncodeOptions(cast=True, cast_dtype=np.int64))
+    assert enc_space.shape == (3, 1)
+    np.testing.assert_array_equal(enc_space.low, [[0], [0], [0]])
+    np.testing.assert_array_equal(enc_space.high, [[2], [5], [3]])
+    de = space.decode_from_space(np.array([[0.1], [0.6], [1.9]]))
     assert isinstance(de, np.ndarray)
     assert de.shape == (3, 1)
     np.testing.assert_array_equal(de, [[0], [0], [1]])
-    en = space.encode_to_np(np.array([[0], [1], [1]], np.int64), dtype=np.float32)
-    np.testing.assert_array_equal(en, np.array([[0], [1], [1]], np.float32))
+    en = space.encode_to_space(np.array([[0], [1], [1]], np.int64))
+    np.testing.assert_array_equal(en, np.array([[0], [1], [1]], np.int64))
 
     # --- sample
     for _ in range(100):
@@ -131,8 +135,8 @@ def test_discrete():
         print(action)
 
     # --- eq
-    assert space == BoxSpace((3, 1), 0, [[2], [5], [3]], np.int64)
-    assert space != BoxSpace((3, 1), 0, [[3], [5], [3]], np.int64)
+    assert space == BoxSpace((3, 1), 0, np.array([[2], [5], [3]], np.int64), np.int64)
+    assert space != BoxSpace((3, 1), 0, np.array([[3], [5], [3]], np.int64), np.int64)
 
 
 def test_con_no_division():
@@ -141,43 +145,41 @@ def test_con_no_division():
 
     # --- discrete
     with pytest.raises(AssertionError):
-        _ = space.int_size
-    with pytest.raises(AssertionError):
-        _ = space.encode_to_int(np.array([[1.1, 2.2], [3.0, -1.0], [1.5, 1.6]]))
-    de = space.decode_from_int(2)
-    assert de.shape == (3, 2)
-    np.testing.assert_array_equal(de, np.array([[2, 2], [2, 2], [2, 2]], np.float32))
+        space.set_encode_space(RLBaseTypes.DISCRETE)
 
     # --- list int
-    assert space.list_int_size == 6
-    assert space.list_int_low == [-1] * 6
-    assert space.list_int_high == [3] * 6
-    en = space.encode_to_list_int(np.array([[1.1, 2.2], [3.0, -1.0], [1.5, 1.6]]))
+    enc_space = space.set_encode_space(RLBaseTypes.ARRAY_DISCRETE)
+    assert enc_space.size == 6
+    assert enc_space.low == [-1] * 6
+    assert enc_space.high == [3] * 6
+    en = space.encode_to_space(np.array([[1.1, 2.2], [3.0, -1.0], [1.5, 1.6]]))
     assert len(en) == 6
     assert en == [1, 2, 3, -1, 2, 2]
-    de = space.decode_from_list_int([1, 2, 3, -1, 1, 1])
+    de = space.decode_from_space([1, 2, 3, -1, 1, 1])
     assert de.shape == (3, 2)
     np.testing.assert_array_equal(de, np.array([[1, 2], [3, -1], [1, 1]], np.float32))
 
     # --- list float
-    assert space.list_float_size == 6
-    np.testing.assert_array_equal(space.list_float_low, [-1] * 6)
-    np.testing.assert_array_equal(space.list_float_high, [3] * 6)
-    de = space.decode_from_list_float([1.1, 2.2, 3.0, -1.0, 1.5, 1.6])
+    enc_space = space.set_encode_space(RLBaseTypes.ARRAY_CONTINUOUS)
+    assert enc_space.size == 6
+    np.testing.assert_array_equal(enc_space.low, [-1] * 6)
+    np.testing.assert_array_equal(enc_space.high, [3] * 6)
+    de = space.decode_from_space(np.array([1.1, 2.2, 3.0, -1.0, 1.5, 1.6]))
     np.testing.assert_array_equal(de, np.array([[1.1, 2.2], [3.0, -1.0], [1.5, 1.6]], np.float32))
-    en = space.encode_to_list_float(np.array([[1.1, 2.2], [3.0, -1.0], [1.5, 1.6]]))
+    en = space.encode_to_space(np.array([[1.1, 2.2], [3.0, -1.0], [1.5, 1.6]]))
     assert isinstance(en, list)
     for n in en:
         assert isinstance(n, float)
     np.testing.assert_array_equal(en, [1.1, 2.2, 3.0, -1.0, 1.5, 1.6])
 
     # --- continuous numpy
-    assert space.shape == (3, 2)
-    np.testing.assert_array_equal(space.low, np.array([-1] * 6).reshape((3, 2)))
-    np.testing.assert_array_equal(space.high, np.array([3] * 6).reshape((3, 2)))
-    de = space.decode_from_np(np.array([[1.1, 2.2], [3.0, -1.0], [1.5, 1.6]]))
+    enc_space = space.set_encode_space(RLBaseTypes.BOX)
+    assert enc_space.shape == (3, 2)
+    np.testing.assert_array_equal(enc_space.low, np.array([-1] * 6).reshape((3, 2)))
+    np.testing.assert_array_equal(enc_space.high, np.array([3] * 6).reshape((3, 2)))
+    de = space.decode_from_space(np.array([[1.1, 2.2], [3.0, -1.0], [1.5, 1.6]], np.float32))
     np.testing.assert_array_equal(de, np.array([[1.1, 2.2], [3.0, -1.0], [1.5, 1.6]], np.float32))
-    en = space.encode_to_np(np.array([[1.1, 2.2], [3.0, -1.0], [1.5, 1.6]]), np.float32)
+    en = space.encode_to_space(np.array([[1.1, 2.2], [3.0, -1.0], [1.5, 1.6]], np.float32))
     np.testing.assert_array_equal(en, np.array([[1.1, 2.2], [3.0, -1.0], [1.5, 1.6]], dtype=np.float32))
 
     # --- sample
@@ -203,17 +205,19 @@ def test_con_division():
     assert space.division_tbl is not None
 
     # --- discrete
-    assert space.int_size == 2 ** (3 * 2)
-    en = space.encode_to_int(np.array([[-0.9, -1], [-1, -0.9], [-1, -1]]))
+    enc_space = space.set_encode_space(RLBaseTypes.DISCRETE)
+    assert enc_space.n == 2 ** (3 * 2)
+    en = space.encode_to_space(np.array([[-0.9, -1], [-1, -0.9], [-1, -1]]))
     assert en == 0
-    de = space.decode_from_int(0)
+    de = space.decode_from_space(0)
     np.testing.assert_array_equal(de, [[-1, -1], [-1, -1], [-1, -1]])
 
     # --- list int
-    en = space.encode_to_list_int(np.array([[-0.9, -1], [-1, -0.9], [-1, -1]]))
+    enc_space = space.set_encode_space(RLBaseTypes.ARRAY_DISCRETE)
+    en = space.encode_to_space(np.array([[-0.9, -1], [-1, -0.9], [-1, -1]]))
     assert len(en) == 1
     assert en[0] == 0
-    de = space.decode_from_list_int([0])
+    de = space.decode_from_space([0])
     np.testing.assert_array_equal(de, [[-1, -1], [-1, -1], [-1, -1]])
 
 
@@ -230,12 +234,13 @@ def test_inf():
     # --- discrete
     space.create_division_tbl(5)
     with pytest.raises(AssertionError):
-        _ = space.encode_to_int(np.array([[1.1, 2.2], [3.0, -1.0], [1.5, 1.6]]))
+        space.set_encode_space(RLBaseTypes.DISCRETE)
 
     # --- list float
-    assert space.list_float_size == 6
-    np.testing.assert_array_equal(space.list_float_low, [-np.inf] * 6)
-    np.testing.assert_array_equal(space.list_float_high, [np.inf] * 6)
+    enc_space = space.set_encode_space(RLBaseTypes.ARRAY_CONTINUOUS)
+    assert enc_space.size == 6
+    np.testing.assert_array_equal(enc_space.low, [-np.inf] * 6)
+    np.testing.assert_array_equal(enc_space.high, [np.inf] * 6)
 
 
 def test_rescale_from():
@@ -371,29 +376,72 @@ def test_space(space: BoxSpace, create_space, options, true_space, val, decode_v
 
     if true_space is None:
         with pytest.raises(NotSupportedError):
-            space.create_encode_space(create_space, options)
+            space.set_encode_space(create_space, options)
         return
 
-    target_space = space.create_encode_space(create_space, options)
+    target_space = space.set_encode_space(create_space, options)
     print(target_space)
     print(true_space)
     assert target_space == true_space
 
-    de = space.decode_from_space(val, target_space)
+    de = space.decode_from_space(val)
     print(de)
     if isinstance(de, np.ndarray):
         assert (de == decode_val).all()
     else:
         assert de == decode_val
     assert space.check_val(de)
-    en = space.encode_to_space(decode_val, target_space)
+    en = space.encode_to_space(decode_val)
     if isinstance(en, np.ndarray):
         assert (en == val).all()
     else:
         assert en == val
     assert target_space.check_val(en)
 
-    de = space.decode_from_space(en, target_space)
+    de = space.decode_from_space(en)
+    if isinstance(de, np.ndarray):
+        assert (de == decode_val).all()
+    else:
+        assert de == decode_val
+    assert space.check_val(de)
+
+
+@pytest.mark.parametrize(
+    "create_space, options, true_space, val, decode_val",
+    [
+        [RLBaseTypes.NP_ARRAY, SpaceEncodeOptions(np_zero_start=True), NpArraySpace(2, 0, 2, np.int64), np.full((2, 1), 2, np.int64), 5],
+        [RLBaseTypes.NP_ARRAY, SpaceEncodeOptions(np_norm_type="0to1"), NpArraySpace(2, 0, 1, np.float32), np.full((2, 1), 1, np.float32), 5],
+        [RLBaseTypes.NP_ARRAY, SpaceEncodeOptions(np_norm_type="-1to1"), NpArraySpace(2, -1, 1, np.float32), np.full((2, 1), -1, np.float32), 3],
+        [RLBaseTypes.BOX, SpaceEncodeOptions(np_zero_start=True), BoxSpace((2, 1), 0, 2, np.int64), np.full((2, 1), 2, np.float32), 5],
+        [RLBaseTypes.BOX, SpaceEncodeOptions(np_norm_type="0to1"), BoxSpace((2, 1), 0, 1, np.float32), np.full((2, 1), 1, np.float32), 5],
+        [RLBaseTypes.BOX, SpaceEncodeOptions(np_norm_type="-1to1"), BoxSpace((2, 1), -1, 1, np.float32), np.full((2, 1), -1, np.float32), 3],
+    ],
+)
+def test_space_zero_start(create_space, options, true_space, val, decode_val):
+    decode_val = np.full((2, 1), decode_val, np.int64)
+    space = BoxSpace((2, 1), 3, 5, np.int64)
+    print(space)
+
+    target_space = space.set_encode_space(create_space, options)
+    print(target_space)
+    print(true_space)
+    assert target_space == true_space
+
+    de = space.decode_from_space(val)
+    print(de)
+    if isinstance(de, np.ndarray):
+        assert (de == decode_val).all()
+    else:
+        assert de == decode_val
+    assert space.check_val(de)
+    en = space.encode_to_space(decode_val)
+    if isinstance(en, np.ndarray):
+        assert (en == val).all()
+    else:
+        assert en == val
+    assert target_space.check_val(en)
+
+    de = space.decode_from_space(en)
     if isinstance(de, np.ndarray):
         assert (de == decode_val).all()
     else:

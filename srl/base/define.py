@@ -15,6 +15,7 @@ SpaceType = Union[
     float,
     List[float],
     np.ndarray,
+    List[Any],
 ]
 
 # --- action type

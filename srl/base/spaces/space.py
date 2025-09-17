@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Generic, List, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, List, Literal, TypeVar, overload
 
 import numpy as np
 
@@ -29,12 +29,15 @@ _T = TypeVar("_T")
 class SpaceEncodeOptions:
     cast: bool = False
     cast_dtype: Any = ""
+    np_zero_start: bool = False
+    np_norm_type: Literal["", "0to1", "-1to1"] = ""
 
 
 class SpaceBase(ABC, Generic[_T]):
     def __init__(self):
         self.encode_space_type: RLBaseTypes = RLBaseTypes.NONE
         self.encode_options = SpaceEncodeOptions()
+        self.encode_space: SpaceBase = None  # type: ignore
 
     @property
     @abstractmethod
@@ -158,148 +161,168 @@ class SpaceBase(ABC, Generic[_T]):
     def get_encode_list(self) -> List[RLBaseTypes]:
         raise NotImplementedError()
 
-    # @singledispatch より if の方が速い
-    def create_encode_space(self, required_space_type: RLBaseTypes, options: SpaceEncodeOptions) -> "SpaceBase":
+    @overload
+    def set_encode_space(self, required_space_type: Literal[RLBaseTypes.NONE], options: SpaceEncodeOptions = SpaceEncodeOptions()) -> "SpaceBase": ...
+    @overload
+    def set_encode_space(self, required_space_type: Literal[RLBaseTypes.DISCRETE], options: SpaceEncodeOptions = SpaceEncodeOptions()) -> "DiscreteSpace": ...
+    @overload
+    def set_encode_space(self, required_space_type: Literal[RLBaseTypes.ARRAY_DISCRETE], options: SpaceEncodeOptions = SpaceEncodeOptions()) -> "ArrayDiscreteSpace": ...
+    @overload
+    def set_encode_space(self, required_space_type: Literal[RLBaseTypes.CONTINUOUS], options: SpaceEncodeOptions = SpaceEncodeOptions()) -> "ContinuousSpace": ...
+    @overload
+    def set_encode_space(self, required_space_type: Literal[RLBaseTypes.ARRAY_CONTINUOUS], options: SpaceEncodeOptions = SpaceEncodeOptions()) -> "ArrayContinuousSpace": ...
+    @overload
+    def set_encode_space(self, required_space_type: Literal[RLBaseTypes.NP_ARRAY], options: SpaceEncodeOptions = SpaceEncodeOptions()) -> "NpArraySpace": ...
+    @overload
+    def set_encode_space(self, required_space_type: Literal[RLBaseTypes.BOX], options: SpaceEncodeOptions = SpaceEncodeOptions()) -> "BoxSpace": ...
+    @overload
+    def set_encode_space(self, required_space_type: Literal[RLBaseTypes.TEXT], options: SpaceEncodeOptions = SpaceEncodeOptions()) -> "TextSpace": ...
+    @overload
+    def set_encode_space(self, required_space_type: Literal[RLBaseTypes.MULTI], options: SpaceEncodeOptions = SpaceEncodeOptions()) -> "MultiSpace": ...
+
+    def set_encode_space(self, required_space_type: RLBaseTypes, options: SpaceEncodeOptions = SpaceEncodeOptions()) -> "SpaceBase":
         if options.cast_dtype == "":
             options.cast_dtype = np.float32
         if required_space_type == RLBaseTypes.NONE:
             space = self.copy()
         elif required_space_type == RLBaseTypes.DISCRETE:
-            space = self.create_encode_space_DiscreteSpace()
+            space = self._set_encode_space_DiscreteSpace(options)
         elif required_space_type == RLBaseTypes.ARRAY_DISCRETE:
-            space = self.create_encode_space_ArrayDiscreteSpace()
+            space = self._set_encode_space_ArrayDiscreteSpace(options)
         elif required_space_type == RLBaseTypes.CONTINUOUS:
-            space = self.create_encode_space_ContinuousSpace()
+            space = self._set_encode_space_ContinuousSpace(options)
         elif required_space_type == RLBaseTypes.ARRAY_CONTINUOUS:
-            space = self.create_encode_space_ArrayContinuousSpace()
+            space = self._set_encode_space_ArrayContinuousSpace(options)
         elif required_space_type == RLBaseTypes.NP_ARRAY:
-            space = self.create_encode_space_NpArraySpace(options)
+            space = self._set_encode_space_NpArraySpace(options)
         elif required_space_type == RLBaseTypes.BOX:
-            space = self.create_encode_space_Box(options)
+            space = self._set_encode_space_Box(options)
         elif required_space_type == RLBaseTypes.TEXT:
-            space = self.create_encode_space_TextSpace()
+            space = self._set_encode_space_TextSpace(options)
         elif required_space_type == RLBaseTypes.MULTI:
-            space = self.create_encode_space_MultiSpace()
+            space = self._set_encode_space_MultiSpace(options)
         else:
             raise NotImplementedError(required_space_type)
-        space.encode_space_type = required_space_type
-        space.encode_options = options
+        self.encode_space_type = required_space_type
+        self.encode_options = options
+        self.encode_space = space
         return space
 
-    def encode_to_space(self, val: _T, space: "SpaceBase") -> Any:
-        if space.encode_space_type == RLBaseTypes.DISCRETE:
-            return self.encode_to_space_DiscreteSpace(val)
-        elif space.encode_space_type == RLBaseTypes.ARRAY_DISCRETE:
-            return self.encode_to_space_ArrayDiscreteSpace(val)
-        elif space.encode_space_type == RLBaseTypes.CONTINUOUS:
-            return self.encode_to_space_ContinuousSpace(val)
-        elif space.encode_space_type == RLBaseTypes.ARRAY_CONTINUOUS:
-            return self.encode_to_space_ArrayContinuousSpace(val)
-        elif space.encode_space_type == RLBaseTypes.NP_ARRAY:
-            return self.encode_to_space_NpArraySpace(val, space)
-        elif space.encode_space_type == RLBaseTypes.BOX:
-            return self.encode_to_space_Box(val, space)
-        elif space.encode_space_type == RLBaseTypes.TEXT:
-            return self.encode_to_space_TextSpace(val)
-        elif space.encode_space_type == RLBaseTypes.MULTI:
-            return self.encode_to_space_MultiSpace(val)
+    # @singledispatch より if の方が速い
+    def encode_to_space(self, val: _T) -> Any:
+        if self.encode_space_type == RLBaseTypes.DISCRETE:
+            return self._encode_to_space_DiscreteSpace(val)
+        elif self.encode_space_type == RLBaseTypes.ARRAY_DISCRETE:
+            return self._encode_to_space_ArrayDiscreteSpace(val)
+        elif self.encode_space_type == RLBaseTypes.CONTINUOUS:
+            return self._encode_to_space_ContinuousSpace(val)
+        elif self.encode_space_type == RLBaseTypes.ARRAY_CONTINUOUS:
+            return self._encode_to_space_ArrayContinuousSpace(val)
+        elif self.encode_space_type == RLBaseTypes.NP_ARRAY:
+            return self._encode_to_space_NpArraySpace(val)
+        elif self.encode_space_type == RLBaseTypes.BOX:
+            return self._encode_to_space_Box(val)
+        elif self.encode_space_type == RLBaseTypes.TEXT:
+            return self._encode_to_space_TextSpace(val)
+        elif self.encode_space_type == RLBaseTypes.MULTI:
+            return self._encode_to_space_MultiSpace(val)
         return val
 
-    def decode_from_space(self, val: Any, space: "SpaceBase") -> _T:
-        if space.encode_space_type == RLBaseTypes.DISCRETE:
-            return self.decode_from_space_DiscreteSpace(val)
-        elif space.encode_space_type == RLBaseTypes.ARRAY_DISCRETE:
-            return self.decode_from_space_ArrayDiscreteSpace(val)
-        elif space.encode_space_type == RLBaseTypes.CONTINUOUS:
-            return self.decode_from_space_ContinuousSpace(val)
-        elif space.encode_space_type == RLBaseTypes.ARRAY_CONTINUOUS:
-            return self.decode_from_space_ArrayContinuousSpace(val)
-        elif space.encode_space_type == RLBaseTypes.NP_ARRAY:
-            return self.decode_from_space_NpArraySpace(val, space)
-        elif space.encode_space_type == RLBaseTypes.BOX:
-            return self.decode_from_space_Box(val, space)
-        elif space.encode_space_type == RLBaseTypes.TEXT:
-            return self.decode_from_space_TextSpace(val)
-        elif space.encode_space_type == RLBaseTypes.MULTI:
-            return self.decode_from_space_MultiSpace(val)
+    def decode_from_space(self, val: Any) -> _T:
+        if self.encode_space_type == RLBaseTypes.DISCRETE:
+            return self._decode_from_space_DiscreteSpace(val)
+        elif self.encode_space_type == RLBaseTypes.ARRAY_DISCRETE:
+            return self._decode_from_space_ArrayDiscreteSpace(val)
+        elif self.encode_space_type == RLBaseTypes.CONTINUOUS:
+            return self._decode_from_space_ContinuousSpace(val)
+        elif self.encode_space_type == RLBaseTypes.ARRAY_CONTINUOUS:
+            return self._decode_from_space_ArrayContinuousSpace(val)
+        elif self.encode_space_type == RLBaseTypes.NP_ARRAY:
+            return self._decode_from_space_NpArraySpace(val)
+        elif self.encode_space_type == RLBaseTypes.BOX:
+            return self._decode_from_space_Box(val)
+        elif self.encode_space_type == RLBaseTypes.TEXT:
+            return self._decode_from_space_TextSpace(val)
+        elif self.encode_space_type == RLBaseTypes.MULTI:
+            return self._decode_from_space_MultiSpace(val)
         return val
 
     # --- DiscreteSpace
-    def create_encode_space_DiscreteSpace(self) -> "DiscreteSpace":
+    def _set_encode_space_DiscreteSpace(self, options: SpaceEncodeOptions) -> "DiscreteSpace":
         raise NotImplementedError()
 
-    def encode_to_space_DiscreteSpace(self, val: _T) -> int:
+    def _encode_to_space_DiscreteSpace(self, val: _T) -> int:
         raise NotImplementedError()
 
-    def decode_from_space_DiscreteSpace(self, val: int) -> _T:
+    def _decode_from_space_DiscreteSpace(self, val: int) -> _T:
         raise NotImplementedError()
 
     # --- ArrayDiscreteSpace
-    def create_encode_space_ArrayDiscreteSpace(self) -> "ArrayDiscreteSpace":
+    def _set_encode_space_ArrayDiscreteSpace(self, options: SpaceEncodeOptions) -> "ArrayDiscreteSpace":
         raise NotImplementedError()
 
-    def encode_to_space_ArrayDiscreteSpace(self, val: _T) -> List[int]:
+    def _encode_to_space_ArrayDiscreteSpace(self, val: _T) -> List[int]:
         raise NotImplementedError()
 
-    def decode_from_space_ArrayDiscreteSpace(self, val: List[int]) -> _T:
+    def _decode_from_space_ArrayDiscreteSpace(self, val: List[int]) -> _T:
         raise NotImplementedError()
 
     # --- ContinuousSpace
-    def create_encode_space_ContinuousSpace(self) -> "ContinuousSpace":
+    def _set_encode_space_ContinuousSpace(self, options: SpaceEncodeOptions) -> "ContinuousSpace":
         raise NotImplementedError()
 
-    def encode_to_space_ContinuousSpace(self, val: _T) -> float:
+    def _encode_to_space_ContinuousSpace(self, val: _T) -> float:
         raise NotImplementedError()
 
-    def decode_from_space_ContinuousSpace(self, val: float) -> _T:
+    def _decode_from_space_ContinuousSpace(self, val: float) -> _T:
         raise NotImplementedError()
 
     # --- ArrayContinuousSpace
-    def create_encode_space_ArrayContinuousSpace(self) -> "ArrayContinuousSpace":
+    def _set_encode_space_ArrayContinuousSpace(self, options: SpaceEncodeOptions) -> "ArrayContinuousSpace":
         raise NotImplementedError()
 
-    def encode_to_space_ArrayContinuousSpace(self, val: _T) -> List[float]:
+    def _encode_to_space_ArrayContinuousSpace(self, val: _T) -> List[float]:
         raise NotImplementedError()
 
-    def decode_from_space_ArrayContinuousSpace(self, val: List[float]) -> _T:
+    def _decode_from_space_ArrayContinuousSpace(self, val: List[float]) -> _T:
         raise NotImplementedError()
 
     # --- NpArray
-    def create_encode_space_NpArraySpace(self, options: SpaceEncodeOptions) -> "NpArraySpace":
+    def _set_encode_space_NpArraySpace(self, options: SpaceEncodeOptions) -> "NpArraySpace":
         raise NotImplementedError()
 
-    def encode_to_space_NpArraySpace(self, val: _T, to_space: "SpaceBase") -> np.ndarray:
+    def _encode_to_space_NpArraySpace(self, val: _T) -> np.ndarray:
         raise NotImplementedError()
 
-    def decode_from_space_NpArraySpace(self, val: np.ndarray, from_space: "SpaceBase") -> _T:
+    def _decode_from_space_NpArraySpace(self, val: np.ndarray) -> _T:
         raise NotImplementedError()
 
     # --- Box
-    def create_encode_space_Box(self, options: SpaceEncodeOptions) -> "BoxSpace":
+    def _set_encode_space_Box(self, options: SpaceEncodeOptions) -> "BoxSpace":
         raise NotImplementedError()
 
-    def encode_to_space_Box(self, val: _T, to_space: "SpaceBase") -> np.ndarray:
+    def _encode_to_space_Box(self, val: _T) -> np.ndarray:
         raise NotImplementedError()
 
-    def decode_from_space_Box(self, val: np.ndarray, from_space: "SpaceBase") -> _T:
+    def _decode_from_space_Box(self, val: np.ndarray) -> _T:
         raise NotImplementedError()
 
     # --- TextSpace
-    def create_encode_space_TextSpace(self) -> "TextSpace":
+    def _set_encode_space_TextSpace(self, options: SpaceEncodeOptions) -> "TextSpace":
         raise NotImplementedError()
 
-    def encode_to_space_TextSpace(self, val: _T) -> str:
+    def _encode_to_space_TextSpace(self, val: _T) -> str:
         raise NotImplementedError()
 
-    def decode_from_space_TextSpace(self, val: str) -> _T:
+    def _decode_from_space_TextSpace(self, val: str) -> _T:
         raise NotImplementedError()
 
     # --- Multi
-    def create_encode_space_MultiSpace(self) -> "MultiSpace":
+    def _set_encode_space_MultiSpace(self, options: SpaceEncodeOptions) -> "MultiSpace":
         raise NotImplementedError()
 
-    def encode_to_space_MultiSpace(self, val: _T) -> list:
+    def _encode_to_space_MultiSpace(self, val: _T) -> list:
         raise NotImplementedError()
 
-    def decode_from_space_MultiSpace(self, val: list) -> _T:
+    def _decode_from_space_MultiSpace(self, val: list) -> _T:
         raise NotImplementedError()

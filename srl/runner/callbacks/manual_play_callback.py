@@ -1,4 +1,5 @@
 from srl.base.context import RunContext
+from srl.base.define import RLBaseTypes
 from srl.base.env.env_run import EnvRun
 from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
@@ -7,7 +8,8 @@ from srl.base.run.core_play import RunStateActor
 class ManualPlayCallback(RunCallback):
     def __init__(self, env: EnvRun, action_division_num: int):
         env.action_space.create_division_tbl(action_division_num)
-        self.action_num = env.action_space.create_encode_space_DiscreteSpace().n
+        self.act_space = env.action_space.set_encode_space(RLBaseTypes.DISCRETE)
+        self.action_num = self.act_space.n
 
     def on_step_action_after(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         state.env.render()
@@ -37,6 +39,6 @@ class ManualPlayCallback(RunCallback):
             raise ValueError()
 
         # アクションでpolicyの結果を置き換える
-        manual_action = state.env.action_space.decode_from_space_DiscreteSpace(action)
+        manual_action = state.env.action_space.decode_from_space(action)
         state.action = manual_action
         state.workers[state.worker_idx].override_action(manual_action)

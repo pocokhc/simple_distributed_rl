@@ -18,8 +18,9 @@ from srl.base.define import (
     SpaceTypes,
 )
 from srl.base.env.env_run import EnvRun
-from srl.base.exception import NotSupportedError, UndefinedError
+from srl.base.exception import NotSupportedError
 from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.multi import MultiSpace
 from srl.base.spaces.space import SpaceBase, SpaceEncodeOptions, TActSpace, TObsSpace
 from srl.utils.serialize import apply_dict_to_dataclass, dataclass_to_dict, get_modified_fields, load_dict, save_dict
 
@@ -39,7 +40,7 @@ TRLConfig = TypeVar("TRLConfig", bound="RLConfig", covariant=True)
 @dataclass
 class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     #: 状態の入力を指定
-    observation_mode: Literal["", "render_image"] = ""
+    observation_mode: Literal["", "render_image", "both"] = ""
 
     #: env の observation_type を上書きします。
     #: 例えばgymの自動判定で想定外のTypeになった場合、ここで上書きできます。
@@ -253,7 +254,8 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         # -------------------------------------------------
 
         # --- observation_mode による変更
-        if self.observation_mode == "":
+        both_spaces = []
+        if self.observation_mode in ["", "both"]:
             env_obs_space = env.observation_space.copy()
 
             # --- observation_typeの上書き
@@ -264,7 +266,11 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                         s += f"{env.observation_space} -> {self.override_env_observation_type}"
                         logger.info(s)
                     env_obs_space = env_obs_space.copy(stype=self.override_env_observation_type, is_stack_ch=None)
-        elif self.observation_mode == "render_image":
+
+            if self.observation_mode == "both":
+                both_spaces.append(env_obs_space)
+
+        if self.observation_mode in ["render_image", "both"]:
             env.setup(render_mode="rgb_array")
             env.reset()
             rgb_array = env.render_rgb_array()
@@ -277,8 +283,12 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                 else:
                     raise NotSupportedError("Failed to get image.")
             env_obs_space = BoxSpace(rgb_array.shape, 0, 255, np.uint8, SpaceTypes.COLOR)
-        else:
-            raise UndefinedError(self.observation_mode)
+
+            if self.observation_mode == "both":
+                both_spaces.insert(0, env_obs_space)
+
+        if self.observation_mode == "both":
+            env_obs_space = MultiSpace(both_spaces)
 
         # --- apply processors
         self.__applied_processors = []
@@ -458,7 +468,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             # RLがDISCRETEを要求する場合、(ENVがCONTINUOUSなら)分割する
             env_space.create_division_tbl(division_num)
 
-        rl_space = env_space.create_encode_space(required_type, options)
+        rl_space = env_space.set_encode_space(required_type, options)
         return rl_space, required_type
 
     # --- setup property
@@ -541,22 +551,23 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         assert self.__is_setup
 
         # --- observation_mode
-        if self.observation_mode == "":
-            pass
-        elif self.observation_mode == "render_image":
+        if self.observation_mode in ["render_image", "both"]:
             if self.__request_env_render == "rgb_array":
-                env_state = cast(EnvObservationType, env.render_rgb_array())
+                img_state = cast(EnvObservationType, env.render_rgb_array())
             elif self.__request_env_render == "terminal":
-                env_state = cast(EnvObservationType, env.render_terminal_text_to_image())
+                img_state = cast(EnvObservationType, env.render_terminal_text_to_image())
             else:
                 raise NotSupportedError(self.__request_env_render)
-        else:
-            raise UndefinedError(self.observation_mode)
+
+            if self.observation_mode == "render_image":
+                env_state = img_state
+            else:
+                env_state = [img_state, env_state]
 
         if self.enable_state_encode:
             for p in self.__applied_remap_obs_processors:
                 env_state = p[0].remap_observation(env_state, p[1], p[2], env_run=env, rl_config=self)
-            rl_state: RLObservationType = self.__env_obs_space_in_rl.encode_to_space(env_state, self.__rl_obs_space_one_step)
+            rl_state: RLObservationType = self.__env_obs_space_in_rl.encode_to_space(env_state)
         else:
             rl_state = cast(RLObservationType, env_state)
 
@@ -592,7 +603,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         assert self.__is_setup
 
         if self.enable_action_decode:
-            rl_act = self.__env_act_space.encode_to_space(env_action, self.__rl_act_space)
+            rl_act = self.__env_act_space.encode_to_space(env_action)
         else:
             rl_act = cast(RLActionType, env_action)
 
@@ -612,7 +623,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             rl_action = self.__rl_act_space.sanitize(rl_action)
 
         if self.enable_action_decode:
-            env_act = self.__env_act_space.decode_from_space(rl_action, self.__rl_act_space)
+            env_act = self.__env_act_space.decode_from_space(rl_action)
         else:
             env_act = cast(EnvActionType, rl_action)
 

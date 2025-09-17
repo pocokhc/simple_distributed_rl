@@ -1,4 +1,3 @@
-import logging
 from itertools import chain
 from typing import Iterable
 
@@ -14,8 +13,6 @@ from srl.rl.torch_.helper import model_soft_sync
 from .config import Config
 from .memory import Memory
 from .torch_model import Model
-
-logger = logging.getLogger(__name__)
 
 
 def reset_model_params(
@@ -84,7 +81,15 @@ class TorchTrainer:
             dtype=self.torch_dtype,
             device=self.net.device,
         )
-        self.states_np = np.empty((self.config.batch_size * 2, *self.config.observation_space.shape), dtype=self.np_dtype)
+
+        self.states_np_list = []
+        for space in self.config.observation_space.spaces:
+            self.states_np_list.append(
+                np.empty(
+                    (self.config.batch_size * 2, *space.shape),
+                    dtype=space.dtype,
+                )
+            )
         self.action_indices_np = np.empty((self.config.batch_size, 1), dtype=np.int64)
         self.reward_np = np.empty((self.config.batch_size,), dtype=self.np_dtype)
         self.not_terminated_np = np.empty((self.config.batch_size,), dtype=self.np_dtype)
@@ -119,13 +124,17 @@ class TorchTrainer:
         batches, weights, update_args = batches
 
         for i, b in enumerate(batches):
-            self.states_np[i] = b[0]
-            self.states_np[self.config.batch_size + i] = b[1]
+            for j in range(self.config.observation_space.space_size):
+                self.states_np_list[j][i] = b[0][j]
+                self.states_np_list[j][self.config.batch_size + i] = b[1][j]
             self.action_indices_np[i] = b[2]
             self.reward_np[i] = b[3]
             self.not_terminated_np[i] = b[4]
             self.total_reward_np[i] = b[5]
-        states = torch.from_numpy(self.states_np).to(device)
+        states_list = [
+            torch.from_numpy(self.states_np_list[j]).to(device)
+            for j in range(self.config.observation_space.space_size)  #
+        ]
         action_indices = torch.from_numpy(self.action_indices_np).to(device)
         reward = torch.from_numpy(self.reward_np).to(device)
         not_terminated = torch.from_numpy(self.not_terminated_np).to(device)
@@ -137,7 +146,7 @@ class TorchTrainer:
             weights = 1
 
         loss = 0
-        oe_s = self.net.encoder(states)
+        oe_s = self.net.encoder(states_list)
         q_all_s, v_all_s = self.net.q_online(oe_s)
 
         # --- target_q

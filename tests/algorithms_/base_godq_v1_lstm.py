@@ -16,6 +16,8 @@ class QuickCase(CommonQuickCase):
         rl_config.batch_length = 2
         rl_config.memory.warmup_size = 2
         rl_config.base_units = 8
+        rl_config.input_block.cont_units = 8
+        rl_config.input_block.discrete_units = 8
         return rl_config, {"env_list": ["Grid"]}
 
 
@@ -27,6 +29,8 @@ class LongCase(CommonLongCase):
 
         rl_config = godq_v1_lstm.Config()
         rl_config.base_units = 128
+        rl_config.input_block.cont_units = 128
+        rl_config.input_block.discrete_units = 64
         return rl_config
 
     def test_Tiger(self):

@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class ArchiveCell:
-    start_state: np.ndarray
+    start_state: list
     steps: list
     step: int
     reward: float
@@ -62,8 +62,8 @@ class Archive:
 
         self.episode_step = 0
         self.episode_reward = 0
-        self.episode_steps = [(worker.state.astype(np.float32), [0])]
-        self.start_state = worker.state.astype(np.float32)
+        self.episode_steps = [(worker.state, [0])]
+        self.start_state = worker.state
         self.start_state_str = self.config.observation_space.to_str(worker.state)
 
         # --- restore check
@@ -111,7 +111,7 @@ class Archive:
 
         self.episode_step += 1
         self.episode_reward += worker.reward
-        self.episode_steps.append((worker.next_state.astype(np.float32), [worker.action]))
+        self.episode_steps.append((worker.next_state, [worker.action]))
 
         # 一定ステップ毎が対象
         if (self.episode_step % self.config.archive_steps) != 0:
@@ -121,7 +121,7 @@ class Archive:
         if worker.done and (worker.done_type != DoneTypes.ABORT):
             return False
 
-        is_add = self._add_archive(worker.next_state.astype(np.float32), worker)
+        is_add = self._add_archive(worker.next_state, worker)
         worker.info["archive"] = self.get_archive_size()
         return is_add
 

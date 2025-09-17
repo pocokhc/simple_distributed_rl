@@ -2,12 +2,16 @@ import logging
 from dataclasses import dataclass, field
 from typing import List, Literal
 
-from srl.base.define import SpaceTypes
+from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.env.env_run import EnvRun
-from srl.base.rl.algorithms.base_dqn import RLConfig
+from srl.base.rl.config import RLConfig
 from srl.base.rl.processor import RLProcessor
-from srl.base.spaces.space import SpaceBase, SpaceEncodeOptions
+from srl.base.spaces.box import BoxSpace
+from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.spaces.multi import MultiSpace
+from srl.base.spaces.space import SpaceBase
 from srl.rl.memories.priority_replay_buffer import PriorityReplayBufferConfig
+from srl.rl.models.config.input_multi_block import InputMultiBlockConfig
 from srl.rl.processors.image_processor import ImageProcessor
 
 logger = logging.getLogger(__name__)
@@ -48,7 +52,7 @@ class SamplerConfig:
 
 
 @dataclass
-class Config(RLConfig):
+class Config(RLConfig[DiscreteSpace, MultiSpace[BoxSpace]]):
     # --- policy
     test_epsilon: float = 0
     test_policy: Literal["q", "int"] = "q"
@@ -63,6 +67,7 @@ class Config(RLConfig):
     archive_rankbase_alpha: float = 1.0
 
     # --- encoder/feat
+    input_block: InputMultiBlockConfig = field(default_factory=lambda: InputMultiBlockConfig())
     encode_img_type: Literal["DQN", "R2D3"] = "DQN"
     encode_discrete_type: Literal["BOX", "Discrete", "Conv1D"] = "Discrete"
     encode_discrete_target_params: int = 4096 * 4
@@ -104,6 +109,11 @@ class Config(RLConfig):
     sampler: SamplerConfig = field(default_factory=lambda: SamplerConfig())
     diff_lr: float = 0.0001
 
+    def set_model(self, units: int):
+        self.base_units = units
+        self.input_block.cont_units = units
+        self.input_block.discrete_units = units
+
     def get_name(self) -> str:
         return "GoDQ_v1"
 
@@ -121,16 +131,14 @@ class Config(RLConfig):
         if env.player_num != 1:
             raise ValueError(f"assert {env.player_num} == 1")
 
-    def get_base_observation_type_options(self) -> SpaceEncodeOptions:
-        return SpaceEncodeOptions(cast=False)
+    def get_base_action_type(self) -> RLBaseTypes:
+        return RLBaseTypes.DISCRETE
+
+    def get_base_observation_type(self) -> RLBaseTypes:
+        return RLBaseTypes.MULTI
 
     def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
-        if prev_observation_space.is_image():
-            if self.encode_img_type == "DQN":
-                return [ImageProcessor(SpaceTypes.GRAY_3ch, (84, 84), normalize_type="-1to1")]
-            elif self.encode_img_type == "R2D3":
-                return [ImageProcessor(SpaceTypes.COLOR, (96, 72), normalize_type="0to1")]
-        return []
+        return self.input_block.get_processors(prev_observation_space, self)
 
     def use_render_image_state(self) -> bool:
         return self.enable_diffusion

@@ -8,7 +8,6 @@ from srl.rl.torch_.functions import inverse_linear_symlog
 from srl.rl.torch_.helper import model_backup, model_restore
 
 from .config import Config
-from .torch_model_encoder import create_encoder_block
 from .torch_model_feat import BYOLNetwork, ProjectorNetwork
 from .torch_model_q import QIntNetwork, QNetwork
 
@@ -22,9 +21,12 @@ class Model:
         self.np_dtype = config.get_dtype("np")
         self.device = torch.device(config.used_device_torch)
 
-        # --- Q
-        self.encoder, enc_out_size = create_encoder_block(config)
+        # --- encoder
+        self.encoder = config.input_block.create_torch_block(config.observation_space)
+        enc_out_size = self.encoder.out_size
         self.encoder.to(self.device)
+
+        # --- Q
         self.q_online = QNetwork(enc_out_size, config, config.enable_q_distribution).to(self.device)
 
         # --- feat
@@ -79,11 +81,14 @@ class Model:
             print(self.byol_online)
 
     # -------------------
-    def pred_oe(self, state: np.ndarray):
-        z = torch.tensor(state, dtype=self.torch_dtype, device=self.device)
+    def pred_oe(self, states: list):
+        inputs = [
+            torch.tensor(state[np.newaxis, ...], dtype=self.torch_dtype, device=self.device)
+            for state in states  #
+        ]
         with torch.no_grad():
             self.encoder.eval()
-            oe = self.encoder(z)
+            oe = self.encoder(inputs)
             self.encoder.train()  # 常にtrain
         return oe
 
@@ -107,11 +112,11 @@ class Model:
             self.q_int_online.train()  # 常にtrain
         return q.detach().cpu().numpy()
 
-    def pred_single_int_reward(self, state: np.ndarray, action: int, next_state: np.ndarray) -> np.ndarray:
+    def pred_single_int_reward(self, state, action: int, next_state) -> np.ndarray:
         with torch.no_grad():
             action_indices = torch.tensor(np.asarray([action]), dtype=torch.long, device=self.device)
-            oe = self.pred_oe(state[np.newaxis, ...])
-            n_oe = self.pred_oe(next_state[np.newaxis, ...])
+            oe = self.pred_oe(state)
+            n_oe = self.pred_oe(next_state)
             if self.config.feat_type == "SimSiam":
                 self.projector.eval()
                 y_hat = self.projector(oe, action_indices)

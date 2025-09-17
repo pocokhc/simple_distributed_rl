@@ -149,8 +149,11 @@ class MultiSpace(Generic[_T], SpaceBase[list]):
 
     def __str__(self) -> str:
         s = f"MultiSpace({len(self.spaces)})"
-        for p in self.spaces:
-            s += f"\n {str(p)}"
+        if len(self.spaces) == 1:
+            s += f" {str(self.spaces[0])}"
+        else:
+            for p in self.spaces:
+                s += f"\n {str(p)}"
         return s
 
     def create_division_tbl(

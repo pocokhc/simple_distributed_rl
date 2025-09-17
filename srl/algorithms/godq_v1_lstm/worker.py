@@ -1,10 +1,11 @@
 import logging
-import math
 import random
 
 import numpy as np
 
-from srl.base.rl.algorithms.base_dqn import RLWorker
+from srl.base.rl.worker import RLWorkerGeneric
+from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.spaces.multi import MultiSpace
 
 from .config import Config
 from .memory import Memory
@@ -13,37 +14,7 @@ from .parameter import Parameter
 logger = logging.getLogger(__name__)
 
 
-def symlog_scalar(x: float, shift: float = 1) -> float:
-    if -shift <= x <= shift:
-        return x
-    return math.copysign(math.log1p(abs(x) - shift) + shift, x)
-
-
-def plot_symlog_scalar():
-    import matplotlib.pyplot as plt
-
-    def symlog(x):
-        return np.sign(x) * np.log(1 + np.abs(x))
-
-    x_vals = np.linspace(-5, 5, 10000)
-    y_scalar = np.array([symlog_scalar(x) for x in x_vals])
-    y_symlog = np.array([symlog(x) for x in x_vals])
-
-    plt.figure(figsize=(8, 6))
-    plt.plot(x_vals, y_scalar, label="symlog_scalar")
-    plt.plot(x_vals, y_symlog, label="symlog")
-    plt.axvline(-1, color="gray", linestyle=":")
-    plt.axvline(1, color="gray", linestyle=":")
-    plt.title("Scalar Symlog Function")
-    plt.xlabel("x")
-    plt.ylabel("output")
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-
-
-class Worker(RLWorker[Config, Parameter, Memory]):
+class Worker(RLWorkerGeneric[Config, Parameter, Memory, DiscreteSpace, int, MultiSpace, list]):
     def on_setup(self, worker, context) -> None:
         self.screen = None
         self.np_dtype = self.config.get_dtype("np")
@@ -78,7 +49,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         # --- q
         if self.policy_mode != "go":
             self.hc = self.net.encoder.get_initial_state()
-            self.oe, self.hc = self.net.pred_oe(worker.state[np.newaxis, ...], [0], self.hc)
+            self.oe, self.hc = self.net.pred_oe(worker.state, 0, self.hc)
             self.q, self.v = self.net.pred_q(self.oe)
             self.q = self.q[0]
             self.v = self.v[0][0]
@@ -113,7 +84,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
     def on_step(self, worker):
         if self.policy_mode != "go":
             pred_oe = self.oe
-            self.oe, self.hc = self.net.pred_oe(worker.next_state[np.newaxis, ...], [worker.action], self.hc)
+            self.oe, self.hc = self.net.pred_oe(worker.next_state, worker.action, self.hc)
             self.q, self.v = self.net.pred_q(self.oe)
             self.q = self.q[0]
             self.v = self.v[0][0]

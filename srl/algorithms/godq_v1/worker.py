@@ -3,8 +3,10 @@ import random
 
 import numpy as np
 
-from srl.base.rl.algorithms.base_dqn import RLWorker
+from srl.base.rl.worker import RLWorkerGeneric
 from srl.base.rl.worker_run import WorkerRun
+from srl.base.spaces.discrete import DiscreteSpace
+from srl.base.spaces.multi import MultiSpace
 
 from .config import Config
 from .memory import Memory
@@ -13,7 +15,7 @@ from .parameter import Parameter
 logger = logging.getLogger(__name__)
 
 
-class Worker(RLWorker[Config, Parameter, Memory]):
+class Worker(RLWorkerGeneric[Config, Parameter, Memory, DiscreteSpace, int, MultiSpace, list]):
     def on_setup(self, worker, context) -> None:
         self.screen = None
         self.np_dtype = self.config.get_dtype("np")
@@ -41,12 +43,12 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         else:
             self.policy_mode = self.config.test_policy
 
-    def set_q_oe(self, state: np.ndarray, set_q: bool = True, set_oe: bool = True, is_mean: bool = False):
+    def set_q_oe(self, state: list, set_q: bool = True, set_oe: bool = True, is_mean: bool = False):
         if set_oe:
-            self.oe = self.parameter.net.pred_oe(state[np.newaxis, ...])
+            self.oe = self.parameter.net.pred_oe(state)
         if set_q:
             if self.oe is None:
-                self.oe = self.parameter.net.pred_oe(state[np.newaxis, ...])
+                self.oe = self.parameter.net.pred_oe(state)
             self.q = self.parameter.net.pred_q(self.oe, is_mean)
             self.q = self.q[0]
 
@@ -150,8 +152,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         # 分散の場合は計算
         if self.distributed:
             if prev_q is None:
-                state = self.config.observation_space.rescale_from(worker.state, -1, 1)
-                prev_oe = self.parameter.net.pred_oe(state[np.newaxis, ...])
+                prev_oe = self.parameter.net.pred_oe(worker.state)
                 prev_q = self.parameter.net.pred_q(prev_oe, is_mean=False)
                 prev_q = prev_q[0]
 
@@ -171,7 +172,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
     def render_terminal(self, worker, **kwargs):
         # --- q
         print("--- q")
-        oe = self.parameter.net.pred_oe(worker.state[np.newaxis, ...])
+        oe = self.parameter.net.pred_oe(worker.state)
         q, v = self.parameter.net.pred_q(oe, is_mean=True)
         q = q[0]
         v = v[0][0]

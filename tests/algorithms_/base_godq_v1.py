@@ -15,6 +15,8 @@ class QuickCase(CommonQuickCase):
         rl_config.batch_size = 2
         rl_config.memory.warmup_size = 2
         rl_config.base_units = 8
+        rl_config.input_block.cont_units = 8
+        rl_config.input_block.discrete_units = 8
         return rl_config, {"env_list": ["Grid"]}
 
 
@@ -26,6 +28,8 @@ class LongCase(CommonLongCase):
 
         rl_config = godq_v1.Config()
         rl_config.base_units = 64
+        rl_config.input_block.cont_units = 64
+        rl_config.input_block.discrete_units = 32
         return rl_config
 
     @pytest.mark.parametrize("feat_type, archive", [["SimSiam", False], ["BYOL", True]])

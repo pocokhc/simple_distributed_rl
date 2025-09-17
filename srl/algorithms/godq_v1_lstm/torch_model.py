@@ -1,11 +1,10 @@
 import logging
-from typing import List, Tuple
+from typing import Tuple
 
 import numpy as np
 import torch
 import torch.nn as nn
 
-from srl.algorithms.godq_v1.torch_model_encoder import create_encoder_block
 from srl.algorithms.godq_v1.torch_model_feat import BYOLNetwork, ProjectorNetwork
 from srl.algorithms.godq_v1.torch_model_q import QIntNetwork, QNetwork
 from srl.rl.torch_.functions import inverse_linear_symlog
@@ -24,14 +23,14 @@ class Encoder(nn.Module):
         self.lstm_c_clip = config.lstm_c_clip
         self.device = device
 
-        self.obs_encoder, enc_out_size = create_encoder_block(config)
+        self.obs_encoder = config.input_block.create_torch_block(config.observation_space)
         self.act_encoder = nn.Embedding(config.action_space.n, base_units)
 
         self.lstm_units = base_units
-        self.lstm = nn.LSTMCell(enc_out_size + base_units, self.lstm_units)
+        self.lstm = nn.LSTMCell(self.obs_encoder.out_size + base_units, self.lstm_units)
         self.out_size: int = self.lstm_units
 
-    def forward(self, state: torch.Tensor, action_indices: torch.Tensor, hc):
+    def forward(self, state, action_indices: torch.Tensor, hc):
         ts = self.obs_encoder(state)
         ta = self.act_encoder(action_indices)
         z = torch.cat([ts, ta], dim=-1)
@@ -40,7 +39,7 @@ class Encoder(nn.Module):
             c = torch.clamp(c, -self.lstm_c_clip, self.lstm_c_clip)
         return h, (h, c)
 
-    def forward_encode(self, state: torch.Tensor, action_indices: torch.Tensor):
+    def forward_encode(self, state, action_indices: torch.Tensor):
         ts = self.obs_encoder(state)
         ta = self.act_encoder(action_indices)
         return torch.cat([ts, ta], dim=-1)
@@ -119,12 +118,15 @@ class Model:
             print(self.byol_online)
 
     # -------------------
-    def pred_oe(self, state: np.ndarray, action: List[int], hc):
-        ts = torch.tensor(state, dtype=self.torch_dtype, device=self.device)
-        ta = torch.tensor(np.asarray(action), dtype=torch.long, device=self.device)
+    def pred_oe(self, states: list, action: int, hc):
+        inputs = [
+            torch.tensor(state[np.newaxis, ...], dtype=self.torch_dtype, device=self.device)
+            for state in states  #
+        ]
+        ta = torch.tensor(np.array([action]), dtype=torch.long, device=self.device)
         with torch.no_grad():
             self.encoder.eval()
-            z, hc = self.encoder(ts, ta, hc)
+            z, hc = self.encoder(inputs, ta, hc)
             self.encoder.train()
         return z, hc
 

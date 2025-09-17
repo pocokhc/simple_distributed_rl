@@ -1,4 +1,3 @@
-import logging
 from itertools import chain
 from typing import Iterable
 
@@ -14,8 +13,6 @@ from srl.rl.torch_.helper import decode_sequence_batch, encode_sequence_batch, m
 from .config import Config
 from .memory import Memory
 from .torch_model import Model
-
-logger = logging.getLogger(__name__)
 
 
 def reset_model_params(
@@ -87,7 +84,9 @@ class TorchTrainer:
         )
         self.hc = self.net.encoder.get_initial_state(self.config.batch_size)
 
-        self.states_np = np.empty((self.config.batch_size, self.config.batch_length + 2, *self.config.observation_space.shape), dtype=self.np_dtype)
+        self.states_np_list = []
+        for space in self.config.observation_space.spaces:
+            self.states_np_list.append(np.empty((self.config.batch_size, self.config.batch_length + 2, *space.shape), dtype=space.dtype))
         self.action_indices_np = np.empty((self.config.batch_size, self.config.batch_length + 2), dtype=np.int64)
         self.rewards_np = np.empty((self.config.batch_size, self.config.batch_length + 2), dtype=self.np_dtype)
         self.not_terminateds_np = np.empty((self.config.batch_size, self.config.batch_length + 2), dtype=self.np_dtype)
@@ -128,14 +127,18 @@ class TorchTrainer:
 
         for i, steps in enumerate(batches):
             for j, b in enumerate(steps):
-                self.states_np[i, j] = b[0]
+                for k in range(self.config.observation_space.space_size):
+                    self.states_np_list[k][i, j] = b[0][k]
                 self.action_indices_np[i, j] = b[1]
                 self.rewards_np[i, j] = b[2]
                 self.not_terminateds_np[i, j] = b[3]
                 self.not_starts_np[i, j] = b[4]
                 self.not_dones_np[i, j] = b[5]
                 self.total_rewards_np[i, j] = b[7]
-        states = torch.from_numpy(self.states_np[:batch_size, :batch_length, ...]).to(device)
+        states_list = [
+            torch.from_numpy(self.states_np_list[k][:batch_size, :batch_length, ...]).to(device)
+            for k in range(self.config.observation_space.space_size)  #
+        ]
         action_indices = torch.from_numpy(self.action_indices_np[:batch_size, :batch_length, ...]).to(device)
         rewards = torch.from_numpy(self.rewards_np[:batch_size, :batch_length, ...]).to(device)
         not_terminateds = torch.from_numpy(self.not_terminateds_np[:batch_size, :batch_length, ...]).to(device)
@@ -146,7 +149,7 @@ class TorchTrainer:
         loss = 0
 
         # --- state/act encode
-        ts, head_size1, head_size2 = encode_sequence_batch(states)
+        ts = [encode_sequence_batch(s)[0] for s in states_list]
         ta, head_size1, head_size2 = encode_sequence_batch(action_indices)
         enc_sa_s = self.net.encoder.forward_encode(ts, ta)
         enc_sa_s = decode_sequence_batch(enc_sa_s, head_size1, head_size2)

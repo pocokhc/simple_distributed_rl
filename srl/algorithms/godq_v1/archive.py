@@ -17,8 +17,8 @@ if TYPE_CHECKING:
 
 @dataclass
 class ArchiveCell:
-    start_state: np.ndarray
-    state: np.ndarray
+    start_state: list
+    state: list
     step: int
     reward: float
     backup: Optional[Any]
@@ -62,7 +62,7 @@ class Archive:
 
         self.episode_step = 0
         self.episode_reward = 0
-        self.start_state = worker.state.astype(np.float32)
+        self.start_state = worker.state
         self.start_state_str = self.config.observation_space.to_str(worker.state)
 
         # --- restore check
@@ -114,7 +114,7 @@ class Archive:
         if worker.done and (worker.done_type != DoneTypes.ABORT):
             return False
 
-        is_add = self._add_archive(worker.next_state.astype(np.float32), worker)
+        is_add = self._add_archive(worker.next_state, worker)
         worker.info["archive"] = self.get_archive_size()
         return is_add
 
@@ -125,7 +125,7 @@ class Archive:
                 n += len(cells)
         return n
 
-    def _add_archive(self, state: np.ndarray, worker: WorkerRun) -> bool:
+    def _add_archive(self, state, worker: WorkerRun) -> bool:
         # 1. 報酬が多い
         # 2. スタート地点から遠い
         if self.start_state_str not in self.archive_cells:

@@ -19,6 +19,38 @@
 // keras3対応 → tfは@tf.functionが使えなくなるので遅くなる。torchはcpu()が必要になるっぽい、しばらく保留
 
 
+# v1.4.4
+
+・InputMultiBlockを追加し、それに合わせてMultiSpaceの機能を強化
+
+**MainUpdates**
+
+1. [rl.models.config] new: InputMultiBlockを追加
+1. [base.spaces] MultiSpaceの機能を強化
+   - create_encode_spaceをset_encode_spaceにrename
+   - set_encode_space/encode_to_space/decode_from_spaceを基本とし、各Spaceの変換は_を付けてプライベート関数に変更
+   - set_encode_space -> encode/decode にし、set_encode_spaceで内部的にencode後のspace情報を保持するように変更
+   - optionにnp_zero_startを追加、0以上に補正するオプションを追加（主にembedding用）
+   - optionにnp_norm_typeを追加、"0to1","-1to1" を変換時に設定できる機能を追加
+   - BoxSpaceのDeprecationWarning機能を削除
+   - MultiSpaceの型を指定できるようにGenericを追加
+   - [diagrams] class_env の画像を修正
+1. [base.rl.config] new: obsercation_modeに"both"を追加、MultiSpaceで画像とstateの情報をstateにする
+1. mlflow関係
+   1. [runner.mlflow] update: printでexperimentとrun_nameとrun_idを最初に表示するように変更
+   1. [runner.mlflow] update: get_run_idでrun_nameからも検索できるように引数を追加
+
+**OtherUpdates**
+
+1. [examples.baseline] fix: baselineを現バージョンで動くように修正
+1. [rl.functions] update: image_processorにnormalize_type引数を追加
+1. [base.spaces.multi] update: MultiSpaceでstrの表示をlen=1の時に1行になるように変更
+
+**Bug Fixes**
+
+1. [base.spaces.np_array] fix: stack時のspaceにdtypeとstypeが引き継がれない不具合修正
+
+
 
 # v1.4.3
 

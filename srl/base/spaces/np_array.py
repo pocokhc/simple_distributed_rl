@@ -155,6 +155,8 @@ class NpArraySpace(SpaceBase[np.ndarray]):
             length * self._size,
             length * self._low.tolist(),
             length * self._high.tolist(),
+            dtype=self.dtype,
+            stype=self.stype,
         )
 
     def encode_stack(self, val: List[np.ndarray]) -> np.ndarray:

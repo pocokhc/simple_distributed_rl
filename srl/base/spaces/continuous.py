@@ -168,13 +168,13 @@ class ContinuousSpace(SpaceBase[float]):
         ]
 
     # --- DiscreteSpace
-    def create_encode_space_DiscreteSpace(self):
+    def _set_encode_space_DiscreteSpace(self, options: SpaceEncodeOptions):
         from srl.base.spaces.discrete import DiscreteSpace
 
         assert self.division_tbl is not None, "Call 'create_division_tbl(division_num)' first"
         return DiscreteSpace(len(self.division_tbl))  # startは0
 
-    def encode_to_space_DiscreteSpace(self, val: float) -> int:
+    def _encode_to_space_DiscreteSpace(self, val: float) -> int:
         if self.division_tbl is None:
             return int(round(val))
         else:
@@ -182,14 +182,14 @@ class ContinuousSpace(SpaceBase[float]):
             d = np.abs(self.division_tbl - val)
             return int(np.argmin(d))
 
-    def decode_from_space_DiscreteSpace(self, val: int) -> float:
+    def _decode_from_space_DiscreteSpace(self, val: int) -> float:
         if self.division_tbl is None:
             return float(val)
         else:
             return float(self.division_tbl[val])
 
     # --- ArrayDiscreteSpace
-    def create_encode_space_ArrayDiscreteSpace(self):
+    def _set_encode_space_ArrayDiscreteSpace(self, options: SpaceEncodeOptions):
         from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 
         if self.division_tbl is None:
@@ -205,87 +205,153 @@ class ContinuousSpace(SpaceBase[float]):
                 [len(self.division_tbl)],
             )
 
-    def encode_to_space_ArrayDiscreteSpace(self, val: float) -> List[int]:
+    def _encode_to_space_ArrayDiscreteSpace(self, val: float) -> List[int]:
         if self.division_tbl is None:
             return [int(round(val))]
         else:
-            return [self.encode_to_space_DiscreteSpace(val)]
+            return [self._encode_to_space_DiscreteSpace(val)]
 
-    def decode_from_space_ArrayDiscreteSpace(self, val: List[int]) -> float:
+    def _decode_from_space_ArrayDiscreteSpace(self, val: List[int]) -> float:
         if self.division_tbl is None:
             return float(val[0])
         else:
             return float(self.division_tbl[val[0]])
 
     # --- ContinuousSpace
-    def create_encode_space_ContinuousSpace(self):
+    def _set_encode_space_ContinuousSpace(self, options: SpaceEncodeOptions):
         return self.copy()
 
-    def encode_to_space_ContinuousSpace(self, val: float) -> float:
+    def _encode_to_space_ContinuousSpace(self, val: float) -> float:
         return val
 
-    def decode_from_space_ContinuousSpace(self, val: float) -> float:
+    def _decode_from_space_ContinuousSpace(self, val: float) -> float:
         return float(val)
 
     # --- ArrayContinuousSpace
-    def create_encode_space_ArrayContinuousSpace(self):
+    def _set_encode_space_ArrayContinuousSpace(self, options: SpaceEncodeOptions):
         from srl.base.spaces.array_continuous import ArrayContinuousSpace
 
         return ArrayContinuousSpace(1, [self._low], [self._high])
 
-    def encode_to_space_ArrayContinuousSpace(self, val: float) -> List[float]:
+    def _encode_to_space_ArrayContinuousSpace(self, val: float) -> List[float]:
         return [val]
 
-    def decode_from_space_ArrayContinuousSpace(self, val: List[float]) -> float:
+    def _decode_from_space_ArrayContinuousSpace(self, val: List[float]) -> float:
         return val[0]
 
     # --- NpArray
-    def create_encode_space_NpArraySpace(self, options: SpaceEncodeOptions):
+    def _set_encode_space_NpArraySpace(self, options: SpaceEncodeOptions):
         from srl.base.spaces.np_array import NpArraySpace
 
         dtype = options.cast_dtype if options.cast else self.dtype
-        return NpArraySpace(1, self._low, self._high, dtype, SpaceTypes.CONTINUOUS)
 
-    def encode_to_space_NpArraySpace(self, val: float, to_space: SpaceBase) -> np.ndarray:
-        return np.array([val], dtype=to_space.dtype)
+        if options.np_norm_type == "0to1":
+            return NpArraySpace(1, 0, 1, dtype, SpaceTypes.CONTINUOUS)
+        elif options.np_norm_type == "-1to1":
+            return NpArraySpace(1, -1, 1, dtype, SpaceTypes.CONTINUOUS)
 
-    def decode_from_space_NpArraySpace(self, val: np.ndarray, from_space: SpaceBase) -> float:
+        if options.np_zero_start:
+            low = 0
+            high = self._high - self._low
+        else:
+            low = self._low
+            high = self._high
+
+        return NpArraySpace(1, low, high, dtype, SpaceTypes.CONTINUOUS)
+
+    def _encode_to_space_NpArraySpace(self, val: float) -> np.ndarray:
+        if self.encode_options.np_norm_type == "0to1":
+            return np.array(
+                [(val - self._low) / (self._high - self._low)],
+                dtype=self.encode_space.dtype,
+            )
+        elif self.encode_options.np_norm_type == "-1to1":
+            return np.array(
+                [2 * (val - self._low) / (self._high - self._low) - 1],
+                dtype=self.encode_space.dtype,
+            )
+
+        if self.encode_options.np_zero_start:
+            return np.array([val - self._low], dtype=self.encode_space.dtype)
+        return np.array([val], dtype=self.encode_space.dtype)
+
+    def _decode_from_space_NpArraySpace(self, val: np.ndarray) -> float:
+        if self.encode_options.np_norm_type == "0to1":
+            return float(val[0]) * (self._high - self._low) + self._low
+        elif self.encode_options.np_norm_type == "-1to1":
+            return ((float(val[0]) + 1) / 2) * (self._high - self._low) + self._low
+
+        if self.encode_options.np_zero_start:
+            return float(val[0]) + self._low
         return float(val[0])
 
     # --- Box
-    def create_encode_space_Box(self, options: SpaceEncodeOptions):
+    def _set_encode_space_Box(self, options: SpaceEncodeOptions):
         from srl.base.spaces.box import BoxSpace
 
         dtype = options.cast_dtype if options.cast else self.dtype
-        return BoxSpace((1,), self._low, self._high, dtype, SpaceTypes.CONTINUOUS)
 
-    def encode_to_space_Box(self, val: float, to_space: SpaceBase) -> np.ndarray:
-        return np.array([val], dtype=to_space.dtype)
+        if options.np_norm_type == "0to1":
+            return BoxSpace((1,), 0, 1, dtype, SpaceTypes.CONTINUOUS)
+        elif options.np_norm_type == "-1to1":
+            return BoxSpace((1,), -1, 1, dtype, SpaceTypes.CONTINUOUS)
 
-    def decode_from_space_Box(self, val: np.ndarray, from_space: SpaceBase) -> float:
+        if options.np_zero_start:
+            low = 0
+            high = self._high - self._low
+        else:
+            low = self._low
+            high = self._high
+
+        return BoxSpace((1,), low, high, dtype, SpaceTypes.CONTINUOUS)
+
+    def _encode_to_space_Box(self, val: float) -> np.ndarray:
+        if self.encode_options.np_norm_type == "0to1":
+            return np.array(
+                [(val - self._low) / (self._high - self._low)],
+                dtype=self.encode_space.dtype,
+            )
+        elif self.encode_options.np_norm_type == "-1to1":
+            return np.array(
+                [2 * (val - self._low) / (self._high - self._low) - 1],
+                dtype=self.encode_space.dtype,
+            )
+
+        if self.encode_options.np_zero_start:
+            return np.array([val - self._low], dtype=self.encode_space.dtype)
+        return np.array([val], dtype=self.encode_space.dtype)
+
+    def _decode_from_space_Box(self, val: np.ndarray) -> float:
+        if self.encode_options.np_norm_type == "0to1":
+            return float(val[0]) * (self._high - self._low) + self._low
+        elif self.encode_options.np_norm_type == "-1to1":
+            return ((float(val[0]) + 1) / 2) * (self._high - self._low) + self._low
+
+        if self.encode_options.np_zero_start:
+            return float(val[0]) + self._low
         return float(val[0])
 
     # --- TextSpace
-    def create_encode_space_TextSpace(self):
+    def _set_encode_space_TextSpace(self, options: SpaceEncodeOptions):
         from srl.base.spaces.text import TextSpace
 
         # 特殊: e, inf, nan, +
         return TextSpace(min_length=1, charset="0123456789-.")
 
-    def encode_to_space_TextSpace(self, val: float) -> str:
+    def _encode_to_space_TextSpace(self, val: float) -> str:
         return str(val)
 
-    def decode_from_space_TextSpace(self, val: str) -> float:
+    def _decode_from_space_TextSpace(self, val: str) -> float:
         return float(val)
 
     # --- Multi
-    def create_encode_space_MultiSpace(self):
+    def _set_encode_space_MultiSpace(self, options: SpaceEncodeOptions):
         from srl.base.spaces.multi import MultiSpace
 
         return MultiSpace([self.copy()])
 
-    def encode_to_space_MultiSpace(self, val: float) -> list:
+    def _encode_to_space_MultiSpace(self, val: float) -> list:
         return [val]
 
-    def decode_from_space_MultiSpace(self, val: list) -> float:
+    def _decode_from_space_MultiSpace(self, val: list) -> float:
         return val[0]

@@ -250,10 +250,10 @@ def test_space_same_shape(create_space, options, true_space, val, decode_val):
 
     if true_space is None:
         with pytest.raises(NotSupportedError):
-            space.create_encode_space(create_space, options)
+            space.set_encode_space(create_space, options)
         return
 
-    target_space = space.create_encode_space(create_space, options)
+    target_space = space.set_encode_space(create_space, options)
     print(target_space)
     print(true_space)
     if create_space == RLBaseTypes.NONE:
@@ -261,7 +261,7 @@ def test_space_same_shape(create_space, options, true_space, val, decode_val):
     else:
         assert target_space == true_space
 
-    de = space.decode_from_space(val, target_space)
+    de = space.decode_from_space(val)
     for i in range(len(decode_val)):
         print(i, de[i], decode_val[i])
         if isinstance(de[i], np.ndarray):
@@ -269,7 +269,7 @@ def test_space_same_shape(create_space, options, true_space, val, decode_val):
         else:
             assert de[i] == decode_val[i]
     assert space.check_val(de)
-    en = space.encode_to_space(decode_val, target_space)
+    en = space.encode_to_space(decode_val)
     print(en)
     print(val)
     if isinstance(en, np.ndarray):
@@ -278,7 +278,7 @@ def test_space_same_shape(create_space, options, true_space, val, decode_val):
         assert en == val
     assert target_space.check_val(en)
 
-    de = space.decode_from_space(en, target_space)
+    de = space.decode_from_space(en)
     for i in range(len(decode_val)):
         print(i, de[i], decode_val[i])
         if isinstance(de[i], np.ndarray):
@@ -377,10 +377,10 @@ def test_space_no_same_shape(create_space, options, true_space, val, decode_val)
 
     if true_space is None:
         with pytest.raises(NotSupportedError):
-            space.create_encode_space(create_space, options)
+            space.set_encode_space(create_space, options)
         return
 
-    target_space = space.create_encode_space(create_space, options)
+    target_space = space.set_encode_space(create_space, options)
     print(target_space)
     print(true_space)
     if create_space == RLBaseTypes.NONE:
@@ -388,7 +388,7 @@ def test_space_no_same_shape(create_space, options, true_space, val, decode_val)
     else:
         assert target_space == true_space
 
-    de = space.decode_from_space(val, target_space)
+    de = space.decode_from_space(val)
     for i in range(len(decode_val)):
         print(i, de[i], decode_val[i])
         if isinstance(de[i], np.ndarray):
@@ -396,7 +396,7 @@ def test_space_no_same_shape(create_space, options, true_space, val, decode_val)
         else:
             assert de[i] == decode_val[i]
     assert space.check_val(de)
-    en = space.encode_to_space(decode_val, target_space)
+    en = space.encode_to_space(decode_val)
     print(en)
     print(val)
     if create_space == RLBaseTypes.NONE:
@@ -412,7 +412,7 @@ def test_space_no_same_shape(create_space, options, true_space, val, decode_val)
             assert en == val
     assert target_space.check_val(en)
 
-    de = space.decode_from_space(en, target_space)
+    de = space.decode_from_space(en)
     for i in range(len(decode_val)):
         print(i, de[i], decode_val[i])
         if isinstance(de[i], np.ndarray):
@@ -458,10 +458,10 @@ def test_space_box(create_space, options, true_space, val, decode_val):
 
     if true_space is None:
         with pytest.raises(NotSupportedError):
-            space.create_encode_space(create_space, options)
+            space.set_encode_space(create_space, options)
         return
 
-    target_space = space.create_encode_space(create_space, options)
+    target_space = space.set_encode_space(create_space, options)
     print(target_space)
     print(true_space)
     if create_space == RLBaseTypes.NONE:
@@ -469,7 +469,7 @@ def test_space_box(create_space, options, true_space, val, decode_val):
     else:
         assert target_space == true_space
 
-    de = space.decode_from_space(val, target_space)
+    de = space.decode_from_space(val)
     for i in range(len(decode_val)):
         print(i, de[i], decode_val[i])
         if isinstance(de[i], np.ndarray):
@@ -477,7 +477,7 @@ def test_space_box(create_space, options, true_space, val, decode_val):
         else:
             assert de[i] == decode_val[i]
     assert space.check_val(de)
-    en = space.encode_to_space(decode_val, target_space)
+    en = space.encode_to_space(decode_val)
     print(en)
     print(val)
     if isinstance(en, np.ndarray):
@@ -486,7 +486,7 @@ def test_space_box(create_space, options, true_space, val, decode_val):
         assert en == val
     assert target_space.check_val(en)
 
-    de = space.decode_from_space(en, target_space)
+    de = space.decode_from_space(en)
     for i in range(len(decode_val)):
         print(i, de[i], decode_val[i])
         if isinstance(de[i], np.ndarray):

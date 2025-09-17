@@ -78,81 +78,81 @@ class AnySpace(SpaceBase[Any]):
         ]
 
     # --- DiscreteSpace
-    def create_encode_space_DiscreteSpace(self):
+    def _set_encode_space_DiscreteSpace(self, options: SpaceEncodeOptions):
         return self
 
-    def encode_to_space_DiscreteSpace(self, val: Any) -> int:
+    def _encode_to_space_DiscreteSpace(self, val: Any) -> int:
         return val
 
-    def decode_from_space_DiscreteSpace(self, val: int) -> Any:
+    def _decode_from_space_DiscreteSpace(self, val: int) -> Any:
         return val
 
     # --- ArrayDiscreteSpace
-    def create_encode_space_ArrayDiscreteSpace(self):
+    def _set_encode_space_ArrayDiscreteSpace(self, options: SpaceEncodeOptions):
         return self
 
-    def encode_to_space_ArrayDiscreteSpace(self, val: Any) -> List[int]:
+    def _encode_to_space_ArrayDiscreteSpace(self, val: Any) -> List[int]:
         return val
 
-    def decode_from_space_ArrayDiscreteSpace(self, val: List[int]) -> Any:
+    def _decode_from_space_ArrayDiscreteSpace(self, val: List[int]) -> Any:
         return val
 
     # --- ContinuousSpace
-    def create_encode_space_ContinuousSpace(self):
+    def _set_encode_space_ContinuousSpace(self, options: SpaceEncodeOptions):
         return self
 
-    def encode_to_space_ContinuousSpace(self, val: Any) -> float:
+    def _encode_to_space_ContinuousSpace(self, val: Any) -> float:
         return val
 
-    def decode_from_space_ContinuousSpace(self, val: float) -> Any:
+    def _decode_from_space_ContinuousSpace(self, val: float) -> Any:
         return val
 
     # --- ArrayContinuousSpace
-    def create_encode_space_ArrayContinuousSpace(self):
+    def _set_encode_space_ArrayContinuousSpace(self, options: SpaceEncodeOptions):
         return self
 
-    def encode_to_space_ArrayContinuousSpace(self, val: Any) -> List[float]:
+    def _encode_to_space_ArrayContinuousSpace(self, val: Any) -> List[float]:
         return val
 
-    def decode_from_space_ArrayContinuousSpace(self, val: List[float]) -> Any:
+    def _decode_from_space_ArrayContinuousSpace(self, val: List[float]) -> Any:
         return val
 
     # --- NpArray
-    def create_encode_space_NpArraySpace(self, options: SpaceEncodeOptions):
+    def _set_encode_space_NpArraySpace(self, options: SpaceEncodeOptions):
         return self
 
-    def encode_to_space_NpArraySpace(self, val: Any, options: SpaceEncodeOptions) -> np.ndarray:
+    def _encode_to_space_NpArraySpace(self, val: Any) -> np.ndarray:
         return val
 
-    def decode_from_space_NpArraySpace(self, val: np.ndarray, options: SpaceEncodeOptions) -> Any:
+    def _decode_from_space_NpArraySpace(self, val: np.ndarray) -> Any:
         return val
 
     # --- Box
-    def create_encode_space_Box(self, options: SpaceEncodeOptions):
+    def _set_encode_space_Box(self, options: SpaceEncodeOptions):
         return self
 
-    def encode_to_space_Box(self, val: Any, options: SpaceEncodeOptions) -> np.ndarray:
+    def _encode_to_space_Box(self, val: Any) -> np.ndarray:
         return val
 
-    def decode_from_space_Box(self, val: np.ndarray, options: SpaceEncodeOptions) -> Any:
+    def _decode_from_space_Box(self, val: np.ndarray) -> Any:
         return val
 
     # --- TextSpace
-    def create_encode_space_TextSpace(self):
+    def _set_encode_space_TextSpace(self, options: SpaceEncodeOptions):
         return self
 
-    def encode_to_space_TextSpace(self, val: Any) -> str:
+    def _encode_to_space_TextSpace(self, val: Any) -> str:
         return val
 
-    def decode_from_space_TextSpace(self, val: str) -> Any:
+    def _decode_from_space_TextSpace(self, val: str) -> Any:
         return val
 
     # --- Multi
-    def create_encode_space_MultiSpace(self):
+    def _set_encode_space_MultiSpace(self, options: SpaceEncodeOptions):
         raise NotImplementedError()
 
-    def encode_to_space_MultiSpace(self, val: Any) -> list:
+    def _encode_to_space_MultiSpace(self, val: Any) -> list:
         raise NotImplementedError()
 
-    def decode_from_space_MultiSpace(self, val: list) -> Any:
+    def _decode_from_space_MultiSpace(self, val: list) -> Any:
         raise NotImplementedError()

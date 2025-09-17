@@ -1,7 +1,7 @@
 import logging
 import random
 import time
-from typing import Any, List
+from typing import Any, Generic, List, TypeVar
 
 import numpy as np
 
@@ -11,9 +11,11 @@ from srl.base.spaces.space import SpaceBase, SpaceEncodeOptions
 
 logger = logging.getLogger(__name__)
 
+_T = TypeVar("_T", bound=SpaceBase)
 
-class MultiSpace(SpaceBase[list]):
-    def __init__(self, spaces: List[SpaceBase]) -> None:
+
+class MultiSpace(Generic[_T], SpaceBase[list]):
+    def __init__(self, spaces: List[_T]) -> None:
         super().__init__()
         self.spaces = spaces
         self.decode_tbl = None
@@ -183,13 +185,13 @@ class MultiSpace(SpaceBase[list]):
         ]
 
     # --- DiscreteSpace
-    def _create_tbl(self) -> None:
+    def _create_tbl(self, options) -> None:
         if self.decode_tbl is not None:
             return
         import itertools
 
         t0 = time.time()
-        disc_space_list = [s.create_encode_space_DiscreteSpace() for s in self.spaces]
+        disc_space_list = [s.set_encode_space(RLBaseTypes.DISCRETE, options) for s in self.spaces]
         arr_list = [[a for a in range(s.n)] for s in disc_space_list]
         self.decode_tbl = list(itertools.product(*arr_list))
         self.encode_tbl = {}
@@ -197,35 +199,28 @@ class MultiSpace(SpaceBase[list]):
             self.encode_tbl[v] = i
         logger.info(f"create table time: {time.time() - t0:.1f}s")
 
-    def create_encode_space_DiscreteSpace(self):
+    def _set_encode_space_DiscreteSpace(self, options: SpaceEncodeOptions):
         from srl.base.spaces.discrete import DiscreteSpace
 
-        self._create_tbl()
+        self._create_tbl(options)
         assert self.decode_tbl is not None
         return DiscreteSpace(len(self.decode_tbl))  # startは0
 
-    def encode_to_space_DiscreteSpace(self, val: list) -> int:
-        self._create_tbl()
+    def _encode_to_space_DiscreteSpace(self, val: list) -> int:
         assert self.encode_tbl is not None
-        key = [s.encode_to_space_DiscreteSpace(val[i]) for i, s in enumerate(self.spaces)]
+        key = [s._encode_to_space_DiscreteSpace(val[i]) for i, s in enumerate(self.spaces)]
         return self.encode_tbl[tuple(key)]
 
-    def decode_from_space_DiscreteSpace(self, val: int) -> list:
-        self._create_tbl()
+    def _decode_from_space_DiscreteSpace(self, val: int) -> list:
         assert self.decode_tbl is not None
         vals = self.decode_tbl[val]
-        return [s.decode_from_space_DiscreteSpace(vals[i]) for i, s in enumerate(self.spaces)]
+        return [s._decode_from_space_DiscreteSpace(vals[i]) for i, s in enumerate(self.spaces)]
 
     # --- ArrayDiscreteSpace
-    def _setup_ArrayDiscreteSpace(self):
-        if hasattr(self, "_array_disc_spaces"):
-            return
-        self._array_disc_spaces = [s.create_encode_space_ArrayDiscreteSpace() for s in self.spaces]
-
-    def create_encode_space_ArrayDiscreteSpace(self):
+    def _set_encode_space_ArrayDiscreteSpace(self, options: SpaceEncodeOptions):
         from srl.base.spaces.array_discrete import ArrayDiscreteSpace
 
-        self._setup_ArrayDiscreteSpace()
+        self._array_disc_spaces = [s.set_encode_space(RLBaseTypes.ARRAY_DISCRETE, options) for s in self.spaces]
         size = sum([s.size for s in self._array_disc_spaces])
         low = []
         high = []
@@ -234,43 +229,36 @@ class MultiSpace(SpaceBase[list]):
             high += s.high
         return ArrayDiscreteSpace(size, low, high)
 
-    def encode_to_space_ArrayDiscreteSpace(self, val: list) -> List[int]:
-        self._setup_ArrayDiscreteSpace()
+    def _encode_to_space_ArrayDiscreteSpace(self, val: list) -> List[int]:
         x = []
         for v, s in zip(val, self.spaces):
-            x += s.encode_to_space_ArrayDiscreteSpace(v)
+            x += s._encode_to_space_ArrayDiscreteSpace(v)
         return x
 
-    def decode_from_space_ArrayDiscreteSpace(self, val: List[int]) -> list:
-        self._setup_ArrayDiscreteSpace()
+    def _decode_from_space_ArrayDiscreteSpace(self, val: List[int]) -> list:
         arr = []
         n = 0
         for s, s2 in zip(self.spaces, self._array_disc_spaces):
             v = val[n : n + s2.size]
-            arr.append(s.decode_from_space_ArrayDiscreteSpace(v))
+            arr.append(s._decode_from_space_ArrayDiscreteSpace(v))
             n += s2.size
         return arr
 
     # --- ContinuousSpace
-    def create_encode_space_ContinuousSpace(self):
+    def _set_encode_space_ContinuousSpace(self, options: SpaceEncodeOptions):
         raise NotSupportedError()
 
-    def encode_to_space_ContinuousSpace(self, val: list) -> float:
+    def _encode_to_space_ContinuousSpace(self, val: list) -> float:
         raise NotSupportedError()
 
-    def decode_from_space_ContinuousSpace(self, val: float) -> list:
+    def _decode_from_space_ContinuousSpace(self, val: float) -> list:
         raise NotSupportedError()
 
     # --- ArrayContinuousSpace
-    def _setup_ArrayContinuousSpace(self):
-        if hasattr(self, "_array_cont_spaces"):
-            return
-        self._array_cont_spaces = [s.create_encode_space_ArrayContinuousSpace() for s in self.spaces]
-
-    def create_encode_space_ArrayContinuousSpace(self):
+    def _set_encode_space_ArrayContinuousSpace(self, options: SpaceEncodeOptions):
         from srl.base.spaces.array_continuous import ArrayContinuousSpace
 
-        self._setup_ArrayContinuousSpace()
+        self._array_cont_spaces = [s.set_encode_space(RLBaseTypes.ARRAY_CONTINUOUS, options) for s in self.spaces]
         size = sum([s.size for s in self._array_cont_spaces])
         low = []
         high = []
@@ -279,30 +267,26 @@ class MultiSpace(SpaceBase[list]):
             high += s.high
         return ArrayContinuousSpace(size, low, high)
 
-    def encode_to_space_ArrayContinuousSpace(self, val: list) -> List[float]:
-        self._setup_ArrayContinuousSpace()
+    def _encode_to_space_ArrayContinuousSpace(self, val: list) -> List[float]:
         x = []
         for v, s in zip(val, self.spaces):
-            x += s.encode_to_space_ArrayContinuousSpace(v)
+            x += s._encode_to_space_ArrayContinuousSpace(v)
         return x
 
-    def decode_from_space_ArrayContinuousSpace(self, val: List[float]) -> list:
-        self._setup_ArrayContinuousSpace()
+    def _decode_from_space_ArrayContinuousSpace(self, val: List[float]) -> list:
         arr = []
         n = 0
         for s, s2 in zip(self.spaces, self._array_cont_spaces):
             v = val[n : n + s2.size]
-            arr.append(s.decode_from_space_ArrayContinuousSpace(v))
+            arr.append(s._decode_from_space_ArrayContinuousSpace(v))
             n += s2.size
         return arr
 
     # --- NpArray
-    def _setup_NpArraySpace(self, options: SpaceEncodeOptions):
-        if hasattr(self, "_np_array_spaces"):
-            return self._np_array_space
+    def _set_encode_space_NpArraySpace(self, options: SpaceEncodeOptions):
         from srl.base.spaces.np_array import NpArraySpace
 
-        self._np_array_spaces = [s.create_encode_space_NpArraySpace(options) for s in self.spaces]
+        self._np_array_spaces = [s.set_encode_space(RLBaseTypes.NP_ARRAY, options) for s in self.spaces]
         size = sum([s.size for s in self._np_array_spaces])
         low = []
         high = []
@@ -319,30 +303,27 @@ class MultiSpace(SpaceBase[list]):
         self._np_array_space = NpArraySpace(size, low, high, dtype)
         return self._np_array_space
 
-    def create_encode_space_NpArraySpace(self, options: SpaceEncodeOptions):
-        return self._setup_NpArraySpace(options)
-
-    def encode_to_space_NpArraySpace(self, val: list, to_space: SpaceBase) -> np.ndarray:
+    def _encode_to_space_NpArraySpace(self, val: list) -> np.ndarray:
         x = []
         for v, s in zip(val, self.spaces):
-            x.append(s.encode_to_space_NpArraySpace(v, to_space))
-        return np.concatenate(x).astype(to_space.dtype)
+            x.append(s._encode_to_space_NpArraySpace(v))
+        return np.concatenate(x).astype(self.encode_space.dtype)
 
-    def decode_from_space_NpArraySpace(self, val: np.ndarray, from_space: SpaceBase) -> list:
+    def _decode_from_space_NpArraySpace(self, val: np.ndarray) -> list:
         arr = []
         n = 0
         for s, s2 in zip(self.spaces, self._np_array_spaces):
             v = val[n : n + s2.size]
-            arr.append(s.decode_from_space_NpArraySpace(v.astype(s.dtype), from_space))
+            arr.append(s._decode_from_space_NpArraySpace(v.astype(s.dtype)))
             n += s2.size
         return arr
 
     # --- Box
-    def create_encode_space_Box(self, options: SpaceEncodeOptions):
+    def _set_encode_space_Box(self, options: SpaceEncodeOptions):
         from srl.base.spaces.box import BoxSpace
 
         # shapeが同じならboxで使う、shapeが違うならNpArrayと同じ処理
-        box_spaces = [s.create_encode_space_Box(options) for s in self.spaces]
+        box_spaces = [s.set_encode_space(RLBaseTypes.BOX, options) for s in self.spaces]
         self._is_box_spaces_same_shape = len(set([tuple(s.shape) for s in box_spaces])) == 1
 
         if self._is_box_spaces_same_shape:
@@ -366,7 +347,7 @@ class MultiSpace(SpaceBase[list]):
                         dtype = s.dtype
             return BoxSpace(shape, low, high, dtype, stype)
         else:
-            self._box_space_list = [s.create_encode_space_NpArraySpace(options) for s in self.spaces]
+            self._box_space_list = [s.set_encode_space(RLBaseTypes.NP_ARRAY, options) for s in self.spaces]
             size = sum([s.size for s in self._box_space_list])
             low = []
             high = []
@@ -388,25 +369,20 @@ class MultiSpace(SpaceBase[list]):
                         dtype = s.dtype
             return BoxSpace((size,), low, high, dtype, stype)
 
-    def encode_to_space_Box(self, val: list, to_space: SpaceBase) -> np.ndarray:
-        if getattr(self, "_is_box_spaces_same_shape", True):
-            x = [s.encode_to_space_Box(v, to_space) for v, s in zip(val, self.spaces)]
-            return np.asarray(x).astype(to_space.dtype)
+    def _encode_to_space_Box(self, val: list) -> np.ndarray:
+        if self._is_box_spaces_same_shape:
+            x = [s._encode_to_space_Box(v) for v, s in zip(val, self.spaces)]
+            return np.asarray(x).astype(self.encode_space.dtype)
         else:
             x = []
             for v, s in zip(val, self.spaces):
-                x.append(s.encode_to_space_NpArraySpace(v, to_space))
-            return np.concatenate(x).astype(to_space.dtype)
+                x.append(s._encode_to_space_NpArraySpace(v))
+            return np.concatenate(x).astype(self.encode_space.dtype)
 
-    def decode_from_space_Box(self, val: np.ndarray, from_space: SpaceBase) -> list:
-        if getattr(self, "_is_box_spaces_same_shape", True):
+    def _decode_from_space_Box(self, val: np.ndarray) -> list:
+        if self._is_box_spaces_same_shape:
             x = [
-                self.spaces[i].decode_from_space_Box(
-                    val[i].astype(
-                        self.spaces[i].dtype,
-                    ),
-                    from_space,
-                )
+                self.spaces[i]._decode_from_space_Box(val[i].astype(self.spaces[i].dtype))
                 for i in range(len(self.spaces))  #
             ]
             return x
@@ -415,21 +391,15 @@ class MultiSpace(SpaceBase[list]):
             n = 0
             for s, s2 in zip(self.spaces, self._box_space_list):
                 v = val[n : n + s2.size]
-                arr.append(s.decode_from_space_NpArraySpace(v.astype(s.dtype), from_space))
+                arr.append(s._decode_from_space_NpArraySpace(v.astype(s.dtype)))
                 n += s2.size
             return arr
 
     # --- TextSpace
-    def _setup_TextSpace(self):
-        if hasattr(self, "_text_spaces"):
-            return
-        self._text_spaces = [s.create_encode_space_TextSpace() for s in self.spaces]
-
-    def create_encode_space_TextSpace(self):
+    def _set_encode_space_TextSpace(self, options: SpaceEncodeOptions):
         from srl.base.spaces.text import TextSpace
 
-        self._setup_TextSpace()
-
+        self._text_spaces = [s.set_encode_space(RLBaseTypes.TEXT, options) for s in self.spaces]
         max_len = 0
         for s in self._text_spaces:
             if s.max_length <= 0:
@@ -443,24 +413,22 @@ class MultiSpace(SpaceBase[list]):
 
         return TextSpace(max_len, min_len, charset)
 
-    def encode_to_space_TextSpace(self, val: list) -> str:
-        self._setup_TextSpace()
-        return "_".join([s.encode_to_space_TextSpace(v) for v, s in zip(val, self.spaces)])
+    def _encode_to_space_TextSpace(self, val: list) -> str:
+        return "_".join([s._encode_to_space_TextSpace(v) for v, s in zip(val, self.spaces)])
 
-    def decode_from_space_TextSpace(self, val: str) -> list:
-        self._setup_TextSpace()
+    def _decode_from_space_TextSpace(self, val: str) -> list:
         arr = []
         vals = val.split("_")
         for i, s in enumerate(self.spaces):
-            arr.append(s.decode_from_space_TextSpace(vals[i]))
+            arr.append(s._decode_from_space_TextSpace(vals[i]))
         return arr
 
     # --- Multi
-    def create_encode_space_MultiSpace(self):
+    def _set_encode_space_MultiSpace(self, options: SpaceEncodeOptions):
         return self.copy()
 
-    def encode_to_space_MultiSpace(self, val: list) -> list:
+    def _encode_to_space_MultiSpace(self, val: list) -> list:
         return val
 
-    def decode_from_space_MultiSpace(self, val: list) -> list:
+    def _decode_from_space_MultiSpace(self, val: list) -> list:
         return val

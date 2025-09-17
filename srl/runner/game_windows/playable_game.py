@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union, cast
 import pygame
 
 from srl.base.context import RunContext
-from srl.base.define import EnvActionType, KeyBindType
+from srl.base.define import EnvActionType, KeyBindType, RLBaseTypes
 from srl.base.env.env_run import EnvRun
 from srl.base.rl.trainer import RLTrainer
 from srl.base.rl.worker_run import WorkerRun
@@ -24,7 +24,7 @@ class _PlayableCallback(RunCallback):
         self.valid_actions: list = []
         self.action: int = 0
         self.env.action_space.create_division_tbl(action_division_num)
-        self.enc_space = self.env.action_space.create_encode_space_DiscreteSpace()
+        self.enc_space = self.env.action_space.set_encode_space(RLBaseTypes.DISCRETE)
         self.action_num = self.enc_space.n
 
     def on_episode_begin(self, context: RunContext, state: RunStateActor, **kwargs):
@@ -35,17 +35,17 @@ class _PlayableCallback(RunCallback):
 
     def _read_valid_actions(self):
         # 入力可能なアクションを読み取り
-        invalid_actions = [self.env.action_space.encode_to_space_DiscreteSpace(a) for a in self.env.invalid_actions]
+        invalid_actions = [self.env.action_space.encode_to_space(a) for a in self.env.invalid_actions]
         self.valid_actions = [a for a in range(self.action_num) if a not in invalid_actions]
 
     def on_step_action_after(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         # アクションでpolicyの結果を置き換える
-        manual_action = self.env.action_space.decode_from_space_DiscreteSpace(self.action)
+        manual_action = self.env.action_space.decode_from_space(self.action)
         state.action = manual_action
         state.workers[state.worker_idx].override_action(manual_action)
 
     def get_env_action(self):
-        return self.env.action_space.decode_from_space_DiscreteSpace(self.action)
+        return self.env.action_space.decode_from_space(self.action)
 
 
 class PlayableGame(GameWindow):

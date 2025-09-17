@@ -13,7 +13,7 @@ enum SpaceTypes {
 
 abstract SpaceBase {
     stype : SpaceTypes
-    create_encode_space()
+    set_encode_space()
     encode_to_space()
     decode_from_space()
 }

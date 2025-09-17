@@ -1,5 +1,5 @@
 import random
-from typing import List, Optional, Tuple, Union
+from typing import List, Literal, Optional, Tuple, Union
 
 import numpy as np
 
@@ -207,7 +207,8 @@ def image_processor(
     to_space_type: SpaceTypes,
     resize: Optional[Tuple[int, int]] = None,  # resize: (w, h)
     trimming: Optional[Tuple[int, int, int, int]] = None,  # (top, left, bottom, right)
-    shape_order: str = "HWC",  # "HWC": tf(H,W,C), "CHW": torch(C,H,W)
+    normalize_type: Literal["", "0to1", "-1to1"] = "",
+    shape_order: Literal["HWC", "CHW"] = "HWC",  # "HWC": tf(H,W,C), "CHW": torch(C,H,W)
 ):
     assert from_space_type in [
         SpaceTypes.GRAY_2ch,
@@ -248,6 +249,13 @@ def image_processor(
         rgb_array = np.squeeze(rgb_array, axis=-1)
     elif len(rgb_array.shape) == 2 and to_space_type == SpaceTypes.GRAY_3ch:
         rgb_array = rgb_array[..., np.newaxis]
+
+    if normalize_type == "0to1":
+        rgb_array = rgb_array.astype(np.float32)
+        rgb_array /= 255.0
+    elif normalize_type == "-1to1":
+        rgb_array = rgb_array.astype(np.float32)
+        rgb_array = (rgb_array * 2.0 / 255.0) - 1.0
 
     if len(rgb_array.shape) == 3 and shape_order == "CHW":
         rgb_array = np.transpose(rgb_array, (2, 0, 1))

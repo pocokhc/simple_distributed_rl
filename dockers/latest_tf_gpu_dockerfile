@@ -6,6 +6,7 @@ WORKDIR /code
 ENV PYTHONPATH="/code"
 ENV SRL_NO_RENDER_TEST="1"
 
+# --- cv2 error
 # import cv2
 # ImportError: libGL.so.1: cannot open shared object file: No such file or directory
 RUN apt update && \
@@ -14,12 +15,22 @@ RUN apt update && \
         libglib2.0-0 && \
     rm -rf /var/lib/apt/lists/*
 
+# --- mlflow error
 # pip install mlflow
 # ERROR: Cannot uninstall 'blinker'. It is a distutils installed project and thus we cannot accurately determine which files belong to it which would lead to only a partial uninstall.
 RUN pip install --no-cache-dir --ignore-installed blinker==1.9.0
 
-# TensorFlow Probability
+# --- TensorFlow Probability
 RUN pip install --no-cache-dir tensorflow-probability[tf]==0.25.0
 
+
+# --- requirements
 COPY ./latest_requirements.txt requirements.txt
 RUN pip install --no-cache-dir -U -r requirements.txt
+
+# --- box2d
+RUN apt update && \
+    apt install -y --no-install-recommends swig && \
+    rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir -U Box2D
+RUN pip install --no-cache-dir -U gymnasium[box2d]

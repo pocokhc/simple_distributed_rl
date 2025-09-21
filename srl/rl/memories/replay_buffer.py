@@ -57,6 +57,10 @@ class ReplayBuffer:
         if not (batch_size <= self.warmup_size):
             raise ValueError(f"assert {batch_size} <= {self.warmup_size}")
 
+    def clear(self):
+        self.buffer = []
+        self.idx = 0
+
     def length(self) -> int:
         return len(self.buffer)
 

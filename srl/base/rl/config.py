@@ -84,6 +84,8 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     action_decode_options: Optional[SpaceEncodeOptions] = None
     #: 報酬のスケールを変更
     reward_scale: float = 1.0
+    #: 報酬をずらす
+    reward_shift: float = 0
 
     # --- render
     #: render時にエピソード終了時のstepで描画するか

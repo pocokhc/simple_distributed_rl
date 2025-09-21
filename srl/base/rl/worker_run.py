@@ -345,7 +345,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._worker.on_reset(self)
         else:
             # reward
-            self._reward = self._step_reward
+            self._reward = self._step_reward * self.config.reward_scale
             self._step_reward = 0.0
 
             self._step_in_episode += 1

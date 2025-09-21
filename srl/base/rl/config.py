@@ -82,6 +82,8 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     state_encode_options: Optional[SpaceEncodeOptions] = None
     #: override action decode option
     action_decode_options: Optional[SpaceEncodeOptions] = None
+    #: 報酬のスケールを変更
+    reward_scale: float = 1.0
 
     # --- render
     #: render時にエピソード終了時のstepで描画するか

@@ -266,7 +266,6 @@ class Parameter(RLParameter):
             self.actor = NormalDistBlock(
                 self.config.action_space.size,
                 self.config.actor_layer_sizes,
-                enable_squashed=self.config.actor_continuous_enable_normal_squashed,
                 name="Actor",
             )
             logger.info("Actor: Normal")
@@ -491,7 +490,12 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
                 entropy += -tf.reduce_sum(tf.exp(log_probs) * log_probs, axis=-1)
             elif isinstance(self.config.action_space, NpArraySpace):
                 dist = self.parameter.actor(feat)
-                action, log_prob = dist.rsample_logprob()
+                action = dist.rsample()
+                if self.config.actor_continuous_enable_normal_squashed:
+                    log_prob = dist.log_prob_sgp(action)
+                    action = tf.tanh(action)
+                else:
+                    log_prob = dist.log_prob(action)
                 horizon_logpi.append(log_prob)
                 entropy += -tf.squeeze(log_prob, axis=-1)
                 if self.config.horizon_policy == "random":
@@ -696,17 +700,20 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         elif isinstance(self.config.action_space, NpArraySpace):
             act_space = cast(NpArraySpace, self.config.action_space)
 
-            self.action, self.logpi = dist.rsample_logprob()
+            self.action = dist.sample()
             env_action = self.action[0].numpy()
             if self.config.actor_continuous_enable_normal_squashed:
+                self.logpi = dist.log_prob_sgp(self.action)
                 # Squashed Gaussian Policy (-1, 1) -> (action range)
+                env_action = np.tanh(env_action)
                 env_action = (1 + env_action) / 2
                 env_action = act_space.low + env_action * (act_space.high - act_space.low)
             else:
+                self.logpi = dist.log_prob(self.action)
                 env_action = env_action * (act_space.high - act_space.low) + act_space.low
                 env_action = np.clip(env_action, act_space.low, act_space.high)
         else:
-            raise UndefinedError(self.config.action_space.stype)
+            raise UndefinedError(self.config.action_space)
 
         return env_action
 
@@ -921,8 +928,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
 
             n_img = next_state[0].numpy() * 255
             s = f"act {action.numpy()[0]}, mean {act_dist.mean().numpy()[0]}"
-            if not self.config.actor_continuous_enable_normal_squashed:
-                s += f", std {act_dist.stddev().numpy()[0]}"
+            s += f", std {act_dist.stddev().numpy()[0]}"
             s += f", reward {reward.numpy()[0][0]:.5f}"
             s += f", done {(1 - cont.numpy()[0][0]) * 100:4.1f}%"
             s += f", value {value.numpy()[0][0]:.5f}"

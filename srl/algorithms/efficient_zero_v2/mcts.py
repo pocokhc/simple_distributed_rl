@@ -54,21 +54,26 @@ class Node:
             if self.is_root:
                 num_acts_half = cfg.num_top_actions // 2
                 for _ in range(num_acts_half):
-                    act, logprob = p_dist.rsample_logprob()
-                    selected_acts.append(act[0].numpy())
+                    act, logprob = self._calc_rsample_logprob(p_dist)
+                    selected_acts.append(act[0])
                     selected_probs.append(np.exp(logprob[0]))
                 p_dist.increase_variance(0.1)
                 for _ in range(num_acts_half):
-                    act, logprob = p_dist.rsample_logprob()
-                    selected_acts.append(act[0].numpy())
+                    act, logprob = self._calc_rsample_logprob(p_dist)
+                    selected_acts.append(act[0])
                     selected_probs.append(np.exp(logprob[0]))
             else:
                 for _ in range(cfg.num_top_actions):
-                    act, logprob = p_dist.rsample_logprob()
-                    selected_acts.append(act[0].numpy())
+                    act, logprob = self._calc_rsample_logprob(p_dist)
+                    selected_acts.append(act[0])
                     selected_probs.append(np.exp(logprob[0]))
 
         self.children = [Node(act, prior) for act, prior in zip(selected_acts, selected_probs)]
+
+    def _calc_rsample_logprob(self, p_dist):
+        action = p_dist.rsample()
+        logpi = p_dist.log_prob_sgp(action)
+        return action, logpi
 
     def get_children_for_action(self, action: int):
         for n in self.children:

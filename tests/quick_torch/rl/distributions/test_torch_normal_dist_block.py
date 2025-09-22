@@ -12,8 +12,7 @@ def _create_dataset(data_num):
 
 
 @pytest.mark.parametrize("fixed_scale", [-1, 0.1])
-@pytest.mark.parametrize("enable_squashed", [False, True])
-def test_train(fixed_scale, enable_squashed, is_plot=False):
+def test_train(fixed_scale, is_plot=False):
     pytest.importorskip("torch")
 
     import torch
@@ -27,7 +26,6 @@ def test_train(fixed_scale, enable_squashed, is_plot=False):
         (),
         (),
         fixed_scale=fixed_scale,
-        enable_squashed=enable_squashed,
     )
 
     optimizer = torch.optim.Adam(block.parameters(), lr=0.001)
@@ -49,9 +47,6 @@ def test_train(fixed_scale, enable_squashed, is_plot=False):
     dist = block(x_true)
     y_pred = dist.sample().detach().numpy()
 
-    if enable_squashed:
-        y_pred = np.arctanh(y_pred)
-
     if is_plot:
         import matplotlib.pyplot as plt
 
@@ -66,10 +61,6 @@ def test_train(fixed_scale, enable_squashed, is_plot=False):
     print(f"rmse: {rmse}")
     if fixed_scale < 0:
         assert rmse < 0.1
-        if not enable_squashed:
-            stddev = dist.stddev().detach().numpy()
-            print("stddev", np.mean(stddev))
-            assert np.abs(np.mean(stddev) - 0.05) < 0.1
     else:
         assert rmse < 0.4
 
@@ -80,8 +71,7 @@ def _create_dataset2(data_num):
 
 
 @pytest.mark.parametrize("fixed_scale", [-1, 0.1])
-@pytest.mark.parametrize("enable_squashed", [False, True])
-def test_autoencoder(fixed_scale, enable_squashed):
+def test_autoencoder(fixed_scale):
     pytest.importorskip("torch")
     import torch
 
@@ -96,7 +86,7 @@ def test_autoencoder(fixed_scale, enable_squashed):
                     torch.nn.ReLU(),
                 ]
             )
-            self.block = NormalDistBlock(32, 32, fixed_scale=fixed_scale, enable_squashed=enable_squashed)
+            self.block = NormalDistBlock(32, 32, fixed_scale=fixed_scale)
             self.h2 = torch.nn.ModuleList(
                 [
                     torch.nn.Linear(32, 1),
@@ -211,10 +201,9 @@ def test_compute_normal_logprob_sgp(action, mean, stddev):
     np_pi = np.exp(np_logpi)
 
     logpi = compute_normal_logprob_sgp(
-        torch.FloatTensor([[mean]]),
-        torch.FloatTensor([[stddev]]),
-        torch.FloatTensor(np.log([[stddev]])),
         torch.FloatTensor([[action]]),
+        torch.FloatTensor([[mean]]),
+        torch.FloatTensor(np.log([[stddev]])),
     )
     pi = torch.exp(logpi)  # logpiが-130ぐらいだと-infになる
     pi = pi.numpy()[0][0]
@@ -226,6 +215,6 @@ def test_compute_normal_logprob_sgp(action, mean, stddev):
 
 
 if __name__ == "__main__":
-    # test_train(-1, enable_squashed=False, is_plot=True)
-    test_autoencoder(-1, enable_squashed=False)
+    # test_train(-1, is_plot=True)
+    test_autoencoder(-1)
     # test_dist()

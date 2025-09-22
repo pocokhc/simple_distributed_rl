@@ -87,7 +87,8 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             return int(self.action)
         elif isinstance(self.config.action_space, NpArraySpace):
             self.step_policy = None
-            env_action = self.config.action_space.rescale_from(self.action, -1, 1)
+            env_action = np.tanh(self.action)
+            env_action = self.config.action_space.rescale_from(env_action, -1, 1)
             return env_action
 
     def on_step(self, worker):

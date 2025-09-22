@@ -138,10 +138,13 @@ class DynamicsNetwork(KerasModelAddedSummary):
 
         # --- action
         if isinstance(cfg.action_space, DiscreteSpace):
-            self.act_emb = kl.Embedding(cfg.action_space.n, num_channels)
+            self.act_layers = [kl.Embedding(cfg.action_space.n, num_channels)]
             action_shape = ()
         else:
-            self.act_emb = kl.Dense(num_channels, activation="relu")
+            self.act_layers = [
+                kl.Activation("tanh"),
+                kl.Dense(num_channels, activation="relu"),
+            ]
             action_shape = (cfg.action_space.size,)
 
         # --- state block
@@ -197,12 +200,12 @@ class DynamicsNetwork(KerasModelAddedSummary):
 
         # --- action
         b, h, w, ch = x.shape
-        if self.act_emb is not None:
-            # (b) -> (b, ch)
-            action = self.act_emb(action, training=training)
+        # (b) -> (b, ch)
+        for layer in self.act_layers:
+            action = layer(action, training=training)
         action = tf.broadcast_to(
             tf.reshape(action, (b, 1, 1, -1)),  # (b, 1, 1, ch)
-            (b, h, w, action.shape[-1]),  # (b, h, w, ch)
+            (b, h, w, tf.shape(action)[-1]),  # (b, h, w, ch)
         )
 
         # --- state block
@@ -264,7 +267,9 @@ class PredictionNetwork(KerasModelAddedSummary):
         if isinstance(cfg.action_space, DiscreteSpace):
             self.policy_layers.append(CategoricalGumbelDistBlock(cfg.action_space.n))
         elif isinstance(cfg.action_space, NpArraySpace):
-            self.policy_layers.append(NormalDistBlock(cfg.action_space.size, enable_squashed=True))
+            self.policy_layers.append(NormalDistBlock(cfg.action_space.size))
+        else:
+            raise ValueError(cfg.action_space)
 
         # --- value
         self.value_layers = [

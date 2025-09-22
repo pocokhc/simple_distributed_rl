@@ -1,3 +1,4 @@
+import math
 import random
 from typing import List, Literal, Optional, Tuple, Union
 
@@ -199,6 +200,27 @@ def create_fancy_index_for_invalid_actions(idx_list: List[List[int]]):
     idx1 = [i for i, sublist in enumerate(idx_list) for _ in sublist]
     idx2 = [item for sublist in idx_list for item in sublist]
     return idx1, idx2
+
+
+def compute_normal_logprob(x, loc, scale):
+    """
+    log π(a|s) when the policy is normally distributed
+    https://ja.wolframalpha.com/input?i2d=true&i=Log%5BDivide%5B1%2C+%5C%2840%29Sqrt%5B2+*+Pi+*+Power%5B%CF%83%2C2%5D%5D%5C%2841%29%5D+*+Exp%5B-+Divide%5BPower%5B%5C%2840%29x+-+%CE%BC%5C%2841%29%2C2%5D%2C+2+*+Power%5B%CF%83%2C2%5D%5D%5D%5D
+    -0.5 * log(2*pi) - log(stddev) - 0.5 * ((x - mean) / stddev)^2
+    """
+    return -0.5 * math.log(2 * math.pi) - np.log(scale) - 0.5 * (((x - loc) / scale) ** 2)
+
+
+def compute_normal_logprob_sgp(x, loc, scale, epsilon: float = 1e-10):
+    """
+    Squashed Gaussian Policy log π(a|s)
+    Paper: https://arxiv.org/abs/1801.01290
+    x は squash 前の値
+    """
+    logmu = compute_normal_logprob(x, loc, scale)
+    x = 1.0 - np.tanh(x) ** 2  # dy/dx = 1 - tanh^2(x)
+    x = np.clip(x, epsilon, 1.0)
+    return logmu - np.sum(np.log(x), axis=-1, keepdims=True)
 
 
 def image_processor(

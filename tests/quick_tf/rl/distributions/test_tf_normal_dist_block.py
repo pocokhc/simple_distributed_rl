@@ -13,8 +13,7 @@ def _create_dataset(data_num):
 
 
 @pytest.mark.parametrize("fixed_scale", [-1, 0.1])
-@pytest.mark.parametrize("enable_squashed", [False, True])
-def test_loss(fixed_scale, enable_squashed, is_plot=False):
+def test_loss(fixed_scale, is_plot=False):
     pytest.importorskip("tensorflow")
     import tensorflow as tf
     from tensorflow import keras
@@ -27,7 +26,6 @@ def test_loss(fixed_scale, enable_squashed, is_plot=False):
         (),
         (),
         fixed_scale=fixed_scale,
-        enable_squashed=enable_squashed,
     )
     block.build((None, 1))
 
@@ -45,8 +43,6 @@ def test_loss(fixed_scale, enable_squashed, is_plot=False):
     x_true, y_true = _create_dataset(1000)
     dist = cast(NormalDist, block(x_true))
     y_pred = dist.sample()
-    if enable_squashed:
-        y_pred = np.arctanh(y_pred)
 
     if is_plot:
         import matplotlib.pyplot as plt
@@ -62,9 +58,6 @@ def test_loss(fixed_scale, enable_squashed, is_plot=False):
     print(f"rmse: {rmse}")
     if fixed_scale < 0:
         assert rmse < 0.1
-        if not enable_squashed:
-            print("stddev", np.mean(dist.stddev()))
-            assert np.abs(np.mean(dist.stddev()) - 0.05) < 0.1
     else:
         assert rmse < 0.4
 
@@ -75,8 +68,7 @@ def _create_dataset2(data_num):
 
 
 @pytest.mark.parametrize("fixed_scale", [-1, 0.1])
-@pytest.mark.parametrize("enable_squashed", [False, True])
-def test_loss_grad(fixed_scale, enable_squashed):
+def test_loss_grad(fixed_scale):
     pytest.importorskip("tensorflow")
     import tensorflow as tf
     from tensorflow import keras
@@ -87,7 +79,7 @@ def test_loss_grad(fixed_scale, enable_squashed):
         def __init__(self):
             super().__init__()
             self.h1 = keras.layers.Dense(32, activation="relu")
-            self.block = NormalDistBlock(32, fixed_scale=fixed_scale, enable_squashed=enable_squashed)
+            self.block = NormalDistBlock(32, fixed_scale=fixed_scale)
             self.h2 = keras.layers.Dense(1, activation="relu")
 
         def call(self, x):
@@ -189,10 +181,9 @@ def test_compute_normal_logprob_sgp(action, mean, stddev):
     np_pi = np.exp(np_logpi)
 
     logpi = compute_normal_logprob_sgp(
-        tf.constant([[mean]], dtype=np.float32),
-        tf.constant([[stddev]], dtype=np.float32),
-        tf.constant(np.log([[stddev]]), dtype=np.float32),
         tf.constant([[action]], dtype=np.float32),
+        tf.constant([[mean]], dtype=np.float32),
+        tf.constant(np.log([[stddev]]), dtype=np.float32),
     )
     pi = tf.exp(logpi)  # logpiが-130ぐらいだと-infになる
     pi = pi.numpy()[0][0]
@@ -204,6 +195,5 @@ def test_compute_normal_logprob_sgp(action, mean, stddev):
 
 
 if __name__ == "__main__":
-    # test_train(-1, enable_squashed=False, is_plot=True)
-    test_autoencoder(-1, enable_squashed=False)
+    test_loss(-1, is_plot=True)
     # test_dist()

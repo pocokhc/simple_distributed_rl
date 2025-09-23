@@ -1,5 +1,4 @@
 import copy
-import pickle
 import random
 from typing import Any
 
@@ -57,7 +56,7 @@ class QNetwork(KerasModelAddedSummary):
         self.hidden_block = config.hidden_block.create_tf_block(config.action_space.n)
 
         # build
-        self(np.zeros((1,) + self.space.np_shape))
+        self(np.zeros((1,) + self.space.shape))
         self.loss_func = keras.losses.Huber()
 
     def call(self, x, training=False):

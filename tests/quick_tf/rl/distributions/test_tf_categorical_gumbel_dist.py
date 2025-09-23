@@ -8,7 +8,7 @@ from srl.rl.tf.distributions.categorical_gumbel_dist_block import CategoricalGum
 
 @pytest.fixture
 def logits() -> tf.Tensor:
-    return tf.constant([[2.0, 1.0, 0.1], [0.5, 1.5, 1.0]], dtype=tf.float32)
+    return tf.Variable([[2.0, 1.0, 0.1], [0.5, 1.5, 1.0]], dtype=tf.float32)
 
 
 @pytest.fixture
@@ -19,7 +19,7 @@ def dist(logits) -> CategoricalGumbelDist:
 def test_mode(dist: CategoricalGumbelDist):
     # What: 最も高いlogitのインデックスが返ることを確認
     result = dist.mode()
-    expected = tf.cast(tf.constant([0, 1]), tf.dtypes.int64)
+    expected = tf.cast(tf.Variable([0, 1]), tf.dtypes.int64)
     tf.debugging.assert_equal(result, expected)
 
 
@@ -64,7 +64,7 @@ def test_log_probs_shape(dist: CategoricalGumbelDist):
 
 def test_log_prob_shape(dist: CategoricalGumbelDist):
     # What: log_prob()が(batch, 1)の形で返る
-    actions = tf.constant([[0], [1]], dtype=tf.float32)
+    actions = tf.Variable([[0], [1]], dtype=tf.float32)
     log_prob = dist.log_prob(actions)
     assert log_prob.shape == (2, 1)
 
@@ -86,7 +86,7 @@ def test_compute_train_loss(dist: CategoricalGumbelDist):
 def test_gradient_through_methods(method_name: str):
     # What: logitsに対して勾配が計算されるか（probs, entropy, rsample）
 
-    logits = tf.Variable([[1.0, 2.0, 3.0], [0.5, 0.1, -0.3]], dtype=tf.float32)
+    logits = tf.Variable([[1, 2, 10], [10, 3, 2]], dtype=tf.float32)
     dist = CategoricalGumbelDist(logits)
 
     with tf.GradientTape() as tape:
@@ -97,7 +97,9 @@ def test_gradient_through_methods(method_name: str):
 
     assert grads is not None, f"{method_name}: Gradient should not be None"
     if method_name != "rsample":
-        assert tf.reduce_any(tf.not_equal(grads, 0.0)), f"{method_name}: Gradient should not be all zero"
+        print(grads)
+        # assert tf.reduce_any(tf.not_equal(grads, 0.0)), f"{method_name}: Gradient should not be all zero"
+        assert tf.reduce_any(tf.abs(grads) > 1e-9), f"{method_name}: Gradient should not be all zero"
 
 
 def test_gradient_through_log_prob():
@@ -107,7 +109,7 @@ def test_gradient_through_log_prob():
     dist = CategoricalGumbelDist(logits)
 
     # テスト用のアクション（argmaxに対応するone-hot）
-    actions = tf.constant([[2], [0]], dtype=tf.float32)
+    actions = tf.Variable([[2], [0]], dtype=tf.float32)
 
     with tf.GradientTape() as tape:
         log_prob = dist.log_prob(actions)

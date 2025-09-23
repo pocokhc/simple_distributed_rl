@@ -68,6 +68,10 @@ def test_train(is_wait, memory_params):
     # サーバが起動している事
 
     assert is_port_open("127.0.0.1", 6379), "Redis is not running."
+    if isinstance(memory_params, RabbitMQParameters):
+        assert is_port_open("127.0.0.1", 5672), "RabbitMQ is not running."
+    if isinstance(memory_params, MQTTParameters):
+        assert is_port_open("127.0.0.1", 1883), "MQTT is not running."
 
     th_actor = mp.Process(target=_run_actor, args=(memory_params,))
     th_trainer = mp.Process(target=_run_trainer, args=(memory_params,))

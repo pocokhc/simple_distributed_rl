@@ -1,4 +1,6 @@
 name: Run pytest
+permissions:
+  contents: read
 
 on:
   push:
@@ -55,3 +57,45 @@ jobs:
         run: PYTHONPATH=. pytest tests/algorithms_/test_quick_classic.py --timeout=60
       - name: Run pytest under algotithms long_classic
         run: PYTHONPATH=. pytest tests/algorithms_/test_long_classic.py --timeout=300
+
+  pytest-tf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.13
+      # --- install tf
+      - name: Install tf
+        run: pip install tensorflow==2.20.0
+      - name: Install tfp
+        run: pip install tensorflow-probability[tf]==0.25.0
+      # --- srl test
+      - run: pip install .
+      - run: pip install pytest pytest-mock pytest-timeout
+      - name: Run pytest under quick_tf
+        run: PYTHONPATH=. pytest tests/quick_tf/ --timeout=60
+      # 時間がかかりすぎて終わらない
+      #- name: Run pytest under quick_algorithms
+      #  run: PYTHONPATH=. pytest tests/algorithms_/test_quick_tf_CPU.py --timeout=300
+
+  pytest-torch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.13
+      # --- install tf
+      - name: Install tf
+        run: pip install torch==2.8.0
+      # --- srl test
+      - run: pip install .
+      - run: pip install pytest pytest-mock pytest-timeout
+      - name: Run pytest under quick_torch
+        run: PYTHONPATH=. pytest tests/quick_torch/ --timeout=60
+      - name: Run pytest under quick_algorithms
+        run: PYTHONPATH=. pytest tests/algorithms_/test_quick_torch_CPU.py --timeout=300
+

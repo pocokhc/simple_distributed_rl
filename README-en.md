@@ -172,7 +172,8 @@ Please refer to the following documents for creating original environments and a
 |DQN_NoT       |Box        |Discrete|Torch|Original<br>No Target DQN|
 |GoDQ_v1       |Box        |Discrete|Torch|Original<br>NoT_DQN + BYOL-Explorer(IntrinsicReward) + Archive + SR-SPR|
 |GoDQ_v1_LSTM  |Box        |Discrete|Torch|Original<br>GoDQ_v1+LSTM|
-
+|PPO-V         |Box        |Discrete<br>Continuous|Torch|Original<br>OffPolicy PPO|
+|SAC-NoT       |Box        |Discrete<br>Continuous|Torch|Original<br>No Target SAC|
 
 # 5. Online Distributed Learning
 

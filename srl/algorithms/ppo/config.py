@@ -32,7 +32,7 @@ Other
 @dataclass
 class MemoryConfig:
     #: warmup_size
-    warmup_size: int = 1_000
+    warmup_size: int = 500
     #: memoryデータを圧縮してやり取りするかどうか
     compress: bool = False
     #: memory(zlib)の圧縮レベル
@@ -42,7 +42,7 @@ class MemoryConfig:
 @dataclass
 class Config(RLConfig):
     #: Batch size
-    batch_size: int = 64
+    batch_size: int = 32
 
     #: MemoryConfig
     memory: MemoryConfig = field(default_factory=lambda: MemoryConfig())

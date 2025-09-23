@@ -86,7 +86,7 @@ def test_compute_train_loss(dist: CategoricalGumbelDist):
 def test_gradient_through_methods(method_name: str):
     # What: logitsに対して勾配が計算されるか（probs, entropy, rsample）
 
-    logits = tf.Variable([[1.0, 2.0, 3.0], [0.5, 0.1, -0.3]], dtype=tf.float32)
+    logits = tf.Variable([[1, 2, 10], [10, 3, 2]], dtype=tf.float32)
     dist = CategoricalGumbelDist(logits)
 
     with tf.GradientTape() as tape:
@@ -97,7 +97,9 @@ def test_gradient_through_methods(method_name: str):
 
     assert grads is not None, f"{method_name}: Gradient should not be None"
     if method_name != "rsample":
-        assert tf.reduce_any(tf.not_equal(grads, 0.0)), f"{method_name}: Gradient should not be all zero"
+        print(grads)
+        # assert tf.reduce_any(tf.not_equal(grads, 0.0)), f"{method_name}: Gradient should not be all zero"
+        assert tf.reduce_any(tf.abs(grads) > 1e-9), f"{method_name}: Gradient should not be all zero"
 
 
 def test_gradient_through_log_prob():

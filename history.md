@@ -21,7 +21,10 @@
 
 # v1.4.4
 
-・InputMultiBlockを追加し、それに合わせてMultiSpaceの機能を強化
+- InputMultiBlockを追加し、それに合わせてMultiSpaceの機能を強化
+（godq_v1/godq_v1_lstmをMultiSpace対応）
+- RLConfigに報酬のスケールを変更できる reward_scale 引数とシフトできる reward_shift を追加
+- オリジナルアルゴリズム、V-PPOとNoT-SACを追加
 
 **MainUpdates**
 
@@ -36,19 +39,34 @@
    - MultiSpaceの型を指定できるようにGenericを追加
    - [diagrams] class_env の画像を修正
 1. [base.rl.config] new: obsercation_modeに"both"を追加、MultiSpaceで画像とstateの情報をstateにする
+1. [base.rl.config] new: 報酬のスケールを変更できる reward_scale 引数を追加
+1. [base.rl.config] new: 報酬をずらして変更できる reward_shift 引数を追加（計算順序は、(reward+sift)/scale）
 1. mlflow関係
    1. [runner.mlflow] update: printでexperimentとrun_nameとrun_idを最初に表示するように変更
    1. [runner.mlflow] update: get_run_idでrun_nameからも検索できるように引数を追加
+1. [algorithms] update: godq_v1/godq_v1_lstmをmultispace対応
+1. [algorithms] new: V-PPOを追加
+1. [algorithms] new: NoT-SACを追加
 
 **OtherUpdates**
 
-1. [examples.baseline] fix: baselineを現バージョンで動くように修正
 1. [rl.functions] update: image_processorにnormalize_type引数を追加
 1. [base.spaces.multi] update: MultiSpaceでstrの表示をlen=1の時に1行になるように変更
+1. [runner.callbacks.mlflow] add: eval_interval_modeを追加し、step単位でevalできるように追加
+1. [base.rl.config] add: registe時にspaceで処理を分けれるようにset_action_spaceを追加(sacで使用)
+1. [rl.memories.replay_buffer] add: clear関数を追加
+1. [examples.baseline] fix: baselineを現バージョンで動くように修正
+1. [dockers] add: gymのbox2dの環境を追加
+1. [algorithms.dqn_not] update: trainのバッチ変換の処理を高速化
 
 **Bug Fixes**
 
 1. [base.spaces.np_array] fix: stack時のspaceにdtypeとstypeが引き継がれない不具合修正
+1. [base.spaces.any_space] fix: is_discrete/is_continuousで継承元を利用するとエラーが出たので修正
+1. [rl.distributions.normal_dist_block] update: Squashed Gaussian Policyを削除し、アルゴリズム側での実装に変更
+1. [rl.distributions.categorical_dist_block] update: 見直していろいろ修正
+1. [algorithms.ppo] update: オンポリシーな学習になるように修正、合わせていろいろ修正
+1. [algorithms.sac] update: 連続と離散を分けていろいろ修正
 
 
 

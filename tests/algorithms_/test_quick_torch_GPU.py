@@ -18,6 +18,7 @@ from tests.algorithms_ import (
     base_r2d2,
     base_rainbow,
     base_sac,
+    base_sac_not,
     base_snd,
     base_stochastic_muzero,
     base_world_models,
@@ -63,3 +64,6 @@ class Test_godq_v1_lstm(_CommonOption, base_godq_v1_lstm.QuickCase):
 class Test_ppo_v(_CommonOption, base_ppo_v.QuickCase):
     pass
 
+
+class Test_sac_not(_CommonOption, base_sac_not.QuickCase):
+    pass

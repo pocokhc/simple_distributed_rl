@@ -24,6 +24,12 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 
         self.align_loss_coeff_sch = self.config.align_loss_coeff_scheduler.create(self.config.align_loss_coeff)
 
+        self.states_np = np.empty((self.config.batch_size * 2, *self.config.observation_space.shape), dtype=self.np_dtype)
+        self.action_indices_np = np.empty((self.config.batch_size, 1), dtype=np.int64)
+        self.reward_np = np.empty((self.config.batch_size,), dtype=self.np_dtype)
+        self.not_terminated_np = np.empty((self.config.batch_size,), dtype=self.np_dtype)
+        self.total_reward_np = np.empty((self.config.batch_size,), dtype=self.np_dtype)
+
     def train(self):
         batches = self.memory.sample()
         if batches is None:
@@ -34,23 +40,28 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         else:
             weights = 1
 
-        state, n_state, action, reward, not_done, total_reward = zip(*batches)
-        state = torch.tensor(np.asarray(state, dtype=self.np_dtype), device=self.device)
-        n_state = torch.tensor(np.asarray(n_state, dtype=self.np_dtype), device=self.device)
-        action_indices = torch.tensor(np.asarray(action), dtype=torch.long, device=self.device).unsqueeze(1)
-        reward = torch.tensor(np.array(reward, dtype=self.np_dtype), device=self.device)
-        not_done = torch.tensor(np.array(not_done, dtype=self.np_dtype), device=self.device)
-        total_reward = torch.tensor(np.array(total_reward, dtype=self.np_dtype), device=self.device)
+        for i, b in enumerate(batches):
+            self.states_np[i] = b[0]
+            self.states_np[self.config.batch_size + i] = b[1]
+            self.action_indices_np[i] = b[2]
+            self.reward_np[i] = b[3]
+            self.not_terminated_np[i] = b[4]
+            self.total_reward_np[i] = b[5]
+        states = torch.from_numpy(self.states_np).to(self.device)
+        action_indices = torch.from_numpy(self.action_indices_np).to(self.device)
+        reward = torch.from_numpy(self.reward_np).to(self.device)
+        not_terminated = torch.from_numpy(self.not_terminated_np).to(self.device)
+        total_reward = torch.from_numpy(self.total_reward_np).to(self.device)
 
         loss = 0
 
-        q_all, v_all = self.parameter.q_online(torch.cat([state, n_state]))
+        q_all, v_all = self.parameter.q_online(states)
         q = q_all[: self.config.batch_size]
         n_q = q_all[self.config.batch_size :].detach()
         n_v = v_all[self.config.batch_size :].detach().squeeze(-1)
 
         n_maxq = n_q.max(dim=1).values
-        target_q = reward + not_done * self.config.discount * (n_maxq + n_v) / 2
+        target_q = reward + not_terminated * self.config.discount * (n_maxq + n_v) / 2
 
         q = q.gather(1, action_indices).squeeze(1)
         loss_q = (self.criterion1(target_q, q) * weights).mean()

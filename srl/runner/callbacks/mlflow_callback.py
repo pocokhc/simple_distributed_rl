@@ -6,7 +6,7 @@ import tempfile
 import time
 import traceback
 from dataclasses import dataclass, field
-from typing import Literal, Optional, Union, cast
+from typing import Any, Literal, Optional, Union, cast
 
 import mlflow
 import mlflow.artifacts
@@ -38,6 +38,7 @@ class MLFlowCallback(RunCallback, Evaluate):
     interval_mode: Literal["time", "step"] = "time"
 
     eval_interval: float = -1  # -1 is auto
+    eval_interval_mode: Literal["time", "step"] = "time"
     checkpoint_interval: float = 60 * 30
     enable_checkpoint: bool = True
 
@@ -120,7 +121,13 @@ class MLFlowCallback(RunCallback, Evaluate):
         else:
             raise UndefinedError(self.interval_mode)
 
-        self.t0_eval = time.time()
+        if self.eval_interval_mode == "time":
+            self.eval0 = time.time()
+        elif self.interval_mode == "step":
+            self.eval0 = 0
+        else:
+            raise UndefinedError(self.eval_interval_mode)
+
         self.t0_checkpoint = time.time()
 
     def on_step_end(self, context: RunContext, state, **kwargs) -> bool:
@@ -140,9 +147,17 @@ class MLFlowCallback(RunCallback, Evaluate):
         else:
             raise UndefinedError(self.interval_mode)
 
-        if _time - self.t0_eval > self._eval_interval:
-            self._log_eval(context, state)
-            self.t0_eval = time.time()  # last
+        if self.eval_interval_mode == "time":
+            if _time - self.eval0 > self._eval_interval:
+                self._log_eval(context, state)
+                self.eval0 = time.time()  # last
+        elif self.eval_interval_mode == "step":
+            self.eval0 += 1
+            if self.eval0 >= self._eval_interval:
+                self._log_eval(context, state)
+                self.eval0 = 0  # last
+        else:
+            raise UndefinedError(self.eval_interval_mode)
 
         if not context.distributed:
             if _time - self.t0_checkpoint > self.checkpoint_interval:
@@ -174,7 +189,13 @@ class MLFlowCallback(RunCallback, Evaluate):
         else:
             raise UndefinedError(self.interval_mode)
 
-        self.t0_eval = time.time()
+        if self.eval_interval_mode == "time":
+            self.eval0 = time.time()
+        elif self.eval_interval_mode == "step":
+            self.eval0 = 0
+        else:
+            raise UndefinedError(self.interval_mode)
+
         self.t0_checkpoint = time.time()
 
     def on_trainer_end(self, context: RunContext, state, **kwargs) -> None:
@@ -199,9 +220,17 @@ class MLFlowCallback(RunCallback, Evaluate):
             raise UndefinedError(self.interval_mode)
 
         if not context.distributed:
-            if _time - self.t0_eval > self._eval_interval:
-                self._log_eval(context, state)
-                self.t0_eval = time.time()  # last
+            if self.eval_interval_mode == "time":
+                if _time - self.eval0 > self._eval_interval:
+                    self._log_eval(context, state)
+                    self.eval0 = time.time()  # last
+            elif self.eval_interval_mode == "step":
+                self.eval0 += 1
+                if self.eval0 >= self._eval_interval:
+                    self._log_eval(context, state)
+                    self.eval0 = 0  # last
+            else:
+                raise UndefinedError(self.eval_interval_mode)
 
         if _time - self.t0_checkpoint > self.checkpoint_interval:
             self._log_checkpoint(context, state)
@@ -286,7 +315,13 @@ class MLFlowCallback(RunCallback, Evaluate):
             return
 
         if init:
-            self._eval_interval = 0 if self.eval_interval < 0 else self.eval_interval
+            if self.eval_interval_mode == "time":
+                self._eval_interval = 0 if self.eval_interval < 0 else self.eval_interval
+            elif self.eval_interval_mode == "step":
+                assert self.eval_interval > 0
+                self._eval_interval = self.eval_interval
+            else:
+                raise UndefinedError(self.interval_mode)
 
         t0 = time.time()
         eval_rewards = self.run_eval_with_state(context, state)
@@ -336,7 +371,7 @@ class MLFlowCallback(RunCallback, Evaluate):
             return None
 
         if run_name != "":
-            runs = mlflow.search_runs(
+            runs: Any = mlflow.search_runs(
                 [experiment_id],
                 filter_string=f"tags.mlflow.runName = '{run_name}'",
                 order_by=["start_time ASC"],
@@ -401,6 +436,7 @@ class MLFlowCallback(RunCallback, Evaluate):
             cls.load_parameter(run_id, file, runner.make_parameter())
             render = runner._run_render(enable_progress=False, **render_kwargs)
             html = render.to_jshtml()
+            assert runner.state is not None
             rewards = runner.state.last_episode_rewards
             fn = file[: -len("model.dat")] + f"{rewards}.html"
             mlflow.log_text(html, fn, run_id=run_id)

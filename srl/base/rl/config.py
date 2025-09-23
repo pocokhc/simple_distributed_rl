@@ -19,6 +19,7 @@ from srl.base.define import (
 )
 from srl.base.env.env_run import EnvRun
 from srl.base.exception import NotSupportedError
+from srl.base.spaces.any_space import AnySpace
 from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.multi import MultiSpace
 from srl.base.spaces.space import SpaceBase, SpaceEncodeOptions, TActSpace, TObsSpace
@@ -115,6 +116,9 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         self.__applied_processors: List[RLProcessor] = []
         self.__applied_render_img_processors: List[RLProcessor] = []
         self.__request_env_render: RenderModeType = ""
+
+        self.__rl_act_space = AnySpace()
+        self.__rl_obs_space = AnySpace()
 
         self.__changeable_parameter_names_base = [
             "parameter_path",
@@ -522,6 +526,16 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     @property
     def action_space_of_env(self) -> SpaceBase:
         return self.__env_act_space
+
+    def set_action_space(self, space: SpaceBase):
+        # action_spaceをセットする、主にregister時に使用
+        self.__rl_act_space = space
+        return self
+
+    def set_observation_space(self, space: SpaceBase):
+        # observation_spaceをセットする、主にregister時に使用
+        self.__rl_obs_space = space
+        return self
 
     def __setattr__(self, name: str, value):
         if name == "__is_setup":

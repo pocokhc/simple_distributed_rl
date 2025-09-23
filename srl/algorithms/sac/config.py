@@ -4,7 +4,7 @@ from typing import List
 from srl.base.rl.algorithms.base_ppo import RLConfig
 from srl.base.rl.processor import RLProcessor
 from srl.base.spaces.space import SpaceBase
-from srl.rl.memories.replay_buffer import ReplayBufferConfig
+from srl.rl.memories.replay_buffer import ReplayBufferConfig, RLReplayBuffer
 from srl.rl.models.config.hidden_block import HiddenBlockConfig
 from srl.rl.models.config.input_block import InputBlockConfig
 from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
@@ -32,9 +32,9 @@ class Config(RLConfig):
     #: <:ref:`InputBlockConfig`>
     input_block: InputBlockConfig = field(default_factory=lambda: InputBlockConfig())
     #: <:ref:`HiddenBlockConfig`> policy layer
-    policy_hidden_block: HiddenBlockConfig = field(init=False, default_factory=lambda: HiddenBlockConfig().set((64, 64, 64)))
+    policy_block: HiddenBlockConfig = field(init=False, default_factory=lambda: HiddenBlockConfig().set((64, 64, 64)))
     #: <:ref:`HiddenBlockConfig`>
-    q_hidden_block: HiddenBlockConfig = field(init=False, default_factory=lambda: HiddenBlockConfig().set((128, 128, 128)))
+    q_block: HiddenBlockConfig = field(init=False, default_factory=lambda: HiddenBlockConfig().set((128, 128, 128)))
 
     #: Batch size
     batch_size: int = 32
@@ -60,7 +60,7 @@ class Config(RLConfig):
     #: hard_target_update_interval
     hard_target_update_interval: int = 10000
     #: actionが連続値の時、正規分布をtanhで-1～1に丸めるか
-    enable_normal_squashed: bool = True
+    squashed_gaussian_policy: bool = True
 
     start_steps: int = 10000
     #: entropy alphaを自動調整するか
@@ -74,10 +74,17 @@ class Config(RLConfig):
     stable_gradients_scale_range: tuple = (1e-10, 10)
 
     def get_name(self) -> str:
-        return "SAC"
+        if self.action_space.is_discrete():
+            return "SAC_Discrete"
+        else:
+            return "SAC_Continuous"
 
     def get_framework(self) -> str:
         return "tensorflow"
 
     def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
         return self.input_block.get_processors(prev_observation_space)
+
+
+class Memory(RLReplayBuffer):
+    pass

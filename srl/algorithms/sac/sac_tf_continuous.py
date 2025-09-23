@@ -1,51 +1,38 @@
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from srl.base.exception import UndefinedError
-from srl.base.rl.algorithms.base_ppo import RLWorker
+from srl.base.rl.algorithms.base_continuous import RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.trainer import RLTrainer
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.np_array import NpArraySpace
-from srl.rl.memories.replay_buffer import RLReplayBuffer
 from srl.rl.tf import helper as helper_tf
-from srl.rl.tf.distributions.categorical_gumbel_dist_block import CategoricalGumbelDistBlock
 from srl.rl.tf.distributions.normal_dist_block import NormalDistBlock
 from srl.rl.tf.model import KerasModelAddedSummary
 
-from .config import Config
+from .config import Config, Memory
 
 kl = keras.layers
-
-
-class Memory(RLReplayBuffer):
-    pass
 
 
 class PolicyNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
         self.config = config
+        act_space = cast(NpArraySpace, self.config.action_space)
 
         self.in_block = config.input_block.create_tf_block(config)
-        self.hidden_block = config.policy_hidden_block.create_tf_block()
+        self.hidden_block = config.policy_block.create_tf_block()
 
         # out
-        if isinstance(config.action_space, DiscreteSpace):
-            # self.policy_dist_block = CategoricalDistBlock(config.action_space.n)
-            self.policy_dist_block = CategoricalGumbelDistBlock(config.action_space.n)
-        elif isinstance(config.action_space, NpArraySpace):
-            self.policy_dist_block = NormalDistBlock(
-                config.action_space.size,
-                enable_squashed=self.config.enable_normal_squashed,
-                enable_stable_gradients=self.config.enable_stable_gradients,
-                stable_gradients_scale_range=self.config.stable_gradients_scale_range,
-            )
-        else:
-            raise UndefinedError(self.config.action_space)
+        self.policy_dist_block = NormalDistBlock(
+            act_space.size,
+            enable_stable_gradients=self.config.enable_stable_gradients,
+            stable_gradients_scale_range=self.config.stable_gradients_scale_range,
+        )
 
         # build
         self(config.input_block.create_tf_dummy_data(config))
@@ -59,12 +46,14 @@ class PolicyNetwork(KerasModelAddedSummary):
     def compute_train_loss(self, state, q1_model, q2_model, alpha):
         p_dist = self(state, training=True)
 
-        if isinstance(self.config.action_space, DiscreteSpace):
-            action = p_dist.rsample()
-            entropy = p_dist.entropy()
+        if self.config.squashed_gaussian_policy:
+            raw_action = p_dist.rsample()
+            logpi = p_dist.log_prob_sgp(raw_action)
+            action = tf.tanh(raw_action)
         else:
-            action, logpi = p_dist.rsample_logprob()
-            entropy = -logpi
+            action = p_dist.rsample()
+            logpi = p_dist.log_prob(action)
+        entropy = -logpi
 
         # Q値を出力、小さいほうを使う
         q1 = q1_model([state, action])
@@ -73,6 +62,7 @@ class PolicyNetwork(KerasModelAddedSummary):
 
         policy_loss = q_min + alpha * entropy
         policy_loss = -tf.reduce_mean(policy_loss)
+
         policy_loss += tf.reduce_sum(self.losses)  # 正則化項
         return policy_loss, entropy
 
@@ -80,37 +70,34 @@ class PolicyNetwork(KerasModelAddedSummary):
 class QNetwork(KerasModelAddedSummary):
     def __init__(self, config: Config):
         super().__init__()
+        act_space = cast(NpArraySpace, config.action_space)
 
         self.in_block = config.input_block.create_tf_block(config)
-        self.q_block = config.q_hidden_block.create_tf_block()
+        self.q_block = config.q_block.create_tf_block()
         self.q_out_layer = kl.Dense(1)
 
         # build
-        if isinstance(config.action_space, DiscreteSpace):
-            act_shape = (config.action_space.n,)
-        else:
-            act_shape = (config.action_space.size,)
         self(
             [
                 config.input_block.create_tf_dummy_data(config),
-                np.zeros((1,) + act_shape),
+                np.zeros((1, act_space.size)),
             ]
         )
 
     def call(self, x, training=False):
         state = x[0]
-        onehot_action = x[1]
+        action = x[1]
 
         state = self.in_block(state, training=training)
-        x = tf.concat([state, onehot_action], axis=1)
+        x = tf.concat([state, action], axis=1)
 
         x = self.q_block(x, training=training)
         x = self.q_out_layer(x, training=training)
         return x
 
     @tf.function
-    def compute_train_loss(self, state, onehot_action, target_q):
-        q = self([state, onehot_action], training=True)
+    def compute_train_loss(self, state, action, target_q):
+        q = self([state, action], training=True)
         loss = tf.reduce_mean(tf.square(target_q - q))
         loss += tf.reduce_sum(self.losses)  # 正則化項
         return loss
@@ -173,7 +160,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         if batches is None:
             return
 
-        (state, action, n_state, reward, done) = zip(*batches)
+        state, action, n_state, reward, done = zip(*batches)
         state = np.asarray(state, dtype=self.np_dtype)
         action = np.asarray(action, dtype=self.np_dtype)
         n_state = np.asarray(n_state, dtype=self.np_dtype)
@@ -190,18 +177,21 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 
         # ポリシーより次の状態のアクションを取得し、次の状態のアクションlogpiを取得
         n_p_dist = self.parameter.policy(n_state)
-        if isinstance(self.config.action_space, DiscreteSpace):
-            n_action = n_p_dist.sample(onehot=True)
-            n_entropy = n_p_dist.entropy()
+        if self.config.squashed_gaussian_policy:
+            n_raw_action = n_p_dist.rsample()
+            n_logpi = n_p_dist.log_prob_sgp(n_raw_action)
+            n_action = tf.tanh(n_raw_action)
         else:
-            n_action, n_logpi = n_p_dist.rsample_logprob()
-            n_entropy = -n_logpi
+            n_action = n_p_dist.rsample()
+            n_logpi = n_p_dist.log_prob(n_action)
+        n_entropy = -n_logpi
 
         # 2つのQ値から小さいほうを採用(Clipped Double Q learning)
         n_q1 = self.parameter.q1_target([n_state, n_action])
         n_q2 = self.parameter.q2_target([n_state, n_action])
-        n_qval = tf.minimum(n_q1, n_q2)
-        target_q = reward + (1 - done) * self.config.discount * (n_qval + alpha * n_entropy)
+        n_q_min = tf.minimum(n_q1, n_q2)
+
+        target_q = reward + (1 - done) * self.config.discount * (n_q_min + alpha * n_entropy)
 
         # --- Qモデルの学習
         self.parameter.q1_online.trainable = True
@@ -240,7 +230,7 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
                 entropy_diff = entropy - self.target_entropy
                 log_alpha_loss = tf.reduce_mean(tf.exp(self.parameter.log_alpha) * entropy_diff)
             grad = tape.gradient(log_alpha_loss, self.parameter.log_alpha)
-            self.alpha_optimizer.apply_gradients([(grad, self.parameter.log_alpha)])
+            self.alpha_optimizer.apply_gradients([(grad, self.parameter.log_alpha)])  # type: ignore
             self.info["alpha_loss"] = log_alpha_loss.numpy()
             self.info["alpha"] = alpha
 
@@ -257,81 +247,52 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 
 class Worker(RLWorker[Config, Parameter, Memory]):
     def policy(self, worker):
+        act_space = cast(NpArraySpace, self.config.action_space)
+
         if self.training and self.step_in_training < self.config.start_steps:
             env_action = self.sample_action()
             self.action = env_action
-            if isinstance(self.config.action_space, DiscreteSpace):
-                self.action = worker.get_onehot_action(env_action)
             return env_action
 
         p_dist = self.parameter.policy(worker.state[np.newaxis, ...])
-        if isinstance(self.config.action_space, DiscreteSpace):
-            env_action = int(p_dist.sample().numpy()[0])
-            self.action = worker.get_onehot_action(env_action)
-            if self.rendering:
-                self.probs = p_dist.probs().numpy()[0]
-        elif isinstance(self.config.action_space, NpArraySpace):
-            act_space = self.config.action_space
-            self.action, env_action = p_dist.policy(act_space.low, act_space.high, self.training)
-            self.action = self.action.numpy()[0]
-            env_action = env_action.numpy()[0]
+        if self.training:
+            self.action = p_dist.sample()
         else:
-            raise UndefinedError(self.config.action_space)
+            self.action = p_dist.mean()
+        self.action = self.action.numpy()[0]
+
+        if self.config.squashed_gaussian_policy:
+            self.action = np.tanh(self.action)
+            env_action = act_space.rescale_from(self.action, src_low=-1, src_high=1)
+        else:
+            env_action = act_space.rescale_from(self.action)
+            env_action = act_space.sanitize(env_action)
 
         return env_action
 
     def on_step(self, worker):
         if not self.training:
             return
-
-        """
-        [
-            state,
-            action,
-            n_state,
-            reward,
-            done,
-        ]
-        """
         self.memory.add(
             [
-                worker.state,
-                self.action,
-                worker.next_state,
-                worker.reward,
-                worker.done,
+                worker.state,  # state
+                self.action,  # action
+                worker.next_state,  # next state
+                worker.reward,  # reward
+                worker.terminated,  # terminate
             ]
         )
 
     def render_terminal(self, worker, **kwargs) -> None:
-        # policy -> render -> env.step
         state = worker.state[np.newaxis, ...]
-        if isinstance(self.config.action_space, DiscreteSpace):
-            maxa = np.argmax(self.probs)
 
-            def _render_sub(a: int) -> str:
-                onehot_a = np.identity(self.config.action_space.n, dtype=np.float32)[a][np.newaxis, ...]
-                q1 = self.parameter.q1_online([state, onehot_a])
-                q2 = self.parameter.q2_online([state, onehot_a])
-                q1 = q1.numpy()[0][0]
-                q2 = q2.numpy()[0][0]
-
-                s = f"{self.probs[a] * 100:5.1f}%, q1 {q1:.5f}, q2 {q2:.5f} "
-                return s
-
-            worker.print_discrete_action_info(int(maxa), _render_sub)
-
-        elif isinstance(self.config.action_space, NpArraySpace):
-            dist = self.parameter.policy(state)
-            print(f"action: {self.action}")
-            print(f"mean  : {dist.mean().numpy()[0][0]}")
-            print(f"stddev: {dist.stddev().numpy()[0][0]}")
-            q1 = self.parameter.q1_online([state, self.action[np.newaxis, ...]])
-            q2 = self.parameter.q2_online([state, self.action[np.newaxis, ...]])
-            q1 = q1.numpy()[0][0]
-            q2 = q2.numpy()[0][0]
-            print(f"q1 {q1:8.5f}")
-            print(f"q2 {q2:8.5f}")
-
-        else:
-            raise UndefinedError(self.config.action_space)
+        dist = self.parameter.policy(state)
+        print(f"action: {self.action}")
+        print(f"mean  : {dist.mean().numpy()[0][0]}")
+        print(f"stddev: {dist.stddev().numpy()[0][0]}")
+        q1 = self.parameter.q1_online([state, self.action[np.newaxis, ...]])
+        q2 = self.parameter.q2_online([state, self.action[np.newaxis, ...]])
+        q1 = q1.numpy()[0][0]
+        q2 = q2.numpy()[0][0]
+        print(f"q1 {q1:8.5f}")
+        print(f"q2 {q2:8.5f}")

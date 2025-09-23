@@ -11,10 +11,9 @@ from tests.algorithms_.common_quick_case import CommonQuickCase
 class QuickCase(CommonQuickCase):
     @pytest.fixture(
         params=[
-            dict(override_action_type=RLBaseTypes.DISCRETE, entropy_bonus_exclude_q=False),
-            dict(override_action_type=RLBaseTypes.DISCRETE, entropy_bonus_exclude_q=True),
-            dict(override_action_type=RLBaseTypes.NP_ARRAY, enable_normal_squashed=False),
-            dict(override_action_type=RLBaseTypes.NP_ARRAY, enable_normal_squashed=True),
+            dict(override_action_type=RLBaseTypes.DISCRETE),
+            dict(override_action_type=RLBaseTypes.NP_ARRAY, squashed_gaussian_policy=False),
+            dict(override_action_type=RLBaseTypes.NP_ARRAY, squashed_gaussian_policy=True),
         ]
     )
     def rl_param(self, request):
@@ -26,8 +25,7 @@ class QuickCase(CommonQuickCase):
         rl_config = sac.Config()
         rl_config.memory.warmup_size = 2
         rl_config.batch_size = 2
-        rl_config.entropy_bonus_exclude_q = rl_param.get("entropy_bonus_exclude_q", True)
-        rl_config.enable_normal_squashed = rl_param.get("enable_normal_squashed", True)
+        rl_config.squashed_gaussian_policy = rl_param.get("squashed_gaussian_policy", True)
         rl_config.override_action_type = rl_param["override_action_type"]
 
         return rl_config, {}
@@ -52,8 +50,8 @@ class LongCase(CommonLongCase):
         rl_config.lr_q = 0.001
         rl_config.memory.capacity = 10000
         rl_config.memory.warmup_size = 1000
-        rl_config.policy_hidden_block.set((32, 32, 32))
-        rl_config.q_hidden_block.set((32, 32, 32))
+        rl_config.policy_block.set((32, 32, 32))
+        rl_config.q_block.set((32, 32, 32))
         rl_config.entropy_alpha = 0.1
         rl_config.entropy_alpha_auto_scale = False
 
@@ -70,8 +68,8 @@ class LongCase(CommonLongCase):
         rl_config.lr_q = 0.003
         rl_config.memory.capacity = 10000
         rl_config.memory.warmup_size = 1000
-        rl_config.policy_hidden_block.set((64, 64, 64))
-        rl_config.q_hidden_block.set((128, 128, 128))
+        rl_config.policy_block.set((64, 64, 64))
+        rl_config.q_block.set((128, 128, 128))
 
         runner.train(max_train_count=200 * 30)
         assert runner.evaluate_compare_to_baseline_single_player()

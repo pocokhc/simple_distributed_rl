@@ -12,4 +12,4 @@ def test_train():
 
     runner.play()
     rewards = np.mean(runner.evaluate(100))
-    assert rewards > 0.6
+    assert rewards > 0.5

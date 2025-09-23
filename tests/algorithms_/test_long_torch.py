@@ -14,6 +14,7 @@ from tests.algorithms_ import (
     base_muzero,
     base_planet,
     base_ppo,
+    base_ppo_v,
     base_r2d2,
     base_rainbow,
     base_sac,
@@ -54,3 +55,8 @@ class Test_godq_v1(_CommonOption, base_godq_v1.LongCase):
 
 class Test_godq_v1_lstm(_CommonOption, base_godq_v1_lstm.LongCase):
     pass
+
+
+class Test_ppo_v(_CommonOption, base_ppo_v.LongCase):
+    pass
+

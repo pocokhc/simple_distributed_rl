@@ -47,11 +47,11 @@ class CategoricalDist:
     def rsample(self):
         a = self._dist.sample()
         a = torch.nn.functional.one_hot(a, num_classes=self.classes).float()
-        probs = self.probs()
+        probs = torch.clamp(self.probs(), 1e-8, 1.0 - 1e-8)
         return (a - probs).detach() + probs
 
     def log_probs(self):
-        return torch.log(self._dist.probs)
+        return torch.log(torch.clamp(self._dist.probs, 10e-8, 1))
 
     def log_prob(self, a: torch.Tensor, onehot: bool = False, keepdims: bool = True, **kwargs):
         if onehot:

@@ -118,7 +118,7 @@ class NormalDistBlock(nn.Module):
                 in_size = size
             self.log_scale_layers.append(nn.Linear(in_size, out_size))
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> NormalDist:
         for layer in self.h_layers:
             x = layer(x)
 
@@ -129,7 +129,7 @@ class NormalDistBlock(nn.Module):
 
         # --- scale
         if self.fixed_log_scale is not None:
-            log_scale = torch.ones_like(loc) * self.fixed_log_scale
+            log_scale = torch.ones_like(loc) * torch.tensor(self.fixed_log_scale, dtype=loc.dtype, device=loc.device)
         else:
             log_scale = x
             for layer in self.log_scale_layers:
@@ -144,7 +144,7 @@ class NormalDistBlock(nn.Module):
 
         return NormalDist(loc, log_scale)
 
-    def compute_train_loss(self, x, y):
+    def compute_train_loss(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         dist = self(x)
 
         # 対数尤度の最大化

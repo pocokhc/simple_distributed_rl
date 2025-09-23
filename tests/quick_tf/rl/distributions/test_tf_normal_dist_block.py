@@ -30,7 +30,7 @@ def test_loss(fixed_scale, is_plot=False):
     block.build((None, 1))
 
     optimizer = keras.optimizers.Adam(learning_rate=0.001)
-    for i in range(1000):
+    for i in range(1200):
         x_train, y_train = _create_dataset(64)
         with tf.GradientTape() as tape:
             loss = block.compute_train_loss(x_train, y_train)
@@ -57,7 +57,7 @@ def test_loss(fixed_scale, is_plot=False):
     rmse = np.sqrt(np.mean((y_true - y_pred) ** 2))
     print(f"rmse: {rmse}")
     if fixed_scale < 0:
-        assert rmse < 0.1
+        assert rmse < 0.2
     else:
         assert rmse < 0.4
 

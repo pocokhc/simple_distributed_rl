@@ -50,6 +50,12 @@ class AnySpace(SpaceBase[Any]):
     def dtype(self):
         raise NotSupportedError()
 
+    def is_discrete(self) -> bool:
+        return False
+
+    def is_continuous(self) -> bool:
+        return False
+
     # --- stack
     def create_stack_space(self, length: int):
         from srl.base.spaces.multi import MultiSpace

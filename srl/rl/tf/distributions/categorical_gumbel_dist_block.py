@@ -40,9 +40,9 @@ class CategoricalGumbelDist:
             topk = tf.one_hot(topk, depth=self.classes)
         return topk
 
-    def sample(self, *, onehot: bool = False, **kwargs):
+    def sample(self, temperature: float = 1, onehot: bool = False, **kwargs):
         noise = tf.random.uniform(tf.shape(self.logits), 1e-6, 1.0)
-        logits = self.logits + gumbel_inverse(noise)
+        logits = (self.logits + gumbel_inverse(noise)) / temperature
         act = tf.argmax(logits, axis=-1)
         if onehot:
             return tf.one_hot(act, self.classes)
@@ -51,12 +51,12 @@ class CategoricalGumbelDist:
 
     def rsample(self, temperature: float = 1, **kwargs):
         # Gumbel-Max trick
-        rnd = tf.random.uniform(tf.shape(self.logits), minval=1e-10, maxval=1.0)
+        rnd = tf.random.uniform(tf.shape(self.logits))
         logits = self.logits + gumbel_inverse(rnd)
-        return tf.nn.softmax(logits / temperature)
+        return tf.nn.softmax(logits / temperature, axis=-1)
 
     def log_probs(self, temperature: float = 1, **kwargs):
-        probs = self.probs(temperature)
+        probs = tf.nn.softmax(self.logits / temperature, axis=-1)
         probs = tf.clip_by_value(probs, 1e-10, 1)  # log(0)回避用
         return tf.math.log(probs)
 
@@ -70,17 +70,16 @@ class CategoricalGumbelDist:
             log_prob = tf.expand_dims(log_prob, axis=-1)
         return log_prob
 
-    def entropy(self, temperature: float = 1, **kwargs):
-        probs = self.probs()
-        log_probs = tf.math.log(probs)
-        return -tf.reduce_sum(probs * log_probs, axis=-1)
+    def entropy(self, temperature: float = 1, keepdims: bool = False, **kwargs):
+        probs = tf.nn.softmax(self.logits / temperature, axis=-1)
+        log_probs = tf.math.log(tf.clip_by_value(probs, 1e-8, 1.0))
+        return -tf.reduce_sum(probs * log_probs, axis=-1, keepdims=keepdims)
 
     @tf.function
     def compute_train_loss(self, y):
         # クロスエントロピーの最小化
         # -Σ p * log(q)
-        loss = -tf.reduce_sum(y * self.log_probs(), axis=-1)
-        return loss
+        return -tf.reduce_sum(y * self.log_probs(), axis=-1)
 
 
 class CategoricalGumbelDistBlock(keras.Model):
@@ -105,6 +104,6 @@ class CategoricalGumbelDistBlock(keras.Model):
         return CategoricalGumbelDist(self.out_layer(x))
 
     @tf.function
-    def compute_train_loss(self, x, y, temperature: float = 1):
+    def compute_train_loss(self, x, y):
         dist = self(x, training=True)
         return tf.reduce_mean(dist.compute_train_loss(y))

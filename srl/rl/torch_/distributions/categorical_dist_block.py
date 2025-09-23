@@ -2,6 +2,7 @@ from typing import Tuple, cast
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from srl.rl.torch_.converter import convert_activation_torch
 
@@ -35,7 +36,7 @@ class CategoricalDist:
     def probs(self):
         return cast(torch.Tensor, self._dist.probs)
 
-    def sample(self, onehot: bool = False):
+    def sample(self, onehot: bool = True):
         a = self._dist.sample()
         if onehot:
             a = torch.nn.functional.one_hot(a, num_classes=self.classes).float()
@@ -43,24 +44,28 @@ class CategoricalDist:
             a = torch.unsqueeze(a, -1)
         return a
 
-    def rsample(self, onehot: bool = True):
+    def rsample(self):
         a = self._dist.sample()
-        if onehot:
-            a = torch.nn.functional.one_hot(a, num_classes=self.classes).float()
-        else:
-            a = torch.unsqueeze(a, -1)
+        a = torch.nn.functional.one_hot(a, num_classes=self.classes).float()
         probs = self.probs()
         return (a - probs).detach() + probs
 
     def log_probs(self):
         return torch.log(self._dist.probs)
 
-    def log_prob(self, a, onehot: bool = False):
+    def log_prob(self, a: torch.Tensor, onehot: bool = False, keepdims: bool = True, **kwargs):
         if onehot:
-            a = torch.squeeze(a, dim=-1)
-            a = torch.nn.functional.one_hot(a, self.classes).float()
-        a = torch.sum(self.log_probs() * a, dim=-1, keepdim=True)
-        return a
+            if a.ndim == 2:  # (batch, 1) の場合 squeeze
+                a = a.squeeze(1)
+            a = F.one_hot(a, num_classes=self.classes).to(self._logits.dtype)
+
+        log_probs = self.log_probs()  # (batch, classes)
+        log_prob = torch.sum(log_probs * a, dim=-1)  # (batch,)
+
+        if keepdims:
+            log_prob = log_prob.unsqueeze(-1)  # (batch, 1)
+
+        return log_prob
 
     def entropy(self):
         return torch.unsqueeze(self._dist.entropy(), dim=-1)

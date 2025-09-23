@@ -14,6 +14,7 @@ from tests.algorithms_ import (
     base_muzero,
     base_planet,
     base_ppo,
+    base_ppo_v,
     base_r2d2,
     base_rainbow,
     base_sac,
@@ -57,3 +58,8 @@ class Test_godq_v1(_CommonOption, base_godq_v1.QuickCase):
 
 class Test_godq_v1_lstm(_CommonOption, base_godq_v1_lstm.QuickCase):
     pass
+
+
+class Test_ppo_v(_CommonOption, base_ppo_v.QuickCase):
+    pass
+

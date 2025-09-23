@@ -61,7 +61,7 @@ class NpArraySpace(SpaceBase[np.ndarray]):
     def flatten_size(self) -> int:
         return self._size
 
-    def rescale_from(self, x: np.ndarray, src_low: float, src_high: float) -> np.ndarray:
+    def rescale_from(self, x: Any, src_low: float = -1, src_high: float = 1) -> Any:
         assert src_low < src_high
         x = ((x - src_low) / (src_high - src_low)) * (self._high - self._low) + self._low
         return x

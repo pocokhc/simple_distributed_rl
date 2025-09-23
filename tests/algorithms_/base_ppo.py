@@ -36,6 +36,15 @@ class QuickCase(CommonQuickCase):
 
         return rl_config, {}
 
+    def test_simple_rollout_train(self, rl_param, tmpdir):
+        pytest.skip("not support")
+
+    def test_simple_mp_memory(self, rl_param, tmpdir):
+        pytest.skip("not support")
+
+    def test_simple_mp(self, rl_param, tmpdir):
+        pytest.skip("not support")
+
 
 class LongCase(CommonLongCase):
     def _create_rl_config(self):

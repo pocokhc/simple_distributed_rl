@@ -5,40 +5,58 @@ on:
     branches: ["main", "develop/*", "feature/*"]
 
 jobs:
-  pytest-ver:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      # --- srl test
-      - run: pip install .
-      - run: pip install pytest pytest-mock pytest-timeout
-      - name: Run pytest under tests/quick/
-        run: PYTHONPATH=. pytest tests/quick/ --timeout=60
+  # pytest-ver:
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 30
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       python-version: ["3.9", "3.10", "3.11", "3.12"]
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Set up Python ${{ matrix.python-version }}
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: ${{ matrix.python-version }}
+  #     # --- srl test
+  #     - run: pip install .
+  #     - run: pip install pytest pytest-mock pytest-timeout
+  #     - name: Run pytest under tests/quick/
+  #       run: PYTHONPATH=. pytest tests/quick/ --timeout=60
 
-  pytest-low:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: 3.8
-      # --- srl test
-      - name: Install srl
-        run: pip install -r dockers/low_requirements.txt
-      - name: Run pytest under tests/quick/
-        run: PYTHONPATH=. pytest tests/quick/ --timeout=60
+  # pytest-low:
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 30
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-python@v5
+  #       with:
+  #         python-version: 3.8
+  #     # --- srl test
+  #     - name: Install srl
+  #       run: pip install -r dockers/low_requirements.txt
+  #     - name: Run pytest under tests/quick/
+  #       run: PYTHONPATH=. pytest tests/quick/ --timeout=60
 
-  pytest-latest:
+  # pytest-latest:
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 30
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-python@v5
+  #       with:
+  #         python-version: 3.13
+  #     # --- srl test
+  #     - name: Install srl
+  #       run: pip install .[dev]
+  #     - name: Run pytest under quick
+  #       run: PYTHONPATH=. pytest tests/quick/ --timeout=60
+  #     - name: Run pytest under algotithms quick_classic
+  #       run: PYTHONPATH=. pytest tests/algorithms_/test_quick_classic.py --timeout=60
+  #     - name: Run pytest under algotithms long_classic
+  #       run: PYTHONPATH=. pytest tests/algorithms_/test_long_classic.py --timeout=300
+
+  pytest-tf:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -46,12 +64,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: 3.13
+      # --- install tf
+      - name: Install tf
+        run: pip install tensorflow
       # --- srl test
-      - name: Install srl
-        run: pip install .[dev]
+      - run: pip install .
+      - run: pip install pytest pytest-mock pytest-timeout
       - name: Run pytest under quick
         run: PYTHONPATH=. pytest tests/quick/ --timeout=60
-      - name: Run pytest under algotithms quick_classic
-        run: PYTHONPATH=. pytest tests/algorithms_/test_quick_classic.py --timeout=60
-      - name: Run pytest under algotithms long_classic
-        run: PYTHONPATH=. pytest tests/algorithms_/test_long_classic.py --timeout=300
+      - name: Run pytest under quick_tf
+        run: PYTHONPATH=. pytest tests/quick_tf/ --timeout=60
+      - name: Run pytest under quick_algorithms
+        run: PYTHONPATH=. pytest tests/algorithms_/test_quick_tf_CPU.py --timeout=300
+

@@ -59,10 +59,14 @@ jobs:
   pytest-tf:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    container:
-      image: “tensorflow/tensorflow:2.20.0”
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.13
+      # --- install tf
+      - name: Install tf
+        run: pip install tensorflow
       # --- srl test
       - name: Install srl
         run: pip install .[dev]

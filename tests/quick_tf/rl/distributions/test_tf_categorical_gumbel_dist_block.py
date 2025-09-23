@@ -92,5 +92,5 @@ def test_loss_grad():
 
 
 if __name__ == "__main__":
-    test_loss(False)
+    test_loss()
     # test_loss_grad()

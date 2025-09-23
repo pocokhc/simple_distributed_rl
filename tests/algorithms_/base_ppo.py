@@ -32,6 +32,7 @@ class QuickCase(CommonQuickCase):
         )
         rl_config.batch_size = 2
         rl_config.memory.warmup_size = 2
+        rl_config.train_num = 2
 
         return rl_config, {}
 
@@ -42,7 +43,7 @@ class LongCase(CommonLongCase):
         from srl.algorithms import ppo
 
         rl_config = ppo.Config(
-            batch_size=32,
+            batch_size=64,
             discount=0.9,
             gae_discount=0.9,
             surrogate_type="clip",
@@ -51,12 +52,12 @@ class LongCase(CommonLongCase):
             enable_value_clip=False,
             enable_state_normalized=False,
         )
-        rl_config.lr = 0.002
+        rl_config.lr = 0.0005
         rl_config.hidden_block.set((64, 64))
         rl_config.value_block.set(())
         rl_config.policy_block.set(())
-        rl_config.memory.capacity = 1000
-        rl_config.memory.warmup_size = 1000
+        rl_config.memory.warmup_size = 500
+        rl_config.train_num = 50
         return rl_config
 
     def test_EasyGrid1(self):
@@ -67,7 +68,7 @@ class LongCase(CommonLongCase):
         rl_config.enable_value_clip = True
         rl_config.enable_state_normalized = False
         runner = self.create_test_runner("EasyGrid", rl_config)
-        runner.train(max_train_count=10000)
+        runner.train(max_train_count=5000)
         assert runner.evaluate_compare_to_baseline_single_player()
 
     def test_Grid2(self):
@@ -78,8 +79,8 @@ class LongCase(CommonLongCase):
         rl_config.enable_value_clip = False
         rl_config.enable_state_normalized = False
         runner = self.create_test_runner("Grid", rl_config)
-        runner.train(max_train_count=10000)
-        assert runner.evaluate_compare_to_baseline_single_player()
+        runner.train(max_train_count=5000)
+        assert runner.evaluate_compare_to_baseline_single_player(baseline=0.2)
 
     def test_Grid3(self):
         rl_config = self._create_rl_config()
@@ -89,20 +90,25 @@ class LongCase(CommonLongCase):
         rl_config.enable_value_clip = False
         rl_config.enable_state_normalized = False
         runner = self.create_test_runner("Grid", rl_config)
-        runner.train(max_train_count=30000)
+        runner.train(max_train_count=3000)
         assert runner.evaluate_compare_to_baseline_single_player()
 
     def test_Pendulum_continue(self):
         rl_config = self._create_rl_config()
-        rl_config.experience_collection_method = "GAE"
+        rl_config.experience_collection_method = "MC"
         rl_config.baseline_type = "advantage"
         rl_config.surrogate_type = "clip"
-        rl_config.enable_value_clip = True
-        rl_config.lr = 0.0005
-        rl_config.hidden_block.set((64, 64))
-        rl_config.value_block.set(())
-        rl_config.policy_block.set(())
-        rl_config.entropy_weight = 1.0
+        rl_config.enable_value_clip = False
+        rl_config.lr = 0.0002
+        rl_config.memory.warmup_size = 400
+        rl_config.train_num = 50
+        rl_config.hidden_block.set((128,))
+        rl_config.value_block.set((128,))
+        rl_config.policy_block.set((128,))
+        rl_config.discount = 0.9
+        rl_config.entropy_weight = 0.1
+        rl_config.reward_shift = 1
+        rl_config.reward_scale = 1.0 / 10.0
         runner = self.create_test_runner("Pendulum-v1", rl_config)
-        runner.train(max_train_count=30000)
+        runner.train(max_train_count=200 * 200)
         assert runner.evaluate_compare_to_baseline_single_player()

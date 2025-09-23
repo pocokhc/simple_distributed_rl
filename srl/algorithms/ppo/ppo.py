@@ -1,4 +1,5 @@
 import logging
+import math
 from typing import Any
 
 import numpy as np
@@ -7,11 +8,12 @@ from tensorflow import keras
 
 from srl.base.exception import UndefinedError
 from srl.base.rl.algorithms.base_ppo import RLWorker
+from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.trainer import RLTrainer
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.np_array import NpArraySpace
-from srl.rl.memories.replay_buffer import RLReplayBuffer
+from srl.rl.memories.replay_buffer import ReplayBuffer
 from srl.rl.tf import functions as tf_funcs
 from srl.rl.tf.distributions.categorical_dist_block import CategoricalDistBlock
 from srl.rl.tf.distributions.normal_dist_block import NormalDistBlock
@@ -24,8 +26,31 @@ logger = logging.getLogger(__name__)
 kl = keras.layers
 
 
-class Memory(RLReplayBuffer):
-    pass
+class Memory(RLMemory[Config]):
+    def setup(self):
+        self.memory = ReplayBuffer(
+            batch_size=self.config.batch_size,
+            capacity=self.config.memory.warmup_size + 100,
+            warmup_size=self.config.memory.warmup_size,
+            compress=self.config.memory.compress,
+            compress_level=self.config.memory.compress_level,
+        )
+
+        self.register_worker_func_custom(self.add, self.memory.serialize)
+        self.register_trainer_recv_func(self.sample)
+        self.register_trainer_send_func(self.clear)
+
+    def length(self) -> int:
+        return self.memory.length()
+
+    def add(self, batch: Any, serialized: bool = False) -> None:
+        self.memory.add(batch, serialized)
+
+    def sample(self):
+        return self.memory.sample()
+
+    def clear(self):
+        self.memory.clear()
 
 
 class ActorCriticNetwork(KerasModelAddedSummary):
@@ -52,7 +77,6 @@ class ActorCriticNetwork(KerasModelAddedSummary):
         elif isinstance(config.action_space, NpArraySpace):
             self.policy_dist_block = NormalDistBlock(
                 config.action_space.size,
-                enable_squashed=False,
                 enable_stable_gradients=self.config.enable_stable_gradients,
                 stable_gradients_scale_range=self.config.stable_gradients_scale_range,
             )
@@ -99,7 +123,7 @@ class ActorCriticNetwork(KerasModelAddedSummary):
 
         # --- policy
         kl = 0
-        ratio = tf.exp(tf.clip_by_value(new_logpi - old_logpi, -10, 10))
+        ratio = tf.exp(new_logpi - old_logpi)
         if self.config.surrogate_type == "clip":
             # Clipped Surrogate Objective
             ratio_clipped = tf.clip_by_value(ratio, 1 - self.config.policy_clip_range, 1 + self.config.policy_clip_range)
@@ -176,6 +200,16 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         if batches is None:
             return
 
+        f = False
+        for _ in range(self.config.train_num):
+            f = f or self._train()
+        if f:
+            self.memory.clear()
+
+    def _train(self) -> bool:
+        batches = self.memory.sample()
+        if batches is None:
+            return False
         states = np.asarray([e["state"] for e in batches])
         v_target = np.asarray([e["discounted_reward"] for e in batches])[..., np.newaxis]
         advantage = np.asarray([e["discounted_reward"] for e in batches])[..., np.newaxis]
@@ -254,9 +288,14 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
             # nanになる場合は adaptive_kl_target が小さすぎる可能性あり
 
         self.train_count += 1
+        return True
 
 
 class Worker(RLWorker[Config, Parameter, Memory]):
+    def on_setup(self, worker, context):
+        if self.distributed:
+            raise NotImplementedError("NotSupported")
+
     def on_reset(self, worker):
         self.recent_batch = []
         self.recent_rewards = []
@@ -277,32 +316,39 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         if isinstance(self.config.action_space, DiscreteSpace):
             onehot_action = p_dist.sample(onehot=True)
             env_action = int(np.argmax(onehot_action))
+            log_prob = p_dist.log_prob(onehot_action).numpy()[0][0]
             batch = {
                 "state": state,
                 "action": onehot_action.numpy()[0],
                 "v": v.numpy()[0][0],
-                "log_prob": p_dist.log_prob(onehot_action).numpy()[0][0],
+                "log_prob": np.maximum(log_prob, math.log(1e-6)),  # 0除算回避用
             }
             if self.config.surrogate_type == "kl":
                 batch["probs"] = p_dist.probs().numpy()[0]
             self.recent_batch.append(batch)
         elif isinstance(self.config.action_space, NpArraySpace):
-            action, env_action = p_dist.policy(self.config.action_space.low, self.config.action_space.high, self.training)
+            if self.training:
+                action = p_dist.sample()
+            else:
+                action = p_dist.mean()
+            log_prob = p_dist.log_prob(action).numpy()[0][0]
             batch = {
                 "state": state,
                 "action": action.numpy()[0][0],
                 "v": v.numpy()[0][0],
-                "log_prob": p_dist.log_prob(action).numpy()[0][0],
+                "log_prob": np.maximum(log_prob, math.log(1e-6)),  # 0除算回避用
             }
             if self.config.surrogate_type == "kl":
                 batch["mean"] = p_dist.mean().numpy()[0]
                 batch["stddev"] = p_dist.stddev().numpy()[0]
             self.recent_batch.append(batch)
 
-            env_action = env_action.numpy()[0]
+            env_action = action.numpy()[0]
             if np.isnan(env_action).any():
                 logger.warning(f"The action contains nan. It is now a random action. {env_action}")
                 env_action = self.sample_action()
+            env_action = self.config.action_space.rescale_from(env_action)
+            env_action = self.config.action_space.sanitize(env_action)
         else:
             raise UndefinedError(self.config.action_space)
 

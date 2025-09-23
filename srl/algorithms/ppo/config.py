@@ -4,7 +4,6 @@ from typing import List, Optional, Tuple
 from srl.base.rl.algorithms.base_ppo import RLConfig
 from srl.base.rl.processor import RLProcessor
 from srl.base.spaces.space import SpaceBase
-from srl.rl.memories.replay_buffer import ReplayBufferConfig
 from srl.rl.models.config.hidden_block import HiddenBlockConfig
 from srl.rl.models.config.input_block import InputBlockConfig
 from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
@@ -31,11 +30,24 @@ Other
 
 
 @dataclass
+class MemoryConfig:
+    #: warmup_size
+    warmup_size: int = 1_000
+    #: memoryデータを圧縮してやり取りするかどうか
+    compress: bool = False
+    #: memory(zlib)の圧縮レベル
+    compress_level: int = -1
+
+
+@dataclass
 class Config(RLConfig):
     #: Batch size
-    batch_size: int = 32
-    #: <:ref:`ReplayBufferConfig`>
-    memory: ReplayBufferConfig = field(default_factory=lambda: ReplayBufferConfig(capacity=2000))
+    batch_size: int = 64
+
+    #: MemoryConfig
+    memory: MemoryConfig = field(default_factory=lambda: MemoryConfig())
+    #: 学習回数
+    train_num: int = 50
 
     #: <:ref:`InputBlockConfig`>
     input_block: InputBlockConfig = field(default_factory=lambda: InputBlockConfig())
@@ -84,13 +96,13 @@ class Config(RLConfig):
     value_clip_range: float = 0.2
 
     #: Learning rate
-    lr: float = 0.02
+    lr: float = 0.0002
     #: <:ref:`LRSchedulerConfig`>
     lr_scheduler: LRSchedulerConfig = field(default_factory=lambda: LRSchedulerConfig().set_step(2000, 0.01))
     #: 状態価値の反映率
     value_loss_weight: float = 1.0
     #: エントロピーの反映率
-    entropy_weight: float = 0.1
+    entropy_weight: float = 0.01
 
     #: 状態の正規化 flag
     enable_state_normalized: bool = False

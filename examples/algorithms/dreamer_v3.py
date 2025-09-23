@@ -99,8 +99,8 @@ def train_Pendulum():
 if __name__ == "__main__":
     common.logger_print()
 
-    train_grid("v1")
+    # train_grid("v1")
     # train_grid("v2")
     # train_grid("v3")
 
-    # train_Pendulum()
+    train_Pendulum()

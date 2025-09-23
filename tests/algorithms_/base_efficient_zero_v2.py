@@ -73,7 +73,7 @@ class LongCase(CommonLongCase):
         rl_config.unroll_steps = 2
         rl_config.memory.warmup_size = 100
 
-        rl_config.override_action_type = "ARRAY_CONTINUOUS"
+        rl_config.override_action_type = "NP_ARRAY"
 
         runner = self.create_test_runner("EasyGrid-layer", rl_config)
         runner.train_mp(max_train_count=10000)

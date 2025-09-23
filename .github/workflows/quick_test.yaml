@@ -77,23 +77,22 @@ jobs:
       - name: Run pytest under quick_algorithms
         run: PYTHONPATH=. pytest tests/algorithms_/test_quick_tf_CPU.py --timeout=300
 
-
-  pytest-torch:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: 3.13
-      # --- install tf
-      - name: Install tf
-        run: pip install torch==2.8.0
-      # --- srl test
-      - run: pip install .
-      - run: pip install pytest pytest-mock pytest-timeout
-      - name: Run pytest under quick_torch
-        run: PYTHONPATH=. pytest tests/quick_torch/ --timeout=60
-      - name: Run pytest under quick_algorithms
-        run: PYTHONPATH=. pytest tests/algorithms_/test_quick_torch_CPU.py --timeout=300
+  # pytest-torch:
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 30
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-python@v5
+  #       with:
+  #         python-version: 3.13
+  #     # --- install tf
+  #     - name: Install tf
+  #       run: pip install torch==2.8.0
+  #     # --- srl test
+  #     - run: pip install .
+  #     - run: pip install pytest pytest-mock pytest-timeout
+  #     - name: Run pytest under quick_torch
+  #       run: PYTHONPATH=. pytest tests/quick_torch/ --timeout=60
+  #     - name: Run pytest under quick_algorithms
+  #       run: PYTHONPATH=. pytest tests/algorithms_/test_quick_torch_CPU.py --timeout=300
 

@@ -8,7 +8,7 @@ from srl.rl.tf.distributions.categorical_gumbel_dist_block import CategoricalGum
 
 @pytest.fixture
 def logits() -> tf.Tensor:
-    return tf.constant([[2.0, 1.0, 0.1], [0.5, 1.5, 1.0]], dtype=tf.float32)
+    return tf.Variable([[2.0, 1.0, 0.1], [0.5, 1.5, 1.0]], dtype=tf.float32)
 
 
 @pytest.fixture
@@ -19,7 +19,7 @@ def dist(logits) -> CategoricalGumbelDist:
 def test_mode(dist: CategoricalGumbelDist):
     # What: 最も高いlogitのインデックスが返ることを確認
     result = dist.mode()
-    expected = tf.cast(tf.constant([0, 1]), tf.dtypes.int64)
+    expected = tf.cast(tf.Variable([0, 1]), tf.dtypes.int64)
     tf.debugging.assert_equal(result, expected)
 
 
@@ -64,7 +64,7 @@ def test_log_probs_shape(dist: CategoricalGumbelDist):
 
 def test_log_prob_shape(dist: CategoricalGumbelDist):
     # What: log_prob()が(batch, 1)の形で返る
-    actions = tf.constant([[0], [1]], dtype=tf.float32)
+    actions = tf.Variable([[0], [1]], dtype=tf.float32)
     log_prob = dist.log_prob(actions)
     assert log_prob.shape == (2, 1)
 
@@ -107,7 +107,7 @@ def test_gradient_through_log_prob():
     dist = CategoricalGumbelDist(logits)
 
     # テスト用のアクション（argmaxに対応するone-hot）
-    actions = tf.constant([[2], [0]], dtype=tf.float32)
+    actions = tf.Variable([[2], [0]], dtype=tf.float32)
 
     with tf.GradientTape() as tape:
         log_prob = dist.log_prob(actions)

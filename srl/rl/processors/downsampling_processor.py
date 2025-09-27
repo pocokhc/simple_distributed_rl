@@ -19,20 +19,20 @@ class DownSamplingProcessor(RLProcessor):
         if not is_package_installed("cv2"):
             return None
         if prev_space.stype not in [
-            SpaceTypes.GRAY_2ch,
-            SpaceTypes.GRAY_3ch,
-            SpaceTypes.COLOR,
+            SpaceTypes.GRAY_HW,
+            SpaceTypes.GRAY_HW1,
+            SpaceTypes.RGB,
         ]:
             return None
-        return BoxSpace((self.resize[1], self.resize[0]), 0, self.max_level, np.uint8, SpaceTypes.GRAY_2ch)
+        return BoxSpace((self.resize[1], self.resize[0]), 0, self.max_level, np.uint8, SpaceTypes.GRAY_HW)
 
     def remap_observation(self, state: EnvObservationType, prev_space: SpaceBase, new_space: SpaceBase, **kwargs) -> EnvObservationType:
         import cv2
 
         state = cast(np.ndarray, state)
-        if prev_space.stype == SpaceTypes.GRAY_3ch:
+        if prev_space.stype == SpaceTypes.GRAY_HW1:
             state = np.squeeze(state, axis=-1)
-        elif prev_space.stype == SpaceTypes.COLOR:
+        elif prev_space.stype == SpaceTypes.RGB:
             state = cv2.cvtColor(state, cv2.COLOR_RGB2GRAY)
 
         # (h,w) = cv2.resize((h,w), resize=(w, h))

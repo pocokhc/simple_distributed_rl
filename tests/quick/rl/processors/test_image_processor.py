@@ -13,15 +13,15 @@ image_h = 64
 image_resize = (84, 84)
 
 test_pattens = (
-    (SpaceTypes.GRAY_2ch, (image_w, image_h), SpaceTypes.GRAY_2ch, (84, 84), True),
-    (SpaceTypes.GRAY_2ch, (image_w, image_h), SpaceTypes.GRAY_3ch, (84, 84, 1), True),
-    (SpaceTypes.GRAY_2ch, (image_w, image_h), SpaceTypes.COLOR, (84, 84, 3), False),
-    (SpaceTypes.GRAY_3ch, (image_w, image_h, 1), SpaceTypes.GRAY_2ch, (84, 84), True),
-    (SpaceTypes.GRAY_3ch, (image_w, image_h, 1), SpaceTypes.GRAY_3ch, (84, 84, 1), True),
-    (SpaceTypes.GRAY_3ch, (image_w, image_h, 1), SpaceTypes.COLOR, (84, 84, 3), False),
-    (SpaceTypes.COLOR, (image_w, image_h, 3), SpaceTypes.GRAY_2ch, (84, 84), True),
-    (SpaceTypes.COLOR, (image_w, image_h, 3), SpaceTypes.GRAY_3ch, (84, 84, 1), True),
-    (SpaceTypes.COLOR, (image_w, image_h, 3), SpaceTypes.COLOR, (84, 84, 3), True),
+    (SpaceTypes.GRAY_HW, (image_w, image_h), SpaceTypes.GRAY_HW, (84, 84), True),
+    (SpaceTypes.GRAY_HW, (image_w, image_h), SpaceTypes.GRAY_HW1, (84, 84, 1), True),
+    (SpaceTypes.GRAY_HW, (image_w, image_h), SpaceTypes.RGB, (84, 84, 3), False),
+    (SpaceTypes.GRAY_HW1, (image_w, image_h, 1), SpaceTypes.GRAY_HW, (84, 84), True),
+    (SpaceTypes.GRAY_HW1, (image_w, image_h, 1), SpaceTypes.GRAY_HW1, (84, 84, 1), True),
+    (SpaceTypes.GRAY_HW1, (image_w, image_h, 1), SpaceTypes.RGB, (84, 84, 3), False),
+    (SpaceTypes.RGB, (image_w, image_h, 3), SpaceTypes.GRAY_HW, (84, 84), True),
+    (SpaceTypes.RGB, (image_w, image_h, 3), SpaceTypes.GRAY_HW1, (84, 84, 1), True),
+    (SpaceTypes.RGB, (image_w, image_h, 3), SpaceTypes.RGB, (84, 84, 3), True),
 )
 
 
@@ -45,6 +45,7 @@ def test_image(env_img_type, env_img_shape, img_type, true_shape, check_val, nor
 
     # --- change space
     new_space = processor.remap_observation_space(space)
+    assert new_space is not None
     assert new_space.stype == img_type
     if normalize_type == "0to1" or normalize_type == "-1to1":
         assert new_space.dtype == np.float32
@@ -82,7 +83,7 @@ def test_image_atari():
     pytest.importorskip("ale_py")
 
     processor = ImageProcessor(
-        image_type=SpaceTypes.GRAY_2ch,
+        image_type=SpaceTypes.GRAY_HW,
         resize=(84, 84),
         normalize_type="0to1",
     )
@@ -97,7 +98,7 @@ def test_image_atari():
     # --- space
     new_space = processor.remap_observation_space(env.observation_space)
     assert new_space is not None
-    assert new_space.stype == SpaceTypes.GRAY_2ch
+    assert new_space.stype == SpaceTypes.GRAY_HW
     assert new_space.dtype == np.float32
     assert isinstance(new_space, BoxSpace)
     assert new_space.shape == out_image.shape
@@ -111,17 +112,17 @@ def test_image_atari():
 def test_trimming():
     pytest.importorskip("cv2")
 
-    space = BoxSpace(low=0, high=255, shape=(210, 160, 3), stype=SpaceTypes.COLOR)
+    space = BoxSpace(low=0, high=255, shape=(210, 160, 3), stype=SpaceTypes.RGB)
 
     processor = ImageProcessor(
-        image_type=SpaceTypes.GRAY_2ch,
+        image_type=SpaceTypes.GRAY_HW,
         trimming=(10, 10, 20, 20),
     )
 
     # --- space
     new_space = processor.remap_observation_space(space)
     assert new_space is not None
-    assert new_space.stype == SpaceTypes.GRAY_2ch
+    assert new_space.stype == SpaceTypes.GRAY_HW
     assert isinstance(new_space, BoxSpace)
     new_space = cast(BoxSpace, new_space)
     assert new_space.shape == (10, 10)

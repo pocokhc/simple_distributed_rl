@@ -15,7 +15,7 @@ from srl.rl.models.config.input_block import InputBlockConfig
 
 class DownSamplingProcessor(RLProcessor):
     def remap_observation_space(self, prev_space: SpaceBase, rl_config: "Config", **kwargs) -> Optional[SpaceBase]:
-        return BoxSpace(rl_config.downsampling_size, 0, 8, np.uint8, SpaceTypes.GRAY_2ch)
+        return BoxSpace(rl_config.downsampling_size, 0, 8, np.uint8, SpaceTypes.GRAY_HW)
 
     def remap_observation(
         self,
@@ -26,9 +26,9 @@ class DownSamplingProcessor(RLProcessor):
         **kwargs,
     ):
         # (1) color -> gray
-        if prev_space.stype == SpaceTypes.COLOR:
+        if prev_space.stype == SpaceTypes.RGB:
             state = cv2.cvtColor(state, cv2.COLOR_RGB2GRAY)
-        elif prev_space.stype == SpaceTypes.GRAY_3ch:
+        elif prev_space.stype == SpaceTypes.GRAY_HW1:
             state = np.squeeze(state, axis=-1)
 
         # (2) down sampling

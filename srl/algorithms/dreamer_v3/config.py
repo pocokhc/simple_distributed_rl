@@ -407,11 +407,11 @@ class Config(RLConfig):
         return "DreamerV3"
 
     def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
-        if prev_observation_space.is_image():
+        if prev_observation_space.is_image_like():
             if self.cnn_resize_type == "stride3":
                 return [
                     ImageProcessor(
-                        image_type=SpaceTypes.COLOR,
+                        image_type=SpaceTypes.RGB,
                         resize=(96, 96),
                         normalize_type="0to1",
                     )
@@ -419,7 +419,7 @@ class Config(RLConfig):
             else:
                 return [
                     ImageProcessor(
-                        image_type=SpaceTypes.COLOR,
+                        image_type=SpaceTypes.RGB,
                         resize=(64, 64),
                         normalize_type="0to1",
                     )

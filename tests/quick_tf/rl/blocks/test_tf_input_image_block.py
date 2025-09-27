@@ -12,10 +12,10 @@ from srl.rl.models.config.input_block import InputImageBlockConfig
     "in_space, out_size",
     [
         [BoxSpace((5, 4)), 5 * 4],  # value block
-        [BoxSpace((64, 64), stype=SpaceTypes.GRAY_2ch), 4096],
-        [BoxSpace((64, 64, 1), stype=SpaceTypes.GRAY_3ch), 4096],
-        [BoxSpace((64, 64, 3), stype=SpaceTypes.COLOR), 4096],
-        [BoxSpace((64, 64, 9), stype=SpaceTypes.IMAGE), 4096],
+        [BoxSpace((64, 64), stype=SpaceTypes.GRAY_HW), 4096],
+        [BoxSpace((64, 64, 1), stype=SpaceTypes.GRAY_HW1), 4096],
+        [BoxSpace((64, 64, 3), stype=SpaceTypes.RGB), 4096],
+        [BoxSpace((64, 64, 9), stype=SpaceTypes.FEATURE_MAP), 4096],
     ],
 )
 def test_create_block_flatten(in_space: BoxSpace, out_size, rnn):
@@ -26,7 +26,7 @@ def test_create_block_flatten(in_space: BoxSpace, out_size, rnn):
 
     config = InputImageBlockConfig()
 
-    if not in_space.is_image():
+    if not in_space.is_image_like():
         # image以外は例外
         with pytest.raises(UndefinedError):
             block = config.create_tf_block(in_space=in_space, out_flatten=True, rnn=rnn)
@@ -61,10 +61,10 @@ def test_create_block_flatten(in_space: BoxSpace, out_size, rnn):
 @pytest.mark.parametrize(
     "in_space, out_shape",
     [
-        [BoxSpace((64, 64), stype=SpaceTypes.GRAY_2ch), (8, 8, 64)],
-        [BoxSpace((64, 64, 1), stype=SpaceTypes.GRAY_3ch), (8, 8, 64)],
-        [BoxSpace((64, 64, 3), stype=SpaceTypes.COLOR), (8, 8, 64)],
-        [BoxSpace((64, 64, 9), stype=SpaceTypes.IMAGE), (8, 8, 64)],
+        [BoxSpace((64, 64), stype=SpaceTypes.GRAY_HW), (8, 8, 64)],
+        [BoxSpace((64, 64, 1), stype=SpaceTypes.GRAY_HW1), (8, 8, 64)],
+        [BoxSpace((64, 64, 3), stype=SpaceTypes.RGB), (8, 8, 64)],
+        [BoxSpace((64, 64, 9), stype=SpaceTypes.FEATURE_MAP), (8, 8, 64)],
     ],
 )
 def test_create_block_out_image(in_space, out_shape, rnn):
@@ -131,7 +131,7 @@ def test_tf_image(name, rnn):
         out_shape2 = (batch_size,) + out_shape
 
     x = np.ones(in_shape2, dtype=np.float32)
-    in_space = BoxSpace(in_shape, stype=SpaceTypes.IMAGE)
+    in_space = BoxSpace(in_shape, stype=SpaceTypes.FEATURE_MAP)
     block = cfg.create_tf_block(in_space=in_space, out_flatten=False, rnn=rnn)
     y = block(x)
     assert y is not None

@@ -674,7 +674,7 @@ class GridLayer(_GridBase[BoxSpace, np.ndarray]):
             low=0,
             high=1,
             dtype=np.uint8,
-            stype=SpaceTypes.IMAGE,
+            stype=SpaceTypes.FEATURE_MAP,
         )
 
     def _create_state(self):
@@ -697,7 +697,7 @@ class LayerProcessor(EnvProcessor):
             low=0,
             high=1,
             dtype=np.uint8,
-            stype=SpaceTypes.IMAGE,
+            stype=SpaceTypes.FEATURE_MAP,
         )
         return observation_space
 

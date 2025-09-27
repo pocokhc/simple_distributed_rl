@@ -446,7 +446,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         return self._render.get_cached_rgb_array(worker=self, **kwargs)
 
     def render_rl_image(self) -> Optional[np.ndarray]:
-        if not self._config.observation_space_one_step.is_image(in_image=False):
+        if not self._config.observation_space_one_step.is_image_visual():
             return None
         space = cast(BoxSpace, self._config.observation_space_one_step)
         if self._use_stacked_state:
@@ -481,7 +481,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         env_img = render_funcs.add_padding(env_img, padding, padding, padding, padding, border_color)
 
         # [env]
-        if self._config.observation_space_of_env.is_image(in_image=False):
+        if self._config.observation_space_of_env.is_image_visual():
             space = cast(BoxSpace, self.config.observation_space_of_env)
             if space.check_val(self._env.state):  # render_image等でずれる場合があるので合っている場合のみ処理
                 env_state = space.to_image(self._env.state)

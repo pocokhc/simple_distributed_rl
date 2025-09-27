@@ -103,21 +103,12 @@ class SpaceTypes(enum.Enum):
     UNKNOWN = enum.auto()
     DISCRETE = enum.auto()
     CONTINUOUS = enum.auto()
-    GRAY_2ch = enum.auto()  # (height, width)
-    GRAY_3ch = enum.auto()  # (height, width, 1)
-    COLOR = enum.auto()  # (height, width, 3)
-    IMAGE = enum.auto()  # (height, width, ch)
+    GRAY_HW = enum.auto()  # (height, width)
+    GRAY_HW1 = enum.auto()  # (height, width, 1)
+    RGB = enum.auto()  # (height, width, 3)
+    FEATURE_MAP = enum.auto()  # (height, width, ch)
     TEXT = enum.auto()
     MULTI = enum.auto()  # list
-
-    @staticmethod
-    def is_image(t: "SpaceTypes") -> bool:
-        return t in [
-            SpaceTypes.GRAY_2ch,
-            SpaceTypes.GRAY_3ch,
-            SpaceTypes.COLOR,
-            SpaceTypes.IMAGE,
-        ]
 
 
 class RLBaseTypes(enum.Flag):

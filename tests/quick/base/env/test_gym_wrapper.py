@@ -102,7 +102,7 @@ def test_play_Tetris():
         test_render_window=False,
         test_restore=False,
     )
-    assert env.observation_space == srl_spaces.BoxSpace((210, 160, 3), 0, 255, np.uint8, SpaceTypes.COLOR)
+    assert env.observation_space == srl_spaces.BoxSpace((210, 160, 3), 0, 255, np.uint8, SpaceTypes.RGB)
     assert env.action_space == srl_spaces.DiscreteSpace(5)
 
 

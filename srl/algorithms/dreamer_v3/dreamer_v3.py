@@ -86,7 +86,7 @@ class Memory(RLReplayBuffer):
 class Parameter(RLParameter):
     def setup(self):
         # --- encode/decode
-        if SpaceTypes.is_image(self.config.observation_space.stype):
+        if self.config.observation_space.is_image_like():
             self.encode = ImageEncoder(
                 self.config.observation_space.shape,
                 self.config.cnn_depth,
@@ -797,7 +797,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             raise ValueError(self.config.action_space.stype)
 
     def render_rgb_array(self, worker, **kwargs) -> Optional[np.ndarray]:
-        if not SpaceTypes.is_image(self.config.observation_space.stype):
+        if not self.config.observation_space.is_image_like():
             return None
         state = worker.state
 

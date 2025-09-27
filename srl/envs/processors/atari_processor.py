@@ -20,7 +20,7 @@ class AtariProcessor(EnvProcessor):
     binarize: bool = False
 
     def __post_init__(self):
-        self.space_type = SpaceTypes.GRAY_2ch if self.grayscale else SpaceTypes.COLOR
+        self.space_type = SpaceTypes.GRAY_HW if self.grayscale else SpaceTypes.RGB
 
     def remap_observation_space(self, prev_space: SpaceBase, **kwargs) -> SpaceBase:
         if self.resize is None:
@@ -57,13 +57,13 @@ class AtariPongProcessor(EnvProcessor):
     resize: Tuple[int, int] = (64, 64)
 
     def remap_observation_space(self, prev_space: SpaceBase, **kwargs) -> SpaceBase:
-        return BoxSpace(self.resize, 0, 255, np.uint8, stype=SpaceTypes.GRAY_2ch)
+        return BoxSpace(self.resize, 0, 255, np.uint8, stype=SpaceTypes.GRAY_HW)
 
     def remap_observation(self, state, prev_space: SpaceBase, new_space: SpaceBase, **kwargs):
         state = image_processor(
             state,
             prev_space.stype,
-            SpaceTypes.GRAY_2ch,
+            SpaceTypes.GRAY_HW,
             trimming=(35, 10, 195, 150),  # (0, 0, 210, 160)
             resize=self.resize,
         )
@@ -94,13 +94,13 @@ class AtariBreakoutProcessor(EnvProcessor):
     terminal_on_life_loss: bool = True
 
     def remap_observation_space(self, prev_space: SpaceBase, **kwargs) -> SpaceBase:
-        return BoxSpace((84, 84), 0, 255, np.uint8, stype=SpaceTypes.GRAY_2ch)
+        return BoxSpace((84, 84), 0, 255, np.uint8, stype=SpaceTypes.GRAY_HW)
 
     def remap_observation(self, state, prev_space: SpaceBase, new_space: SpaceBase, **kwargs):
         state = image_processor(
             state,
             prev_space.stype,
-            SpaceTypes.GRAY_2ch,
+            SpaceTypes.GRAY_HW,
             trimming=(31, 7, 195, 153),  # (0, 0, 210, 160)
             resize=(84, 84),
         )
@@ -124,13 +124,13 @@ class AtariFreewayProcessor(EnvProcessor):
     resize: Tuple[int, int] = (64, 64)
 
     def remap_observation_space(self, prev_space: SpaceBase, **kwargs) -> SpaceBase:
-        return BoxSpace(self.resize, 0, 255, np.uint8, stype=SpaceTypes.GRAY_2ch)
+        return BoxSpace(self.resize, 0, 255, np.uint8, stype=SpaceTypes.GRAY_HW)
 
     def remap_observation(self, state, prev_space: SpaceBase, new_space: SpaceBase, **kwargs):
         state = image_processor(
             state,
             prev_space.stype,
-            SpaceTypes.GRAY_2ch,
+            SpaceTypes.GRAY_HW,
             trimming=(30, 0, 210 - 20, 160),  # (0, 0, 210, 160)
             resize=self.resize,
         )

@@ -11,7 +11,7 @@ def create_input_image_reshape_layers(space: BoxSpace, rnn: bool) -> list:
     err_msg = f"unknown space_type: {space}"
     layers = []
 
-    if space.stype == SpaceTypes.GRAY_2ch:
+    if space.stype == SpaceTypes.GRAY_HW:
         if len(space.shape) == 2:
             # (h, w) -> (h, w, 1)
             layers.append(kl.Reshape(space.shape + (1,)))
@@ -21,7 +21,7 @@ def create_input_image_reshape_layers(space: BoxSpace, rnn: bool) -> list:
         else:
             raise TFLayerError(err_msg)
 
-    elif space.stype == SpaceTypes.GRAY_3ch:
+    elif space.stype == SpaceTypes.GRAY_HW1:
         assert space.shape[-1] == 1
         if len(space.shape) == 3:
             # (h, w, 1)
@@ -34,14 +34,14 @@ def create_input_image_reshape_layers(space: BoxSpace, rnn: bool) -> list:
         else:
             raise TFLayerError(err_msg)
 
-    elif space.stype == SpaceTypes.COLOR:
+    elif space.stype == SpaceTypes.RGB:
         if len(space.shape) == 3:
             # (h, w, ch)
             pass
         else:
             raise TFLayerError(err_msg)
 
-    elif space.stype == SpaceTypes.IMAGE:
+    elif space.stype == SpaceTypes.FEATURE_MAP:
         # (h, w, ch)
         pass
     else:

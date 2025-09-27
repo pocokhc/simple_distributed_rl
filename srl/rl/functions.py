@@ -233,16 +233,16 @@ def image_processor(
     shape_order: Literal["HWC", "CHW"] = "HWC",  # "HWC": tf(H,W,C), "CHW": torch(C,H,W)
 ):
     assert from_space_type in [
-        SpaceTypes.GRAY_2ch,
-        SpaceTypes.GRAY_3ch,
-        SpaceTypes.COLOR,
+        SpaceTypes.GRAY_HW,
+        SpaceTypes.GRAY_HW1,
+        SpaceTypes.RGB,
     ]
     import cv2
 
-    if to_space_type == SpaceTypes.COLOR and (from_space_type == SpaceTypes.GRAY_2ch or from_space_type == SpaceTypes.GRAY_3ch):
+    if to_space_type == SpaceTypes.RGB and (from_space_type == SpaceTypes.GRAY_HW or from_space_type == SpaceTypes.GRAY_HW1):
         # gray -> color
         rgb_array = cv2.applyColorMap(rgb_array, cv2.COLORMAP_HOT)
-    elif from_space_type == SpaceTypes.COLOR and (to_space_type == SpaceTypes.GRAY_2ch or to_space_type == SpaceTypes.GRAY_3ch):
+    elif from_space_type == SpaceTypes.RGB and (to_space_type == SpaceTypes.GRAY_HW or to_space_type == SpaceTypes.GRAY_HW1):
         # color -> gray
         rgb_array = cv2.cvtColor(rgb_array, cv2.COLOR_RGB2GRAY)
 
@@ -267,9 +267,9 @@ def image_processor(
     if resize is not None and (w, h) != resize:
         rgb_array = cv2.resize(rgb_array, resize)
 
-    if from_space_type == SpaceTypes.GRAY_3ch and to_space_type == SpaceTypes.GRAY_2ch and len(rgb_array.shape) == 3:
+    if from_space_type == SpaceTypes.GRAY_HW1 and to_space_type == SpaceTypes.GRAY_HW and len(rgb_array.shape) == 3:
         rgb_array = np.squeeze(rgb_array, axis=-1)
-    elif len(rgb_array.shape) == 2 and to_space_type == SpaceTypes.GRAY_3ch:
+    elif len(rgb_array.shape) == 2 and to_space_type == SpaceTypes.GRAY_HW1:
         rgb_array = rgb_array[..., np.newaxis]
 
     if normalize_type == "0to1":

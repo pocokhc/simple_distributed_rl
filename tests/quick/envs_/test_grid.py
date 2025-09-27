@@ -29,7 +29,7 @@ def test_processor():
 
     # --- space
     new_space = processor.remap_observation_space(env.observation_space, env)
-    assert new_space == BoxSpace((env_org.H, env_org.W, 1), 0, 1, np.uint8, SpaceTypes.IMAGE)
+    assert new_space == BoxSpace((env_org.H, env_org.W, 1), 0, 1, np.uint8, SpaceTypes.FEATURE_MAP)
 
     # --- decode
     new_state = processor.remap_observation(None, env.observation_space, new_space, env_run=env)

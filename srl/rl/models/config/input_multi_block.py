@@ -52,13 +52,13 @@ class InputMultiBlockProcessor(RLProcessor):
 
         new_spaces = []
         for space in self.multi_space.spaces:
-            if space.is_image():
+            if space.is_image_visual():
                 if self.cfg.image_type == "DQN":
-                    stype = SpaceTypes.GRAY_3ch
+                    stype = SpaceTypes.GRAY_HW1
                     shape = (84, 84, 1)
                 elif self.cfg.image_type == "R2D3":
-                    stype = SpaceTypes.COLOR
-                    shape = (72, 96, 1)
+                    stype = SpaceTypes.RGB
+                    shape = (72, 96, 3)
                 if self.cfg.image_normalize_type == "0to1":
                     low = 0
                     high = 1
@@ -97,7 +97,7 @@ class InputMultiBlockProcessor(RLProcessor):
 
         new_states = []
         for state, prev_space, new_space in zip(states, self.multi_space.spaces, new_spaces.spaces):
-            if prev_space.is_image():
+            if prev_space.is_image_visual():
                 if self.cfg.image_type == "DQN":
                     resize = (84, 84)
                 elif self.cfg.image_type == "R2D3":

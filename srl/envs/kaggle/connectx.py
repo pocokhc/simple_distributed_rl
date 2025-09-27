@@ -101,7 +101,7 @@ class LayerProcessor(RLProcessor):
             low=0,
             high=1,
             shape=(2, _env.columns, _env.rows),
-            stype=SpaceTypes.IMAGE,
+            stype=SpaceTypes.FEATURE_MAP,
         )
         return observation_space
 

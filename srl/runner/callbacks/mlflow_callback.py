@@ -123,7 +123,7 @@ class MLFlowCallback(RunCallback, Evaluate):
 
         if self.eval_interval_mode == "time":
             self.eval0 = time.time()
-        elif self.interval_mode == "step":
+        elif self.eval_interval_mode == "step":
             self.eval0 = 0
         else:
             raise UndefinedError(self.eval_interval_mode)

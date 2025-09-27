@@ -90,6 +90,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def _reset_vals(self):
         self._step_num: int = 0
         self._state = self._remapped_obs_space.get_default()
+        self._action: TActType = self._remapped_act_space.get_default()
         self._done = DoneTypes.NONE
         self.env.done_reason = ""
         self._prev_player: int = 0
@@ -112,6 +113,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             # reset_vals
             self._step_num,
             self._remapped_obs_space.copy_value(self._state),
+            self._remapped_act_space.copy_value(self._action),
             self._done,
             self.env.done_reason,
             self._prev_player,
@@ -135,23 +137,24 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         # reset_vals
         self._step_num = dat[0]
         self._state = dat[1]
-        self._done = dat[2]
-        self.env.done_reason = dat[3]
-        self._prev_player = dat[4]
-        self.env.next_player = dat[5]
-        self._episode_rewards = dat[6][:]
-        self._step_rewards = dat[7][:]
-        self._invalid_actions_list = dat[8][:]
-        self._t0 = dat[9]
-        self.env.info = dat[10].copy()
+        self._action = dat[2]
+        self._done = dat[3]
+        self.env.done_reason = dat[4]
+        self._prev_player = dat[5]
+        self.env.next_player = dat[6]
+        self._episode_rewards = dat[7][:]
+        self._step_rewards = dat[8][:]
+        self._invalid_actions_list = dat[9][:]
+        self._t0 = dat[10]
+        self.env.info = dat[11].copy()
         logger.debug(f"restore: step={self._step_num}, done={self._done}({self.env.done_reason}) reward={self._step_rewards}")
         # init val
-        self._is_direct_step = dat[11]
-        self._is_setup = dat[12]
+        self._is_direct_step = dat[12]
+        self._is_setup = dat[13]
         # processor
-        [p.restore(dat[13][i]) for i, p in enumerate(self._processors)]
+        [p.restore(dat[14][i]) for i, p in enumerate(self._processors)]
         # env
-        self.env.restore(dat[14])
+        self.env.restore(dat[15])
 
         # render
         self._render.cache_reset()
@@ -270,6 +273,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self.assert_action(action)
         elif self.config.enable_sanitize:
             action = self.sanitize_action(action, "The format of 'action' entered in 'env.step' was wrong.")
+        self._action = action
         state, rewards, done = self._step1(action)
         step_rewards = rewards
 
@@ -513,6 +517,11 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     @property
     def info(self) -> Info:
         return self.env.info
+
+    @property
+    def action(self) -> TActType:
+        """直前のactionを返す"""
+        return self._action
 
     @property
     def reward(self) -> float:

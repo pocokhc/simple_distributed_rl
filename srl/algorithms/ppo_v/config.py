@@ -34,7 +34,7 @@ class Config(RLConfig):
     discount: float = 0.95
 
     #: Clipped Surrogate Objective
-    clip_range: float = 0.2
+    clip_range: float = 0.1
 
     #: Learning rate
     lr: float = 0.0002

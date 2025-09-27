@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
 
 from srl.base.env.processor import EnvProcessor
+from srl.base.spaces.space import SpaceBase
 from srl.utils.serialize import apply_dict_to_dataclass, dataclass_to_dict, get_modified_fields, load_dict, save_dict
 
 if TYPE_CHECKING:
@@ -75,6 +76,11 @@ class EnvConfig:
     #: render時のフォントサイズ
     font_size: int = 18
 
+    # --- override
+    #: envのaction_spaceを上書きします。
+    override_action_space: Optional[SpaceBase] = None
+    #: envのobservation_spaceを上書きします。
+    override_observation_space: Optional[SpaceBase] = None
     #: Processorを使う場合、定義したProcessorのリスト
     processors: List[EnvProcessor] = field(default_factory=list)
 

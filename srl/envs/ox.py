@@ -284,7 +284,7 @@ class OX(_OXBase[ArrayDiscreteSpace, List[int]]):
 class OXLayer(_OXBase[BoxSpace, np.ndarray]):
     @property
     def observation_space(self):
-        return BoxSpace(low=0, high=1, shape=(3, 3, 2), dtype=np.float32, stype=SpaceTypes.IMAGE)
+        return BoxSpace(low=0, high=1, shape=(3, 3, 2), dtype=np.float32, stype=SpaceTypes.FEATURE_MAP)
 
     def _create_state(self):
         # Layer0: player1 field (0 or 1)

@@ -14,7 +14,7 @@ def test_1(tmp_path):
         "Grid",
         processors=[
             ImageProcessor(
-                image_type=SpaceTypes.GRAY_2ch,
+                image_type=SpaceTypes.GRAY_HW,
                 resize=(84, 84),
                 normalize_type="0to1",
             )

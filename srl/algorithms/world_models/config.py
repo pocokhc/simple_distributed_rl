@@ -60,12 +60,12 @@ class Config(RLConfig):
         return "WorldModels"
 
     def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
-        if prev_observation_space.is_image():
+        if prev_observation_space.is_image_like():
             if not (self.window_length == 1):
                 raise ValueError(f"assert {self.window_length} == 1")
             return [
                 ImageProcessor(
-                    image_type=SpaceTypes.COLOR,
+                    image_type=SpaceTypes.RGB,
                     resize=(64, 64),
                     normalize_type="0to1",
                 )

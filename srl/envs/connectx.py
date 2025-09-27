@@ -64,7 +64,7 @@ class ConnectX(EnvBase):
                 shape=(self.columns, self.rows, 2),
                 low=0,
                 high=1,
-                stype=SpaceTypes.IMAGE,
+                stype=SpaceTypes.FEATURE_MAP,
             )
         else:
             return ArrayDiscreteSpace(self.columns * self.rows, low=0, high=2)

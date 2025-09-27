@@ -54,7 +54,7 @@ def test_processor():
     rl_config.observation_mode = "render_image"
     rl_config.processors = [
         ImageProcessor(
-            image_type=SpaceTypes.GRAY_2ch,
+            image_type=SpaceTypes.GRAY_HW,
             resize=(84, 84),
             normalize_type="0to1",
         )

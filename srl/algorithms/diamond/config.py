@@ -140,9 +140,9 @@ class Config(RLConfig):
         return "DIAMOND"
 
     def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
-        assert prev_observation_space.is_image(), "image only"
+        assert prev_observation_space.is_image_like(), "image only"
         self._processor = ImageProcessor(
-            image_type=SpaceTypes.COLOR if self.img_color else SpaceTypes.GRAY_3ch,
+            image_type=SpaceTypes.RGB if self.img_color else SpaceTypes.GRAY_HW1,
             resize=self.img_shape,
             normalize_type="-1to1",
         )

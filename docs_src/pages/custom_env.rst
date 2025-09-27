@@ -343,19 +343,19 @@ SpaceTypesはフレームワーク内で定義されている値となります�
      - numpy配列を指定の範囲内で取り扱います。また、numpy配列が小数の値をとります。
    * - BoxSpace
      - NDArray[np.uint8]
-     - GRAY_2ch
-     - グレー画像(2ch)の形式を取り扱います。shapeは(height, width)を想定しています。
+     - GRAY_HW
+     - グレー画像の形式を取り扱います。shapeは(height, width)を想定しています。
    * - BoxSpace
      - NDArray[np.uint8]
-     - GRAY_3ch
-     - グレー画像(3ch)の形式を取り扱います。shapeは(height, width, 1)を想定しています。
+     - GRAY_HW1
+     - グレー画像の形式を取り扱います。shapeは(height, width, 1)を想定しています。
    * - BoxSpace
      - NDArray[np.uint8]
-     - COLOR
+     - RGB
      - カラー画像の形式を取り扱います。shapeは(height, width, 3)を想定しています。
    * - BoxSpace
      - NDArray
-     - IMAGE
+     - FEATURE_MAP
      - 画像形式の形を取り扱います。shapeは(height, width, N)を想定しています。
 
 

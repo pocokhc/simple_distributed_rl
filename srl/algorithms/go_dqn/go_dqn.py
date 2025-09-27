@@ -304,8 +304,8 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         processor = DownSamplingProcessor()
         img1, img2, img3 = processor.remap_observation(
             img,
-            BoxSpace((1, 1, 3), stype=SpaceTypes.COLOR),
-            BoxSpace((1, 1, 3), stype=SpaceTypes.COLOR),
+            BoxSpace((1, 1, 3), stype=SpaceTypes.RGB),
+            BoxSpace((1, 1, 3), stype=SpaceTypes.RGB),
             rl_config=self.config,
             _debug=True,
         )

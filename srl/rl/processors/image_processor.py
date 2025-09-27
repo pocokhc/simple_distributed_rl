@@ -20,7 +20,7 @@ class ImageProcessor(RLProcessor, EnvProcessor):
     EnvProcessorとしても使える
     """
 
-    image_type: SpaceTypes = SpaceTypes.GRAY_2ch
+    image_type: SpaceTypes = SpaceTypes.GRAY_HW
     resize: Optional[Tuple[int, int]] = None  # (w, h)
     normalize_type: Literal["", "0to1", "-1to1"] = ""
     trimming: Optional[Tuple[int, int, int, int]] = None  # (top, left, bottom, right)
@@ -35,14 +35,14 @@ class ImageProcessor(RLProcessor, EnvProcessor):
 
         # Imageのみ対象
         assert self.image_type in [
-            SpaceTypes.GRAY_2ch,
-            SpaceTypes.GRAY_3ch,
-            SpaceTypes.COLOR,
+            SpaceTypes.GRAY_HW,
+            SpaceTypes.GRAY_HW1,
+            SpaceTypes.RGB,
         ]
         if prev_space.stype not in [
-            SpaceTypes.GRAY_2ch,
-            SpaceTypes.GRAY_3ch,
-            SpaceTypes.COLOR,
+            SpaceTypes.GRAY_HW,
+            SpaceTypes.GRAY_HW1,
+            SpaceTypes.RGB,
         ]:
             return None
 
@@ -93,9 +93,9 @@ class ImageProcessor(RLProcessor, EnvProcessor):
             high = self.max_val
 
         # shape
-        if self.image_type == SpaceTypes.GRAY_3ch:
+        if self.image_type == SpaceTypes.GRAY_HW1:
             new_shape = new_shape + (1,)
-        elif self.image_type == SpaceTypes.COLOR:
+        elif self.image_type == SpaceTypes.RGB:
             new_shape = new_shape + (3,)
 
         new_space = BoxSpace(new_shape, low, high, new_dtype, self.image_type)
@@ -107,20 +107,20 @@ class ImageProcessor(RLProcessor, EnvProcessor):
         state = cast(np.ndarray, state)
         prev_stype = prev_space.stype
 
-        if self.image_type == SpaceTypes.COLOR and (prev_stype == SpaceTypes.GRAY_2ch or prev_stype == SpaceTypes.GRAY_3ch):
+        if self.image_type == SpaceTypes.RGB and (prev_stype == SpaceTypes.GRAY_HW or prev_stype == SpaceTypes.GRAY_HW1):
             # gray -> color
-            if prev_stype == SpaceTypes.GRAY_2ch:
+            if prev_stype == SpaceTypes.GRAY_HW:
                 state = state[..., np.newaxis]
             state = np.tile(state, (1, 1, 3))
 
             # if "float" in str(state.dtype):
-            #    if prev_stype == SpaceTypes.GRAY_2ch:
+            #    if prev_stype == SpaceTypes.GRAY_HW:
             #        state = state[..., np.newaxis]
             #    state = np.tile(state, (1, 1, 3))
             # else:
             #    state = np.asarray(state).astype(np.uint8)
             #    state = cv2.applyColorMap(state, cv2.COLORMAP_HOT)
-        elif prev_stype == SpaceTypes.COLOR and (self.image_type == SpaceTypes.GRAY_2ch or self.image_type == SpaceTypes.GRAY_3ch):
+        elif prev_stype == SpaceTypes.RGB and (self.image_type == SpaceTypes.GRAY_HW or self.image_type == SpaceTypes.GRAY_HW1):
             # color -> gray
             if "float" in str(state.dtype):
                 pass
@@ -145,7 +145,7 @@ class ImageProcessor(RLProcessor, EnvProcessor):
             state = (state * 2.0 / self.max_val) - 1.0
 
         state = cast(np.ndarray, state)
-        if len(state.shape) == 2 and self.image_type == SpaceTypes.GRAY_3ch:
+        if len(state.shape) == 2 and self.image_type == SpaceTypes.GRAY_HW1:
             state = state[..., np.newaxis]
 
         return state

@@ -82,7 +82,7 @@ class Config(RLConfig):
         return "StochasticMuZero"
 
     def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
-        if not prev_observation_space.is_image():
+        if not prev_observation_space.is_image_like():
             raise ValueError(f"The input supports only image format. {prev_observation_space}")
         return self.input_block.get_processors()
 

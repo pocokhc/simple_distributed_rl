@@ -45,11 +45,11 @@ def test_stack():
     assert v.shape == (2, 3, 1)
 
     # --- gray
-    space = BoxSpace((64, 32), 0, 255, stype=SpaceTypes.GRAY_2ch)
+    space = BoxSpace((64, 32), 0, 255, stype=SpaceTypes.GRAY_HW)
 
     o = space.create_stack_space(2)
     assert isinstance(o, BoxSpace)
-    assert o == BoxSpace((64, 32, 2), 0, 255, stype=SpaceTypes.IMAGE)
+    assert o == BoxSpace((64, 32, 2), 0, 255, stype=SpaceTypes.FEATURE_MAP)
 
     v = space.encode_stack([np.ones((64, 32)), np.ones((64, 32))])
     assert v.shape == (64, 32, 2)
@@ -61,10 +61,10 @@ def test_space_type():
     assert space.dtype == np.int8
     assert space != BoxSpace((2, 3), 0, 3, dtype=np.uint8)
 
-    space = BoxSpace((2, 3), -1, 3, stype=SpaceTypes.COLOR)
-    assert space.stype == SpaceTypes.COLOR
+    space = BoxSpace((2, 3), -1, 3, stype=SpaceTypes.RGB)
+    assert space.stype == SpaceTypes.RGB
     assert space.dtype == np.float32
-    assert space != BoxSpace((2, 3), -1, 3, stype=SpaceTypes.GRAY_3ch)
+    assert space != BoxSpace((2, 3), -1, 3, stype=SpaceTypes.GRAY_HW1)
 
 
 def test_discrete():
@@ -327,34 +327,34 @@ CB = BoxSpace((2, 1), -1, 0)
         [CB, RLBaseTypes.BOX, SpaceEncodeOptions(cast=False), BoxSpace((2, 1), -1, 0, np.float32), np.array([[-1], [-1]], np.float32), [[-1], [-1]]],
         # image
         [
-            BoxSpace((8, 4), 0, 255, np.uint, SpaceTypes.GRAY_2ch),
+            BoxSpace((8, 4), 0, 255, np.uint, SpaceTypes.GRAY_HW),
             RLBaseTypes.BOX,
             None,
-            BoxSpace((8, 4), 0, 255, np.float32, SpaceTypes.GRAY_2ch),
+            BoxSpace((8, 4), 0, 255, np.float32, SpaceTypes.GRAY_HW),
             np.full((8, 4), 2),
             np.full((8, 4), 2),
         ],
         [
-            BoxSpace((8, 4, 1), 0, 255, np.uint, SpaceTypes.GRAY_3ch),
+            BoxSpace((8, 4, 1), 0, 255, np.uint, SpaceTypes.GRAY_HW1),
             RLBaseTypes.BOX,
             None,
-            BoxSpace((8, 4, 1), 0, 255, np.float32, SpaceTypes.GRAY_3ch),
+            BoxSpace((8, 4, 1), 0, 255, np.float32, SpaceTypes.GRAY_HW1),
             np.full((8, 4, 1), 2),
             np.full((8, 4, 1), 2),
         ],
         [
-            BoxSpace((8, 4, 3), 0, 255, np.uint, SpaceTypes.COLOR),
+            BoxSpace((8, 4, 3), 0, 255, np.uint, SpaceTypes.RGB),
             RLBaseTypes.BOX,
             None,
-            BoxSpace((8, 4, 3), 0, 255, np.float32, SpaceTypes.COLOR),
+            BoxSpace((8, 4, 3), 0, 255, np.float32, SpaceTypes.RGB),
             np.full((8, 4, 3), 2),
             np.full((8, 4, 3), 2),
         ],
         [
-            BoxSpace((8, 4, 2), 0, 255, np.int64, SpaceTypes.IMAGE),
+            BoxSpace((8, 4, 2), 0, 255, np.int64, SpaceTypes.FEATURE_MAP),
             RLBaseTypes.BOX,
             None,
-            BoxSpace((8, 4, 2), 0, 255, np.float32, SpaceTypes.IMAGE),
+            BoxSpace((8, 4, 2), 0, 255, np.float32, SpaceTypes.FEATURE_MAP),
             np.full((8, 4, 2), 2),
             np.full((8, 4, 2), 2),
         ],

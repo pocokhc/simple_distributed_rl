@@ -43,7 +43,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
         self.decode_int_tbl = None
         self.encode_int_tbl = None
         if is_stack_ch is None:
-            if self._stype in [SpaceTypes.GRAY_2ch, SpaceTypes.GRAY_3ch]:
+            if self._stype in [SpaceTypes.GRAY_HW, SpaceTypes.GRAY_HW1]:
                 self._is_stack_ch = True
             else:
                 self._is_stack_ch = False
@@ -143,14 +143,14 @@ class BoxSpace(SpaceBase[np.ndarray]):
         if self._is_inf:
             raise ValueError("Cannot convert to image when low or high is infinite.")
 
-        if self._stype == SpaceTypes.GRAY_2ch:
+        if self._stype == SpaceTypes.GRAY_HW:
             assert x.ndim == 2, f"{self._stype.name} expects (H, W), got {x.shape}"
             x = x[..., None]  # (H, W, 1)
             x = np.repeat(x, 3, axis=2)  # (H, W, 3)
-        elif self._stype == SpaceTypes.GRAY_3ch:
+        elif self._stype == SpaceTypes.GRAY_HW1:
             assert x.ndim == 3 and x.shape[2] == 1, f"{self._stype.name} expects (H, W, 1), got {x.shape}"
             x = np.repeat(x, 3, axis=2)  # (H, W, 3)
-        elif self._stype in {SpaceTypes.COLOR, SpaceTypes.IMAGE}:
+        elif self._stype in {SpaceTypes.RGB, SpaceTypes.FEATURE_MAP}:
             assert x.ndim == 3, f"{self._stype.name} expects 3D shape (H, W, C), got {x.shape}"
             if x.shape[2] == 1:
                 x = np.repeat(x, 3, axis=2)  # (H, W, 1) → (H, W, 3)
@@ -289,7 +289,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
                 np.min(self._low),
                 np.max(self._high),
                 self._dtype,
-                SpaceTypes.IMAGE,
+                SpaceTypes.FEATURE_MAP,
             )
         else:
             return BoxSpace(
@@ -303,9 +303,9 @@ class BoxSpace(SpaceBase[np.ndarray]):
     def encode_stack(self, val: List[np.ndarray]) -> np.ndarray:
         state = np.asarray(val, self._dtype)
         if self._is_stack_ch:
-            if self._stype == SpaceTypes.GRAY_2ch:
+            if self._stype == SpaceTypes.GRAY_HW:
                 state = np.transpose(state, (1, 2, 0))
-            elif self._stype == SpaceTypes.GRAY_3ch:
+            elif self._stype == SpaceTypes.GRAY_HW1:
                 state = np.transpose(np.squeeze(state, axis=-1), (1, 2, 0))
             else:
                 raise ValueError(self._stype)
@@ -324,7 +324,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
             return
         if self.is_discrete():
             return
-        if self.is_image():
+        if self.is_image_like():
             return
         if self._is_inf:  # infは定義できない
             return

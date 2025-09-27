@@ -11,10 +11,10 @@ from srl.rl.models.config.input_block import InputValueBlockConfig
     "in_space, out_size",
     [
         [BoxSpace((5, 4)), 5 * 4],  # value block
-        [BoxSpace((64, 64), stype=SpaceTypes.GRAY_2ch), 64 * 64],
-        [BoxSpace((64, 64, 1), stype=SpaceTypes.GRAY_3ch), 64 * 64],
-        [BoxSpace((64, 64, 3), stype=SpaceTypes.COLOR), 64 * 64 * 3],
-        [BoxSpace((64, 64, 9), stype=SpaceTypes.IMAGE), 64 * 64 * 9],
+        [BoxSpace((64, 64), stype=SpaceTypes.GRAY_HW), 64 * 64],
+        [BoxSpace((64, 64, 1), stype=SpaceTypes.GRAY_HW1), 64 * 64],
+        [BoxSpace((64, 64, 3), stype=SpaceTypes.RGB), 64 * 64 * 3],
+        [BoxSpace((64, 64, 9), stype=SpaceTypes.FEATURE_MAP), 64 * 64 * 9],
     ],
 )
 def test_create_block_out_value(in_space: BoxSpace, out_size, rnn):

@@ -210,10 +210,10 @@ _params = [
     ),
     # --- IMAGE
     dict(
-        env_act_space=BoxSpace((64, 64), 0, 1, stype=SpaceTypes.GRAY_2ch),
+        env_act_space=BoxSpace((64, 64), 0, 1, stype=SpaceTypes.GRAY_HW),
         rl_act_type=RLBaseTypes.NONE,
         rl_act_type_override=RLBaseTypes.NONE,
-        true_act_space=BoxSpace((64, 64), 0, 1, stype=SpaceTypes.GRAY_2ch),
+        true_act_space=BoxSpace((64, 64), 0, 1, stype=SpaceTypes.GRAY_HW),
         rl_act=np.zeros((64, 64), np.float32),
         true_env_act=np.zeros((64, 64), np.float32),
     ),
@@ -297,11 +297,11 @@ def test_action(kwargs):
         NpArraySpace(2, -1, 1),
         BoxSpace((2, 1), -1, 1),
         BoxSpace((2, 1), -1, 1, np.int8),
-        BoxSpace((2, 1), -1, 1, stype=SpaceTypes.COLOR),
+        BoxSpace((2, 1), -1, 1, stype=SpaceTypes.RGB),
     ],
 )
 def test_sample_action(env_act_space, rl_act_type):
-    if env_act_space.is_image() and (rl_act_type & RLBaseTypes.DISCRETE):
+    if env_act_space.is_image_like() and (rl_act_type & RLBaseTypes.DISCRETE):
         pytest.skip("intに変換できない")
     env = srl.make_env(srl.EnvConfig("Stub", {"action_space": env_act_space}))
 

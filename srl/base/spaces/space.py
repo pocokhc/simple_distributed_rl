@@ -128,20 +128,20 @@ class SpaceBase(ABC, Generic[_T]):
             SpaceTypes.CONTINUOUS,
         ]
 
-    def is_image(self, in_image: bool = True) -> bool:
-        if in_image:
-            return self.stype in [
-                SpaceTypes.GRAY_2ch,
-                SpaceTypes.GRAY_3ch,
-                SpaceTypes.COLOR,
-                SpaceTypes.IMAGE,
-            ]
-        else:
-            return self.stype in [
-                SpaceTypes.GRAY_2ch,
-                SpaceTypes.GRAY_3ch,
-                SpaceTypes.COLOR,
-            ]
+    def is_image_visual(self) -> bool:
+        return self.stype in [
+            SpaceTypes.GRAY_HW,
+            SpaceTypes.GRAY_HW1,
+            SpaceTypes.RGB,
+        ]
+
+    def is_image_like(self) -> bool:
+        return self.stype in [
+            SpaceTypes.GRAY_HW,
+            SpaceTypes.GRAY_HW1,
+            SpaceTypes.RGB,
+            SpaceTypes.FEATURE_MAP,
+        ]
 
     def is_multi(self) -> bool:
         return self.stype == SpaceTypes.MULTI

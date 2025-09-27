@@ -290,7 +290,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                     self.__request_env_render = "terminal"
                 else:
                     raise NotSupportedError("Failed to get image.")
-            env_obs_space = BoxSpace(rgb_array.shape, 0, 255, np.uint8, SpaceTypes.COLOR)
+            env_obs_space = BoxSpace(rgb_array.shape, 0, 255, np.uint8, SpaceTypes.RGB)
 
             if self.observation_mode == "both":
                 both_spaces.insert(0, env_obs_space)
@@ -355,7 +355,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                     self.__request_env_render = "terminal"
                 else:
                     raise NotSupportedError("Failed to get image.")
-            self.__rl_obs_render_img_space_one_step: BoxSpace = BoxSpace(rgb_array.shape, 0, 255, np.uint8, SpaceTypes.COLOR)
+            self.__rl_obs_render_img_space_one_step: BoxSpace = BoxSpace(rgb_array.shape, 0, 255, np.uint8, SpaceTypes.RGB)
 
             if self.enable_state_encode and self.enable_rl_processors:
                 # applied_processors list

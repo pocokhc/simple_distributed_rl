@@ -129,7 +129,7 @@ class Config(RLConfig):
         return self
 
     def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
-        if not prev_observation_space.is_image():
+        if not prev_observation_space.is_image_like():
             raise ValueError(f"The input supports only image format. {prev_observation_space}")
         return []
 

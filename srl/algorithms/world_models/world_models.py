@@ -89,7 +89,7 @@ class VAE(KerasModelAddedSummary):
 
         self.z_size = config.z_size
         self.kl_tolerance = config.kl_tolerance
-        self.use_image_head = config.observation_space.is_image()
+        self.use_image_head = config.observation_space.is_image_like()
 
         # --- encoder
         if self.use_image_head:
@@ -569,7 +569,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         print(f"VAE RMSE: {rmse:.5f}")
 
     def render_rgb_array(self, worker, **kwargs) -> Optional[np.ndarray]:
-        if self.config.observation_space.stype != SpaceTypes.COLOR:
+        if self.config.observation_space.stype != SpaceTypes.RGB:
             return None
 
         from srl.utils import pygame_wrapper as pw

@@ -46,16 +46,16 @@ def _space_change_from_gym_to_srl_sub(gym_space: gym_spaces.Space) -> Optional[U
         _obs_type = SpaceTypes.UNKNOWN
         if "uint" in str(gym_space.dtype):
             if len(gym_space.shape) == 2:
-                _obs_type = SpaceTypes.GRAY_2ch
+                _obs_type = SpaceTypes.GRAY_HW
             elif len(gym_space.shape) == 3:
                 # w,h,ch 想定
                 ch = gym_space.shape[-1]
                 if ch == 1:
-                    _obs_type = SpaceTypes.GRAY_3ch
+                    _obs_type = SpaceTypes.GRAY_HW1
                 elif ch == 3:
-                    _obs_type = SpaceTypes.COLOR
+                    _obs_type = SpaceTypes.RGB
                 else:
-                    _obs_type = SpaceTypes.IMAGE
+                    _obs_type = SpaceTypes.FEATURE_MAP
         return srl_spaces.BoxSpace(gym_space.shape, gym_space.low, gym_space.high, gym_space.dtype, _obs_type)
 
     if isinstance(gym_space, gym_spaces.Tuple):

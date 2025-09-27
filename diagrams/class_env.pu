@@ -3,10 +3,10 @@
 enum SpaceTypes {
     DISCRETE
     CONTINUOUS
-    GRAY_2ch
-    GRAY_3ch
-    COLOR
-    IMAGE
+    GRAY_HW
+    GRAY_HW1
+    RGB
+    FEATURE_MAP
     TEXT
     MULTI
 }

@@ -31,7 +31,7 @@ class InputMultiBlock(nn.Module):
 
 
 def create_encoder_block(config: InputMultiBlockConfig, space: BoxSpace):
-    if space.is_image():
+    if space.is_image_visual():
         if config.image_type == "DQN":
             from srl.rl.torch_.blocks.dqn_image_block import DQNImageBlock
 

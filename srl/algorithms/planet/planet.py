@@ -160,7 +160,7 @@ class DenseDecoder(KerasModelAddedSummary):
 
 class Parameter(RLParameter[Config]):
     def setup(self):
-        assert self.config.observation_space.is_image(), "The input supports only image format."
+        assert self.config.observation_space.is_image_like(), "The input supports only image format."
         self.encode = ConvEncoder(self.config.cnn_depth, self.config.cnn_act)
         self.dynamics = RSSM(self.config.stoch_size, self.config.deter_size, self.config.deter_size)
         self.decode = ConvDecoder(self.config.cnn_depth, self.config.cnn_act)
@@ -583,7 +583,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
         pass
 
     def render_rgb_array(self, worker, **kwargs) -> Optional[np.ndarray]:
-        if self.config.observation_space.stype != SpaceTypes.COLOR:
+        if self.config.observation_space.stype != SpaceTypes.RGB:
             return None
         if self.feat is None:
             return None

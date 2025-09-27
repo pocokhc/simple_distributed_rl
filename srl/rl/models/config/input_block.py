@@ -197,11 +197,11 @@ class InputImageBlockConfig:
             return self.processors
 
         if self.name == "DQN":
-            return [ImageProcessor(SpaceTypes.GRAY_3ch, (84, 84), normalize_type="0to1")]
+            return [ImageProcessor(SpaceTypes.GRAY_HW1, (84, 84), normalize_type="0to1")]
         elif self.name == "R2D3":
-            return [ImageProcessor(SpaceTypes.COLOR, (96, 72), normalize_type="0to1")]
+            return [ImageProcessor(SpaceTypes.RGB, (96, 72), normalize_type="0to1")]
         elif self.name == "MuzeroAtari":
-            return [ImageProcessor(SpaceTypes.COLOR, (96, 96), normalize_type="0to1")]
+            return [ImageProcessor(SpaceTypes.RGB, (96, 96), normalize_type="0to1")]
         else:
             raise UndefinedError(self)
 
@@ -274,7 +274,7 @@ class InputBlockConfig:
     def get_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
         if prev_observation_space.is_value():
             return self.value.get_processors()
-        elif prev_observation_space.is_image():
+        elif prev_observation_space.is_image_like():
             return self.image.get_processors()
         return []
 
@@ -282,7 +282,7 @@ class InputBlockConfig:
         in_space = cast(BoxSpace, cfg.observation_space)
         if in_space.is_value():
             return self.value.create_tf_block(rnn, **kwargs)
-        elif in_space.is_image():
+        elif in_space.is_image_like():
             return self.image.create_tf_block(in_space, out_flatten, rnn, **kwargs)
         else:
             raise UndefinedError(in_space)
@@ -299,7 +299,7 @@ class InputBlockConfig:
         in_space = cast(BoxSpace, cfg.observation_space)
         if in_space.is_value():
             return self.value.create_torch_block(in_space, reshape_for_rnn)
-        elif in_space.is_image():
+        elif in_space.is_image_like():
             return self.image.create_torch_block(in_space, out_flatten, reshape_for_rnn)
         else:
             raise UndefinedError(in_space)

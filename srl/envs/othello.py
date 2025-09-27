@@ -418,10 +418,10 @@ class Othello(_OthelloBase[ArrayDiscreteSpace, List[int]]):
 
 
 @dataclass
-class OthelloLayer(_OthelloBase[BoxSpace, np.array]):
+class OthelloLayer(_OthelloBase[BoxSpace, np.ndarray]):
     @property
     def observation_space(self):
-        return BoxSpace(low=0, high=1, shape=(self.H, self.W, 2), stype=SpaceTypes.IMAGE)
+        return BoxSpace(low=0, high=1, shape=(self.H, self.W, 2), stype=SpaceTypes.FEATURE_MAP)
 
     def _create_obs(self):
         # Layer0: my_player field (0 or 1)

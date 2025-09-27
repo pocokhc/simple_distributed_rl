@@ -88,11 +88,11 @@ def _test_obs_episode(
 
     # render_image
     if use_render_image_state:
-        true_render_img_space_one = BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR)
+        true_render_img_space_one = BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.RGB)
         if render_image_window_length == 1:
             true_render_img_space = true_render_img_space_one
         else:
-            true_render_img_space = BoxSpace((render_image_window_length, 64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR)
+            true_render_img_space = BoxSpace((render_image_window_length, 64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.RGB)
         assert rl_config.obs_render_img_space_one_step == true_render_img_space_one
         assert rl_config.obs_render_img_space == true_render_img_space
 
@@ -425,50 +425,50 @@ _params = [
     ),
     # IMAGE
     dict(
-        env_obs_space=BoxSpace((16, 16), stype=SpaceTypes.GRAY_2ch),
+        env_obs_space=BoxSpace((16, 16), stype=SpaceTypes.GRAY_HW),
         rl_obs_type=RLBaseTypes.BOX,
         rl_obs_mode="",
         rl_obs_div_num=-1,
         render_image_window_length=2,
-        true_obs_env_space=BoxSpace((16, 16), stype=SpaceTypes.GRAY_2ch),
-        true_obs_space_one=BoxSpace((16, 16), stype=SpaceTypes.GRAY_2ch, is_stack_ch=True),
-        true_obs_space=BoxSpace((16, 16, 2), stype=SpaceTypes.IMAGE),
+        true_obs_env_space=BoxSpace((16, 16), stype=SpaceTypes.GRAY_HW),
+        true_obs_space_one=BoxSpace((16, 16), stype=SpaceTypes.GRAY_HW, is_stack_ch=True),
+        true_obs_space=BoxSpace((16, 16, 2), stype=SpaceTypes.FEATURE_MAP),
         env_states=[np.ones((16, 16)), np.ones((16, 16)), np.ones((16, 16))],
         true_rl_states=[np.ones((16, 16)), np.ones((16, 16)), np.ones((16, 16))],
     ),
     dict(
-        env_obs_space=BoxSpace((16, 16, 1), stype=SpaceTypes.GRAY_3ch),
+        env_obs_space=BoxSpace((16, 16, 1), stype=SpaceTypes.GRAY_HW1),
         rl_obs_type=RLBaseTypes.BOX,
         rl_obs_mode="",
         rl_obs_div_num=-1,
         render_image_window_length=2,
-        true_obs_env_space=BoxSpace((16, 16, 1), stype=SpaceTypes.GRAY_3ch),
-        true_obs_space_one=BoxSpace((16, 16, 1), stype=SpaceTypes.GRAY_3ch, is_stack_ch=True),
-        true_obs_space=BoxSpace((16, 16, 2), stype=SpaceTypes.IMAGE),
+        true_obs_env_space=BoxSpace((16, 16, 1), stype=SpaceTypes.GRAY_HW1),
+        true_obs_space_one=BoxSpace((16, 16, 1), stype=SpaceTypes.GRAY_HW1, is_stack_ch=True),
+        true_obs_space=BoxSpace((16, 16, 2), stype=SpaceTypes.FEATURE_MAP),
         env_states=[np.ones((16, 16, 1)), np.ones((16, 16, 1)), np.ones((16, 16, 1))],
         true_rl_states=[np.ones((16, 16, 1)), np.ones((16, 16, 1)), np.ones((16, 16, 1))],
     ),
     dict(
-        env_obs_space=BoxSpace((16, 16, 3), stype=SpaceTypes.COLOR),
+        env_obs_space=BoxSpace((16, 16, 3), stype=SpaceTypes.RGB),
         rl_obs_type=RLBaseTypes.BOX,
         rl_obs_mode="",
         rl_obs_div_num=-1,
         render_image_window_length=2,
-        true_obs_env_space=BoxSpace((16, 16, 3), stype=SpaceTypes.COLOR),
-        true_obs_space_one=BoxSpace((16, 16, 3), stype=SpaceTypes.COLOR),
-        true_obs_space=BoxSpace((2, 16, 16, 3), stype=SpaceTypes.COLOR),
+        true_obs_env_space=BoxSpace((16, 16, 3), stype=SpaceTypes.RGB),
+        true_obs_space_one=BoxSpace((16, 16, 3), stype=SpaceTypes.RGB),
+        true_obs_space=BoxSpace((2, 16, 16, 3), stype=SpaceTypes.RGB),
         env_states=[np.ones((16, 16, 3)), np.ones((16, 16, 3)), np.ones((16, 16, 3))],
         true_rl_states=[np.ones((16, 16, 3)), np.ones((16, 16, 3)), np.ones((16, 16, 3))],
     ),
     dict(
-        env_obs_space=BoxSpace((16, 16, 5), stype=SpaceTypes.IMAGE),
+        env_obs_space=BoxSpace((16, 16, 5), stype=SpaceTypes.FEATURE_MAP),
         rl_obs_type=RLBaseTypes.BOX,
         rl_obs_mode="",
         rl_obs_div_num=-1,
         render_image_window_length=2,
-        true_obs_env_space=BoxSpace((16, 16, 5), stype=SpaceTypes.IMAGE),
-        true_obs_space_one=BoxSpace((16, 16, 5), stype=SpaceTypes.IMAGE),
-        true_obs_space=BoxSpace((2, 16, 16, 5), stype=SpaceTypes.IMAGE),
+        true_obs_env_space=BoxSpace((16, 16, 5), stype=SpaceTypes.FEATURE_MAP),
+        true_obs_space_one=BoxSpace((16, 16, 5), stype=SpaceTypes.FEATURE_MAP),
+        true_obs_space=BoxSpace((2, 16, 16, 5), stype=SpaceTypes.FEATURE_MAP),
         env_states=[np.ones((16, 16, 5)), np.ones((16, 16, 5)), np.ones((16, 16, 5))],
         true_rl_states=[np.ones((16, 16, 5)), np.ones((16, 16, 5)), np.ones((16, 16, 5))],
     ),
@@ -491,9 +491,9 @@ _params = [
         rl_obs_mode="render_image",
         rl_obs_div_num=-1,
         render_image_window_length=1,
-        true_obs_env_space=BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR),
-        true_obs_space_one=BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR),
-        true_obs_space=BoxSpace((2, 64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.COLOR),
+        true_obs_env_space=BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.RGB),
+        true_obs_space_one=BoxSpace((64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.RGB),
+        true_obs_space=BoxSpace((2, 64, 32, 3), 0, 255, np.uint8, stype=SpaceTypes.RGB),
         env_states=[1, 2, 3],
         true_rl_states=[
             np.full((64, 32, 3), 1),

@@ -2,7 +2,6 @@ import numpy as np
 import pytest
 
 from srl.base.define import SpaceTypes
-from srl.base.exception import UndefinedError
 from srl.base.spaces.box import BoxSpace
 from srl.rl.models.config.input_block import InputImageBlockConfig
 
@@ -12,15 +11,15 @@ from srl.rl.models.config.input_block import InputImageBlockConfig
     "in_space, out_flatten, out_shape",
     [
         [BoxSpace((5, 4)), True, 20],  # value block
-        [BoxSpace((64, 64), stype=SpaceTypes.GRAY_2ch), True, 5184],
-        [BoxSpace((64, 64, 1), stype=SpaceTypes.GRAY_3ch), True, 5184],
-        [BoxSpace((64, 64, 3), stype=SpaceTypes.COLOR), True, 5184],
-        [BoxSpace((64, 64, 9), stype=SpaceTypes.IMAGE), True, 5184],
+        [BoxSpace((64, 64), stype=SpaceTypes.GRAY_HW), True, 5184],
+        [BoxSpace((64, 64, 1), stype=SpaceTypes.GRAY_HW1), True, 5184],
+        [BoxSpace((64, 64, 3), stype=SpaceTypes.RGB), True, 5184],
+        [BoxSpace((64, 64, 9), stype=SpaceTypes.FEATURE_MAP), True, 5184],
         #
-        [BoxSpace((64, 64), stype=SpaceTypes.GRAY_2ch), False, (64, 9, 9)],
-        [BoxSpace((64, 64, 1), stype=SpaceTypes.GRAY_3ch), False, (64, 9, 9)],
-        [BoxSpace((64, 64, 3), stype=SpaceTypes.COLOR), False, (64, 9, 9)],
-        [BoxSpace((64, 64, 9), stype=SpaceTypes.IMAGE), False, (64, 9, 9)],
+        [BoxSpace((64, 64), stype=SpaceTypes.GRAY_HW), False, (64, 9, 9)],
+        [BoxSpace((64, 64, 1), stype=SpaceTypes.GRAY_HW1), False, (64, 9, 9)],
+        [BoxSpace((64, 64, 3), stype=SpaceTypes.RGB), False, (64, 9, 9)],
+        [BoxSpace((64, 64, 9), stype=SpaceTypes.FEATURE_MAP), False, (64, 9, 9)],
     ],
 )
 def test_create_block_out_value(in_space: BoxSpace, out_flatten, out_shape, rnn):
@@ -35,7 +34,7 @@ def test_create_block_out_value(in_space: BoxSpace, out_flatten, out_shape, rnn)
 
     config = InputImageBlockConfig()
 
-    if not in_space.is_image():
+    if not in_space.is_image_like():
         # image以外は例外
         with pytest.raises(ValueError):
             block = config.create_torch_block(in_space=in_space, out_flatten=out_flatten, reshape_for_rnn=rnn)
@@ -134,7 +133,7 @@ def test_torch_image(name):
     in_shape2 = (batch_size,) + in_shape
     out_shape2 = (batch_size,) + out_shape
 
-    in_space = BoxSpace(in_shape, stype=SpaceTypes.IMAGE)
+    in_space = BoxSpace(in_shape, stype=SpaceTypes.FEATURE_MAP)
     block = cfg.create_torch_block(out_flatten=False, in_space=in_space)
     x = np.ones(in_shape2, dtype=np.float32)
     x = torch.tensor(x)

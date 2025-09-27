@@ -2,6 +2,7 @@ import time
 from pprint import pprint
 from typing import Optional, cast
 
+import numpy as np
 import pytest
 
 import srl
@@ -11,6 +12,7 @@ from srl.base.env.base import EnvBase
 from srl.base.env.env_run import EnvRun
 from srl.base.env.processor import EnvProcessor
 from srl.base.exception import SRLError
+from srl.base.spaces.box import BoxSpace
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.space import SpaceBase
 
@@ -193,8 +195,12 @@ def test_processor_backup():
 
     env.setup()
     env.reset()
+    assert env.state == 0
+    assert env.action == 0
 
     env.step(0)
+    assert env.state == 1
+    assert env.action == 0
     assert env.episode_rewards[0] == 1
     assert env.get_invalid_actions() == [1]
     assert env.get_valid_actions() == [0, 2, 3]
@@ -203,6 +209,8 @@ def test_processor_backup():
     backup1 = env.backup()
 
     env.step(1)
+    assert env.state == 1
+    assert env.action == 1
     assert env.episode_rewards[0] == 2
     assert env.get_invalid_actions() == [2]
     assert env.get_valid_actions() == [0, 1, 3]
@@ -221,8 +229,52 @@ def test_processor_backup():
     # assert restore
     pprint(backup1)
     env.restore(backup1)
+    assert env.state == 1
+    assert env.action == 0
     assert env.episode_rewards[0] == 1
     assert env.get_invalid_actions() == [1]
     assert env.get_valid_actions() == [0, 2, 3]
     assert env.unwrapped._step == 1
     assert cast(StubProcessor, env._processors[0]).n == 1
+
+
+class StubProcessor2(EnvProcessor):
+    def __init__(self) -> None:
+        self.n = 0
+
+    def remap_action_space(self, prev_space: SpaceBase, env_run: EnvRun) -> Optional[SpaceBase]:
+        return BoxSpace((1, 1), -1, 10)
+
+    def remap_observation_space(self, prev_space: SpaceBase, env_run: EnvRun) -> Optional[SpaceBase]:
+        return BoxSpace((1, 1), -1, 1)
+
+    def remap_action(self, action, prev_space: SpaceBase, new_space: SpaceBase, env_run: EnvRun):
+        return np.array([action])
+
+    def remap_invalid_actions(self, invalid_actions, prev_space: SpaceBase, new_space: SpaceBase, env_run: EnvRun):
+        return [np.array([a]) for a in invalid_actions]
+
+    def remap_observation(self, state, prev_space: SpaceBase, new_space: SpaceBase, env_run: EnvRun):
+        return np.array([state])
+
+
+def test_processor_remap():
+    env_config = srl.EnvConfig("base_StubEnv", processors=[StubProcessor2()])
+    env = env_config.make()
+
+    env.setup()
+    env.reset()
+    assert isinstance(env.state, np.ndarray)
+    assert isinstance(env.action, np.ndarray)
+
+    env.step(0)
+    assert isinstance(env.state, np.ndarray)
+    assert isinstance(env.action, np.ndarray)
+
+    # assert restore
+    backup1 = env.backup()
+    env.step(1)
+    pprint(backup1)
+    env.restore(backup1)
+    assert isinstance(env.state, np.ndarray)
+    assert isinstance(env.action, np.ndarray)

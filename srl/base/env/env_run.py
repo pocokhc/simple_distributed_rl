@@ -45,26 +45,32 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._processors_step: List[Any] = [c for c in self._processors if hasattr(c, "remap_step")]
 
         # --- space
-        self._action_space = self.env.action_space
-        self._observation_space = self.env.observation_space
+        if self.config.override_action_space is None:
+            act_space = self.env.action_space
+        else:
+            act_space = self.config.override_action_space
+        if self.config.override_observation_space is None:
+            obs_space = self.env.observation_space
+        else:
+            obs_space = self.config.override_observation_space
         for p in self._processors:
             # action
-            prev_space = self._action_space
-            new_space = p.remap_action_space(self._action_space, env_run=self)
+            new_space = p.remap_action_space(act_space, env_run=self)
             if new_space is not None:
-                self._action_space = new_space
                 if hasattr(p, "remap_action"):
-                    self._processors_action.append((p, prev_space, self._action_space))
+                    self._processors_action.append((p, act_space, new_space))
                 if hasattr(p, "remap_invalid_actions"):
-                    self._processors_invalid_actions.append((p, prev_space, self._action_space))
+                    self._processors_invalid_actions.append((p, act_space, new_space))
+                act_space = new_space
 
             # obs
-            prev_space = self._observation_space
-            new_space = p.remap_observation_space(self._observation_space, env_run=self)
+            new_space = p.remap_observation_space(obs_space, env_run=self)
             if new_space is not None:
-                self._observation_space = new_space
                 if hasattr(p, "remap_observation"):
-                    self._processors_observation.append((p, prev_space, self._observation_space))
+                    self._processors_observation.append((p, obs_space, new_space))
+                obs_space = new_space
+        self._remapped_act_space = act_space
+        self._remapped_obs_space = obs_space
 
         # --- init val
         render_interval = 1000 / 60
@@ -83,7 +89,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     def _reset_vals(self):
         self._step_num: int = 0
-        self._state = self.env.observation_space.get_default()
+        self._state = self._remapped_obs_space.get_default()
         self._done = DoneTypes.NONE
         self.env.done_reason = ""
         self._prev_player: int = 0
@@ -105,7 +111,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         d = [
             # reset_vals
             self._step_num,
-            self._observation_space.copy_value(self._state),
+            self._remapped_obs_space.copy_value(self._state),
             self._done,
             self.env.done_reason,
             self._prev_player,
@@ -364,23 +370,23 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
                 if action == inv_act:
                     logger.error(f"{action}({type(action)}), {error_msg}, invalid action {self.get_invalid_actions()}")
                     break
-            return self._action_space.sanitize(action)
+            return self._remapped_act_space.sanitize(action)
         except Exception as e:
             logger.error(f"{action}({type(action)}), {error_msg}, {e}")
-        return self._action_space.get_default()
+        return self._remapped_act_space.get_default()
 
     def assert_action(self, action: Any):
-        assert self._action_space.check_val(action), f"The type of action is different. {action}({type(action)})"
+        assert self._remapped_act_space.check_val(action), f"The type of action is different. {action}({type(action)})"
 
     def sanitize_state(self, state: Any, error_msg: str = "") -> TObsType:
         try:
-            return self._observation_space.sanitize(state)
+            return self._remapped_obs_space.sanitize(state)
         except Exception as e:
             logger.error(f"{state}({type(state)}), {error_msg}, {e}")
-        return self._observation_space.get_default()
+        return self._remapped_obs_space.get_default()
 
     def assert_state(self, state: Any):
-        assert self._observation_space.check_val(state), f"The type of state is different. {state}({type(state)})"
+        assert self._remapped_obs_space.check_val(state), f"The type of state is different. {state}({type(state)})"
 
     def sanitize_rewards(self, rewards: List[float], error_msg: str = "") -> List[float]:
         try:
@@ -439,11 +445,11 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     @property
     def action_space(self) -> SpaceBase:
-        return self._action_space
+        return self._remapped_act_space
 
     @property
     def observation_space(self) -> SpaceBase:
-        return self._observation_space
+        return self._remapped_obs_space
 
     @property
     def max_episode_steps(self) -> int:

@@ -154,9 +154,6 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
                 n_action = n_action.type(dtype=self.torch_dtype)
             else:
                 n_action = n_p_dist.sample()
-                noise = torch.normal(0, self.config.target_policy_noise_stddev, size=n_action.shape).to(self.device)
-                noise = torch.clamp(noise, -self.config.target_policy_clip_range, self.config.target_policy_clip_range)
-                n_action = torch.clamp(n_action + noise, -1, 1)
                 if self.config.squashed_gaussian_policy:
                     n_action = torch.tanh(n_action)
             n_q = self.parameter.qnet(n_state, n_action)
@@ -179,8 +176,9 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
         # --- policy
         p_dist = self.parameter.policy(state)
         action = p_dist.rsample()
-        if self.config.action_space.is_continuous() and self.config.squashed_gaussian_policy:
-            action = torch.tanh(action)
+        if self.config.action_space.is_continuous():
+            if self.config.squashed_gaussian_policy:
+                action = torch.tanh(action)
         q = self.parameter.qnet(state, action)
         loss_policy = -q.mean()
         self.info["loss_policy"] = loss_policy.item()
@@ -219,7 +217,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             act_space = cast(NpArraySpace, self.config.action_space)
             if self.training:
                 loc = p_dist.mean().detach().cpu().numpy()[0]
-                scale = self.config.policy_noise_normal_scale
+                scale = self.config.policy_training_scale
                 self.action = np.random.normal(loc, scale, size=act_space.size)
             else:
                 self.action = p_dist.mean()

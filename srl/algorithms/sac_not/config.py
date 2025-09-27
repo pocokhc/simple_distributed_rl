@@ -14,7 +14,7 @@ from srl.rl.schedulers.lr_scheduler import LRSchedulerConfig
 class Config(RLConfig):
     epsilon: float = 0.1
     test_epsilon: float = 0
-    policy_noise_normal_scale: float = 0.5
+    policy_training_scale: float = 0.5
 
     #: Batch size
     batch_size: int = 64

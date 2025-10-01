@@ -11,13 +11,16 @@ class Info:
         self._data: Dict[str, Any] = {}
         self._data_type: Dict[str, str] = {}
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value):
         self.set_scalar(key, value)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str):
         return self._data[key]
 
-    def __delitem__(self, key):
+    def get(self, key: str, default=None, /):
+        return self._data.get(key, default)
+
+    def __delitem__(self, key: str):
         del self._data[key]
 
     def __str__(self) -> str:

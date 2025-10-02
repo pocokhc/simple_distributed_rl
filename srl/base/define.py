@@ -106,6 +106,7 @@ class SpaceTypes(enum.Enum):
     GRAY_HW = enum.auto()  # (height, width)
     GRAY_HW1 = enum.auto()  # (height, width, 1)
     RGB = enum.auto()  # (height, width, 3)
+    IMAGE_MAP = enum.auto()  # (height, width, ch)
     FEATURE_MAP = enum.auto()  # (height, width, ch)
     TEXT = enum.auto()
     MULTI = enum.auto()  # list

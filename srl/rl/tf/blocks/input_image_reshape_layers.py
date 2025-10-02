@@ -40,7 +40,9 @@ def create_input_image_reshape_layers(space: BoxSpace, rnn: bool) -> list:
             pass
         else:
             raise TFLayerError(err_msg)
-
+    elif space.stype == SpaceTypes.IMAGE_MAP:
+        # (h, w, ch)
+        pass
     elif space.stype == SpaceTypes.FEATURE_MAP:
         # (h, w, ch)
         pass

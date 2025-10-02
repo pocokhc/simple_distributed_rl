@@ -22,6 +22,9 @@ class InputMultiBlock(nn.Module):
             self.blocks.append(block)
         self.blocks = nn.ModuleList(self.blocks)
 
+        # --- build
+        self([torch.tensor(np.array([s])) for s in in_space.get_default()])
+
     def forward(self, x_list: List[torch.Tensor]):
         y_list = []
         for i in range(len(self.blocks)):

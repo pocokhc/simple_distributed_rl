@@ -112,7 +112,7 @@ class NpArraySpace(SpaceBase[np.ndarray]):
         return ",".join([str(int(v) if v.is_integer() else v) for v in val.tolist()])
 
     def get_default(self) -> np.ndarray:
-        return np.where((self._low < 0) & (0 < self.high), 0, self._low)
+        return np.where((self._low < 0) & (0 < self.high), np.zeros_like(self._low), self._low)
 
     def copy(self, **kwargs) -> "NpArraySpace":
         keys = ["size", "low", "high", "dtype", "stype"]

@@ -354,9 +354,13 @@ SpaceTypesはフレームワーク内で定義されている値となります�
      - RGB
      - カラー画像の形式を取り扱います。shapeは(height, width, 3)を想定しています。
    * - BoxSpace
+     - NDArray[np.uint8]
+     - IMAGE_MAP
+     - 画像を取り扱いますがch数は未定です。shapeは(height, width, N)を想定しています。
+   * - BoxSpace
      - NDArray
      - FEATURE_MAP
-     - 画像形式の形を取り扱います。shapeは(height, width, N)を想定しています。
+     - 画像形式を取りますが、画像ではないものも扱います。shapeは(height, width, N)を想定しています。
 
 
 3. 自作環境の登録

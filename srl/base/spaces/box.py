@@ -150,7 +150,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
         elif self._stype == SpaceTypes.GRAY_HW1:
             assert x.ndim == 3 and x.shape[2] == 1, f"{self._stype.name} expects (H, W, 1), got {x.shape}"
             x = np.repeat(x, 3, axis=2)  # (H, W, 3)
-        elif self._stype in {SpaceTypes.RGB, SpaceTypes.FEATURE_MAP}:
+        elif self._stype in {SpaceTypes.RGB, SpaceTypes.IMAGE_MAP, SpaceTypes.FEATURE_MAP}:
             assert x.ndim == 3, f"{self._stype.name} expects 3D shape (H, W, C), got {x.shape}"
             if x.shape[2] == 1:
                 x = np.repeat(x, 3, axis=2)  # (H, W, 1) → (H, W, 3)
@@ -289,7 +289,7 @@ class BoxSpace(SpaceBase[np.ndarray]):
                 np.min(self._low),
                 np.max(self._high),
                 self._dtype,
-                SpaceTypes.FEATURE_MAP,
+                SpaceTypes.IMAGE_MAP,
             )
         else:
             return BoxSpace(

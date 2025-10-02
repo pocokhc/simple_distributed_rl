@@ -133,6 +133,7 @@ class SpaceBase(ABC, Generic[_T]):
             SpaceTypes.GRAY_HW,
             SpaceTypes.GRAY_HW1,
             SpaceTypes.RGB,
+            SpaceTypes.IMAGE_MAP,
         ]
 
     def is_image_like(self) -> bool:
@@ -140,6 +141,7 @@ class SpaceBase(ABC, Generic[_T]):
             SpaceTypes.GRAY_HW,
             SpaceTypes.GRAY_HW1,
             SpaceTypes.RGB,
+            SpaceTypes.IMAGE_MAP,
             SpaceTypes.FEATURE_MAP,
         ]
 

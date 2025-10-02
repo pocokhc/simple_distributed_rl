@@ -52,14 +52,18 @@ class InputImageReshapeBlock(nn.Module):
                 x = x.permute((0, 3, 1, 2))
             else:
                 raise ValueError(err_msg)
-
+        elif self.space.stype == SpaceTypes.IMAGE_MAP:
+            if len(self.space.shape) == 3:
+                # (batch, h, w, ch) -> (batch, ch, h, w)
+                x = x.permute((0, 3, 1, 2))
+            else:
+                raise ValueError(err_msg)
         elif self.space.stype == SpaceTypes.FEATURE_MAP:
             if len(self.space.shape) == 3:
                 # (batch, h, w, ch) -> (batch, ch, h, w)
                 x = x.permute((0, 3, 1, 2))
             else:
                 raise ValueError(err_msg)
-
         else:
             raise ValueError(err_msg)
 

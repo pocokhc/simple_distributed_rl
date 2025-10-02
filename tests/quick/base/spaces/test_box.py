@@ -49,7 +49,7 @@ def test_stack():
 
     o = space.create_stack_space(2)
     assert isinstance(o, BoxSpace)
-    assert o == BoxSpace((64, 32, 2), 0, 255, stype=SpaceTypes.FEATURE_MAP)
+    assert o == BoxSpace((64, 32, 2), 0, 255, stype=SpaceTypes.IMAGE_MAP)
 
     v = space.encode_stack([np.ones((64, 32)), np.ones((64, 32))])
     assert v.shape == (64, 32, 2)

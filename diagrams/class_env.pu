@@ -6,6 +6,7 @@ enum SpaceTypes {
     GRAY_HW
     GRAY_HW1
     RGB
+    IMAGE_MAP
     FEATURE_MAP
     TEXT
     MULTI

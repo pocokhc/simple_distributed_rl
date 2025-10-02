@@ -8,7 +8,9 @@ def to_str_time(sec: float) -> str:
         return "   inf"
     if sec < 60:
         return "{:5.2f}s".format(sec)
-    return "{:5.1f}m".format(sec / 60)
+    if sec < 60 * 60 * 2:
+        return "{:5.1f}m".format(sec / 60)
+    return "{:5.2f}h".format(sec / (60 * 60))
 
 
 def to_str_reward(reward: Union[int, float], check_skip: bool = False) -> str:

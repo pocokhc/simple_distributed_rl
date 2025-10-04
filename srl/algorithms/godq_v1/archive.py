@@ -125,6 +125,15 @@ class Archive:
                 n += len(cells)
         return n
 
+    def _calc_norm(self, s1, s2):
+        if self.config.observation_space.is_multi():
+            dist = 0
+            for n1, n2 in zip(s1, s2):
+                dist += np.linalg.norm(n1 - n2)
+            return dist / len(s1)
+        else:
+            return np.linalg.norm(s1 - s2)
+
     def _add_archive(self, state, worker: WorkerRun) -> bool:
         # 1. 報酬が多い
         # 2. スタート地点から遠い
@@ -132,7 +141,7 @@ class Archive:
             self.archive_cells[self.start_state_str] = {}
         if self.episode_step not in self.archive_cells[self.start_state_str]:
             self.archive_cells[self.start_state_str][self.episode_step] = []
-        dist = np.linalg.norm(self.start_state - state)
+        dist = self._calc_norm(self.start_state, state)
         new_c = ArchiveCell(
             self.start_state,
             state,
@@ -160,7 +169,7 @@ class Archive:
         for v in self.archive_cells.values():
             for cells in v.values():
                 for c in cells:
-                    dist = np.linalg.norm(c.state - state)
+                    dist = self._calc_norm(c.state, state)
                     arr.append((float(dist), c))
         if len(arr) == 0:
             return None

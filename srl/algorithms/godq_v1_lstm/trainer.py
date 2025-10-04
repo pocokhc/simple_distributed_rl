@@ -17,3 +17,4 @@ class Trainer(RLTrainer[Config, Parameter, Memory]):
 
     def train(self):
         self.trainer_q.train()
+        self.train_count = max(self.train_count, self.trainer_q.train_count)

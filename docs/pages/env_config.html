@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EnvConfig &mdash; SimpleDistributedRL 1.4.3 ドキュメント</title>
+  <title>EnvConfig &mdash; SimpleDistributedRL 1.4.4 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=3f9029d9"></script>
+      <script src="../_static/documentation_options.js?v=f419b914"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -73,6 +73,8 @@
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.render_scale"><code class="docutils literal notranslate"><span class="pre">EnvConfig.render_scale</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.font_name"><code class="docutils literal notranslate"><span class="pre">EnvConfig.font_name</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.font_size"><code class="docutils literal notranslate"><span class="pre">EnvConfig.font_size</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.override_action_space"><code class="docutils literal notranslate"><span class="pre">EnvConfig.override_action_space</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.override_observation_space"><code class="docutils literal notranslate"><span class="pre">EnvConfig.override_observation_space</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.processors"><code class="docutils literal notranslate"><span class="pre">EnvConfig.processors</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.enable_sanitize"><code class="docutils literal notranslate"><span class="pre">EnvConfig.enable_sanitize</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#srl.base.env.config.EnvConfig.enable_assertion"><code class="docutils literal notranslate"><span class="pre">EnvConfig.enable_assertion</span></code></a></li>
@@ -122,7 +124,7 @@
 <li class="toctree-l1"><a class="reference internal" href="algorithms/alphazero.html">AlphaZero</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/muzero.html">MuZero</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dreamer_v3.html">DreamerV3</a></li>
-<li class="toctree-l1"><a class="reference internal" href="algorithms/not_dqn.html">No Target Deep Q-Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/dqn_not.html">No Target Deep Q-Networks</a></li>
 </ul>
 
         </div>
@@ -153,7 +155,7 @@
 <span id="env-config"></span><h1>EnvConfig<a class="headerlink" href="#envconfig" title="Link to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.base.env.config.</span></span><span class="sig-name descname"><span class="pre">EnvConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">id:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'',</span> <span class="pre">kwargs:</span> <span class="pre">dict</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;,</span> <span class="pre">max_episode_steps:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">episode_timeout:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">frameskip:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0,</span> <span class="pre">random_noop_max:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0,</span> <span class="pre">gym_make_func:</span> <span class="pre">~typing.Callable[[...],</span> <span class="pre">gym.Env</span> <span class="pre">|</span> <span class="pre">gymnasium.Env]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">gym_wrapper:</span> <span class="pre">GymUserWrapper</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">use_gym:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">render_interval:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">render_scale:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.0,</span> <span class="pre">font_name:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'',</span> <span class="pre">font_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">18,</span> <span class="pre">processors:</span> <span class="pre">~typing.List[~srl.base.env.processor.EnvProcessor]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;,</span> <span class="pre">enable_sanitize:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">enable_assertion:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">display_name:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.base.env.config.EnvConfig" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">srl.base.env.config.</span></span><span class="sig-name descname"><span class="pre">EnvConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">id:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'',</span> <span class="pre">kwargs:</span> <span class="pre">dict</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;,</span> <span class="pre">max_episode_steps:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">episode_timeout:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">frameskip:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0,</span> <span class="pre">random_noop_max:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">0,</span> <span class="pre">gym_make_func:</span> <span class="pre">~typing.Callable[[...],</span> <span class="pre">gym.Env</span> <span class="pre">|</span> <span class="pre">gymnasium.Env]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">gym_wrapper:</span> <span class="pre">GymUserWrapper</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">use_gym:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">render_interval:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">-1,</span> <span class="pre">render_scale:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.0,</span> <span class="pre">font_name:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'',</span> <span class="pre">font_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">18,</span> <span class="pre">override_action_space:</span> <span class="pre">~srl.base.spaces.space.SpaceBase</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">override_observation_space:</span> <span class="pre">~srl.base.spaces.space.SpaceBase</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">processors:</span> <span class="pre">~typing.List[~srl.base.env.processor.EnvProcessor]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;,</span> <span class="pre">enable_sanitize:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">enable_assertion:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">display_name:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></em><span class="sig-paren">)</span><a class="headerlink" href="#srl.base.env.config.EnvConfig" title="Link to this definition"></a></dt>
 <dd><p>ベースクラス: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>環境の定義</p>
 <p>環境は名前だけ又はEnvConfigで定義します。
@@ -248,6 +250,18 @@ EnvConfigからは細かい設定を追加できます。</p>
 <dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.font_size">
 <span class="sig-name descname"><span class="pre">font_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">18</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.font_size" title="Link to this definition"></a></dt>
 <dd><p>render時のフォントサイズ</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.override_action_space">
+<span class="sig-name descname"><span class="pre">override_action_space</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">SpaceBase</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.override_action_space" title="Link to this definition"></a></dt>
+<dd><p>envのaction_spaceを上書きします。</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="srl.base.env.config.EnvConfig.override_observation_space">
+<span class="sig-name descname"><span class="pre">override_observation_space</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">SpaceBase</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#srl.base.env.config.EnvConfig.override_observation_space" title="Link to this definition"></a></dt>
+<dd><p>envのobservation_spaceを上書きします。</p>
 </dd></dl>
 
 <dl class="py attribute">

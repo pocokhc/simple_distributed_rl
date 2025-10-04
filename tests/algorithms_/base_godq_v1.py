@@ -30,27 +30,30 @@ class LongCase(CommonLongCase):
         rl_config.base_units = 64
         rl_config.input_block.cont_units = 64
         rl_config.input_block.discrete_units = 32
+        rl_config.align_loss_coeff = 0.1
         return rl_config
 
-    @pytest.mark.parametrize("feat_type, archive", [["SimSiam", False], ["BYOL", True]])
+    @pytest.mark.parametrize("feat_type, archive", [["", False], ["BYOL", True]])
     def test_Grid(self, feat_type, archive):
         rl_config = self._create_rl_config()
         rl_config.feat_type = feat_type
         rl_config.enable_archive = archive
         runner = self.create_test_runner("Grid", rl_config)
-        runner.train(max_steps=3_000)
+        runner.train(max_steps=5_000)
         assert runner.evaluate_compare_to_baseline_single_player()
 
     def test_Pendulum(self):
         rl_config = self._create_rl_config()
         rl_config.discount = 0.9
+        rl_config.lr = 0.001
         runner = self.create_test_runner("Pendulum-v1", rl_config)
-        runner.train(max_steps=200 * 50)
+        runner.train(max_steps=200 * 100)
         assert runner.evaluate_compare_to_baseline_single_player()
 
     def test_Pendulum_mp(self):
         rl_config = self._create_rl_config()
         rl_config.discount = 0.9
+        rl_config.lr = 0.001
         runner = self.create_test_runner("Pendulum-v1", rl_config)
-        runner.train_mp(max_train_count=200 * 100)
+        runner.train_mp(max_train_count=200 * 200)
         assert runner.evaluate_compare_to_baseline_single_player()

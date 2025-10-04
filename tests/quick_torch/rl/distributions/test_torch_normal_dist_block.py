@@ -82,14 +82,14 @@ def test_autoencoder(fixed_scale):
             super().__init__()
             self.h1 = torch.nn.ModuleList(
                 [
-                    torch.nn.Linear(1, 32),
+                    torch.nn.Linear(1, 64),
                     torch.nn.ReLU(),
                 ]
             )
-            self.block = NormalDistBlock(32, 32, fixed_scale=fixed_scale)
+            self.block = NormalDistBlock(64, 64, fixed_scale=fixed_scale)
             self.h2 = torch.nn.ModuleList(
                 [
-                    torch.nn.Linear(32, 1),
+                    torch.nn.Linear(64, 1),
                     torch.nn.ReLU(),
                 ]
             )

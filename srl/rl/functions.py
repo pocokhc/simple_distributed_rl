@@ -47,6 +47,18 @@ def inverse_sqrt_symlog(x):
     return np.where(abs_x <= 1, square, symexp)
 
 
+def linear_symlog(x):
+    abs_x = np.abs(x)
+    symlog = np.sign(x) * (np.log1p(abs_x - 1) + 1)
+    return np.where(abs_x <= 1, x, symlog)
+
+
+def inverse_linear_symlog(x):
+    abs_x = np.abs(x)
+    symexp = np.sign(x) * (np.exp(abs_x - 1))
+    return np.where(abs_x <= 1, x, symexp)
+
+
 def unimix(probs, unimix: float):
     uniform = np.ones_like(probs) / probs.shape[-1]
     return (1 - unimix) * probs + unimix * uniform
@@ -54,6 +66,21 @@ def unimix(probs, unimix: float):
 
 def sigmoid(x, a=1):
     return 1 / (1 + np.exp(-a * x))
+
+
+def softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
+    """softmaxを数値安定性を考慮して計算する
+
+    Args:
+        x: 入力ベクトルまたは行列
+        axis: softmaxを適用する次元（デフォルトは最後の次元）
+
+    Returns:
+        np.ndarray: softmax後の確率分布
+    """
+    # How: オーバーフロー防止のため最大値を引く
+    exp_x = np.exp(x - np.max(x, axis=axis, keepdims=True))
+    return exp_x / np.sum(exp_x, axis=axis, keepdims=True)
 
 
 def one_hot(x, size: int, dtype=np.float32):

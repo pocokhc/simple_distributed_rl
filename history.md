@@ -19,6 +19,44 @@
 // keras3対応 → tfは@tf.functionが使えなくなるので遅くなる。torchはcpu()が必要になるっぽい、しばらく保留
 
 
+# v1.4.5
+
+- SpaceTypesの画像関係の命名を変更（どこかでやりたかった。影響が少し大きめで、直接使っている場合は要変更）
+   - GRAY_2ch -> GRAY_HW
+   - GRAY_3ch -> GRAY_HW1
+   - COLOR -> RGB
+   - IMAGE -> FEATURE_MAP
+   - 新しくIMAGE_MAPを追加
+
+**MainUpdates**
+
+1. [base.define] change: SpaceTypesの画像関係の命名を変更
+   - [SpaceBase] change: is_imageをis_image_visualとis_image_likeに分割
+   - [base.define] new: IMAGE_MAPを追加
+
+**OtherUpdates**
+
+1. [base.env.config] new: spaceを直接指定できる override_action_space,override_observation_spaceを追加
+1. [base.env.env_run] add: 直前に使われたactionを取得できるactionプロパティを追加
+1. [base.info] add: get関数を追加
+1. [rl.functions] add: linear_symlogとsoftmax関数を追加s
+1. [utils.utls_str] update: to_str_timeに分までではなく時まで表示するように変更
+1. [envs.grid] update
+    - 実際に選択した行動回数を表示するprint_action_countを追加
+    - plot系にgetCallableを引数に追加し、QやVの形式が他の形でも表示できるように修正
+    - 報酬が疎なGridOneRoadを新しく追加
+1. [algorithms.godq_v1] update
+1. [algorithms.godq_v1_lstm] update
+
+**Bug Fixes**
+
+1. [base.env.env_run] fix: processor時のremap後のspaceが反映されてない不具合を修正
+1. [runner.mlflow] fix: eval_interval_mode=="step" 時の参照変数がおかしく動作しない不具合を修正
+1. [base.spaces.np_array] fix: get_defaultでsize=1の場合に0がnp.arrayにならない不具合を修正
+1. [rl.torch_.blocks.input_multi_block] fix: LazyLinearで初期化前にmodelを保存できない問題に対してnew時にbuildもするように変更
+1. [algorithms.sac_not] update: 連続時の次のQ値を求めるときにノイズがない実装に変更
+
+
 # v1.4.4
 
 - InputMultiBlockを追加し、それに合わせてMultiSpaceの機能を強化

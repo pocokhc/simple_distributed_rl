@@ -55,10 +55,7 @@ class TorchTrainer:
         self.reset_params += list(self.net.encoder.parameters())
         self.reset_params += list(self.net.q_online.parameters())
 
-        if self.config.feat_type == "SimSiam":
-            self.models.append(self.net.projector)
-            self.reset_params += list(self.net.projector.parameters())
-        elif self.config.feat_type == "BYOL":
+        if self.config.feat_type == "BYOL":
             self.models.append(self.net.byol_online)
             self.reset_params += list(self.net.byol_online.parameters())
 
@@ -68,19 +65,23 @@ class TorchTrainer:
             self.loss_int_q_func = nn.HuberLoss(reduction="none")
             self.loss_int_align_func = nn.MSELoss(reduction="none")
 
+            # --- rnd
+            if self.config.feat_type == "":
+                self.opt_rnd = optim.Adam(self.net.rnd.parameters(), lr=self.config.lr / 5)
+                self.reset_params += list(self.net.rnd.parameters())
+
+            # --- episodic
+            if self.config.enable_int_episodic:
+                self.models.append(self.net.emb_net)
+                self.reset_params += list(self.net.emb_net.parameters())
+                self.loss_emb_func = nn.CrossEntropyLoss()
+
         self.params = list(chain(*[m.parameters() for m in self.models]))
         if self.config.replay_ratio > 1:
             self.opt = optim.AdamW(self.params, lr=self.config.lr, weight_decay=0.1)
         else:
             self.opt = optim.RAdam(self.params, lr=self.config.lr)
         [m.train() for m in self.models]
-
-        self.int_target_w = torch.full(
-            (self.config.batch_size, self.act_num),
-            (1 - self.config.int_target_prob) / (self.act_num - 1),
-            dtype=self.torch_dtype,
-            device=self.net.device,
-        )
 
         self.states_np_list = []
         for space in self.config.observation_space.spaces:
@@ -147,20 +148,36 @@ class TorchTrainer:
 
         loss = 0
         oe_s = self.net.encoder(states_list)
-        q_all_s, v_all_s = self.net.q_online(oe_s)
+        oe = oe_s[: self.config.batch_size]
+        n_oe = oe_s[self.config.batch_size :]
+        q_acts_s, v_s = self.net.q_online(oe_s)
+
+        # --- rnd
+        if self.config.enable_int_q and self.config.feat_type == "":
+            rnd_error = self.net.rnd.compute_intrinsic_reward(n_oe.detach(), update=True, norm=False)
+            # rnd_error = self.net.rnd.compute_intrinsic_reward(oe_s.detach(), update=True, norm=False)
+            # loss_rnd = rnd_error[: self.config.batch_size].mean()
+            loss_rnd = rnd_error.mean()
+            self.info["loss_rnd"] = loss_rnd.item()
+            self.info["rnd_min"] = self.net.rnd.error_norm.get_min()
+            self.info["rnd_var"] = self.net.rnd.error_norm.get_var()
+
+            self.opt_rnd.zero_grad()
+            loss_rnd.backward()
+            self.opt_rnd.step()
+
+            rnd_error = rnd_error.detach()
 
         # --- target_q
-        n_q = q_all_s[self.config.batch_size :].detach().max(dim=1).values
-        n_v = v_all_s[self.config.batch_size :].detach().squeeze(-1)
+        n_q = q_acts_s[self.config.batch_size :].detach().max(dim=1).values
         if self.config.enable_q_rescale:
             n_q = inverse_linear_symlog(n_q)
-            n_v = inverse_linear_symlog(n_v)
-        target_q = reward + not_terminated * self.config.discount * (n_q + n_v) / 2
+        target_q = reward + not_terminated * self.config.discount * n_q
         if self.config.enable_q_rescale:
             target_q = linear_symlog(target_q)
 
         # --- q
-        q = q_all_s[: self.config.batch_size].gather(1, action_indices).squeeze(1)
+        q = q_acts_s[: self.config.batch_size].gather(1, action_indices).squeeze(1)
         loss_q = (self.loss_q_func(target_q, q) * weights).mean()
         loss += loss_q
         self.info["loss_q"] = loss_q.item()
@@ -178,17 +195,7 @@ class TorchTrainer:
             self.memory.update_q(update_args, priorities, self.train_count)
 
         # --- feat
-        if self.config.feat_type == "SimSiam":
-            oe = oe_s[: self.config.batch_size]
-            y_hat = self.net.projector(oe, action_indices.squeeze(-1))
-            with torch.no_grad():
-                n_oe = oe_s[self.config.batch_size :].detach()
-                y_target = self.net.projector.projection(n_oe)
-            loss_sim, int_rew = self.net.projector.compute_loss_and_reward(y_target.detach(), y_hat)
-            loss_sim = (loss_sim * weights).mean()
-            loss += loss_sim
-            self.info["loss_sim"] = loss_sim.item()
-        elif self.config.feat_type == "BYOL":
+        if self.config.feat_type == "BYOL":
             oe = oe_s[: self.config.batch_size]
             y_hat = self.net.byol_online(oe, action_indices.squeeze(-1))
             with torch.no_grad():
@@ -200,17 +207,23 @@ class TorchTrainer:
             self.info["loss_byol"] = loss_byol.item()
 
         if self.config.enable_int_q:
+            if self.config.feat_type == "":  # --- RND
+                int_rew = self.net.rnd.norm(rnd_error)
+            elif self.config.feat_type == "BYOL":
+                int_rew = int_rew.detach()
+                self.info["byol_min"] = self.net.byol_online.reward_norm.get_min()
+                self.info["byol_var"] = self.net.byol_online.reward_norm.get_var()
+            self.info["int_reward"] = int_rew.mean().item()
+
             # --- q int target
-            q_int_all_s = self.net.q_int_online(oe_s)
-            n_q_int = q_int_all_s[self.config.batch_size :].detach()
-            n_int_act_idx = torch.argmax(n_q_int, dim=1)
-            self.int_target_w.fill_((1 - self.config.int_target_prob) / (self.act_num - 1))
-            self.int_target_w.scatter_(1, n_int_act_idx.unsqueeze(1), self.config.int_target_prob)
-            n_q_int = (n_q_int * self.int_target_w).sum(dim=1)
-            target_q_int = int_rew + not_terminated * self.config.int_discount * n_q_int
+            q_int_acts_s, v_int_acts_s = self.net.q_int_online(oe_s.detach())
+            n_q_int = q_int_acts_s[self.config.batch_size :].detach()
+            n_q_int = torch.max(n_q_int, dim=-1).values
+            n_v_int = v_int_acts_s[self.config.batch_size :].detach().squeeze(-1)
+            target_q_int = int_rew + not_terminated * self.config.int_discount * (n_q_int + n_v_int) / 2
 
             # --- q int train
-            q_int = q_int_all_s[: self.config.batch_size].gather(1, action_indices).squeeze(1)
+            q_int = q_int_acts_s[: self.config.batch_size].gather(1, action_indices).squeeze(1)
             loss_int_q = (self.loss_int_q_func(target_q_int, q_int) * weights).mean()
             loss += loss_int_q
             self.info["loss_int_q"] = loss_int_q.item()
@@ -219,6 +232,14 @@ class TorchTrainer:
             loss_int_align = (self.loss_int_align_func(int_rew, q_int) * weights).mean()
             loss += self.config.int_align_loss_coeff * loss_int_align
             self.info["loss_int_align"] = loss_int_align.item()
+
+            # --- int emb
+            if self.config.enable_int_episodic:
+                act_logits = self.net.emb_net(oe.detach(), n_oe.detach())
+                a = torch.nn.functional.one_hot(action_indices.squeeze(-1), self.config.action_space.n).float()
+                loss_emb = self.loss_emb_func(act_logits, a)
+                loss += loss_emb
+                self.info["loss_emb"] = loss_emb.item()
 
         # --- bp
         self.opt.zero_grad()

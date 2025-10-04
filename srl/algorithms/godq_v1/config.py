@@ -56,7 +56,7 @@ class Config(RLConfig[DiscreteSpace, MultiSpace[BoxSpace]]):
     # --- policy
     test_epsilon: float = 0
     test_policy: Literal["q", "int"] = "q"
-    epsilon: float = 0.05
+    epsilon: float = 0.01
 
     # --- archive
     enable_archive: bool = False
@@ -68,36 +68,40 @@ class Config(RLConfig[DiscreteSpace, MultiSpace[BoxSpace]]):
 
     # --- encoder/feat
     input_block: InputMultiBlockConfig = field(default_factory=lambda: InputMultiBlockConfig())
-    encode_img_type: Literal["DQN", "R2D3"] = "DQN"
-    encode_discrete_type: Literal["BOX", "Discrete", "Conv1D"] = "Discrete"
-    encode_discrete_target_params: int = 4096 * 4
-    encode_discrete_low_units: int = 4
-    enable_state_norm: bool = True
-    used_discrete_block: bool = True
-    feat_type: Literal["", "SimSiam", "BYOL"] = "SimSiam"
+    feat_type: Literal["", "BYOL"] = "BYOL"
+
+    # --- q
+    train_q: bool = True
+    replay_ratio: int = 1
+    reset_net_interval: int = 5000
+    discount: float = 0.999
+    max_discount_steps: int = 500
+    align_loss_coeff: float = 0.05
+    enable_q_distribution: bool = True
+    enable_q_rescale: bool = True
 
     # --- BYOL
     byol_model_update_rate: float = 0.1
     byol_model_update_interval: int = 10
     # --- int
     enable_int_q: bool = True
-    int_target_prob: float = 0.9
-    int_discount: float = 0.99
-    int_align_loss_coeff: float = 0.05
-
-    # --- q train
-    train_q: bool = True
-    replay_ratio: int = 2
-    reset_net_interval: int = 5000
-    max_discount_steps: int = 500
-    enable_q_rescale: bool = True
-    discount: float = 0.999
-    align_loss_coeff: float = 0.1
-    enable_q_distribution: bool = True
+    int_rate: float = 0.5
+    int_discount: float = 0.95
+    int_align_loss_coeff: float = 0.1
+    int_norm_momentum: float = 0.9
+    int_reward_clip: float = 2.0
+    int_reward_rnd_scale: float = 10.0
+    int_reward_byol_scale: float = 1.0
+    # --- int episodic
+    enable_int_episodic: bool = False
+    episodic_count_max: int = 100
+    episodic_epsilon: float = 0.001
+    episodic_cluster_distance: float = 0.008
+    episodic_memory_capacity: int = 30000
 
     # --- model/train
-    base_units: int = 256
-    max_grad_norm: float = 5
+    base_units: int = 512
+    max_grad_norm: float = 10
     batch_size: int = 64
     lr: float = 0.0001
     memory: PriorityReplayBufferConfig = field(default_factory=lambda: PriorityReplayBufferConfig(compress=False).set_replay_buffer())
@@ -126,6 +130,8 @@ class Config(RLConfig[DiscreteSpace, MultiSpace[BoxSpace]]):
             raise ValueError(f"assert {self.replay_ratio} > 0")
         if not (self.base_units >= 8):
             raise ValueError(f"assert {self.base_units} >= 8")
+        if self.feat_type not in ["", "BYOL"]:
+            raise ValueError(f"assert {self.feat_type} in ['', 'BYOL']")
 
     def setup_from_env(self, env: EnvRun) -> None:
         if env.player_num != 1:
@@ -144,7 +150,7 @@ class Config(RLConfig[DiscreteSpace, MultiSpace[BoxSpace]]):
         return self.enable_diffusion
 
     def get_render_image_processors(self, prev_observation_space: SpaceBase) -> List[RLProcessor]:
-        return [ImageProcessor(image_type=SpaceTypes.COLOR, resize=(64, 64), normalize_type="-1to1")]
+        return [ImageProcessor(image_type=SpaceTypes.RGB, resize=(64, 64), normalize_type="-1to1")]
 
     def use_update_parameter_from_worker(self) -> bool:
         return self.enable_archive

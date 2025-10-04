@@ -5,9 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from srl.algorithms.godq_v1.torch_model_feat import BYOLNetwork, ProjectorNetwork
-from srl.algorithms.godq_v1.torch_model_q import QIntNetwork, QNetwork
-from srl.rl.torch_.functions import inverse_linear_symlog
+from srl.algorithms.godq_v1.torch_model_nets import BYOLNetwork, EmbeddingNetwork, QNetwork, RNDModel
 from srl.rl.torch_.helper import model_backup, model_restore
 
 from .config import Config
@@ -66,55 +64,65 @@ class Model:
 
         # --- Q
         self.encoder = Encoder(config, self.device).to(self.device)
-        self.q_online = QNetwork(self.encoder.out_size, config, config.enable_q_distribution).to(self.device)
+        enc_out_size = self.encoder.out_size
+        self.q_online = QNetwork(enc_out_size, config).to(self.device)
 
-        if self.config.feat_type == "SimSiam":
-            self.projector = ProjectorNetwork(config.base_units, self.encoder.out_size, config.action_space.n).to(self.device)
-        elif self.config.feat_type == "BYOL":
-            self.byol_online = BYOLNetwork(config.base_units, self.encoder.out_size, config.action_space.n).to(self.device)
+        # --- feat
+        if self.config.feat_type == "BYOL":
+            self.byol_online = BYOLNetwork(enc_out_size, config).to(self.device)
             self.byol_target = self.byol_online.create_projection().to(self.device)
             self.byol_target.load_state_dict(self.byol_online.proj_block.state_dict())
             self.byol_target.eval()
             for p in self.byol_target.parameters():
                 p.requires_grad_(False)
 
+        # --- q int
         if self.config.enable_int_q:
-            assert self.config.feat_type != ""
-            self.q_int_online = QIntNetwork(self.encoder.out_size, config).to(self.device)
+            self.q_int_online = QNetwork(enc_out_size, config).to(self.device)
+            if self.config.feat_type == "":
+                self.rnd = RNDModel(enc_out_size, config).to(self.device)
+            if self.config.enable_int_episodic:
+                self.emb_net = EmbeddingNetwork(enc_out_size, config.base_units, config.action_space.n).to(self.device)
 
     def restore(self, dat, from_serialized: bool) -> None:
         model_restore(self.encoder, dat["encoder"], from_serialized)
         model_restore(self.q_online, dat["q_online"], from_serialized)
-        if self.config.feat_type == "SimSiam":
-            model_restore(self.projector, dat["projector"], from_serialized)
-        elif self.config.feat_type == "BYOL":
+        if self.config.feat_type == "BYOL":
             model_restore(self.byol_online, dat["byol_online"], from_serialized)
             model_restore(self.byol_target, dat["byol_target"], from_serialized)
         if self.config.enable_int_q:
             model_restore(self.q_int_online, dat["q_int_online"], from_serialized)
+            if self.config.feat_type == "":
+                model_restore(self.rnd, dat["rnd"], from_serialized)
+            if self.config.enable_int_episodic:
+                model_restore(self.emb_net, dat["emb_net"], from_serialized)
 
     def backup(self, serialized: bool):
         dat: dict = {
             "encoder": model_backup(self.encoder, serialized),
             "q_online": model_backup(self.q_online, serialized),
         }
-        if self.config.feat_type == "SimSiam":
-            dat["projector"] = model_backup(self.projector, serialized)
-        elif self.config.feat_type == "BYOL":
+        if self.config.feat_type == "BYOL":
             dat["byol_online"] = model_backup(self.byol_online, serialized)
             dat["byol_target"] = model_backup(self.byol_target, serialized)
         if self.config.enable_int_q:
             dat["q_int_online"] = model_backup(self.q_int_online, serialized)
+            if self.config.feat_type == "":
+                dat["rnd"] = model_backup(self.rnd, serialized)
+            if self.config.enable_int_episodic:
+                dat["emb_net"] = model_backup(self.emb_net, serialized)
         return dat
 
     def summary(self, **kwargs):
         print(self.encoder)
         print(self.q_online)
         if self.config.enable_int_q:
+            if self.config.feat_type == "":
+                print(self.rnd)
             print(self.q_int_online)
-        if self.config.feat_type == "SimSiam":
-            print(self.projector)
-        elif self.config.feat_type == "BYOL":
+            if self.config.enable_int_episodic:
+                print(self.emb_net)
+        if self.config.feat_type == "BYOL":
             print(self.byol_online)
 
     # -------------------
@@ -138,27 +146,25 @@ class Model:
             else:
                 q, v = self.q_online(oe)
             self.q_online.train()  # 常にtrain
-        if self.config.enable_q_rescale:
-            q = inverse_linear_symlog(q)
-            v = inverse_linear_symlog(v)
         return q.detach().cpu().numpy(), v.detach().cpu().numpy()
 
-    def pred_q_int(self, oe: torch.Tensor) -> np.ndarray:
+    def pred_q_int(self, oe: torch.Tensor, is_mean: bool = False) -> Tuple[np.ndarray, np.ndarray]:
         with torch.no_grad():
             self.q_int_online.eval()
-            q = self.q_int_online(oe)
+            if is_mean:
+                q, v = self.q_int_online.forward_mean(oe)
+            else:
+                q, v = self.q_int_online(oe)
             self.q_int_online.train()  # 常にtrain
-        return q.detach().cpu().numpy()
+        return q.detach().cpu().numpy(), v.detach().cpu().numpy()
 
     def pred_single_int_reward(self, oe, n_oe, action: int) -> np.ndarray:
         with torch.no_grad():
             action_indices = torch.tensor(np.asarray([action]), dtype=torch.long, device=self.device)
-            if self.config.feat_type == "SimSiam":
-                self.projector.eval()
-                y_hat = self.projector(oe, action_indices)
-                y_target = self.projector.projection(n_oe)
-                _, int_rew = self.projector.compute_loss_and_reward(y_target, y_hat)
-                self.projector.train()
+            if self.config.feat_type == "":
+                self.rnd.eval()
+                int_rew = self.rnd.compute_intrinsic_reward(n_oe)
+                self.rnd.train()
             elif self.config.feat_type == "BYOL":
                 self.byol_online.eval()
                 y_hat = self.byol_online(oe, action_indices)

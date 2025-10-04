@@ -1,5 +1,7 @@
 import logging
 import random
+from collections import deque
+from itertools import islice
 
 import numpy as np
 
@@ -7,6 +9,7 @@ from srl.base.rl.worker import RLWorkerGeneric
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.multi import MultiSpace
+from srl.rl.functions import inverse_linear_symlog, softmax
 
 from .config import Config
 from .memory import Memory
@@ -25,6 +28,10 @@ class Worker(RLWorkerGeneric[Config, Parameter, Memory, DiscreteSpace, int, Mult
     def on_reset(self, worker):
         self.oe = None
         self.q = None
+        self.int_reward = 0  # render
+
+        if self.config.enable_int_q and self.config.enable_int_episodic:
+            self.episodic_memory = deque(maxlen=self.config.episodic_memory_capacity)
 
         # --- arvhie(restoreの可能性あり)
         if self.config.enable_archive:
@@ -49,7 +56,7 @@ class Worker(RLWorkerGeneric[Config, Parameter, Memory, DiscreteSpace, int, Mult
         if set_q:
             if self.oe is None:
                 self.oe = self.parameter.net.pred_oe(state)
-            self.q = self.parameter.net.pred_q(self.oe, is_mean)
+            self.q, _ = self.parameter.net.pred_q(self.oe, is_mean)
             self.q = self.q[0]
 
     def policy(self, worker) -> int:
@@ -57,26 +64,41 @@ class Worker(RLWorkerGeneric[Config, Parameter, Memory, DiscreteSpace, int, Mult
             if random.random() < 0.1:
                 self.go_action = self.sample_action()
             return self.go_action
-        elif self.policy_mode == "int":
+
+        # --- add episodic
+        if self.config.enable_int_q and self.config.enable_int_episodic:
+            self.set_q_oe(worker.state, set_q=False, is_mean=not self.training)
+            epi_reward = self.calc_episodic_reward(self.oe, add=True, calc=True)
+
+        if self.policy_mode == "int":
             epsilon = self.config.epsilon if self.training else self.config.test_epsilon
+
+            if self.config.enable_int_episodic:
+                # 同じ場所を訪れる毎にランダムを上げる
+                epsilon = np.clip(1 - np.sqrt(epi_reward), 0, 0.2)
+
             if random.random() < epsilon:
                 return self.sample_action()
 
-            rate = random.random() * 1
-
+            # --- q int
             self.set_q_oe(worker.state, is_mean=not self.training)
             assert self.oe is not None
-            q_int = self.parameter.net.pred_q_int(self.oe)[0].copy()
-            q = self.q + q_int * rate
+            assert self.q is not None
+            q_int, _ = self.parameter.net.pred_q_int(self.oe)
+            q_int = softmax(q_int[0])
+            q_ext = softmax(self.q - np.mean(self.q))
+            q = q_ext + self.config.int_rate * q_int
             q[worker.invalid_actions] = -np.inf
             return int(np.argmax(q))
         else:  # "q"
             epsilon = self.config.epsilon if self.training else self.config.test_epsilon
             if random.random() < epsilon:
                 return self.sample_action()
+
+            # --- q
             self.set_q_oe(worker.state, is_mean=not self.training)
             assert self.q is not None
-            q = self.q.copy()  # type: ignore
+            q = self.q.copy()
             q[worker.invalid_actions] = -np.inf
             return int(np.argmax(q))
 
@@ -142,7 +164,7 @@ class Worker(RLWorkerGeneric[Config, Parameter, Memory, DiscreteSpace, int, Mult
                 total_reward = 0
                 for b in reversed(worker.get_trackings()):
                     total_reward = b[3] + self.config.discount * total_reward
-                    self.memory.add_q(b[:-1] + [total_reward], b[-1])
+                    self.memory.add_q(b[:-1] + [total_reward], b[-3])
 
     def _calc_priority(self, worker: WorkerRun, reward: float, prev_q):
         if not self.config.memory.requires_priority():
@@ -169,6 +191,48 @@ class Worker(RLWorkerGeneric[Config, Parameter, Memory, DiscreteSpace, int, Mult
         priority = abs(target_q - select_q)
         return priority
 
+    def calc_episodic_reward(self, oe, add: bool = False, calc: bool = True):
+        # 制御可能状態を取得
+        cont = self.parameter.net.emb_net.predict(oe)
+        cont = cont.detach().cpu().numpy()[0]
+
+        if add:
+            self.episodic_memory.append(cont)
+        if not calc:
+            return 1
+
+        if len(self.episodic_memory) == 0:
+            return 1
+
+        k = self.config.episodic_count_max
+        epsilon = self.config.episodic_epsilon
+        cluster_distance = self.config.episodic_cluster_distance
+
+        # エピソードメモリ内の全要素とユークリッド距離を求める
+        itr_memory = islice(self.episodic_memory, len(self.episodic_memory) - 1)
+        euclidean_list = [np.linalg.norm(m - cont, ord=2) for m in itr_memory]
+
+        # 近いk個を対象
+        euclidean_list = np.sort(euclidean_list)[:k]
+
+        # 上位k個の移動平均を出す
+        mode_ave = np.mean(euclidean_list)
+        if mode_ave == 0.0:
+            # ユークリッド距離は正なので平均0は全要素0のみ
+            dn = euclidean_list
+        else:
+            dn = euclidean_list / mode_ave  # 正規化
+
+        # 一定距離以下を同じ状態とする
+        dn = np.maximum(dn - cluster_distance, 0)
+
+        # 訪問回数を計算(Dirac delta function の近似)
+        dn = epsilon / (dn + epsilon)
+        N = np.sum(dn)
+
+        reward = 1 / np.sqrt(N + 1)
+        return reward
+
     def render_terminal(self, worker, **kwargs):
         # --- q
         print("--- q")
@@ -176,22 +240,19 @@ class Worker(RLWorkerGeneric[Config, Parameter, Memory, DiscreteSpace, int, Mult
         q, v = self.parameter.net.pred_q(oe, is_mean=True)
         q = q[0]
         v = v[0][0]
-        print(f"     V: {v:.7f}")
+        if self.config.enable_q_rescale:
+            q_ext = inverse_linear_symlog(q)
+            v_ext = inverse_linear_symlog(v)
+        print(f" V: {v_ext:.7f}")
         if self.config.enable_q_distribution:
-            q_dist, v_dist, adv_dist = self.parameter.net.q_online.get_distribution(oe)
-            v_mean = v_dist.mean().detach().cpu().numpy()[0][0]
-            v_stdev = v_dist.stddev().detach().cpu().numpy()[0][0]
+            adv_dist = self.parameter.net.q_online.get_distribution(oe)
             adv_mean = adv_dist.mean().detach().cpu().numpy()[0]
             adv_stdev = adv_dist.stddev().detach().cpu().numpy()[0]
-            q_mean = q_dist.mean().detach().cpu().numpy()[0]
-            q_stdev = q_dist.stddev().detach().cpu().numpy()[0]
-            print(f"dist V: {v_mean:.7f}(sigma: {v_stdev:.5f})")
 
         def _render_sub(a: int) -> str:
-            s = f"{q[a]:6.3f} adv:{q[a] - v:6.3f}"
+            s = f"{q_ext[a]:6.3f} adv:{q_ext[a] - v_ext:6.3f}"
             if self.config.enable_q_distribution:
-                s += f"|q({q_mean[a]:6.3f},{q_stdev[a]:5.3f})"
-                s += f" adv({adv_mean[a]:6.3f},{adv_stdev[a]:5.3f})"
+                s += f"|adv({adv_mean[a]:6.3f},{adv_stdev[a]:5.3f})"
             return s
 
         worker.print_discrete_action_info(int(np.argmax(q)), _render_sub)
@@ -199,20 +260,42 @@ class Worker(RLWorkerGeneric[Config, Parameter, Memory, DiscreteSpace, int, Mult
         # --- q int
         if self.config.enable_int_q:
             print("--- q int")
-            q_int = self.parameter.net.pred_q_int(oe)[0]
+            q_int, v_int = self.parameter.net.pred_q_int(oe, is_mean=True)
+            q_int = q_int[0]
+            v_int = v_int[0][0]
+
+            print(f" int_reward     : {float(self.int_reward):.5f}")
+
+            if self.config.enable_int_episodic:
+                epi_reward = self.calc_episodic_reward(oe)
+                e = 1 - np.sqrt(epi_reward)
+                print(f" episodic_reward: {float(epi_reward):.5f} ({e:.5f})")
+
+            print(f" V: {v_int:.7f}")
+            if self.config.enable_q_distribution:
+                adv_dist = self.parameter.net.q_int_online.get_distribution(oe)
+                adv_mean = adv_dist.mean().detach().cpu().numpy()[0]
+                adv_stdev = adv_dist.stddev().detach().cpu().numpy()[0]
 
             def _render_sub2(a: int) -> str:
-                s = f"{q_int[a]:6.3f}"
+                s = f"{q_int[a]:6.3f} adv:{q_int[a] - v_int:6.3f}"
+                if self.config.enable_q_distribution:
+                    s += f"|adv({adv_mean[a]:6.3f},{adv_stdev[a]:5.3f})"
                 return s
 
             worker.print_discrete_action_info(int(np.argmax(q_int)), _render_sub2)
 
-        # --- int q
-        if self.config.enable_int_q:
-            if worker.step_in_episode > 0:
-                print(f"int_reward: {float(self.int_reward):.5f}")
-            else:
-                print()
+            # --- rate
+            q_ext_rate = softmax(q - np.mean(q))
+            q_int_rate = softmax(q_int)
+            q_rate = q_ext_rate + q_int_rate
+            print("          rate | ext + int")
+
+            def _render_sub3(a: int) -> str:
+                s = f"{q_rate[a] * 100:5.1f} | {q_ext_rate[a] * 100:5.1f} + {q_int_rate[a] * 100:5.1f}"
+                return s
+
+            worker.print_discrete_action_info(int(np.argmax(q_rate)), _render_sub3)
 
         # --- archive
         if self.config.enable_archive:

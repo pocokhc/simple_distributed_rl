@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Making a Custom environment &mdash; SimpleDistributedRL 1.4.3 ドキュメント</title>
+  <title>Making a Custom environment &mdash; SimpleDistributedRL 1.4.4 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=3f9029d9"></script>
+      <script src="../_static/documentation_options.js?v=f419b914"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -109,7 +109,7 @@
 <li class="toctree-l1"><a class="reference internal" href="algorithms/alphazero.html">AlphaZero</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/muzero.html">MuZero</a></li>
 <li class="toctree-l1"><a class="reference internal" href="algorithms/dreamer_v3.html">DreamerV3</a></li>
-<li class="toctree-l1"><a class="reference internal" href="algorithms/not_dqn.html">No Target Deep Q-Networks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/dqn_not.html">No Target Deep Q-Networks</a></li>
 </ul>
 
         </div>
@@ -477,23 +477,28 @@ SpaceTypesはフレームワーク内で定義されている値となります�
 </tr>
 <tr class="row-even"><td><p>BoxSpace</p></td>
 <td><p>NDArray[np.uint8]</p></td>
-<td><p>GRAY_2ch</p></td>
-<td><p>グレー画像(2ch)の形式を取り扱います。shapeは(height, width)を想定しています。</p></td>
+<td><p>GRAY_HW</p></td>
+<td><p>グレー画像の形式を取り扱います。shapeは(height, width)を想定しています。</p></td>
 </tr>
 <tr class="row-odd"><td><p>BoxSpace</p></td>
 <td><p>NDArray[np.uint8]</p></td>
-<td><p>GRAY_3ch</p></td>
-<td><p>グレー画像(3ch)の形式を取り扱います。shapeは(height, width, 1)を想定しています。</p></td>
+<td><p>GRAY_HW1</p></td>
+<td><p>グレー画像の形式を取り扱います。shapeは(height, width, 1)を想定しています。</p></td>
 </tr>
 <tr class="row-even"><td><p>BoxSpace</p></td>
 <td><p>NDArray[np.uint8]</p></td>
-<td><p>COLOR</p></td>
+<td><p>RGB</p></td>
 <td><p>カラー画像の形式を取り扱います。shapeは(height, width, 3)を想定しています。</p></td>
 </tr>
 <tr class="row-odd"><td><p>BoxSpace</p></td>
+<td><p>NDArray[np.uint8]</p></td>
+<td><p>IMAGE_MAP</p></td>
+<td><p>画像を取り扱いますがch数は未定です。shapeは(height, width, N)を想定しています。</p></td>
+</tr>
+<tr class="row-even"><td><p>BoxSpace</p></td>
 <td><p>NDArray</p></td>
-<td><p>IMAGE</p></td>
-<td><p>画像形式の形を取り扱います。shapeは(height, width, N)を想定しています。</p></td>
+<td><p>FEATURE_MAP</p></td>
+<td><p>画像形式を取りますが、画像ではないものも扱います。shapeは(height, width, N)を想定しています。</p></td>
 </tr>
 </tbody>
 </table>

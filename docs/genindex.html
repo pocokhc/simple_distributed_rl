@@ -5,14 +5,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>索引 &mdash; SimpleDistributedRL 1.4.3 ドキュメント</title>
+  <title>索引 &mdash; SimpleDistributedRL 1.4.4 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=3f9029d9"></script>
+      <script src="_static/documentation_options.js?v=f419b914"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="_static/translations.js?v=4755f45a"></script>
@@ -458,8 +458,6 @@
 </li>
       </ul></li>
       <li><a href="pages/algorithms/rainbow.html#srl.algorithms.rainbow.rainbow.Config.enable_noisy_dense">enable_noisy_dense (srl.algorithms.rainbow.rainbow.Config の属性)</a>
-</li>
-      <li><a href="pages/algorithms/sac.html#srl.algorithms.sac.Config.enable_normal_squashed">enable_normal_squashed (srl.algorithms.sac.Config の属性)</a>
 </li>
       <li><a href="pages/algorithms/muzero.html#srl.algorithms.muzero.Config.enable_reanalyze">enable_reanalyze (srl.algorithms.muzero.Config の属性)</a>
 </li>
@@ -1027,6 +1025,8 @@
 </li>
       <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.observation_mode">observation_mode (srl.base.rl.config.RLConfig の属性)</a>
 </li>
+      <li><a href="pages/env_config.html#srl.base.env.config.EnvConfig.override_action_space">override_action_space (srl.base.env.config.EnvConfig の属性)</a>
+</li>
       <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.override_action_type">override_action_type (srl.base.rl.config.RLConfig の属性)</a>
 </li>
   </ul></td>
@@ -1034,6 +1034,8 @@
       <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.override_env_observation_type">override_env_observation_type (srl.base.rl.config.RLConfig の属性)</a>
 </li>
       <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.override_env_render_mode">override_env_render_mode() (srl.base.rl.config.RLConfig のメソッド)</a>
+</li>
+      <li><a href="pages/env_config.html#srl.base.env.config.EnvConfig.override_observation_space">override_observation_space (srl.base.env.config.EnvConfig の属性)</a>
 </li>
       <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.override_observation_type">override_observation_type (srl.base.rl.config.RLConfig の属性)</a>
 </li>
@@ -1058,12 +1060,12 @@
 </li>
         <li><a href="pages/algorithms/ppo.html#srl.algorithms.ppo.Config.policy_block">(srl.algorithms.ppo.Config の属性)</a>
 </li>
+        <li><a href="pages/algorithms/sac.html#srl.algorithms.sac.Config.policy_block">(srl.algorithms.sac.Config の属性)</a>
+</li>
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="pages/algorithms/ppo.html#srl.algorithms.ppo.Config.policy_clip_range">policy_clip_range (srl.algorithms.ppo.Config の属性)</a>
-</li>
-      <li><a href="pages/algorithms/sac.html#srl.algorithms.sac.Config.policy_hidden_block">policy_hidden_block (srl.algorithms.sac.Config の属性)</a>
 </li>
       <li><a href="pages/algorithms/muzero.html#srl.algorithms.muzero.Config.policy_tau_scheduler">policy_tau_scheduler (srl.algorithms.muzero.Config の属性)</a>
 </li>
@@ -1084,11 +1086,13 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="pages/algorithms/ddpg.html#srl.algorithms.ddpg.Config.q_block">q_block (srl.algorithms.ddpg.Config の属性)</a>
+
+      <ul>
+        <li><a href="pages/algorithms/sac.html#srl.algorithms.sac.Config.q_block">(srl.algorithms.sac.Config の属性)</a>
 </li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="pages/algorithms/sac.html#srl.algorithms.sac.Config.q_hidden_block">q_hidden_block (srl.algorithms.sac.Config の属性)</a>
-</li>
       <li><a href="pages/algorithms/ql.html#srl.algorithms.ql.Config.q_init">q_init (srl.algorithms.ql.Config の属性)</a>
 </li>
   </ul></td>
@@ -1137,12 +1141,16 @@
 </li>
       <li><a href="pages/algorithms/muzero.html#srl.algorithms.muzero.Config.reward_range">reward_range (srl.algorithms.muzero.Config の属性)</a>
 </li>
-      <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.reward_twohot_bins">reward_twohot_bins (srl.algorithms.dreamer_v3.Config の属性)</a>
+      <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.reward_scale">reward_scale (srl.base.rl.config.RLConfig の属性)</a>
 </li>
-      <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.reward_twohot_high">reward_twohot_high (srl.algorithms.dreamer_v3.Config の属性)</a>
+      <li><a href="pages/rl_config.html#srl.base.rl.config.RLConfig.reward_shift">reward_shift (srl.base.rl.config.RLConfig の属性)</a>
+</li>
+      <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.reward_twohot_bins">reward_twohot_bins (srl.algorithms.dreamer_v3.Config の属性)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.reward_twohot_high">reward_twohot_high (srl.algorithms.dreamer_v3.Config の属性)</a>
+</li>
       <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.reward_twohot_low">reward_twohot_low (srl.algorithms.dreamer_v3.Config の属性)</a>
 </li>
       <li><a href="pages/algorithms/dreamer_v3.html#srl.algorithms.dreamer_v3.Config.reward_type">reward_type (srl.algorithms.dreamer_v3.Config の属性)</a>
@@ -1247,10 +1255,10 @@
 </li>
       <li><a href="pages/rl_config_model.html#srl.rl.models.config.dueling_network.DuelingNetworkConfig.set_dueling_network">set_dueling_network() (srl.rl.models.config.dueling_network.DuelingNetworkConfig のメソッド)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="pages/runner.html#srl.runner.runner_base.RunnerBase.set_history_on_file">set_history_on_file() (srl.runner.runner_base.RunnerBase のメソッド)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="pages/runner.html#srl.runner.runner_base.RunnerBase.set_history_on_memory">set_history_on_memory() (srl.runner.runner_base.RunnerBase のメソッド)</a>
 </li>
       <li><a href="pages/rl_config_scheduler.html#srl.rl.schedulers.scheduler.SchedulerConfig.set_linear">set_linear() (srl.rl.schedulers.scheduler.SchedulerConfig のメソッド)</a>
@@ -1293,6 +1301,8 @@
         <li><a href="pages/algorithms/sac.html#srl.algorithms.sac.Config.soft_target_update_tau">(srl.algorithms.sac.Config の属性)</a>
 </li>
       </ul></li>
+      <li><a href="pages/algorithms/sac.html#srl.algorithms.sac.Config.squashed_gaussian_policy">squashed_gaussian_policy (srl.algorithms.sac.Config の属性)</a>
+</li>
       <li><a href="pages/algorithms/ppo.html#srl.algorithms.ppo.Config.stable_gradients_scale_range">stable_gradients_scale_range (srl.algorithms.ppo.Config の属性)</a>
 
       <ul>
@@ -1364,6 +1374,8 @@
       <li><a href="pages/run_context.html#srl.base.context.RunContext.train_interval">train_interval (srl.base.context.RunContext の属性)</a>
 </li>
       <li><a href="pages/runner.html#srl.runner.runner.Runner.train_mp">train_mp() (srl.runner.runner.Runner のメソッド)</a>
+</li>
+      <li><a href="pages/algorithms/ppo.html#srl.algorithms.ppo.Config.train_num">train_num (srl.algorithms.ppo.Config の属性)</a>
 </li>
       <li><a href="pages/runner.html#srl.runner.runner.Runner.train_only">train_only() (srl.runner.runner.Runner のメソッド)</a>
 </li>

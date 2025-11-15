@@ -75,7 +75,7 @@ class Worker(RLWorkerGeneric[Config, Parameter, Memory, DiscreteSpace, int, Mult
 
             if self.config.enable_int_episodic:
                 # 同じ場所を訪れる毎にランダムを上げる
-                epsilon = np.clip(1 - np.sqrt(epi_reward), 0, 0.2)
+                epsilon = np.clip(1 - np.sqrt(epi_reward), 0, self.config.episodic_max_epsilon)
 
             if random.random() < epsilon:
                 return self.sample_action()
@@ -90,8 +90,10 @@ class Worker(RLWorkerGeneric[Config, Parameter, Memory, DiscreteSpace, int, Mult
             q = q_ext + self.config.int_rate * q_int
             q[worker.invalid_actions] = -np.inf
             return int(np.argmax(q))
+
         else:  # "q"
             epsilon = self.config.epsilon if self.training else self.config.test_epsilon
+
             if random.random() < epsilon:
                 return self.sample_action()
 
@@ -156,15 +158,24 @@ class Worker(RLWorkerGeneric[Config, Parameter, Memory, DiscreteSpace, int, Mult
             )
             if not worker.done:
                 if worker.get_tracking_length() == self.config.max_discount_steps:
-                    total_reward = 0
-                    for b in reversed(worker.get_trackings()):
-                        total_reward = b[3] + self.config.discount * total_reward
-                    self.memory.add_q(b[:-1] + [total_reward], b[-1])
+                    n_total_reward = 0
+                    steps = worker.get_trackings()
+                    for b in reversed(steps[1:]):
+                        n_total_reward = b[3] + self.config.discount * n_total_reward
+                    b = steps[0]
+                    n_action = steps[1][2]
+                    self.memory.add_q(b[:5] + [n_total_reward, n_action], b[-1])
             else:
-                total_reward = 0
-                for b in reversed(worker.get_trackings()):
-                    total_reward = b[3] + self.config.discount * total_reward
-                    self.memory.add_q(b[:-1] + [total_reward], b[-3])
+                n_total_reward = 0
+                steps = worker.get_trackings()
+                for i in reversed(range(len(steps))):
+                    if i == len(steps) - 1:
+                        n_action = 0
+                    else:
+                        n_action = steps[i + 1][2]
+                    b = steps[i]
+                    self.memory.add_q(b[:5] + [n_total_reward, n_action], b[-1])
+                    n_total_reward = b[3] + self.config.discount * n_total_reward
 
     def _calc_priority(self, worker: WorkerRun, reward: float, prev_q):
         if not self.config.memory.requires_priority():
@@ -238,11 +249,11 @@ class Worker(RLWorkerGeneric[Config, Parameter, Memory, DiscreteSpace, int, Mult
         print("--- q")
         oe = self.parameter.net.pred_oe(worker.state)
         q, v = self.parameter.net.pred_q(oe, is_mean=True)
-        q = q[0]
-        v = v[0][0]
+        q_ext = q[0]
+        v_ext = v[0][0]
         if self.config.enable_q_rescale:
-            q_ext = inverse_linear_symlog(q)
-            v_ext = inverse_linear_symlog(v)
+            q_ext = inverse_linear_symlog(q_ext)
+            v_ext = inverse_linear_symlog(v_ext)
         print(f" V: {v_ext:.7f}")
         if self.config.enable_q_distribution:
             adv_dist = self.parameter.net.q_online.get_distribution(oe)
@@ -269,7 +280,7 @@ class Worker(RLWorkerGeneric[Config, Parameter, Memory, DiscreteSpace, int, Mult
             if self.config.enable_int_episodic:
                 epi_reward = self.calc_episodic_reward(oe)
                 e = 1 - np.sqrt(epi_reward)
-                print(f" episodic_reward: {float(epi_reward):.5f} ({e:.5f})")
+                print(f" episodic_reward: {float(epi_reward):.5f} (rate:{e:.5f})")
 
             print(f" V: {v_int:.7f}")
             if self.config.enable_q_distribution:
@@ -286,7 +297,7 @@ class Worker(RLWorkerGeneric[Config, Parameter, Memory, DiscreteSpace, int, Mult
             worker.print_discrete_action_info(int(np.argmax(q_int)), _render_sub2)
 
             # --- rate
-            q_ext_rate = softmax(q - np.mean(q))
+            q_ext_rate = softmax(q[0] - np.mean(q[0]))
             q_int_rate = softmax(q_int)
             q_rate = q_ext_rate + q_int_rate
             print("          rate | ext + int")

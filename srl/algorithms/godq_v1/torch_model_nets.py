@@ -17,7 +17,7 @@ class RunningNorm(nn.Module):
     - 学習時のみ統計を更新し、評価時は固定。
     """
 
-    def __init__(self, eps: float = 1e-10, momentum: float = 0.1) -> None:
+    def __init__(self, eps: float = 1e-8, momentum: float = 0.1) -> None:
         super().__init__()
         self.register_buffer("min", torch.zeros(1))
         self.register_buffer("var", torch.ones(1))
@@ -150,8 +150,8 @@ class RNDModel(nn.Module):
         )
 
     def forward(self, oe: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        target_out = self.target(oe)
         pred_out = self.predictor(oe)
+        target_out = self.target(oe)
         return pred_out, target_out
 
     def compute_intrinsic_reward(self, oe: torch.Tensor, update: bool = False, norm: bool = True) -> torch.Tensor:

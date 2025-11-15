@@ -54,6 +54,7 @@ class TorchTrainer:
         self.loss_align_func = nn.MSELoss(reduction="none")
         self.reset_params += list(self.net.encoder.parameters())
         self.reset_params += list(self.net.q_online.parameters())
+        self.align_sch = self.config.align_loss_coeff_scheduler.create(self.config.align_loss_coeff)
 
         if self.config.feat_type == "BYOL":
             self.models.append(self.net.byol_online)
@@ -91,10 +92,11 @@ class TorchTrainer:
                     dtype=space.dtype,
                 )
             )
-        self.action_indices_np = np.empty((self.config.batch_size, 1), dtype=np.int64)
+        self.act_indices_np = np.empty((self.config.batch_size, 1), dtype=np.int64)
         self.reward_np = np.empty((self.config.batch_size,), dtype=self.np_dtype)
         self.not_terminated_np = np.empty((self.config.batch_size,), dtype=self.np_dtype)
-        self.total_reward_np = np.empty((self.config.batch_size,), dtype=self.np_dtype)
+        self.n_total_reward_np = np.empty((self.config.batch_size,), dtype=self.np_dtype)
+        self.n_act_indices_np = np.empty((self.config.batch_size,), dtype=np.int64)
 
         self.reset_net = 0
 
@@ -128,18 +130,20 @@ class TorchTrainer:
             for j in range(self.config.observation_space.space_size):
                 self.states_np_list[j][i] = b[0][j]
                 self.states_np_list[j][self.config.batch_size + i] = b[1][j]
-            self.action_indices_np[i] = b[2]
+            self.act_indices_np[i] = b[2]
             self.reward_np[i] = b[3]
             self.not_terminated_np[i] = b[4]
-            self.total_reward_np[i] = b[5]
+            self.n_total_reward_np[i] = b[5]
+            self.n_act_indices_np[i] = b[6]
         states_list = [
             torch.from_numpy(self.states_np_list[j]).to(device)
             for j in range(self.config.observation_space.space_size)  #
         ]
-        action_indices = torch.from_numpy(self.action_indices_np).to(device)
+        act_indices = torch.from_numpy(self.act_indices_np).to(device)
         reward = torch.from_numpy(self.reward_np).to(device)
         not_terminated = torch.from_numpy(self.not_terminated_np).to(device)
-        total_reward = torch.from_numpy(self.total_reward_np).to(device)
+        n_total_reward = torch.from_numpy(self.n_total_reward_np).to(device)
+        n_act_indices = torch.from_numpy(self.n_act_indices_np).to(device)
 
         if self.config.memory.requires_priority():
             weights = torch.tensor(np.asarray(weights), dtype=self.torch_dtype, device=device)
@@ -155,8 +159,6 @@ class TorchTrainer:
         # --- rnd
         if self.config.enable_int_q and self.config.feat_type == "":
             rnd_error = self.net.rnd.compute_intrinsic_reward(n_oe.detach(), update=True, norm=False)
-            # rnd_error = self.net.rnd.compute_intrinsic_reward(oe_s.detach(), update=True, norm=False)
-            # loss_rnd = rnd_error[: self.config.batch_size].mean()
             loss_rnd = rnd_error.mean()
             self.info["loss_rnd"] = loss_rnd.item()
             self.info["rnd_min"] = self.net.rnd.error_norm.get_min()
@@ -169,7 +171,8 @@ class TorchTrainer:
             rnd_error = rnd_error.detach()
 
         # --- target_q
-        n_q = q_acts_s[self.config.batch_size :].detach().max(dim=1).values
+        n_q_acts = q_acts_s[self.config.batch_size :].detach()
+        n_q = n_q_acts.max(dim=1).values
         if self.config.enable_q_rescale:
             n_q = inverse_linear_symlog(n_q)
         target_q = reward + not_terminated * self.config.discount * n_q
@@ -177,16 +180,23 @@ class TorchTrainer:
             target_q = linear_symlog(target_q)
 
         # --- q
-        q = q_acts_s[: self.config.batch_size].gather(1, action_indices).squeeze(1)
+        q = q_acts_s[: self.config.batch_size].gather(1, act_indices).squeeze(1)
         loss_q = (self.loss_q_func(target_q, q) * weights).mean()
         loss += loss_q
         self.info["loss_q"] = loss_q.item()
 
         # --- alignment q
+        # n_mask: 次のアクションが現方策と違っているのは信用できないので簡易補正（ISもどき）
+        n_max_indices = n_q_acts.argmax(dim=1)
+        n_mask = torch.where(n_max_indices == n_act_indices, 1.0, 0.1)
+        target_q_align = not_terminated * self.config.discount * n_total_reward
         if self.config.enable_q_rescale:
-            total_reward = linear_symlog(total_reward)
-        loss_align = (self.loss_align_func(total_reward, q) * weights).mean()
-        loss += self.config.align_loss_coeff * loss_align
+            target_q_align = linear_symlog(target_q_align + reward)
+        else:
+            q = q - reward  # q_suffix
+        loss_align = (self.loss_align_func(target_q_align, q) * n_mask * weights).mean()
+        align_loss_coeff = self.align_sch.update(self.train_count).to_float()
+        loss += align_loss_coeff * loss_align
         self.info["loss_align"] = loss_align.item()
 
         # --- memory update
@@ -197,7 +207,7 @@ class TorchTrainer:
         # --- feat
         if self.config.feat_type == "BYOL":
             oe = oe_s[: self.config.batch_size]
-            y_hat = self.net.byol_online(oe, action_indices.squeeze(-1))
+            y_hat = self.net.byol_online(oe, act_indices.squeeze(-1))
             with torch.no_grad():
                 n_oe = oe_s[self.config.batch_size :].detach()
                 y_target = self.net.byol_target(n_oe)
@@ -223,20 +233,20 @@ class TorchTrainer:
             target_q_int = int_rew + not_terminated * self.config.int_discount * (n_q_int + n_v_int) / 2
 
             # --- q int train
-            q_int = q_int_acts_s[: self.config.batch_size].gather(1, action_indices).squeeze(1)
+            q_int = q_int_acts_s[: self.config.batch_size].gather(1, act_indices).squeeze(1)
             loss_int_q = (self.loss_int_q_func(target_q_int, q_int) * weights).mean()
             loss += loss_int_q
             self.info["loss_int_q"] = loss_int_q.item()
 
             # --- alignment q int
-            loss_int_align = (self.loss_int_align_func(int_rew, q_int) * weights).mean()
+            loss_int_align = (self.loss_int_align_func(torch.zeros_like(q_int), q_int - int_rew) * weights).mean()
             loss += self.config.int_align_loss_coeff * loss_int_align
             self.info["loss_int_align"] = loss_int_align.item()
 
             # --- int emb
             if self.config.enable_int_episodic:
                 act_logits = self.net.emb_net(oe.detach(), n_oe.detach())
-                a = torch.nn.functional.one_hot(action_indices.squeeze(-1), self.config.action_space.n).float()
+                a = torch.nn.functional.one_hot(act_indices.squeeze(-1), self.config.action_space.n).float()
                 loss_emb = self.loss_emb_func(act_logits, a)
                 loss += loss_emb
                 self.info["loss_emb"] = loss_emb.item()

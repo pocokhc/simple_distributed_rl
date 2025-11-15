@@ -66,7 +66,7 @@ class SchedulerConfig:
         self.schedulers.append(
             {
                 "name": "constant",
-                "phase_stepsd": phase_steps,
+                "phase_steps": phase_steps,
                 "rate": rate,
             }
         )

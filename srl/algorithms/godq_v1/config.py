@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 from srl.base.define import RLBaseTypes, SpaceTypes
 from srl.base.env.env_run import EnvRun
@@ -13,6 +13,7 @@ from srl.base.spaces.space import SpaceBase
 from srl.rl.memories.priority_replay_buffer import PriorityReplayBufferConfig
 from srl.rl.models.config.input_multi_block import InputMultiBlockConfig
 from srl.rl.processors.image_processor import ImageProcessor
+from srl.rl.schedulers.scheduler import SchedulerConfig
 
 logger = logging.getLogger(__name__)
 
@@ -74,9 +75,17 @@ class Config(RLConfig[DiscreteSpace, MultiSpace[BoxSpace]]):
     train_q: bool = True
     replay_ratio: int = 1
     reset_net_interval: int = 5000
-    discount: float = 0.999
+    discount: float = 0.995
     max_discount_steps: int = 500
-    align_loss_coeff: float = 0.05
+    align_loss_coeff: Optional[float] = None
+    #: <:ref:`SchedulerConfig`>
+    align_loss_coeff_scheduler: SchedulerConfig = field(
+        default_factory=lambda: SchedulerConfig(default_scheduler=True)
+        .add(0.2, 10_000)  #
+        .add(0.15, 100_000)
+        .add(0.1, 200_000)
+        .add(0.05)
+    )
     enable_q_distribution: bool = True
     enable_q_rescale: bool = True
 
@@ -94,6 +103,7 @@ class Config(RLConfig[DiscreteSpace, MultiSpace[BoxSpace]]):
     int_reward_byol_scale: float = 1.0
     # --- int episodic
     enable_int_episodic: bool = False
+    episodic_max_epsilon: float = 0.5
     episodic_count_max: int = 100
     episodic_epsilon: float = 0.001
     episodic_cluster_distance: float = 0.008

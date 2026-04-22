@@ -386,12 +386,6 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
         # --------------------------------------------
 
-        # --- override_env_render_mode
-        if self.override_env_render_mode() != "":
-            if self.__request_env_render != "":
-                logger.warning(f"'request_env_render' has been overridden: {self.__request_env_render} -> {self.override_env_render_mode()}")
-            self.__request_env_render = self.override_env_render_mode()
-
         # --- validate
         self.validate_params()
         # validate_paramsを持ってる変数も実行

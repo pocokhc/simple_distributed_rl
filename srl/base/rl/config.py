@@ -411,9 +411,9 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         self.__is_setup = True
         if enable_log:
             logger.info(f"--- {env.config.name}, {self.get_name()}")
-            logger.info(f"max_episode_steps      : {env.max_episode_steps}")
-            logger.info(f"player_num             : {env.player_num}")
-            logger.info(f"request_env_render_mode: {self.request_env_render}")
+            logger.info(f"max_episode_steps   : {env.max_episode_steps}")
+            logger.info(f"player_num          : {env.player_num}")
+            logger.info(f"requested_env_render: '{env_requested_render_mode}'")
             logger.info(f"action_space (RL requires '{self.__rl_act_type}')")
             logger.info(f" original: {env.action_space}")
             logger.info(f" env     : {self.__env_act_space}")
@@ -492,10 +492,6 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
     def get_applied_render_image_processors(self) -> List["RLProcessor"]:
         return self.__applied_render_img_processors
-
-    @property
-    def request_env_render(self) -> RenderModeType:
-        return self.__request_env_render
 
     @property
     def observation_type(self) -> RLBaseTypes:
@@ -577,15 +573,15 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
         # --- observation_mode
         if self.observation_mode in ["render_image", "both"]:
-            if self.__request_env_render == "rgb_array":
-                img_state = cast(EnvObservationType, env.render_rgb_array())
-            elif self.__request_env_render == "terminal":
-                img_state = cast(EnvObservationType, env.render_terminal_text_to_image())
+            if self.__env_render_mode == "rgb_array":
+                img_state = env.renderer.get_rgb_array()
+            elif self.__env_render_mode == "terminal":
+                img_state = env.renderer.get_terminal_rgb_array()
             else:
-                raise NotSupportedError(self.__request_env_render)
+                raise NotSupportedError(self.__env_render_mode)
 
             if self.observation_mode == "render_image":
-                env_state = img_state
+                env_state = cast(EnvObservationType, img_state)
             else:
                 env_state = [img_state, env_state]
 
@@ -606,12 +602,12 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
     def render_image_state_encode_one_step(self, env: EnvRun) -> np.ndarray:
         assert self.__is_setup
 
-        if self.__request_env_render == "rgb_array":
-            img_state = env.render_rgb_array()
-        elif self.__request_env_render == "terminal":
-            img_state = env.render_terminal_text_to_image()
+        if self.__env_render_mode == "rgb_array":
+            img_state = env.renderer.get_rgb_array()
+        elif self.__env_render_mode == "terminal":
+            img_state = env.renderer.get_terminal_rgb_array()
         else:
-            raise NotSupportedError(self.__request_env_render)
+            raise NotSupportedError(self.__env_render_mode)
 
         if self.enable_state_encode:
             for p in self.__applied_remap_render_img_processors:
@@ -792,7 +788,6 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         if self.__is_setup:
             d["applied_processors"] = self.get_applied_processors()
             d["applied_render_image_processors"] = self.get_applied_render_image_processors()
-            d["request_env_render"] = self.request_env_render
         return d
 
     def __str__(self) -> str:

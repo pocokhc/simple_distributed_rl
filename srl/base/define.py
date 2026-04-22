@@ -141,10 +141,18 @@ class RLBaseTypes(enum.Flag):
         return [f for f in type(flag) if (flag & f == f)]
 
 
-RenderModeType = Literal[
-    "",
+# 設計思想: 何を使うかをcontextで決めてどう使うかは使う側に委ねる
+SupportedRenderMode = Literal[
+    "",  # None
     "terminal",
     "rgb_array",
+]
+
+RenderTarget = Literal[
+    "",
+    "terminal",
+    "terminal_to_text",
+    "terminal_to_rgb_array",
+    "rgb_array",
     "window",
-    "terminal_rgb_array",
 ]

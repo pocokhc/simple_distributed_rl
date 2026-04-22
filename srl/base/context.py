@@ -2,9 +2,9 @@ import logging
 import pickle
 import pprint
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, List, Literal, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, List, Literal, Optional, Set, Union, cast
 
-from srl.base.define import PlayersType, RenderModeType
+from srl.base.define import PlayersType, SupportedRenderMode
 from srl.base.run.callback import RunCallback
 from srl.base.system.device import get_used_device, setup_device
 from srl.base.system.memory import set_memory_limit
@@ -67,8 +67,8 @@ class RunContext:
     train_only: bool = False
     rollout: bool = False
     # --- render
-    env_render_mode: RenderModeType = ""
-    rl_render_mode: RenderModeType = ""
+    env_cached_render_mode: SupportedRenderMode = ""
+    rl_cached_render_modes: Set[SupportedRenderMode] = field(default_factory=set)
 
     # --- mp
     #: 分散学習時のactorの数

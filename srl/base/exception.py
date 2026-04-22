@@ -17,3 +17,9 @@ class TFLayerError(SRLError):
 
 class DistributionError(SRLError):
     pass
+
+
+class UnimplementedCaseError(RuntimeError):
+    """想定されているが未実装のケースに到達した場合の例外"""
+
+    pass

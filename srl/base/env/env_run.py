@@ -10,7 +10,7 @@ from srl.base.define import DoneTypes, EnvObservationType, KeyBindType, RenderTa
 from srl.base.env.base import EnvBase
 from srl.base.env.config import EnvConfig
 from srl.base.env.registration import make_base
-from srl.base.exception import SRLError
+from srl.base.exception import SRLError, UnimplementedCaseError
 from srl.base.info import Info
 from srl.base.renderer import Renderer
 from srl.base.spaces.discrete import DiscreteSpace

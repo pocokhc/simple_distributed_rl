@@ -6,6 +6,7 @@ from typing import Optional, Set
 import numpy as np
 
 from srl.base.define import RenderTarget, SupportedRenderMode
+from srl.base.exception import UnimplementedCaseError
 from srl.utils.common import is_packages_installed
 from srl.utils.render_functions import print_to_text, text_to_rgb_array
 

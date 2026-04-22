@@ -7,7 +7,7 @@ import numpy as np
 from srl.base.context import RunState
 from srl.base.define import DoneTypes, RLActionType, RLObservationType
 from srl.base.info import Info
-from srl.base.render import IRender
+from srl.base.renderer import IRenderer
 from srl.base.rl.config import TRLConfig
 from srl.base.rl.memory import DummyRLMemory, TRLMemory
 from srl.base.rl.parameter import DummyRLParameter, TRLParameter
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class RLWorkerGeneric(
-    IRender,
+    IRenderer,
     Generic[TRLConfig, TRLParameter, TRLMemory, TActSpace, TActType, TObsSpace, TObsType],
     ABC,
 ):

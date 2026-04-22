@@ -12,7 +12,7 @@ from srl.utils.render_functions import print_to_text, text_to_rgb_array
 logger = logging.getLogger(__name__)
 
 
-class IRender:
+class IRenderer:
     def render_terminal(self, **kwargs) -> None:
         pass
 
@@ -20,8 +20,8 @@ class IRender:
         return None
 
 
-class Render:
-    def __init__(self, render_obj: IRender, interval: float = 1000 / 60) -> None:
+class Renderer:
+    def __init__(self, render_obj: IRenderer):
         self._render_obj = render_obj
         self._mode: RenderModeType = ""
         self.rendering: bool = False

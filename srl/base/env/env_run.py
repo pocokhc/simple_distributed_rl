@@ -13,7 +13,7 @@ from srl.base.env.config import EnvConfig
 from srl.base.env.registration import make_base
 from srl.base.exception import SRLError
 from srl.base.info import Info
-from srl.base.render import Render
+from srl.base.renderer import Renderer
 from srl.base.spaces.discrete import DiscreteSpace
 from srl.base.spaces.space import SpaceBase, TActSpace, TActType, TObsSpace, TObsType
 

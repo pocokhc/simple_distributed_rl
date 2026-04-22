@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Generic, List, Optional, Tuple, Union
 
 from srl.base.define import KeyBindType
 from srl.base.info import Info
-from srl.base.render import IRender
+from srl.base.renderer import IRenderer
 from srl.base.spaces.space import TActSpace, TActType, TObsSpace, TObsType
 
 if TYPE_CHECKING:
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class EnvBase(IRender, Generic[TActSpace, TActType, TObsSpace, TObsType], ABC):
+class EnvBase(IRenderer, Generic[TActSpace, TActType, TObsSpace, TObsType], ABC):
     def __init__(self) -> None:
         self.init_base()
 

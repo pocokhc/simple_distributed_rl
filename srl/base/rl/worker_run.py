@@ -9,7 +9,7 @@ from srl.base.define import DoneTypes, EnvActionType, RenderModeType, RLActionTy
 from srl.base.env.env_run import EnvRun
 from srl.base.exception import SRLError
 from srl.base.info import Info
-from srl.base.render import Render
+from srl.base.renderer import Renderer
 from srl.base.rl.config import RLConfig
 from srl.base.rl.memory import RLMemory
 from srl.base.rl.parameter import RLParameter
@@ -38,7 +38,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._worker = worker
         self._config: RLConfig[SpaceBase, SpaceBase] = worker.config
         self._env = env
-        self._render = Render(worker)
+        self.renderer = Renderer(worker)
         self._is_setup = False
 
         self._setup_val(RunContext(), RunState())

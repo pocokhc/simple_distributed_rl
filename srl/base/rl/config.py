@@ -11,11 +11,11 @@ from srl.base.define import (
     EnvActionType,
     EnvObservationType,
     PlayersType,
-    RenderModeType,
     RLActionType,
     RLBaseTypes,
     RLObservationType,
     SpaceTypes,
+    SupportedRenderMode,
 )
 from srl.base.env.env_run import EnvRun
 from srl.base.exception import NotSupportedError
@@ -115,7 +115,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
         self.__applied_processors: List[RLProcessor] = []
         self.__applied_render_img_processors: List[RLProcessor] = []
-        self.__request_env_render: RenderModeType = ""
+        self.__env_render_mode: SupportedRenderMode = ""
 
         self.__rl_act_space = AnySpace()
         self.__rl_obs_space = AnySpace()

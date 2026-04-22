@@ -96,6 +96,7 @@ class EnvConfig:
 
     def __post_init__(self):
         self.__name: Optional[str] = None
+        self._env_render_interval: float = -1
 
     @property
     def name(self) -> str:
@@ -126,6 +127,19 @@ class EnvConfig:
                 self.__name = name
             else:
                 self.__name = self.id
+
+    def get_render_interval(self):
+        interval = self.render_interval
+        if interval <= 0:
+            interval = self._env_render_interval
+
+        interval = interval * (self.frameskip + 1)
+
+        if interval < 1:
+            interval = 1
+        if interval > 2000:
+            interval = 2000
+        return interval
 
     def make(self) -> "EnvRun":
         """環境を生成します。 make_env(env_config) と同じ動作です。"""

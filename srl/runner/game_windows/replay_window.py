@@ -80,6 +80,8 @@ class RePlayableGame(GameWindow):
 
         self.history = _GetRGBCallback(render_player)
         self.context.callbacks.append(self.history)
+        self.context.env_cached_render_mode = "rgb_array"
+        self.context.rl_cached_render_modes = {"terminal", "rgb_array"}
         self.interval = -1
         self.episodes_cache = {}
         self.episode = 0
@@ -94,8 +96,6 @@ class RePlayableGame(GameWindow):
             self.episode_info = cache[0]
             self.steps = cache[1]
         else:
-            self.context.env_render_mode = "rgb_array"
-            self.context.rl_render_mode = "terminal_rgb_array"
             core_play.play(self.context, self.env, self.worker, self.trainer)
 
             total_rewards = None

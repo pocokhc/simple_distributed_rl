@@ -6,7 +6,8 @@ from typing import List
 import numpy as np
 
 from srl.base.context import RunContext
-from srl.base.define import RenderModeType
+from srl.base.define import RenderTarget
+from srl.base.exception import UnimplementedCaseError
 from srl.base.rl.worker_run import WorkerRun
 from srl.base.run.callback import RunCallback
 from srl.base.run.core_play import RunStateActor
@@ -16,10 +17,9 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Rendering(RunCallback):
-    mode: RenderModeType = ""
+    mode: RenderTarget = ""
     kwargs: dict = field(default_factory=lambda: {})
     step_stop: bool = False
-    render_interval: float = -1
     render_skip_step: bool = True
     render_env: bool = True
     render_worker: int = 0
@@ -33,18 +33,24 @@ class Rendering(RunCallback):
         self.img_maxh = 0
 
     def on_start(self, context: RunContext, **kwargs) -> None:
-        context.env_render_mode = self.mode
-        if self.mode in ["rgb_array", "window"]:
-            # rl側はrgbの場合terminalも描画
-            context.rl_render_mode = "terminal_rgb_array"
+        if self.mode == "":
+            pass
+        elif self.mode == "terminal":
+            context.env_cached_render_mode = "terminal"
+            context.rl_cached_render_modes = {"terminal"}
+        elif self.mode == "terminal_to_text":
+            raise NotImplementedError()
+        elif self.mode == "terminal_to_rgb_array":
+            raise NotImplementedError()
+        elif self.mode == "rgb_array":
+            # rl側はterminalも描画
+            context.env_cached_render_mode = "rgb_array"
+            context.rl_cached_render_modes = {"terminal", "rgb_array"}
+        elif self.mode == "window":
+            context.env_cached_render_mode = "rgb_array"
+            context.rl_cached_render_modes = set()
         else:
-            context.rl_render_mode = self.mode
-
-    def on_episodes_begin(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
-        if self.render_interval == -1:
-            self.render_interval = state.env.get_render_interval()
-        else:
-            state.env.set_render_options(interval=self.render_interval)
+            raise UnimplementedCaseError()
 
     def on_step_action_after(self, context: RunContext, state: RunStateActor, **kwargs) -> None:
         self._render(context, state)
@@ -58,6 +64,7 @@ class Rendering(RunCallback):
 
     def on_episode_end(self, context: RunContext, state: RunStateActor) -> None:
         self._render(context, state)
+        self.render_interval = context.env_config.get_render_interval()
 
     def _render(self, context: RunContext, state: RunStateActor, skip_step=False):
         env = state.env
@@ -90,8 +97,9 @@ class Rendering(RunCallback):
         if self.mode == "terminal":
             print(info_text)
             if self.render_env:
-                print(env.render_terminal_text(), end="")
-            print(worker.render_terminal_text())
+                env.renderer.render_terminal()
+            worker.renderer.render_terminal()
+            print("")
 
         if self.mode == "rgb_array":
             worker = state.workers[self.render_worker]
@@ -106,7 +114,7 @@ class Rendering(RunCallback):
             self.frames.append(img)
 
         if self.mode == "window":
-            env.render()
+            env.renderer.render_window()
 
     # -----------------------------------------------
 

@@ -4,10 +4,8 @@ import time
 import traceback
 from typing import TYPE_CHECKING, Any, Callable, Generic, List, Optional, Tuple, Union, cast
 
-import numpy as np
-
 from srl.base.context import RunContext
-from srl.base.define import DoneTypes, EnvObservationType, KeyBindType, RenderModeType
+from srl.base.define import DoneTypes, EnvObservationType, KeyBindType, RenderTarget, SupportedRenderMode
 from srl.base.env.base import EnvBase
 from srl.base.env.config import EnvConfig
 from srl.base.env.registration import make_base
@@ -72,16 +70,14 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._remapped_act_space = act_space
         self._remapped_obs_space = obs_space
 
+        # --- rl
+        self.requested_render_mode_from_rl: SupportedRenderMode = ""
+
         # --- init val
-        render_interval = 1000 / 60
-        if self.config.render_interval > 0:
-            render_interval = self.config.render_interval
-        else:
-            render_interval = self.env.render_interval
-        render_interval *= self.config.frameskip + 1
-        self._render = Render(self.env, render_interval)
+        self.config._env_render_interval = self.env.render_interval
+        self.renderer = Renderer(self.env)
+        self._context: RunContext = RunContext(self.config)
         self._reset_vals()
-        self.context: RunContext = RunContext(self.config)
         self.env.next_player = 0
         self._done = DoneTypes.RESET
         self._is_direct_step = False
@@ -157,7 +153,8 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self.env.restore(dat[15])
 
         # render
-        self._render.cache_reset()
+        if self.renderer.rendering:
+            self.renderer.cache_clear()
 
         if self._is_direct_step:
             if not self.env.can_simulate_from_direct_step:
@@ -184,31 +181,60 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     # ------------------------------------
     # run functions
     # ------------------------------------
-    def setup(
-        self,
-        context: Optional[RunContext] = None,
-        render_mode: RenderModeType = "",
-    ):
+    def setup(self, context: Optional[RunContext] = None, *, render_mode: RenderTarget = ""):
         logger.debug(f"setup: {render_mode=}")
-        if context is not None:
-            self.context = context
-        if render_mode == "":
-            render_mode = self.context.env_render_mode
+        self._context = RunContext(self.config) if context is None else context
 
         # --- reset前の状態を設定
         self._done: DoneTypes = DoneTypes.RESET
         self.env.done_reason = ""
 
+        # --- render情報を更新、なくす方向には上書きしない
+        cached_render_mode = self._context.env_cached_render_mode
+        # render_modeの要求
+        if render_mode != "":
+            if cached_render_mode == "":
+                if render_mode == "terminal":
+                    cached_render_mode = "terminal"
+                elif render_mode == "terminal_to_text":
+                    cached_render_mode = "terminal"
+                elif render_mode == "terminal_to_rgb_array":
+                    cached_render_mode = "terminal"
+                elif render_mode == "rgb_array":
+                    cached_render_mode = "rgb_array"
+                elif render_mode == "window":
+                    cached_render_mode = "rgb_array"
+                else:
+                    raise UnimplementedCaseError()
+                logger.info(f"env_cached_render_mode update by Setup: {cached_render_mode}")
+            else:
+                logger.warning("env.setup() render_mode was not applied because it is already configured.")
+        # rlの要求(優先)
+        if self.requested_render_mode_from_rl != "":
+            if cached_render_mode == "":
+                cached_render_mode = self.requested_render_mode_from_rl
+            elif cached_render_mode != self.requested_render_mode_from_rl:
+                logger.warning(
+                    f"env_cached_render_mode will be overwritten by RLConfig: "  #
+                    f"{cached_render_mode} -> {self.requested_render_mode_from_rl}"
+                )
+                cached_render_mode = self.requested_render_mode_from_rl
+
+        # update context
+        self._context.env_cached_render_mode = cached_render_mode
+
         # --- render
-        self._render.set_render_mode(render_mode)
+        self.renderer.setup_render_mode(
+            {cached_render_mode},
+            render_mode,
+            self.config.get_render_interval(),
+        )
 
         # --- processor
         [p.setup(env_run=self) for p in self._processors]
 
         # --- env
-        kwargs = self.context.to_dict()
-        kwargs["render_mode"] = render_mode
-        self.env.setup(**kwargs)
+        self.env.setup(**self._context.to_dict())
         self._is_setup = True
 
     def teardown(self, **kwargs) -> None:
@@ -247,9 +273,8 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._state = self.sanitize_state(self._state, "state in env.reset may not be SpaceType.")
             self._invalid_actions_list = [self.sanitize_invalid_actions(a, "invalid_actions in env.reset may not be SpaceType.") for a in self._invalid_actions_list]
 
-        # render
-        if self._render.rendering:
-            self._render.cache_render()
+        if self.renderer.rendering:
+            self.renderer.update_cache()
 
     def step(
         self,
@@ -285,11 +310,12 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             step_rewards = [step_rewards[i] + rewards[i] for i in range(self.env.player_num)]
 
             if frameskip_function is not None:
-                self._render.cache_reset()
+                self.renderer.cache_clear()
                 frameskip_function()
 
         self._step2(state, step_rewards, done)
-        self._render.cache_render()
+        if self.renderer.rendering:
+            self.renderer.update_cache()
 
     def _step1(self, action) -> Tuple[TObsType, List[float], DoneTypes]:
         """actionを元にenv.stepを実行"""
@@ -473,7 +499,10 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def reward_baseline(self):
         return self.env.reward_baseline
 
-    # state properties
+    @property
+    def context(self) -> RunContext:
+        return self._context
+
     @property
     def state(self) -> TObsType:
         return self._state
@@ -581,36 +610,12 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     # ------------------------------------
     # render
     # ------------------------------------
-    def set_render_options(
-        self,
-        interval: float = -1,  # ms
-        scale: float = 1.0,
-        font_name: str = "",
-        font_size: int = 18,
-    ):
-        self._render.set_render_options(interval, scale, font_name, font_size)
+    def get_render_interval(self):
+        return self.config.get_render_interval()
 
-    def get_render_interval(self, interval: float = -1):  # ms
-        if interval < 0:
-            interval = self._render.interval
-        if interval < 1:
-            interval = 1
-        if interval > 2000:
-            interval = 2000
-        return interval
-
-    def render(self, **kwargs):
+    def render(self):
         logger.debug("render")
-        return self._render.render(**kwargs)
-
-    def render_terminal_text(self, **kwargs) -> str:
-        return self._render.get_cached_terminal_text(**kwargs)
-
-    def render_terminal_text_to_image(self, **kwargs):
-        return self._render.get_cached_terminal_text_to_image(**kwargs)
-
-    def render_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
-        return self._render.get_cached_rgb_array(**kwargs)
+        return self.renderer.render()
 
     # ------------------------------------
     # simulation

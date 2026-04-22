@@ -5,7 +5,7 @@ from typing import Any, Dict, Generic, List, Literal, Optional, cast
 import numpy as np
 
 from srl.base.context import RunContext, RunState
-from srl.base.define import DoneTypes, EnvActionType, RenderModeType, RLActionType
+from srl.base.define import DoneTypes, EnvActionType, RenderTarget, RLActionType
 from srl.base.env.env_run import EnvRun
 from srl.base.exception import SRLError
 from srl.base.info import Info
@@ -227,25 +227,27 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     def episode_seed(self) -> Optional[int]:
         return self._episode_seed
 
-    def setup(
-        self,
-        context: Optional[RunContext] = None,
-        render_mode: RenderModeType = "",
-        run_state: Optional[RunState] = None,
-    ):
-        if context is None:
-            context = RunContext(self.env.config, self._config)
-        if render_mode == "":
-            render_mode = context.rl_render_mode
-        if render_mode == "window":  # rlはwindowは使わない
-            render_mode = "rgb_array"
-        if run_state is None:
-            run_state = RunState()
+    def setup(self, context: Optional[RunContext] = None, run_state: Optional[RunState] = None):
+        logger.debug("on_setup")
+        self._context = RunContext(self._env.config, self._config) if context is None else context
+        self._run_state = RunState() if run_state is None else run_state
+        self._setup_val()
 
-        self._setup_val(context, run_state)
-        self._render.set_render_mode(render_mode)
-        logger.debug(f"on_setup: {render_mode=}")
-        self._worker.on_setup(self, context)
+        # --- render modeを一応指定
+        base_render_target: RenderTarget = ""
+        if "rgb_array" in self._context.rl_cached_render_modes:
+            base_render_target = "rgb_array"
+        elif "terminal" in self._context.rl_cached_render_modes:
+            base_render_target = "terminal"
+
+        # --- render
+        self.renderer.setup_render_mode(
+            self._context.rl_cached_render_modes,
+            base_render_target,
+            self._env.config.get_render_interval(),
+        )
+
+        self._worker.on_setup(self, self._context)
         self._is_setup = True
 
     def _setup_val(self, context: RunContext, run_state: RunState):
@@ -269,8 +271,8 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         if not self._is_setup:
             raise SRLError("Cannot call worker.on_reset() before calling worker.setup()")
 
-        if self._render.rendering:
-            self._render.cache_reset()
+        if self.renderer.rendering:
+            self.renderer.cache_clear()
 
         self._reset_val(player_index, seed)
 
@@ -366,8 +368,8 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._action = self._worker.policy(self)
 
         # render
-        if self._render.rendering:
-            self._render.cache_render(worker=self)
+        if self.renderer.rendering:
+            self.renderer.update_cache(worker=self)
 
         env_action = self._config.action_decode(cast(RLActionType, self._action))
         return env_action
@@ -385,7 +387,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self._ready_policy()
 
             # 終了後のrender情報
-            if self._render.rendering and self._config.render_last_step:
+            if self.renderer.rendering and self._config.render_last_step:
                 # policyはRLWorker側で
                 # try:
                 #     action = self._worker.policy(self)
@@ -395,7 +397,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
                 #     logger.info(traceback.format_exc())
                 #     logger.warning("'policy()' error in termination status (for rendering)")
                 try:
-                    self._render.cache_render(worker=self)
+                    self.renderer.update_cache(worker=self)
                 except Exception:
                     logger.info(traceback.format_exc())
                     logger.warning("'render()' error in termination status (for rendering)")
@@ -417,33 +419,9 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
     # ------------------------------------
     # render functions
     # ------------------------------------
-    def set_render_options(
-        self,
-        interval: float = -1,  # ms
-        scale: float = 1.0,
-        font_name: str = "",
-        font_size: int = 18,
-    ):
-        self._render.set_render_options(interval, scale, font_name, font_size)
-
-    def render(self, **kwargs):
+    def render(self):
         logger.debug("render")
-        return self._render.render(worker=self, **kwargs)
-
-    def render_terminal_text(self, **kwargs) -> str:
-        if not self._is_reset:  # on_reset前はrenderしない
-            return ""
-        return self._render.get_cached_terminal_text(worker=self, **kwargs)
-
-    def render_terminal_text_to_image(self, **kwargs) -> Optional[np.ndarray]:
-        if not self._is_reset:  # on_reset前はrenderしない
-            return None
-        return self._render.get_cached_terminal_text_to_image(worker=self, **kwargs)
-
-    def render_rgb_array(self, **kwargs) -> Optional[np.ndarray]:
-        if not self._is_reset:  # on_reset前はrenderしない
-            return None
-        return self._render.get_cached_rgb_array(worker=self, **kwargs)
+        return self.renderer.render(worker=self)
 
     def render_rl_image(self) -> Optional[np.ndarray]:
         if not self._config.observation_space_one_step.is_image_visual():
@@ -474,9 +452,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         border_color = (111, 175, 0)
 
         # [env render]
-        env_img = self._env.render_rgb_array()
-        if env_img is None:
-            env_img = self._env.render_terminal_text_to_image()
+        env_img = self._env.renderer.get_rgb_array()
         assert env_img is not None
         env_img = render_funcs.add_padding(env_img, padding, padding, padding, padding, border_color)
 
@@ -512,13 +488,13 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         # [info]
         rl_img = None
         if info_text != "":
-            info_img = render_funcs.text_to_rgb_array(info_text, self._render.font_name, self._render.font_size)
+            info_img = render_funcs.text_to_rgb_array(info_text, self.renderer.font_name, self.renderer.font_size)
             info_img = render_funcs.add_padding(info_img, padding, padding, padding, padding)
             rl_img = info_img
 
         # [rl render text]
         if add_terminal:
-            t_img = self.render_terminal_text_to_image()
+            t_img = self.renderer.get_terminal_rgb_array()
             if t_img is not None:
                 t_img = render_funcs.add_padding(t_img, padding, padding, padding, padding)
                 if rl_img is None:
@@ -528,7 +504,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
         # [rl render rgb]
         if add_rgb_array:
-            rl_render = self.render_rgb_array()
+            rl_render = self.renderer.get_rgb_array(return_terminal_image=False)
             if rl_render is not None:
                 rl_render = render_funcs.add_padding(rl_render, padding, padding, padding, padding)
                 if rl_img is None:
@@ -678,8 +654,8 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         # tracking
         self._tracking_data = [d.copy() for d in dat[23]]
 
-        if self._render.rendering:
-            self._render.cache_reset()
+        if self.renderer.rendering:
+            self.renderer.cache_clear()
 
     def copy(self) -> "WorkerRun":
         worker = WorkerRun(cast(RLWorkerGeneric, DummyRLWorker(self._config)), self.env)

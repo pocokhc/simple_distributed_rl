@@ -172,8 +172,8 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         c.train_only = False
         c.rollout = False
         # --- render
-        c.env_render_mode = ""
-        c.rl_render_mode = ""
+        c.env_cached_render_mode = ""
+        c.rl_cached_render_modes = set()
 
         if enable_progress:
             self.apply_progress(c.callbacks, apply_eval=True)
@@ -241,8 +241,8 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         c.train_only = False
         c.rollout = True
         # --- render
-        c.env_render_mode = ""
-        c.rl_render_mode = ""
+        c.env_cached_render_mode = ""
+        c.rl_cached_render_modes = set()
 
         if enable_progress:
             self.apply_progress(c.callbacks, apply_eval=False)
@@ -297,8 +297,8 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         c.train_only = True
         c.rollout = False
         # --- render
-        c.env_render_mode = ""
-        c.rl_render_mode = ""
+        c.env_cached_render_mode = ""
+        c.rl_cached_render_modes = set()
 
         if enable_progress:
             self.apply_progress(c.callbacks, apply_eval=True)
@@ -426,8 +426,8 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         c.train_only = False
         c.rollout = False
         # --- render
-        c.env_render_mode = ""
-        c.rl_render_mode = ""
+        c.env_cached_render_mode = ""
+        c.rl_cached_render_modes = set()
 
         if enable_progress:
             self.apply_progress(c.callbacks, apply_eval=True)
@@ -652,8 +652,8 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         c.train_only = False
         c.rollout = False
         # --- render
-        c.env_render_mode = ""
-        c.rl_render_mode = ""
+        c.env_cached_render_mode = ""
+        c.rl_cached_render_modes = set()
 
         if enable_progress:
             self.apply_progress(c.callbacks, apply_eval=False)
@@ -791,8 +791,8 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         c.train_only = False
         c.rollout = False
         # --- render
-        c.env_render_mode = ""
-        c.rl_render_mode = ""
+        c.env_cached_render_mode = ""
+        c.rl_cached_render_modes = set()
 
         if enable_progress:
             self.apply_progress(c.callbacks, apply_eval=False)
@@ -905,11 +905,11 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         # -----------------
         from srl.runner.callbacks.rendering import Rendering
 
+        self.env_config.render_interval = render_interval
         rendering = Rendering(
             mode="window",
             kwargs=render_kwargs,
             step_stop=False,
-            render_interval=render_interval,
             render_skip_step=render_skip_step,
         )
         c.callbacks.append(rendering)
@@ -974,8 +974,8 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         c.train_only = False
         c.rollout = False
         # --- render_modeはRendering側で設定
-        # c.env_render_mode = ""
-        # c.rl_render_mode = ""
+        c.env_cached_render_mode = ""
+        c.rl_cached_render_modes = set()
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -1152,8 +1152,8 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         c.train_only = False
         c.rollout = False
         # --- render_modeはRePlayableGame側で設定
-        # self.context.env_render_mode = ""
-        # self.context.rl_render_mode = ""
+        c.env_cached_render_mode = ""
+        c.rl_cached_render_modes = set()
 
         if enable_progress:
             self.apply_progress(c.callbacks, apply_eval=False)
@@ -1213,8 +1213,8 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         c.train_only = False
         c.rollout = enable_memory
         # --- render_modeはRendering側で設定
-        # self.context.env_render_mode = ""
-        # self.context.rl_render_mode = ""
+        c.env_cached_render_mode = ""
+        c.rl_cached_render_modes = set()
 
         # --- rendering ---
         from srl.runner.callbacks.rendering import Rendering
@@ -1286,8 +1286,8 @@ class Runner(Generic[TRLConfig], RunnerBase[TRLConfig]):
         c.train_only = False
         c.rollout = enable_memory
         # --- render_modeはPlayableGame側で設定
-        # self.context.env_render_mode = ""
-        # self.context.rl_render_mode = ""
+        c.env_cached_render_mode = ""
+        c.rl_cached_render_modes = set()
 
         c.callbacks += callbacks[:]
 

@@ -71,8 +71,8 @@ class PlayableGame(GameWindow):
         # --- play ---
         context = context.copy()
         context.callbacks.insert(0, self.playable_callback)
-        context.env_render_mode = "rgb_array"
-        context.rl_render_mode = "terminal_rgb_array"
+        context.env_cached_render_mode = "rgb_array"
+        context.rl_cached_render_modes = {"terminal", "rgb_array"}
         self.gen_play = play_generator(context, env, worker, trainer)
         # 最初まで進める
         while True:
@@ -223,7 +223,7 @@ class PlayableGame(GameWindow):
                 logger.debug(f"{gen_status=}")
             logger.debug(f"RESET: {gen_status=}")
 
-            self.env._render.cache_reset()
+            self.env.renderer.cache_clear()
             self.set_image(self.run_worker.create_render_image())
             self._set_cursor_action()
 

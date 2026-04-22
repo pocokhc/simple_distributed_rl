@@ -9,7 +9,7 @@ from gymnasium import spaces as gym_spaces
 from gymnasium.spaces import flatten, flatten_space
 
 from srl.base import spaces as srl_spaces
-from srl.base.define import EnvActionType, KeyBindType, RenderModeType, SpaceTypes
+from srl.base.define import EnvActionType, KeyBindType, SpaceTypes, SupportedRenderMode
 from srl.base.env.base import EnvBase
 from srl.base.env.gym_user_wrapper import GymUserWrapper
 from srl.base.spaces.space import SpaceBase
@@ -252,7 +252,7 @@ class GymnasiumWrapper(EnvBase):
 
         # metadata
         self.fps = 60
-        self.render_mode: RenderModeType = ""
+        self.render_mode: SupportedRenderMode = ""
         self.render_modes = ["ansi", "human", "rgb_array"]
         if hasattr(self.env, "metadata"):
             if GymnasiumWrapper.is_print_log:
@@ -384,10 +384,11 @@ class GymnasiumWrapper(EnvBase):
         return self.env
 
     def setup(self, **kwargs):
-        render_mode: RenderModeType = kwargs.get("render_mode", "")
+        requested_render_mode: SupportedRenderMode = kwargs["env_cached_render_mode"]
+
         # --- terminal
         # modeが違っていたら作り直す
-        if (render_mode in ["terminal"]) and (self.render_mode != "terminal") and ("ansi" in self.render_modes):
+        if (requested_render_mode == "terminal") and (self.render_mode != "terminal") and ("ansi" in self.render_modes):
             try:
                 self.env.close()
             except Exception as e:
@@ -397,7 +398,7 @@ class GymnasiumWrapper(EnvBase):
 
         # --- rgb_array
         # modeが違っていたら作り直す
-        if (render_mode in ["rgb_array", "window"]) and (self.render_mode != "rgb_array") and ("rgb_array" in self.render_modes):
+        if (requested_render_mode == "rgb_array") and (self.render_mode != "rgb_array") and ("rgb_array" in self.render_modes):
             try:
                 self.env.close()
             except Exception as e:

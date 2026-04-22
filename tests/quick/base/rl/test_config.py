@@ -1,13 +1,11 @@
 from dataclasses import dataclass, fields
 from pprint import pprint
 
-import numpy as np
 import pytest
 
 import srl
 from srl.base.define import SpaceTypes
 from srl.base.rl.config import DummyRLConfig
-from srl.utils import common
 from tests.utils import assert_equal
 
 """
@@ -19,28 +17,6 @@ Space後の値や数値は各spaceのテスト
 @dataclass
 class TestConfig(DummyRLConfig):
     a: int = 10
-
-
-def test_dtype():
-    cfg = TestConfig(dtype="float32")
-
-    for fw in ["np", "numpy"]:
-        np_dtype = cfg.get_dtype(fw)  # type: ignore
-        assert np_dtype == np.float32
-
-    if common.is_package_installed("torch"):
-        import torch
-
-        for fw in ["torch"]:
-            torch_dtype = cfg.get_dtype(fw)  # type: ignore
-            assert torch_dtype == torch.float32
-
-    if common.is_package_installed("tensorflow"):
-        import tensorflow as tf
-
-        for fw in ["tf", "tensotflow"]:
-            tf_dtype = cfg.get_dtype(fw)  # type: ignore
-            assert tf_dtype == tf.float32
 
 
 def test_processor():

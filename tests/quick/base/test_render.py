@@ -3,11 +3,11 @@ from typing import Optional
 import numpy as np
 import pytest
 
-from srl.base.render import IRender, Render
+from srl.base.renderer import IRenderer, Renderer
 from srl.utils.common import is_available_pygame_video_device
 
 
-class StubRender(IRender):
+class StubRender(IRenderer):
     def render_terminal(self, text, **kwargs) -> None:
         print(text)
 

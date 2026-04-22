@@ -1,7 +1,7 @@
 from typing import Union
 
 import srl
-from srl.base.define import RenderModeType
+from srl.base.define import RenderTarget
 from srl.base.env.config import EnvConfig
 from srl.base.env.env_run import EnvRun
 from srl.utils.common import is_available_pygame_video_device, is_packages_installed
@@ -64,7 +64,7 @@ def env_test(
 
 def _env_test(
     env: EnvRun,
-    render_mode: RenderModeType,
+    render_mode: RenderTarget,
     test_restore: bool,
     max_step: int,
     enable_print: bool,

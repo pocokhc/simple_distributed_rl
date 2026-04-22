@@ -11,8 +11,8 @@ def test_raw(monkeypatch):
     env = srl.make_env("EasyGrid")
     worker = srl.make_worker("human", env)
 
-    context = RunContext(env_render_mode="terminal", rl_render_mode="terminal")
-    env.setup(context)
+    context = RunContext(rl_cached_render_modes={"terminal"})
+    env.setup(context, render_mode="terminal")
     worker.setup(context)
 
     env.reset()

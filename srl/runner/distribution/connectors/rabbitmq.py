@@ -2,6 +2,7 @@ import logging
 import pickle
 import ssl
 import traceback
+import weakref
 from typing import Any, Optional, cast
 
 import pika
@@ -41,11 +42,14 @@ class _RabbitMQConnector(IServerConnector):
             ssl_context.set_ciphers("ECDHE+AESGCM:!ECDSA")
             self._pika_params.ssl_options = pika.SSLOptions(context=ssl_context)
 
-    def __del__(self):
-        self.close()
-        self.close_size
+        self._finalizer = weakref.finalize(self, self._close)
 
-    def close(self):
+    def close(self) -> None:
+        if self._finalizer.alive:
+            self._finalizer()
+
+    def _close(self):
+        self.close_size
         if self.connection is not None:
             try:
                 self.connection.close()

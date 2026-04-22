@@ -2,6 +2,7 @@ import logging
 import random
 import time
 import traceback
+import weakref
 from typing import TYPE_CHECKING, Any, Callable, Generic, List, Optional, Tuple, Union, cast
 
 from srl.base.context import RunContext
@@ -33,6 +34,8 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             self.env.set_env_run(self)
         else:
             self.remake()
+
+        self._finalizer = weakref.finalize(self, self._close)
 
         # --- processor
         self._processors = [c.copy() for c in self.config.processors]
@@ -98,7 +101,7 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     def remake(self):
         logger.debug("remake")
-        self.close()
+        self._close()
         self.env = make_base(self.config, self)
 
     def backup(self) -> Any:
@@ -160,17 +163,11 @@ class EnvRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
             if not self.env.can_simulate_from_direct_step:
                 logger.warning("env does not support 'step' after 'direct_step'.")
 
-    # --- with
-    def __del__(self):
-        self.close()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
-
     def close(self) -> None:
+        if self._finalizer.alive:
+            self._finalizer()
+
+    def _close(self) -> None:
         if self.env is not None:
             try:
                 logger.debug("close")

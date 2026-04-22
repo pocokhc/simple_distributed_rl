@@ -1,6 +1,7 @@
 import logging
 import pickle
 import traceback
+import weakref
 import zlib
 from typing import Any, List, Optional, Union, cast
 
@@ -19,10 +20,13 @@ class RedisConnector(IParameterServer, IMemoryReceiver, IMemorySender):
         self._parameter_key = parameter.parameter_key
         self._queue_key = parameter.queue_key
 
-    def __del__(self):
-        self.close()
+        self._finalizer = weakref.finalize(self, self._close)
 
-    def close(self):
+    def close(self) -> None:
+        if self._finalizer.alive:
+            self._finalizer()
+
+    def _close(self):
         if self.server is not None:
             try:
                 self.server.close()

@@ -1,6 +1,7 @@
 import logging
 import pickle
 import traceback
+import weakref
 from typing import Any, Optional, cast
 
 from google.cloud import pubsub_v1
@@ -15,10 +16,13 @@ class GCPPubSubReceiver(IMemoryReceiver):
         self.parameter = parameter
         self.close()
 
-    def __del__(self):
-        self.close()
+        self._finalizer = weakref.finalize(self, self._close)
 
-    def close(self):
+    def close(self) -> None:
+        if self._finalizer.alive:
+            self._finalizer()
+
+    def _close(self):
         self.subscriber = None
         self.subscription_path = ""
 
@@ -101,10 +105,13 @@ class GCPPubSubSender(IMemorySender):
         self.parameter = parameter
         self.close()
 
-    def __del__(self):
-        self.close()
+        self._finalizer = weakref.finalize(self, self._close)
 
-    def close(self):
+    def close(self) -> None:
+        if self._finalizer.alive:
+            self._finalizer()
+
+    def _close(self):
         self.publisher = None
         self.topic_path = ""
 

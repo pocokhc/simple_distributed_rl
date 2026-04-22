@@ -1,6 +1,7 @@
 import logging
 import pickle
 import queue
+import weakref
 from typing import Any, Optional
 
 import paho.mqtt.client as mqtt
@@ -15,10 +16,13 @@ class _MQTTConnector(IServerConnector):
         self.parameter = parameter
         self.client: Optional[mqtt.Client] = None
 
-    def __del__(self):
-        self.close()
+        self._finalizer = weakref.finalize(self, self._close)
 
-    def close(self):
+    def close(self) -> None:
+        if self._finalizer.alive:
+            self._finalizer()
+
+    def _close(self):
         if self.client is not None:
             try:
                 self.client.disconnect()

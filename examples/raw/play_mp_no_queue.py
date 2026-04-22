@@ -205,9 +205,9 @@ def main():
     # --------------------
     # rendering
     # --------------------
-    context = RunContext(env_render_mode="terminal", rl_render_mode="terminal")
+    context = RunContext(rl_cached_render_modes={"terminal"})
     worker = rl_config.make_worker(env, parameter)
-    env.setup(context)
+    env.setup(context, render_mode="terminal")
     worker.setup(context)
 
     env.reset()

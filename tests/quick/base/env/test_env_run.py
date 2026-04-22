@@ -90,8 +90,8 @@ class StubEnv(EnvBase):
     def next_player_index(self) -> int:
         return 0
 
-    def setup(self, render_mode, **kwargs):
-        self.render_mode = render_mode
+    def setup(self, **kwargs):
+        pass
 
     def reset(self, **kwargs):
         self._step = 0
@@ -142,7 +142,6 @@ def test_base():
         env.step(0)
 
     env.setup()
-    assert env_org.render_mode == ""
     env.reset()
     assert env.step_num == 0
 

@@ -1,4 +1,5 @@
 import srl
+from srl.base.define import RenderTarget
 
 # --- load env
 from srl.envs import grid, ox  # isort: skip # noqa F401
@@ -7,10 +8,10 @@ from srl.envs import grid, ox  # isort: skip # noqa F401
 def main(
     env_name: str,
     render_interval: float = 1000 / 5,
-    render_mode="window",  # "terminal" or "rgb_array" or "window"
+    render_mode: RenderTarget = "window",
 ):
     env = srl.make_env(env_name)
-    env.set_render_options(interval=render_interval)
+    env.config.render_interval = render_interval
 
     print(f"action_space     : {env.action_space}")
     print(f"observation_space: {env.observation_space}")

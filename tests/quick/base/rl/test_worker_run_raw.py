@@ -93,7 +93,7 @@ class WorkerRunStubEpisode(RLWorker):
             assert worker.prev_invalid_actions == [1]
             assert worker.invalid_actions == [2]
         else:
-            assert False
+            assert worker.done
 
 
 def test_episode():
@@ -110,9 +110,9 @@ def test_episode():
     rl_config.setup(env)
     worker = srl.make_worker(rl_config, env)
 
-    context = RunContext()
+    context = RunContext(rl_cached_render_modes={"terminal"})
     env.setup(context)
-    worker.setup(context, render_mode="terminal")
+    worker.setup(context)
 
     # --- reset
     env.reset()
@@ -348,7 +348,7 @@ def test_episode_stacked():
     rl_config.setup(env)
     worker = srl.make_worker(rl_config, env)
 
-    context = RunContext(env_render_mode="terminal", rl_render_mode="terminal")
+    context = RunContext(rl_cached_render_modes={"terminal"})
     env.setup(context)
     worker.setup(context)
 

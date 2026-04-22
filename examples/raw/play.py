@@ -99,8 +99,8 @@ def main():
     worker.teardown()
 
     # --- render
-    context = srl.RunContext(env_config, rl_config, env_render_mode="terminal", rl_render_mode="terminal")
-    env.setup(context)
+    context = srl.RunContext(env_config, rl_config, env_cached_render_mode="terminal", rl_cached_render_modes={"terminal"})
+    env.setup(context, render_mode="terminal")
     worker.setup(context)
     _run_episode(env, worker, None, rendering=True)
     env.teardown()

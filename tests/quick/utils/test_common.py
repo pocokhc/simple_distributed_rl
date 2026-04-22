@@ -16,3 +16,9 @@ def test_compare_less_version():
     assert common.compare_less_version("1.2.a3", "2.0.0")
     assert not common.compare_less_version("2.0.0", "1.2.a3")
     assert not common.compare_less_version("3.0.0", "3.0.0")
+
+
+def test_is_available_pygame_video_device():
+    true_result = common.is_package_installed("pygame")
+    result = common.is_available_pygame_video_device()
+    assert result == true_result

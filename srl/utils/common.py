@@ -3,6 +3,7 @@ import importlib.util
 import logging
 import os
 import sys
+from functools import lru_cache
 from typing import Any, List, Optional, Type, Union, cast
 
 import numpy as np
@@ -304,30 +305,45 @@ def is_available_gpu_torch() -> bool:
     return torch.cuda.is_available()
 
 
+@lru_cache(maxsize=1)
 def is_available_pygame_video_device() -> bool:
+    """subprocessでpygameのvideoデバイス可否を安全に判定する
+
+    Why:
+        SDLはプロセス単位で初期化されるため、同一プロセス内チェックは不安定。
+        subprocessに隔離することでsegfaultや環境汚染を防ぐ。
+    """
     if not is_package_installed("pygame"):
         return False
 
-    import pygame
+    import subprocess
+    import sys
 
-    SDL_VIDEODRIVER = os.environ.get("SDL_VIDEODRIVER", None)
-    if "SDL_VIDEODRIVER" in os.environ:
-        pygame.display.quit()
-        del os.environ["SDL_VIDEODRIVER"]
+    code: str = r"""
+import os
+os.environ["SDL_VIDEODRIVER"] = "dummy"
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+
+try:
+    import pygame
+    pygame.display.init()
+    pygame.display.set_mode((1, 1))
+    pygame.display.quit()
+    print("OK")
+except Exception:
+    print("NG")
+"""
 
     try:
-        pygame.display.init()
-        pygame.display.set_mode((1, 1))
-        flag = True
-    except pygame.error as e:
-        logger.warning(f"pygame.error: {e}")
-        flag = False
-    finally:
-        pygame.display.quit()
-        if SDL_VIDEODRIVER is not None:
-            os.environ["SDL_VIDEODRIVER"] = SDL_VIDEODRIVER
-
-    return flag
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return result.stdout.strip().endswith("OK")
+    except Exception:
+        return False
 
 
 def moving_average(data, rolling_size):

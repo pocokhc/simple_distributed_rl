@@ -5,6 +5,7 @@ import logging
 import os
 import time
 import traceback
+import weakref
 from dataclasses import dataclass
 from typing import Literal, Optional, Union
 
@@ -70,10 +71,13 @@ class HistoryOnFileBase:
     def __post_init__(self):
         self._fp_dict: dict[str, io.TextIOWrapper] = {}
 
-    def __del__(self):
-        self.close()
+        self._finalizer = weakref.finalize(self, self._close)
 
-    def close(self):
+    def close(self) -> None:
+        if self._finalizer.alive:
+            self._finalizer()
+
+    def _close(self):
         for k, v in self._fp_dict.items():
             if v is not None:
                 try:

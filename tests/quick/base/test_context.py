@@ -14,34 +14,47 @@ class NotJsonClass:
         self.a = 1
 
 
-@pytest.mark.parametrize("framework", ["tensorflow", "torch"])
-def test_to_dict(framework):
-    if framework == "tensorflow":
-        pytest.importorskip("tensorflow")
-    elif framework == "torch":
-        pytest.importorskip("torch")
-
+def _test_to_dict(framework: str):
     env_config = EnvConfig("Grid")
-    rl_config = dqn.Config()
-    if framework == "tensorflow":
+    if framework == "":
+        rl_config = ql.Config()
+    elif framework == "tensorflow":
+        rl_config = dqn.Config()
         rl_config.set_tensorflow()
     elif framework == "torch":
+        rl_config = dqn.Config()
         rl_config.set_torch()
 
     rl_config.setup(env_config.make())
     c = RunContext()
 
-    c.players = [
-        None,
-        "AAA",
-        ("aa", {"bb": "cc"}),
-        dqn.Config(),
-        (dqn.Config(), rl_config.make_parameter().backup()),
-    ]
-    if framework == "tensorflow":
+    if framework == "":
+        c.players = [
+            None,
+            "AAA",
+            ("aa", {"bb": "cc"}),
+            ql.Config(),
+            (ql.Config(), rl_config.make_parameter().backup()),
+        ]
+        assert isinstance(c.players[3], ql.Config)
+    elif framework == "tensorflow":
+        c.players = [
+            None,
+            "AAA",
+            ("aa", {"bb": "cc"}),
+            dqn.Config(),
+            (dqn.Config(), rl_config.make_parameter().backup()),
+        ]
         assert isinstance(c.players[3], dqn.Config)
         c.players[3].set_tensorflow()
     elif framework == "torch":
+        c.players = [
+            None,
+            "AAA",
+            ("aa", {"bb": "cc"}),
+            dqn.Config(),
+            (dqn.Config(), rl_config.make_parameter().backup()),
+        ]
         assert isinstance(c.players[3], dqn.Config)
         c.players[3].set_torch()
 
@@ -54,6 +67,10 @@ def test_to_dict(framework):
     json_dict = c.to_dict()
     pprint(json_dict)
     json.dumps(json_dict)
+
+
+def test_to_dict():
+    _test_to_dict("")
 
 
 def test_copy():

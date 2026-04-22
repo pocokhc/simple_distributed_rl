@@ -446,7 +446,7 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         env_space: SpaceBase,
         division_num: int,
         options: SpaceEncodeOptions,
-    ):
+    ) -> Tuple[SpaceBase, RLBaseTypes]:
         # 優先度
         # 1. override
         # 2. RL base type

@@ -347,13 +347,13 @@ class GymWrapper(EnvBase):
     def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
         if seed is None:
             state = self.env.reset()
-            if isinstance(state, tuple) and len(state) == 2 and isinstance(state[1], dict):
+            if isinstance(state, Tuple) and len(state) == 2 and isinstance(state[1], dict):
                 state, info = state
             else:
                 info = {}
         else:
             state = self.env.reset(seed=seed)
-            if isinstance(state, tuple) and len(state) == 2 and isinstance(state[1], dict):
+            if isinstance(state, Tuple) and len(state) == 2 and isinstance(state[1], dict):
                 state, info = state
             else:
                 info = {}

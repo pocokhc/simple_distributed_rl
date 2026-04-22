@@ -311,6 +311,13 @@ class GymnasiumWrapper(EnvBase):
         return self._observation_space
 
     @property
+    def render_image_shape(self) -> Optional[Tuple[int, int, int]]:
+        if hasattr(self.env.unwrapped, "render_image_shape"):
+            return self.env.unwrapped.render_image_shape  # type: ignore
+        else:
+            return None
+
+    @property
     def max_episode_steps(self) -> int:
         if hasattr(self.env, "_max_episode_steps"):
             return getattr(self.env, "_max_episode_steps")

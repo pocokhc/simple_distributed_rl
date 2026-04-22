@@ -278,19 +278,11 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
             if self.observation_mode == "both":
                 both_spaces.append(env_obs_space)
 
+        env_requested_render_mode = ""
+        env_render_shape = None
         if self.observation_mode in ["render_image", "both"]:
-            env.setup(render_mode="rgb_array")
-            env.reset()
-            rgb_array = env.render_rgb_array()
-            if rgb_array is not None:
-                self.__request_env_render = "rgb_array"
-            else:
-                rgb_array = env.render_terminal_text_to_image()
-                if rgb_array is not None:
-                    self.__request_env_render = "terminal"
-                else:
-                    raise NotSupportedError("Failed to get image.")
-            env_obs_space = BoxSpace(rgb_array.shape, 0, 255, np.uint8, SpaceTypes.RGB)
+            env_render_shape, env_requested_render_mode = self._get_render_image_shape(env)
+            env_obs_space = BoxSpace(env_render_shape, 0, 255, np.uint8, SpaceTypes.RGB)
 
             if self.observation_mode == "both":
                 both_spaces.insert(0, env_obs_space)
@@ -344,18 +336,9 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
 
         # --- include render image
         if self.use_render_image_state():
-            env.setup(render_mode="rgb_array")
-            env.reset()
-            rgb_array = env.render_rgb_array()
-            if rgb_array is not None:
-                self.__request_env_render = "rgb_array"
-            else:
-                rgb_array = env.render_terminal_text_to_image()
-                if rgb_array is not None:
-                    self.__request_env_render = "terminal"
-                else:
-                    raise NotSupportedError("Failed to get image.")
-            self.__rl_obs_render_img_space_one_step: BoxSpace = BoxSpace(rgb_array.shape, 0, 255, np.uint8, SpaceTypes.RGB)
+            if env_render_shape is None:
+                env_render_shape, env_requested_render_mode = self._get_render_image_shape(env)
+            self.__rl_obs_render_img_space_one_step = BoxSpace(env_render_shape, 0, 255, np.uint8, SpaceTypes.RGB)
 
             if self.enable_state_encode and self.enable_rl_processors:
                 # applied_processors list
@@ -380,6 +363,10 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                 self.__rl_obs_render_img_space = self.__rl_obs_render_img_space_one_step.create_stack_space(self.render_image_window_length)
             else:
                 self.__rl_obs_render_img_space = self.__rl_obs_render_img_space_one_step
+
+        # --- to env
+        self.__env_render_mode = env_requested_render_mode
+        env.requested_render_mode_from_rl = env_requested_render_mode
 
         # -----------------------
         # action space, 2種類、特に前処理とかはないのでそのままenvと同じになる
@@ -441,6 +428,26 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
                 if self.render_image_window_length > 1:
                     logger.info(f" render_img(one_step): {self.__rl_obs_render_img_space_one_step}")
                 logger.info(f" render_img  : {self.__rl_obs_render_img_space}")
+
+    def _get_render_image_shape(self, env: EnvRun) -> Tuple[Tuple, SupportedRenderMode]:
+        if env.env.render_image_shape is not None:
+            return env.env.render_image_shape, "rgb_array"
+
+        # --- 実行して render shapeを取得する
+        env.setup(render_mode="rgb_array")
+        env.reset()
+        rgb_array = env.renderer.get_rgb_array()
+        if rgb_array is not None:
+            requested_target = "rgb_array"
+        else:
+            rgb_array = env.renderer.get_terminal_rgb_array()
+            if rgb_array is not None:
+                requested_target = "terminal"
+            else:
+                raise NotSupportedError("Failed to get image.")
+        render_shape = rgb_array.shape
+        logger.info(f"render_shape(simulation): {render_shape}")
+        return render_shape, requested_target
 
     def _get_rl_space(
         self,

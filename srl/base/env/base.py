@@ -68,6 +68,21 @@ class EnvBase(IRenderer, Generic[TActSpace, TActType, TObsSpace, TObsType], ABC)
         raise NotImplementedError()
 
     @property
+    def render_image_shape(self) -> Optional[Tuple[int, int, int]]:
+        """レンダリング画像の shape を返す (H, W, C)
+
+        Returns:
+            tuple[int, int, int] | None:
+                事前に shape が分かる場合はその値を返す。
+                不明な場合は None を返す。
+
+        Notes:
+            observation_mode に画像が含まれる場合、本プロパティの値を優先して使用する。
+            None の場合は、実行フローとは独立に render() を一度呼び出して shape を取得する。
+        """
+        return None
+
+    @property
     @abstractmethod
     def max_episode_steps(self) -> int:
         raise NotImplementedError()
@@ -164,7 +179,7 @@ class EnvBase(IRenderer, Generic[TActSpace, TActType, TObsSpace, TObsType], ABC)
     @property
     def rendering(self) -> bool:
         if self.env_run is not None:
-            return self.env_run.context.env_render_mode != ""
+            return self.env_run.renderer.rendering
         return False
 
     # --------------------------------

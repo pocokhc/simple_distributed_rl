@@ -206,10 +206,6 @@ class RLConfig(ABC, Generic[TActSpace, TObsSpace]):
         """render_img_stateに対する前処理" """
         return []  # NotImplemented
 
-    def override_env_render_mode(self) -> RenderModeType:
-        """envのrender_modeを上書き, humanのterminal入力等で使用"""
-        return ""  # NotImplemented
-
     def use_update_parameter_from_worker(self) -> bool:
         """WorkerからParameterの更新がある場合はTrue
         - Trueの場合、分散学習で parameter.update_from_worker_parameter が学習後に呼ばれます

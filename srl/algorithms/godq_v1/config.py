@@ -80,11 +80,13 @@ class Config(RLConfig[DiscreteSpace, MultiSpace[BoxSpace]]):
     align_loss_coeff: Optional[float] = None
     #: <:ref:`SchedulerConfig`>
     align_loss_coeff_scheduler: SchedulerConfig = field(
-        default_factory=lambda: SchedulerConfig(default_scheduler=True)
-        .add(0.2, 10_000)  #
-        .add(0.15, 100_000)
-        .add(0.1, 200_000)
-        .add(0.05)
+        default_factory=lambda: (
+            SchedulerConfig(default_scheduler=True)
+            .add(0.2, 10_000)  #
+            .add(0.15, 100_000)
+            .add(0.1, 200_000)
+            .add(0.05)
+        )
     )
     enable_q_distribution: bool = True
     enable_q_rescale: bool = True

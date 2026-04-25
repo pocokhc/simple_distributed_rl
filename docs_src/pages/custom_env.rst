@@ -9,6 +9,7 @@ Making a Custom environment
 + 1.環境クラスの実装
    + 1-1.Gymクラスによる実装
    + 1-2.EnvBaseクラスによる実装
+   + 1-3.追加オプション
 + 2.Spaceクラスの説明
 + 3.登録
 + 4.実装例
@@ -50,42 +51,36 @@ Gym環境の実装例は以下です。
       # 利用できるrender_modesを指定
       metadata = {"render_modes": ["ansi", "rgb_array"], "render_fps": 4}
       
+      # 環境の初期化
+      #
+      # 必ず以下の2つを定義する必要がある：
+      # - action_space: 取りうる行動の空間
+      # - observation_space: 観測（状態）の空間
       def __init__(self, render_mode: str | None = None):
          self.render_mode = render_mode
-         """
-         initで以下2つの変数を定義する必要あり
-         spaces.Space型については省略します。
-         
-         self.action_space      : アクションが取りうる範囲を指定
-         self.observation_space : 状態が取りうる範囲を指定
-         """
-         
          self.action_space: spaces.Space = spaces.Discrete(2)
          self.observation_space: spaces.Space = spaces.Box(-1, 1, shape=(1,))
 
+      # エピソード開始時の初期化処理
+      # - 状態を初期値にリセット
+      # - return (observation, info)
       def reset(self, *, seed=None, options=None)-> tuple[np.ndarray, dict]:
          super().reset(seed=seed)
-         """ 1エピソードの最初に実行。（初期化処理を実装）
-         return 初期状態, 情報
-         """
          return np.array([0], dtype=np.float32), {}
       
+      # actionを元に1step進める処理を実装
+      # return (
+      #   1step後の状態,
+      #   即時報酬,
+      #   予定通り終了したらTrue(terminated),
+      #   予想外で終了したらTrue(truncated),
+      #   情報(任意),
+      # )
       def step(self, action) -> tuple[np.ndarray, float, bool, bool, dict]:
-         """ actionを元に1step進める処理を実装
-         return (
-               1step後の状態,
-               即時報酬,
-               予定通り終了したらTrue(terminated),
-               予想外で終了したらTrue(truncated),
-               情報(任意),
-         )
-         """
          return np.array([0], dtype=np.float32), 0.0, True, False, {}
 
+      # 描画処理を記載
       def render(self):
-         """
-         描画処理を書きます。
-         """
          pass
 
 | 環境クラスを作成したら登録します。
@@ -120,37 +115,8 @@ Gym環境の実装例は以下です。
    env.close()
 
 
-| また、Gym環境のクラスに以下の関数を追加すると本フレームワークが認識します。
-| （本フレームワークのバージョンにより対応する項目は追加・変更する可能性があります）
+| また、後述する追加オプションを実装するとSRL側で認識し使うことができます。
 
-.. code-block:: python
-
-   class MyGymEnv(gym.Env):
-
-      def setup(self, **kwargs):
-         """
-         srlのrunnerで、train等の実行単位の最初に呼ばれる関数。
-         srl.base.context.RunContextクラスの情報が辞書形式ではいっています。
-         """
-         pass
-
-      # backup/restore機能が追加されます
-      def backup(self) -> Any:
-         return data
-      def restore(self, data: Any) -> None:
-         pass
-
-      def get_invalid_actions(self, player_index: int = -1) -> list[int]:
-         """ 有効でないアクションのリストを指定できます。これはアクションがintの場合のみ有効です """
-         return []
-
-      def action_to_str(self, action) -> str:
-         """ アクションの文字列を実装します。これは主に描画関係で使われます """
-         return str(action)
-
-      def get_key_bind(self) -> Optional[KeyBindType]:
-         """ 手動入力時のキーのマップを指定できます """
-         return None
 
 
 1-2. EnvBaseクラスによる実装
@@ -191,112 +157,123 @@ EnvBase
       # def __post_init__():
       #    super().__init__()
 
+      # アクションの取りうる範囲を記載(SpaceBaseは後述)
       @property
       def action_space(self) -> SpaceBase:
-         """ アクションの取りうる範囲を返します(SpaceBaseは後述) """
          raise NotImplementedError()
 
+      # 状態の取りうる範囲を記載(SpaceBaseは後述)
       @property
       def observation_space(self) -> SpaceBase:
-         """ 状態の取りうる範囲を返します(SpaceBaseは後述) """
          raise NotImplementedError()
 
+      # 1エピソードの最大ステップ数
       @property
       def max_episode_steps(self) -> int:
-         """ 1エピソードの最大ステップ数 """
          raise NotImplementedError()
 
+      # プレイヤー人数
       @property
       def player_num(self) -> int:
-         """ プレイヤー人数 """
          raise NotImplementedError()
-
+      
+      # 1エピソードの最初に実行。（初期化処理を実装）
+      #
+      # Args:
+      #   seed: 1エピソードの初期seed
+      #
+      # Returns:
+      #   state: 初期状態
+      #
       def reset(self, *, seed: Optional[int] = None, **kwargs) -> Any:
-         """ 1エピソードの最初に実行。（初期化処理を実装）
-
-         Args:
-             seed: 1エピソードの初期seed
-
-         Return:
-             state : 初期状態
-         """
          raise NotImplementedError()
 
+      # actionを元に1step進める処理を実装
+      #
+      # Args:
+      #   action: 次のプレイヤーのアクション
+      #
+      # Returns:
+      #   state     : 1step後の状態
+      #   rewards   : プレイヤーが1人の場合は float、複数の場合は人数分の報酬を配列で返す
+      #   terminated: MDP環境内で正常に終了した場合Trueを返す。これは一般的な環境の終了（ゴールしたや穴に落ちた等）
+      #   truncated : MDP環境外で終了した場合Trueを返す。これは例外終了やタイムアップ等の異常な終了を表す。
+      #
       def step(self, action) -> tuple[Any, float | list[float], bool, bool]:
-         """ actionを元に1step進める処理を実装
-
-         Args:
-               action: 次のプレイヤーのアクション
-
-         Returns:
-               state     : 1step後の状態
-               rewards   : プレイヤーが1人の場合は float、複数の場合は人数分の報酬を配列で返す
-               terminated: MDP環境内で正常に終了した場合Trueを返す。これは一般的な環境の終了（ゴールしたや穴に落ちた等）
-               truncated : MDP環境外で終了した場合Trueを返す。これは例外終了やタイムアップ等の異常な終了を表す。
-         """
          raise NotImplementedError()
 
+      # 現在の状況をprintで実装(option)
+      def render_terminal(self, **kwargs) -> None:
+         pass
+      
+      # 現在の状況を RGB の画像配列で返す(option)
+      def render_rgb_array(self, **kwargs) -> np.ndarray | None:
+         return None
 
-その他のオプション
-^^^^^^^^^^^^^^^^^^^^^
+      # 描画速度(option)
+      @property
+      def render_interval(self) -> float:
+         return 1000 / 60
+         
 
-必須ではないですが、設定できる関数・プロパティとなります。
+1-3. 追加オプション
+--------------------------------------------
+
+| 必須ではないですが、追加で設定できる関数・プロパティとなります。
+| （Gym環境の実装でも認識して使うことができます）
+| （本フレームワークのバージョンにより対応する項目は追加・変更する可能性があります）
 
 .. code-block:: python
 
-   def setup(self, **kwargs):
-      """ srlのrunnerで、train等の実行単位の最初に呼ばれる関数 
-      引数 kwargs は `srl.base.run.context.RunContext` の変数が入ります """
-      pass
+   # ----------------------------
+   # 動作に関するオプション
+   # ----------------------------
 
-   # backup/restore で現環境を復元できるように実装
-   # MCTS等のアルゴリズムで使用します
+   # run実行時の最初に呼ばれます。
+   # 引数 kwargs は `srl.base.run.context.RunContext` の変数が入り、
+   # Context情報で設定を変えて初期化したい場合に実装します。
+   def setup(self, **kwargs):
+      pass
+   
+   # 終了時に呼ばれます
+   def close(self) -> None:
+      pass
+   
+   # backup/restore で現環境を復元できるように実装。
+   # MCTS等の一部アルゴリズムはこの実装がないと動作しません。
    def backup(self) -> Any:
       raise NotImplementedError()
    def restore(self, data: Any) -> None:
       raise NotImplementedError()
 
-   # --- 追加情報
-   @property
-   def reward_range(self) -> Tuple[float, float]:
-      """rewardの取りうる範囲を返す"""
-        return (-math.inf, math.inf)
-
-   # --- 実行に関する関数
-   def close(self) -> None:
-      """ 終了処理を実装 """
-      pass
-   
+   # 毎step呼ばれます。
+   # 無効なアクションがある場合に実装。
    def get_invalid_actions(self, player_index: int) -> list:
-      """ 無効なアクションがある場合は配列で返す """
       return []
-
-   # --- AI
-   def make_worker(self, name: str) -> Optional["srl.base.rl.base.WorkerBase"]:
-      """ 環境に特化したAIを返す """
+   
+   # render_rgb_array の画像サイズ
+   @property
+   def render_image_shape(self) -> Optional[Tuple[int, int, int]]:
       return None
 
-   # --- 描画に関する関数
-   def render_terminal(self, **kwargs) -> None:
-      """ 現在の状況をprintで表示する用に実装 """
-      pass
-
-   def render_rgb_array(self, **kwargs) -> np.ndarray | None:
-      """ 現在の状況を RGB の画像配列で返す """
-      return None
-
+   # ----------------------------
+   # その他オプション
+   # ----------------------------
+   
+   # 表示名を変えたい場合に実装
+   def get_display_name(self) -> str:
+      return ""
+   
+   # アクションを表示できる文字列に変換
    def action_to_str(self, action: Union[str, EnvActionType]) -> str:
-      """ アクションを文字列に変換する """
       return str(action)
 
-   @property
-   def render_interval(self) -> float:
-      """ 描画速度を返す """
-      return 1000 / 60
-
-   # --- プレイ時に関する関数
+   # プレイ時にアクションをキーボードと紐づける場合に実装
    def get_key_bind(self) -> KeyBindType:
-      """ キー配置とアクションを紐づける """
+      return None
+
+   # 環境に特化したAIを返す場合に実装
+   def make_worker(self, name: str) -> Optional["srl.base.rl.base.WorkerBase"]:
       return None
 
 

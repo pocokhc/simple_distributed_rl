@@ -170,6 +170,8 @@ def get_random_max_index(arr: Union[np.ndarray, List[float]], invalid_actions: L
         if max_value == -np.inf:
             return 0
         max_list = [i for i, val in enumerate(arr) if val == max_value]
+        if not max_list:
+            return 0
         return max_list[0] if len(max_list) == 1 else random.choice(max_list)
     else:
         arr_np = np.asarray(arr, dtype=float)

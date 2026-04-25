@@ -274,7 +274,7 @@ class RunnerBase(Generic[TRLConfig]):
             set_CUDA_VISIBLE_DEVICES_if_CPU (bool, optional): CPUの場合 CUDA_VISIBLE_DEVICES を-1にする. Defaults to True.
             tf_enable_memory_growth (bool, optional): tensorflowにて、'set_memory_growth(True)' を実行する. Defaults to True.
         """
-        if self.context.is_setup():
+        if self.context.is_setup_device():
             logger.warning("Device cannot be changed after initialization.")
             return
         self.context.device = device

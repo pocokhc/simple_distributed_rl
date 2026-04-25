@@ -155,21 +155,33 @@ def create_epsilon_list(policy_num: int, epsilon=0.4, alpha=8.0):
 
 
 def get_random_max_index(arr: Union[np.ndarray, List[float]], invalid_actions: List[int] = []) -> int:
-    """Destructive to the original variable."""
+    if len(arr) == 0:
+        return 0
+
     if len(arr) < 100:
-        if len(invalid_actions) > 0:
+        if invalid_actions:
             if isinstance(arr, np.ndarray):
                 arr = arr.tolist()
             arr = arr[:]
             for a in invalid_actions:
-                arr[a] = -np.inf
+                if 0 <= a < len(arr):
+                    arr[a] = -np.inf
         max_value = max(arr)
+        if max_value == -np.inf:
+            return 0
         max_list = [i for i, val in enumerate(arr) if val == max_value]
         return max_list[0] if len(max_list) == 1 else random.choice(max_list)
     else:
-        arr = np.asarray(arr, dtype=float)
-        arr[invalid_actions] = -np.inf
-        return random.choice(np.where(arr == arr.max())[0].tolist())
+        arr_np = np.asarray(arr, dtype=float)
+        if invalid_actions:
+            arr_np[invalid_actions] = -np.inf
+        max_value = arr_np.max()
+        if max_value == -np.inf:
+            return 0
+        max_indices = np.where(arr_np == max_value)[0]
+        if len(max_indices) == 0:
+            return 0
+        return int(random.choice(max_indices.tolist()))
 
 
 def get_random_idx_by_rankbase(arr_size: int, alpha: float = 1.0):

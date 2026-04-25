@@ -114,6 +114,10 @@ def set_logger(
         logging.getLogger("tensorflow").setLevel(logging.INFO)
         logging.getLogger("h5py").setLevel(logging.INFO)
 
+        # LiteLLM
+        logging.getLogger("litellm").setLevel(logging.WARNING)
+        os.environ["LITELLM_LOG"] = "ERROR"
+
 
 def save_file(path: str, dat: Any, compress: bool = True):
     import pickle

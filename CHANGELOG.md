@@ -87,8 +87,10 @@ env/rlのrender方法を見直してリファクタリング。
 **Bug Fixes**
 
 1. [rl.schedulers] fix: add関数でphase_stepsの誤字を修正
+1. [rl.functions] fix: get_random_max_indexで全てinvalid_actionの時の例外処理を追加
 1. [algorithms.daynaq] fix: actionの選択がでnullの場合の処理が漏れていたのでget_random_max_indexを使用するように変更
 1. [algorithms.godq_v1_lstm] fix: align_loss_coeffがschedulerに対応してなかったので修正
+
 
 
 # v1.4.5

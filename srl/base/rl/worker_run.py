@@ -41,7 +41,9 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self.renderer = Renderer(worker)
         self._is_setup = False
 
-        self._setup_val(RunContext(), RunState())
+        self._context = RunContext(self._env.config, self._config)
+        self._run_state = RunState()
+        self._setup_val()
         self._reset_val(0)
 
     # ------------------------------------
@@ -250,9 +252,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
         self._worker.on_setup(self, self._context)
         self._is_setup = True
 
-    def _setup_val(self, context: RunContext, run_state: RunState):
-        self._context = context
-        self._run_state = run_state
+    def _setup_val(self):
         self._step_in_training: int = 0
 
         self._use_stacked_state = self._config.window_length > 1

@@ -179,9 +179,10 @@ def test_timeout():
 
     env.setup()
     env.reset()
-    time.sleep(3)
+    time.sleep(5)
     env.step(0)
     assert env.done
+    assert env.done_reason == "timeout"
 
     with pytest.raises(SRLError):
         env.step(0)

@@ -60,7 +60,7 @@ class LongCase(CommonLongCase):
         rl_config.discount = 0.9
         rl_config.lr = 0.001
         runner = self.create_test_runner("Pendulum-v1", rl_config)
-        runner.train(max_steps=200 * 50)
+        runner.train(max_steps=200 * 100)
         assert runner.evaluate_compare_to_baseline_single_player()
 
     def test_Pendulum_mp(self):

@@ -33,7 +33,14 @@ class LongCase(CommonLongCase):
         rl_config.align_loss_coeff = 0.1
         return rl_config
 
-    @pytest.mark.parametrize("feat_type, archive", [["", False], ["BYOL", True]])
+    @pytest.mark.parametrize(
+        "feat_type, archive",
+        [
+            ["", False],
+            ["BYOL", False],
+            ["", True],
+        ],
+    )
     def test_Grid(self, feat_type, archive):
         rl_config = self._create_rl_config()
         rl_config.feat_type = feat_type

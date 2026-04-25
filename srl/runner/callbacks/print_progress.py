@@ -320,7 +320,7 @@ class PrintProgress(RunCallback, Evaluate):
             try:
                 from srl.base.system import psutil_
 
-                mem = psutil_.read_memory()
+                mem = psutil_.read_system_memory_percent()
                 cpu = psutil_.read_cpu()
                 s += f"[CPU{cpu:3.0f}%,M{mem:2.0f}%]"
             except Exception:

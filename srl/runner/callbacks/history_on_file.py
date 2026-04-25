@@ -199,7 +199,7 @@ class HistoryOnFile(RunCallback, Evaluate):
         try:
             from srl.base.system import psutil_
 
-            d["system_memory"] = psutil_.read_memory()
+            d["system_memory"] = psutil_.read_system_memory_percent()
             d["cpu"] = psutil_.read_cpu()
         except Exception:
             logger.debug(traceback.format_exc())

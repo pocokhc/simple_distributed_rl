@@ -153,7 +153,7 @@ class RunContext:
         RunContext.__setup_memory_limit = True
 
     @classmethod
-    def is_setup(cls) -> bool:
+    def is_setup_device(cls) -> bool:
         return cls.__setup_device
 
     def setup_device(self, is_mp_main_process: Optional[bool] = None):

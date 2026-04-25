@@ -284,7 +284,8 @@ class MLFlowCallback(RunCallback, Evaluate):
             try:
                 from srl.base.system import psutil_
 
-                d["system/memory"] = psutil_.read_memory()
+                d["system/system_memory"] = psutil_.read_system_memory_percent()
+                d["system/process_memory_rss_mb"] = psutil_.read_process_memory_rss() / (1024**2)
                 d["system/cpu"] = psutil_.read_cpu()
             except Exception:
                 logger.debug(traceback.format_exc())

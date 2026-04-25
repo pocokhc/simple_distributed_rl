@@ -10,6 +10,7 @@ from srl.base.rl.algorithms.base_ql import RLConfig, RLWorker
 from srl.base.rl.parameter import RLParameter
 from srl.base.rl.registration import register
 from srl.base.rl.trainer import RLTrainer
+from srl.rl import functions as funcs
 from srl.rl.memories.single_use_buffer import RLSingleUseBuffer
 from srl.rl.schedulers.scheduler import SchedulerConfig
 
@@ -244,9 +245,7 @@ class Worker(RLWorker[Config, Parameter, Memory]):
             self.action = random.choice([a for a in range(self.config.action_space.n) if a not in worker.invalid_actions])
         else:
             q = self.parameter.get_action_values(self.state, worker.invalid_actions)
-            q = np.asarray(q)
-            q = [(-np.inf if a in worker.invalid_actions else v) for a, v in enumerate(q)]
-            self.action = np.random.choice(np.where(q == np.max(q))[0])
+            self.action = funcs.get_random_max_index(q, worker.invalid_actions)
 
         return int(self.action)
 

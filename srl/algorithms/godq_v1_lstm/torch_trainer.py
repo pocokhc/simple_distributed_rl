@@ -54,6 +54,7 @@ class TorchTrainer:
         self.loss_align_func = nn.MSELoss(reduction="none")
         self.reset_params += list(self.net.encoder.parameters())
         self.reset_params += list(self.net.q_online.parameters())
+        self.align_sch = self.config.align_loss_coeff_scheduler.create(self.config.align_loss_coeff)
 
         if self.config.feat_type == "BYOL":
             self.models.append(self.net.byol_online)
@@ -208,7 +209,8 @@ class TorchTrainer:
         if self.config.enable_q_rescale:
             total_reward = linear_symlog(total_reward)
         loss_align = self.loss_align_func(total_reward, q)
-        loss += self.config.align_loss_coeff * loss_align
+        align_loss_coeff = self.align_sch.update(self.train_count).to_float()
+        loss += align_loss_coeff * loss_align
         self.info["loss_align"] = loss_align.mean().item()
 
         # --- feat

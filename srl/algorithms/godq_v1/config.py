@@ -55,7 +55,7 @@ class SamplerConfig:
 @dataclass
 class Config(RLConfig[DiscreteSpace, MultiSpace[BoxSpace]]):
     # --- policy
-    test_epsilon: float = 0
+    test_epsilon: float = 0.00001
     test_policy: Literal["q", "int"] = "q"
     epsilon: float = 0.01
 
@@ -127,8 +127,8 @@ class Config(RLConfig[DiscreteSpace, MultiSpace[BoxSpace]]):
 
     def set_model(self, units: int):
         self.base_units = units
-        self.input_block.cont_units = units
-        self.input_block.discrete_units = units
+        self.input_block.cont_units = units // 2
+        self.input_block.discrete_units = units // 2
 
     def get_name(self) -> str:
         return "GoDQ_v1"

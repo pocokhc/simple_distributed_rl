@@ -154,7 +154,6 @@ class TorchTrainer:
         oe_s = self.net.encoder(states_list)
         oe = oe_s[: self.config.batch_size]
         n_oe = oe_s[self.config.batch_size :]
-        q_acts_s, v_s = self.net.q_online(oe_s)
 
         # --- rnd
         if self.config.enable_int_q and self.config.feat_type == "":
@@ -170,7 +169,9 @@ class TorchTrainer:
 
             rnd_error = rnd_error.detach()
 
-        # --- target_q
+        # --- q
+        # target_q
+        q_acts_s, v_s = self.net.q_online(oe_s)
         n_q_acts = q_acts_s[self.config.batch_size :].detach()
         n_q = n_q_acts.max(dim=1).values
         if self.config.enable_q_rescale:
@@ -179,13 +180,13 @@ class TorchTrainer:
         if self.config.enable_q_rescale:
             target_q = linear_symlog(target_q)
 
-        # --- q
+        # q
         q = q_acts_s[: self.config.batch_size].gather(1, act_indices).squeeze(1)
         loss_q = (self.loss_q_func(target_q, q) * weights).mean()
         loss += loss_q
         self.info["loss_q"] = loss_q.item()
 
-        # --- alignment q
+        # alignment q
         # n_mask: 次のアクションが現方策と違っているのは信用できないので簡易補正（ISもどき）
         n_max_indices = n_q_acts.argmax(dim=1)
         n_mask = torch.where(n_max_indices == n_act_indices, 1.0, 0.1)

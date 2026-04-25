@@ -12,7 +12,7 @@ common.logger_print()
 
 ENV_NAME = "Pendulum-v1"
 BASE_LR = 0.001
-BASE_TRAIN = 200 * 100
+BASE_TRAIN = 200 * 200
 BASE_BLOCK = (64, 64)
 
 
@@ -99,7 +99,6 @@ def main_ppo(is_mp=False, is_image=False):
     rl_config = ppo.Config(
         lr=BASE_LR,
     )
-    rl_config.memory.capacity = 10_000
     rl_config.memory.warmup_size = 1000
     rl_config.memory.compress = False
     rl_config.hidden_block.set((128,))
@@ -132,8 +131,8 @@ def main_sac(is_mp=False, is_image=False):
     rl_config.memory.capacity = 10_000
     rl_config.memory.warmup_size = 1000
     rl_config.memory.compress = False
-    rl_config.policy_hidden_block.set(BASE_BLOCK)
-    rl_config.q_hidden_block.set(BASE_BLOCK)
+    rl_config.policy_block.set(BASE_BLOCK)
+    rl_config.q_block.set(BASE_BLOCK)
     _run(rl_config, is_mp, is_image, BASE_TRAIN)
 
 
@@ -161,6 +160,58 @@ def main_dreamer_v3(is_mp=False, is_image=False):
     _run(rl_config, is_mp, is_image, BASE_TRAIN)
 
 
+def main_dqn_not(is_mp=False, is_image=False):
+    from srl.algorithms import dqn_not
+
+    rl_config = dqn_not.Config(
+        lr=BASE_LR,
+    )
+    rl_config.memory.capacity = 10_000
+    rl_config.memory.warmup_size = 1000
+    rl_config.memory.compress = False
+    rl_config.base_units = BASE_BLOCK[0] + BASE_BLOCK[1]
+    _run(rl_config, is_mp, is_image, BASE_TRAIN)
+
+
+def main_ppo_v(is_mp=False, is_image=False):
+    from srl.algorithms import ppo_v
+
+    rl_config = ppo_v.Config(
+        lr=BASE_LR,
+    )
+    rl_config.memory.capacity = 10_000
+    rl_config.memory.warmup_size = 1000
+    rl_config.memory.compress = False
+    rl_config.set_model(BASE_BLOCK[0] + BASE_BLOCK[1])
+    _run(rl_config, is_mp, is_image, BASE_TRAIN)
+
+
+def main_sac_not(is_mp=False, is_image=False):
+    from srl.algorithms import sac_not
+
+    rl_config = sac_not.Config(
+        lr=BASE_LR,
+    )
+    rl_config.memory.capacity = 10_000
+    rl_config.memory.warmup_size = 1000
+    rl_config.memory.compress = False
+    rl_config.set_model(BASE_BLOCK[0] + BASE_BLOCK[1])
+    _run(rl_config, is_mp, is_image, BASE_TRAIN)
+
+
+def main_godq_v1(is_mp=False, is_image=False):
+    from srl.algorithms import godq_v1
+
+    rl_config = godq_v1.Config(
+        lr=BASE_LR,
+    )
+    rl_config.memory.capacity = 10_000
+    rl_config.memory.warmup_size = 1000
+    rl_config.memory.compress = False
+    rl_config.set_model(BASE_BLOCK[0] + BASE_BLOCK[1])
+    _run(rl_config, is_mp, is_image, BASE_TRAIN)
+
+
 def compare():
     import matplotlib.pyplot as plt
 
@@ -180,6 +231,10 @@ def compare():
         "DDPG",
         "SAC",
         "DreamerV3",
+        "NoTarget_DQN",
+        "V-PPO",
+        "NoT_SAC",
+        "GoDQ_v1",
     ]:
         history = MLFlowCallback.get_metric(MLFlowCallback.get_run_id(ENV_NAME, rl_name=name), metric_name)
         if history is None:
@@ -205,8 +260,12 @@ if __name__ == "__main__":
     main_rainbow(is_mp, is_image)
     main_r2d2(is_mp, is_image)
     main_agent57(is_mp, is_image)
-    main_ppo(is_mp, is_image)
+    # main_ppo(is_mp, is_image)
     main_ddpg(is_mp, is_image)
     main_sac(is_mp, is_image)
-    main_dreamer_v3(is_mp, is_image)
+    # main_dreamer_v3(is_mp, is_image)
+    main_dqn_not(is_mp, is_image)
+    main_ppo_v(is_mp, is_image)
+    main_sac_not(is_mp, is_image)
+    main_godq_v1(is_mp, is_image)
     compare()

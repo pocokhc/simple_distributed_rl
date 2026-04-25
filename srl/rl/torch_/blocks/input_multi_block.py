@@ -17,7 +17,7 @@ class InputMultiBlock(nn.Module):
         self.blocks = []
         self.out_size = 0
         for space in in_space.spaces:
-            block, size = create_encoder_block(config, cast(BoxSpace, space))
+            block, size = create_encoder_block(config, cast(BoxSpace, space), len(in_space.spaces))
             self.out_size += size
             self.blocks.append(block)
         self.blocks = nn.ModuleList(self.blocks)
@@ -33,7 +33,7 @@ class InputMultiBlock(nn.Module):
         return y
 
 
-def create_encoder_block(config: InputMultiBlockConfig, space: BoxSpace):
+def create_encoder_block(config: InputMultiBlockConfig, space: BoxSpace, in_space_size: int = 1):
     if space.is_image_visual():
         if config.image_type == "DQN":
             from srl.rl.torch_.blocks.dqn_image_block import DQNImageBlock
@@ -57,21 +57,23 @@ def create_encoder_block(config: InputMultiBlockConfig, space: BoxSpace):
             out_size = math.prod(img_block.out_shape)
     elif space.is_discrete():
         if config.discrete_type == "BOX":
-            obs_block = ContEncoder(config.cont_units)
-            out_size = config.cont_units
+            c_unit = config.discrete_units // in_space_size
+            obs_block = ContEncoder(c_unit)
+            out_size = c_unit
         else:
             # obs * enb_units = params
             target_units = config.discrete_target_params // space.flatten_size
             emb_units = min(target_units, config.discrete_units)
             emb_units = max(emb_units, config.discrete_low_units)
+            out_size = max(min(space.flatten_size, config.discrete_units), config.discrete_units // in_space_size)
             if config.discrete_type == "Discrete":
-                obs_block = DiscreteEncoder(emb_units, config.discrete_units, space)
+                obs_block = DiscreteEncoder(emb_units, out_size, space)
             elif config.discrete_type == "Conv1D":
-                obs_block = DiscreteConv1DEncoder(emb_units, config.discrete_units, space)
-            out_size = config.discrete_units
+                obs_block = DiscreteConv1DEncoder(emb_units, out_size, space)
     else:
-        obs_block = ContEncoder(config.cont_units)
-        out_size = config.cont_units
+        c_unit = config.discrete_units // in_space_size
+        obs_block = ContEncoder(c_unit)
+        out_size = c_unit
 
     return obs_block, out_size
 

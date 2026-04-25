@@ -200,10 +200,8 @@ def play(
             # done
             # ------------------------
             if env.done:
-                # reward
                 worker_rewards = [env.episode_rewards[state.worker_indices[i]] for i in range(env.player_num)]
                 state.episode_rewards_list.append(worker_rewards)
-
                 state.last_episode_step = env.step_num
                 state.last_episode_time = env.elapsed_time
                 state.last_episode_rewards = worker_rewards
@@ -213,26 +211,29 @@ def play(
                 state.end_reason = "callback.intermediate_stop"
                 break
     finally:
-        if context.run_name != "eval":
-            logger.debug(f"[{context.run_name}] loop end({state.end_reason})")
+        try:
+            if context.run_name != "eval":
+                logger.debug(f"[{context.run_name}] loop end({state.end_reason})")
 
-        # --- 7 teardown
-        env.teardown()
-        [w.teardown() for w in workers]
-        if trainer is not None:
-            trainer.teardown()
+            # 途中終了の場合は途中経過を保存し、on_episode_endを呼ぶ
+            if not env.done:
+                worker_rewards = [env.episode_rewards[state.worker_indices[i]] for i in range(env.player_num)]
+                state.episode_rewards_list.append(worker_rewards)
+                state.last_episode_step = env.step_num
+                state.last_episode_time = env.elapsed_time
+                state.last_episode_rewards = worker_rewards
+                [c.on_episode_end(context=context, state=state) for c in _calls_on_episode_end]
 
-        # 一度もepisodeを終了していない場合は例外で途中経過を保存
-        if state.episode_count == 0:
-            worker_rewards = [env.episode_rewards[state.worker_indices[i]] for i in range(env.player_num)]
-            state.episode_rewards_list.append(worker_rewards)
-            state.last_episode_step = env.step_num
-            state.last_episode_time = env.elapsed_time
-            state.last_episode_rewards = worker_rewards
+        finally:
+            # --- 7 teardown
+            env.teardown()
+            [w.teardown() for w in workers]
+            if trainer is not None:
+                trainer.teardown()
 
-        # 8 callbacks
-        [c.on_episodes_end(context=context, state=state) for c in callbacks]
-        if not context.distributed:
-            [c.on_end(context=context, state=state) for c in callbacks]
+            # 8 callbacks
+            [c.on_episodes_end(context=context, state=state) for c in callbacks]
+            if not context.distributed:
+                [c.on_end(context=context, state=state) for c in callbacks]
 
     return state

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM pytorch/pytorch:2.8.0-cuda12.9-cudnn9-runtime
+FROM pytorch/pytorch:2.11.0-cuda12.6-cudnn9-runtime
 
 WORKDIR /code
 ENV PYTHONPATH="/code"
@@ -29,11 +29,11 @@ RUN apt update && \
 
 # --- requirements
 COPY ./latest_requirements.txt requirements.txt
-RUN pip install --no-cache-dir -U -r requirements.txt
+RUN pip install --break-system-packages --no-cache-dir -U -r requirements.txt
 
 # --- box2d
 RUN apt update && \
     apt install -y --no-install-recommends swig && \
     rm -rf /var/lib/apt/lists/*
-RUN pip install --no-cache-dir -U Box2D
-RUN pip install --no-cache-dir -U gymnasium[box2d]
+RUN pip install --break-system-packages --no-cache-dir -U Box2D
+RUN pip install --break-system-packages --no-cache-dir -U gymnasium[box2d]

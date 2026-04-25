@@ -81,7 +81,7 @@ class WorkerRun(Generic[TActSpace, TActType, TObsSpace, TObsType]):
 
     @property
     def rendering(self) -> bool:
-        return self._context.rl_render_mode != ""
+        return self.renderer.rendering
 
     @property
     def actor_id(self) -> int:

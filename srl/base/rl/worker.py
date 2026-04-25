@@ -104,7 +104,7 @@ class RLWorkerGeneric(
 
     @property
     def rendering(self) -> bool:
-        return self.__worker_run._context.rl_render_mode != ""
+        return self.__worker_run.renderer.rendering
 
     @property
     def player_index(self) -> int:

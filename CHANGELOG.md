@@ -5,18 +5,90 @@
 1. renderのfpsなどの表示、streamlit or nicegui?などでGUIを豪華に
 1. rollout->trainなど、複数学習
 
-//// 中止(stopped)  
-// (tensorboard) SRL上でいいI/Fの作成方法が思い浮かばず保留、tensorboardを愚直にいれると遅い  
-// (SEED RL) 大量のActor向けなのでいったん見送り  
-// (MARL) マルコフ過程みたいなモデルがある？Actor同士の通信方法の定義が見当たらずに保留  
-// (jax) batch数(32)ぐらいの量だとnumpyの方が早かったので見送り  
-// (tf/torchの互換パラメータの作成)  
-// RLTrainerでinfoの計算コストは保留（metricsを別途導入案も保留）  
-// cached_propertyでちょっと高速化?→予想外のバグがでそうなので保留  
-// RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留  
-// TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除  
-// tomlはNone型が定義できないので対象外
-// keras3対応 → tfは@tf.functionが使えなくなるので遅くなる。torchはcpu()が必要になるっぽい、しばらく保留
+## Rejected
+1. (tensorboard) SRL上でいいI/Fの作成方法が思い浮かばず保留、tensorboardを愚直にいれると遅い  
+1. (SEED RL) 大量のActor向けなのでいったん見送り  
+1. (MARL) マルコフ過程みたいなモデルがある？Actor同士の通信方法の定義が見当たらずに保留  
+1. (jax) batch数(32)ぐらいの量だとnumpyの方が早かったので見送り  
+1. (tf/torchの互換パラメータの作成)  
+1. RLTrainerでinfoの計算コストは保留（metricsを別途導入案も保留）  
+1. cached_propertyでちょっと高速化?→予想外のバグがでそうなので保留  
+1. RLの定義でrl_configからmakeしたほうが素直？結構変更が入るので保留  
+1. TrainerThread化: 複雑な割に効果がない（遅くなる場合も）ので削除  
+1. tomlはNone型が定義できないので対象外
+1. keras3対応 → tfは@tf.functionが使えなくなるので遅くなる。torchはcpu()が必要になるっぽい、しばらく保留
+
+
+
+# v1.4.6
+
+**RenderUpdates**
+
+env/rlのrender方法を見直してリファクタリング。
+内部的な動作の変更が大きく、外から見た動作に大きな変更はありません。
+
+1. [base.define] change: RenderModeTypeをSupportedRenderModeとRenderTargetに分けて全体最適化
+   - [base.context] change: env_render_modeをenv_cached_render_modeに変更（役割も変更）
+   - [base.context] change: rl_render_modeをrl_cached_render_modesに変更（役割も変更）
+1. [base.renderer]
+   - renderをenv_run/worker_runから間接的に呼び出すのを基本止めて、renderer変数を直接参照して各関数を呼び出すように変更
+   また、使う側でcache方法と何を使うかを基本明示するように修正
+   - renderが呼ばれたタイミングでterminal/rgb_arrayを取得するのではなく、各stepの終わりにcacheしておき、renderが呼ばれたときはそのcacheを返すように変更（env/rl共に）
+   - intervalを疎結合に
+   - 修正に合わせて各関数名を見直してrename
+   - base.render.Renderをbase.renderer.Rendererにrename
+1. [base.rl] update: renderingプロパティの判定をrenderer.renderingで統一
+1. [base.env.config] change: バラバラで定義されていたrender_intervalをenv_configが主になるように修正
+1. [base.env.env_run]
+   - setupの修正
+      - context.env_cached_render_modeを元にrendererを初期化
+      - requested_render_mode_from_rlを追加し、rl側からのrender要求をここで反映するように変更
+   - setupの引数をdefineの修正に合わせてRenderModeTypeからRenderTargetに変更
+   - contextをgetter化
+   - get_render_interval関数を追加
+   - render関数以外のrender系の関数を削除
+1. [base.rl.worker_run]
+   - setupの修正
+      - setupの引数からrender_modeを削除（rl側は想定しない）
+      - context.rl_cached_render_modesを元にrendererを初期化
+   - render関数以外のrender系の関数を削除
+   - create_render_imageのrenderは明示的に取得するrenderの種類を明示して関数呼び出しに変更
+1. 変更に合わせて修正
+   - base.env.gymnasium_wrapper
+   - base.run.core_play
+   - runner.callbacks.rendering
+   - runner.game_woindows.playable_game
+   - runner.game_woindows.replay_window
+   - runner.runner
+   - tests
+1. [docs] update: 変更に合わせてカスタム環境のページを更新
+
+**MainUpdates**
+
+1. [base.env.base] new: render_image_shapeを追加、これを追加した場合render時の画像サイズをここから参照
+1. [runner.callbacks.mldlow_callback] update: memoryにrssの容量も追加
+   - [base.system.utils_] update: read_process_memory_rssの追加とリファクタリング
+   - [runner.callbacks] 合わせて影響ある箇所を修正
+1. [base.run_core_play] change: 途中終了時でもon_episode_endが呼ばれるように修正
+
+**OtherUpdates**
+
+1. [algorithms.godq_v1] update: パラメータ修正
+1. [rl.torch_.blocks.input_multi_block] change: 状態がMultiSpaceでspace数が多い場合にunitが膨大になる場合を修正
+1. [base.rl.config] delete: override_env_render_modeを削除（使い道がなさそうなので）
+1. [utils.common.is_available_pygame_video_device] update: pygameの判定を別プロセス経由にして安定化
+1. 一部のclose処理をweakrefに変更
+1. [base.exception] add: UnimplementedCaseErrorを追加
+1. other: .envを.env_sampleに変更しignoreに追加
+1. [utils.common] add: log抑止の項目にLiteLLMも追加
+1. [dockers] update: バージョンを更新
+1. [tests.base.rl.config] ref: test_dtypeにtf/torch要素があったので分割
+
+**Bug Fixes**
+
+1. [rl.schedulers] fix: add関数でphase_stepsの誤字を修正
+1. [algorithms.daynaq] fix: actionの選択がでnullの場合の処理が漏れていたのでget_random_max_indexを使用するように変更
+1. [algorithms.godq_v1_lstm] fix: align_loss_coeffがschedulerに対応してなかったので修正
 
 
 # v1.4.5

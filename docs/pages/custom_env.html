@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Making a Custom environment &mdash; SimpleDistributedRL 1.4.4 ドキュメント</title>
+  <title>Making a Custom environment &mdash; SimpleDistributedRL 1.4.6 ドキュメント</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=f419b914"></script>
+      <script src="../_static/documentation_options.js?v=6799b767"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
       <script src="../_static/translations.js?v=4755f45a"></script>
@@ -57,9 +57,9 @@
 <li class="toctree-l3"><a class="reference internal" href="#id2">1-1. Gymクラスによる実装</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#envbase">1-2. EnvBaseクラスによる実装</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id3">EnvBase</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#id4">その他のオプション</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#id4">1-3. 追加オプション</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#space">2. Spaceクラスについて</a></li>
@@ -144,6 +144,7 @@
 <dt>1.環境クラスの実装</dt><dd><ul>
 <li><p>1-1.Gymクラスによる実装</p></li>
 <li><p>1-2.EnvBaseクラスによる実装</p></li>
+<li><p>1-3.追加オプション</p></li>
 </ul>
 </dd>
 </dl>
@@ -186,42 +187,36 @@
    <span class="c1"># 利用できるrender_modesを指定</span>
    <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;render_modes&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;ansi&quot;</span><span class="p">,</span> <span class="s2">&quot;rgb_array&quot;</span><span class="p">],</span> <span class="s2">&quot;render_fps&quot;</span><span class="p">:</span> <span class="mi">4</span><span class="p">}</span>
 
+   <span class="c1"># 環境の初期化</span>
+   <span class="c1">#</span>
+   <span class="c1"># 必ず以下の2つを定義する必要がある：</span>
+   <span class="c1"># - action_space: 取りうる行動の空間</span>
+   <span class="c1"># - observation_space: 観測（状態）の空間</span>
    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">render_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
       <span class="bp">self</span><span class="o">.</span><span class="n">render_mode</span> <span class="o">=</span> <span class="n">render_mode</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">      initで以下2つの変数を定義する必要あり</span>
-<span class="sd">      spaces.Space型については省略します。</span>
-
-<span class="sd">      self.action_space      : アクションが取りうる範囲を指定</span>
-<span class="sd">      self.observation_space : 状態が取りうる範囲を指定</span>
-<span class="sd">      &quot;&quot;&quot;</span>
-
       <span class="bp">self</span><span class="o">.</span><span class="n">action_space</span><span class="p">:</span> <span class="n">spaces</span><span class="o">.</span><span class="n">Space</span> <span class="o">=</span> <span class="n">spaces</span><span class="o">.</span><span class="n">Discrete</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
       <span class="bp">self</span><span class="o">.</span><span class="n">observation_space</span><span class="p">:</span> <span class="n">spaces</span><span class="o">.</span><span class="n">Space</span> <span class="o">=</span> <span class="n">spaces</span><span class="o">.</span><span class="n">Box</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,))</span>
 
+   <span class="c1"># エピソード開始時の初期化処理</span>
+   <span class="c1"># - 状態を初期値にリセット</span>
+   <span class="c1"># - return (observation, info)</span>
    <span class="k">def</span><span class="w"> </span><span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span><span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
       <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">reset</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">)</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; 1エピソードの最初に実行。（初期化処理を実装）</span>
-<span class="sd">      return 初期状態, 情報</span>
-<span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span> <span class="p">{}</span>
 
+   <span class="c1"># actionを元に1step進める処理を実装</span>
+   <span class="c1"># return (</span>
+   <span class="c1">#   1step後の状態,</span>
+   <span class="c1">#   即時報酬,</span>
+   <span class="c1">#   予定通り終了したらTrue(terminated),</span>
+   <span class="c1">#   予想外で終了したらTrue(truncated),</span>
+   <span class="c1">#   情報(任意),</span>
+   <span class="c1"># )</span>
    <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; actionを元に1step進める処理を実装</span>
-<span class="sd">      return (</span>
-<span class="sd">            1step後の状態,</span>
-<span class="sd">            即時報酬,</span>
-<span class="sd">            予定通り終了したらTrue(terminated),</span>
-<span class="sd">            予想外で終了したらTrue(truncated),</span>
-<span class="sd">            情報(任意),</span>
-<span class="sd">      )</span>
-<span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="p">{}</span>
 
+   <span class="c1"># 描画処理を記載</span>
    <span class="k">def</span><span class="w"> </span><span class="nf">render</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">      描画処理を書きます。</span>
-<span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">pass</span>
 </pre></div>
 </div>
@@ -255,36 +250,7 @@
 </pre></div>
 </div>
 <div class="line-block">
-<div class="line">また、Gym環境のクラスに以下の関数を追加すると本フレームワークが認識します。</div>
-<div class="line">（本フレームワークのバージョンにより対応する項目は追加・変更する可能性があります）</div>
-</div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">MyGymEnv</span><span class="p">(</span><span class="n">gym</span><span class="o">.</span><span class="n">Env</span><span class="p">):</span>
-
-   <span class="k">def</span><span class="w"> </span><span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">      srlのrunnerで、train等の実行単位の最初に呼ばれる関数。</span>
-<span class="sd">      srl.base.context.RunContextクラスの情報が辞書形式ではいっています。</span>
-<span class="sd">      &quot;&quot;&quot;</span>
-      <span class="k">pass</span>
-
-   <span class="c1"># backup/restore機能が追加されます</span>
-   <span class="k">def</span><span class="w"> </span><span class="nf">backup</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-      <span class="k">return</span> <span class="n">data</span>
-   <span class="k">def</span><span class="w"> </span><span class="nf">restore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-      <span class="k">pass</span>
-
-   <span class="k">def</span><span class="w"> </span><span class="nf">get_invalid_actions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">player_index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; 有効でないアクションのリストを指定できます。これはアクションがintの場合のみ有効です &quot;&quot;&quot;</span>
-      <span class="k">return</span> <span class="p">[]</span>
-
-   <span class="k">def</span><span class="w"> </span><span class="nf">action_to_str</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; アクションの文字列を実装します。これは主に描画関係で使われます &quot;&quot;&quot;</span>
-      <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
-
-   <span class="k">def</span><span class="w"> </span><span class="nf">get_key_bind</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">KeyBindType</span><span class="p">]:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; 手動入力時のキーのマップを指定できます &quot;&quot;&quot;</span>
-      <span class="k">return</span> <span class="kc">None</span>
-</pre></div>
+<div class="line">また、後述する追加オプションを実装するとSRL側で認識し使うことができます。</div>
 </div>
 </section>
 <section id="envbase">
@@ -319,113 +285,126 @@
    <span class="c1"># def __post_init__():</span>
    <span class="c1">#    super().__init__()</span>
 
+   <span class="c1"># アクションの取りうる範囲を記載(SpaceBaseは後述)</span>
    <span class="nd">@property</span>
    <span class="k">def</span><span class="w"> </span><span class="nf">action_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpaceBase</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; アクションの取りうる範囲を返します(SpaceBaseは後述) &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
+   <span class="c1"># 状態の取りうる範囲を記載(SpaceBaseは後述)</span>
    <span class="nd">@property</span>
    <span class="k">def</span><span class="w"> </span><span class="nf">observation_space</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpaceBase</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; 状態の取りうる範囲を返します(SpaceBaseは後述) &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
+   <span class="c1"># 1エピソードの最大ステップ数</span>
    <span class="nd">@property</span>
    <span class="k">def</span><span class="w"> </span><span class="nf">max_episode_steps</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; 1エピソードの最大ステップ数 &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
+   <span class="c1"># プレイヤー人数</span>
    <span class="nd">@property</span>
    <span class="k">def</span><span class="w"> </span><span class="nf">player_num</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; プレイヤー人数 &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
+   <span class="c1"># 1エピソードの最初に実行。（初期化処理を実装）</span>
+   <span class="c1">#</span>
+   <span class="c1"># Args:</span>
+   <span class="c1">#   seed: 1エピソードの初期seed</span>
+   <span class="c1">#</span>
+   <span class="c1"># Returns:</span>
+   <span class="c1">#   state: 初期状態</span>
+   <span class="c1">#</span>
    <span class="k">def</span><span class="w"> </span><span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; 1エピソードの最初に実行。（初期化処理を実装）</span>
-
-<span class="sd">      Args:</span>
-<span class="sd">          seed: 1エピソードの初期seed</span>
-
-<span class="sd">      Return:</span>
-<span class="sd">          state : 初期状態</span>
-<span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
+   <span class="c1"># actionを元に1step進める処理を実装</span>
+   <span class="c1">#</span>
+   <span class="c1"># Args:</span>
+   <span class="c1">#   action: 次のプレイヤーのアクション</span>
+   <span class="c1">#</span>
+   <span class="c1"># Returns:</span>
+   <span class="c1">#   state     : 1step後の状態</span>
+   <span class="c1">#   rewards   : プレイヤーが1人の場合は float、複数の場合は人数分の報酬を配列で返す</span>
+   <span class="c1">#   terminated: MDP環境内で正常に終了した場合Trueを返す。これは一般的な環境の終了（ゴールしたや穴に落ちた等）</span>
+   <span class="c1">#   truncated : MDP環境外で終了した場合Trueを返す。これは例外終了やタイムアップ等の異常な終了を表す。</span>
+   <span class="c1">#</span>
    <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
-<span class="w">      </span><span class="sd">&quot;&quot;&quot; actionを元に1step進める処理を実装</span>
-
-<span class="sd">      Args:</span>
-<span class="sd">            action: 次のプレイヤーのアクション</span>
-
-<span class="sd">      Returns:</span>
-<span class="sd">            state     : 1step後の状態</span>
-<span class="sd">            rewards   : プレイヤーが1人の場合は float、複数の場合は人数分の報酬を配列で返す</span>
-<span class="sd">            terminated: MDP環境内で正常に終了した場合Trueを返す。これは一般的な環境の終了（ゴールしたや穴に落ちた等）</span>
-<span class="sd">            truncated : MDP環境外で終了した場合Trueを返す。これは例外終了やタイムアップ等の異常な終了を表す。</span>
-<span class="sd">      &quot;&quot;&quot;</span>
       <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+   <span class="c1"># 現在の状況をprintで実装(option)</span>
+   <span class="k">def</span><span class="w"> </span><span class="nf">render_terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+      <span class="k">pass</span>
+
+   <span class="c1"># 現在の状況を RGB の画像配列で返す(option)</span>
+   <span class="k">def</span><span class="w"> </span><span class="nf">render_rgb_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+      <span class="k">return</span> <span class="kc">None</span>
+
+   <span class="c1"># 描画速度(option)</span>
+   <span class="nd">@property</span>
+   <span class="k">def</span><span class="w"> </span><span class="nf">render_interval</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+      <span class="k">return</span> <span class="mi">1000</span> <span class="o">/</span> <span class="mi">60</span>
 </pre></div>
 </div>
 </section>
+</section>
 <section id="id4">
-<h4>その他のオプション<a class="headerlink" href="#id4" title="Link to this heading"></a></h4>
-<p>必須ではないですが、設定できる関数・プロパティとなります。</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="w">   </span><span class="sd">&quot;&quot;&quot; srlのrunnerで、train等の実行単位の最初に呼ばれる関数</span>
-<span class="sd">   引数 kwargs は `srl.base.run.context.RunContext` の変数が入ります &quot;&quot;&quot;</span>
+<h3>1-3. 追加オプション<a class="headerlink" href="#id4" title="Link to this heading"></a></h3>
+<div class="line-block">
+<div class="line">必須ではないですが、追加で設定できる関数・プロパティとなります。</div>
+<div class="line">（Gym環境の実装でも認識して使うことができます）</div>
+<div class="line">（本フレームワークのバージョンにより対応する項目は追加・変更する可能性があります）</div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># ----------------------------</span>
+<span class="c1"># 動作に関するオプション</span>
+<span class="c1"># ----------------------------</span>
+
+<span class="c1"># run実行時の最初に呼ばれます。</span>
+<span class="c1"># 引数 kwargs は `srl.base.run.context.RunContext` の変数が入り、</span>
+<span class="c1"># Context情報で設定を変えて初期化したい場合に実装します。</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
    <span class="k">pass</span>
 
-<span class="c1"># backup/restore で現環境を復元できるように実装</span>
-<span class="c1"># MCTS等のアルゴリズムで使用します</span>
+<span class="c1"># 終了時に呼ばれます</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+   <span class="k">pass</span>
+
+<span class="c1"># backup/restore で現環境を復元できるように実装。</span>
+<span class="c1"># MCTS等の一部アルゴリズムはこの実装がないと動作しません。</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">backup</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">restore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
-<span class="c1"># --- 追加情報</span>
-<span class="nd">@property</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">reward_range</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
-<span class="w">   </span><span class="sd">&quot;&quot;&quot;rewardの取りうる範囲を返す&quot;&quot;&quot;</span>
-     <span class="k">return</span> <span class="p">(</span><span class="o">-</span><span class="n">math</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span> <span class="n">math</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span>
-
-<span class="c1"># --- 実行に関する関数</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">   </span><span class="sd">&quot;&quot;&quot; 終了処理を実装 &quot;&quot;&quot;</span>
-   <span class="k">pass</span>
-
+<span class="c1"># 毎step呼ばれます。</span>
+<span class="c1"># 無効なアクションがある場合に実装。</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_invalid_actions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">player_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
-<span class="w">   </span><span class="sd">&quot;&quot;&quot; 無効なアクションがある場合は配列で返す &quot;&quot;&quot;</span>
    <span class="k">return</span> <span class="p">[]</span>
 
-<span class="c1"># --- AI</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">make_worker</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;srl.base.rl.base.WorkerBase&quot;</span><span class="p">]:</span>
-<span class="w">   </span><span class="sd">&quot;&quot;&quot; 環境に特化したAIを返す &quot;&quot;&quot;</span>
+<span class="c1"># render_rgb_array の画像サイズ</span>
+<span class="nd">@property</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">render_image_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
    <span class="k">return</span> <span class="kc">None</span>
 
-<span class="c1"># --- 描画に関する関数</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">render_terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">   </span><span class="sd">&quot;&quot;&quot; 現在の状況をprintで表示する用に実装 &quot;&quot;&quot;</span>
-   <span class="k">pass</span>
+<span class="c1"># ----------------------------</span>
+<span class="c1"># その他オプション</span>
+<span class="c1"># ----------------------------</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">render_rgb_array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">   </span><span class="sd">&quot;&quot;&quot; 現在の状況を RGB の画像配列で返す &quot;&quot;&quot;</span>
-   <span class="k">return</span> <span class="kc">None</span>
+<span class="c1"># 表示名を変えたい場合に実装</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_display_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+   <span class="k">return</span> <span class="s2">&quot;&quot;</span>
 
+<span class="c1"># アクションを表示できる文字列に変換</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">action_to_str</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">EnvActionType</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">   </span><span class="sd">&quot;&quot;&quot; アクションを文字列に変換する &quot;&quot;&quot;</span>
    <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
 
-<span class="nd">@property</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">render_interval</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">   </span><span class="sd">&quot;&quot;&quot; 描画速度を返す &quot;&quot;&quot;</span>
-   <span class="k">return</span> <span class="mi">1000</span> <span class="o">/</span> <span class="mi">60</span>
-
-<span class="c1"># --- プレイ時に関する関数</span>
+<span class="c1"># プレイ時にアクションをキーボードと紐づける場合に実装</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_key_bind</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KeyBindType</span><span class="p">:</span>
-<span class="w">   </span><span class="sd">&quot;&quot;&quot; キー配置とアクションを紐づける &quot;&quot;&quot;</span>
+   <span class="k">return</span> <span class="kc">None</span>
+
+<span class="c1"># 環境に特化したAIを返す場合に実装</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_worker</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;srl.base.rl.base.WorkerBase&quot;</span><span class="p">]:</span>
    <span class="k">return</span> <span class="kc">None</span>
 </pre></div>
 </div>
-</section>
 </section>
 </section>
 <section id="space">

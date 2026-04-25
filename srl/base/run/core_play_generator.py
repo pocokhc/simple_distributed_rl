@@ -203,19 +203,21 @@ def play_generator(
     if context.run_name != "eval":
         logger.debug(f"[{context.run_name}] loop end({state.end_reason})")
 
-    # --- 7 teardown
-    env.teardown()
-    [w.teardown() for w in workers]
-    if trainer is not None:
-        trainer.teardown()
-
-    # 一度もepisodeを終了していない場合は例外で途中経過を保存
-    if state.episode_count == 0:
+    # 途中終了の場合は途中経過を保存し、on_episode_endを呼ぶ
+    if not env.done:
         worker_rewards = [env.episode_rewards[state.worker_indices[i]] for i in range(env.player_num)]
         state.episode_rewards_list.append(worker_rewards)
         state.last_episode_step = env.step_num
         state.last_episode_time = env.elapsed_time
         state.last_episode_rewards = worker_rewards
+        yield ("on_episode_end", context, state)
+        [c.on_episode_end(context=context, state=state) for c in _calls_on_episode_end]
+
+    # --- 7 teardown
+    env.teardown()
+    [w.teardown() for w in workers]
+    if trainer is not None:
+        trainer.teardown()
 
     # 8 callbacks
     yield ("on_episodes_end", context, state)
